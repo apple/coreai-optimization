@@ -1,0 +1,19 @@
+﻿coreai\_opt.palettization.KMeansPalettizerConfig
+================================================
+
+.. currentmodule:: coreai_opt.palettization
+
+.. autopydantic_model:: KMeansPalettizerConfig
+
+   
+   
+   
+
+   
+   
+   .. toctree::
+      :hidden:
+
+      /api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets
+   
+   

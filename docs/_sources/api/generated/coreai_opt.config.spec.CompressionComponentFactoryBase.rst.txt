@@ -1,0 +1,23 @@
+﻿coreai\_opt.config.spec.CompressionComponentFactoryBase
+=======================================================
+
+.. currentmodule:: coreai_opt.config.spec
+
+.. autoclass:: CompressionComponentFactoryBase
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~CompressionComponentFactoryBase.construct
+      ~CompressionComponentFactoryBase.construct_partial
+   
+   
+
+   
+   
+   

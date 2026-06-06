@@ -1,0 +1,27 @@
+﻿coreai\_opt.palettization.KMeansPalettizer
+==========================================
+
+.. currentmodule:: coreai_opt.palettization
+
+.. autoclass:: KMeansPalettizer
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~KMeansPalettizer.calibration_mode
+      ~KMeansPalettizer.finalize
+      ~KMeansPalettizer.prepare
+      ~KMeansPalettizer.save_sensitivities
+      ~KMeansPalettizer.supported_modules
+      ~KMeansPalettizer.training_mode
+   
+   
+
+   
+   
+   

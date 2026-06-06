@@ -1,0 +1,244 @@
+# API Reference
+
+## coreai_opt
+
+coreai_opt - A library for PyTorch model compression and optimizations.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.CoreMLExportError
+   coreai_opt.ExportBackend
+```
+
+## coreai_opt.casting
+
+Casting related utilities including FP32 -> FP16 and INT32 -> INT16 passes.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.casting.cast_fp32_to_fp16
+   coreai_opt.casting.cast_int32_to_int16
+   coreai_opt.casting.cast_to_16_bit_precision
+```
+
+## coreai_opt.config
+
+Configuration and specification modules for coreai_opt.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.config.CompressionConfig
+   coreai_opt.config.CompressionSpec
+   coreai_opt.config.CompressionType
+   coreai_opt.config.ModuleCompressionConfig
+   coreai_opt.config.OpCompressionConfig
+   coreai_opt.config.WeightOnlyModuleValidationMixin
+   coreai_opt.config.WeightOnlyOpValidationMixin
+```
+
+### coreai_opt.config.spec
+
+Base abstractions for compression specs, simulators, and component factories.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.config.spec.CompressionComponentFactoryBase
+   coreai_opt.config.spec.CompressionSimulatorBase
+   coreai_opt.config.spec.CompressionTargetTensor
+```
+
+## coreai_opt.coreai_utils
+
+Core AI MLIR-level compression transforms.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.coreai_utils.CompressionGranularity
+   coreai_opt.coreai_utils.DType
+   coreai_opt.coreai_utils.palettize_weights
+   coreai_opt.coreai_utils.quantize_weights
+   coreai_opt.coreai_utils.sparsify_weights
+```
+
+### coreai_opt.coreai_utils.common
+
+Common enums and constants for coreai_opt.coreai_utils.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.coreai_utils.common.QScheme
+```
+
+## coreai_opt.inspection
+
+Utilities for inspecting model operations and compression configuration.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.inspection.ModelInspector
+   coreai_opt.inspection.ModelSummary
+   coreai_opt.inspection.ModuleContext
+   coreai_opt.inspection.ModuleInfo
+   coreai_opt.inspection.OpInfo
+   coreai_opt.inspection.SourceFrame
+```
+
+## coreai_opt.palettization
+
+Palettization specification and utilities for weight compression via lookup tables.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.palettization.KMeansPalettizer
+   coreai_opt.palettization.KMeansPalettizerConfig
+   coreai_opt.palettization.ModuleKMeansPalettizerConfig
+   coreai_opt.palettization.PalettizationSpec
+```
+
+### coreai_opt.palettization.config
+
+Palettization configuration classes.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.palettization.config.OpKMeansPalettizerConfig
+```
+
+### coreai_opt.palettization.spec
+
+Palettization specs, granularity classes, and factory functions.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.palettization.spec.PalettizationGranularity
+   coreai_opt.palettization.spec.PerGroupedChannelGranularity
+   coreai_opt.palettization.spec.PerTensorGranularity
+   coreai_opt.palettization.spec.default_weight_palettization_spec
+```
+
+## coreai_opt.pruning
+
+Pruning infrastructure for coreai_opt.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.pruning.MagnitudePruner
+   coreai_opt.pruning.MagnitudePrunerConfig
+   coreai_opt.pruning.ModuleMagnitudePrunerConfig
+   coreai_opt.pruning.PruningSpec
+```
+
+### coreai_opt.pruning.config
+
+Pruning configuration exports.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.pruning.config.ConstantSparsitySchedule
+   coreai_opt.pruning.config.OpMagnitudePrunerConfig
+   coreai_opt.pruning.config.PolynomialDecaySchedule
+   coreai_opt.pruning.config.SparsityScheduleBase
+```
+
+### coreai_opt.pruning.spec
+
+Pruning spec components: specs, schemes, and parametrizations.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.pruning.spec.ChannelStructured
+   coreai_opt.pruning.spec.PruneImplBase
+   coreai_opt.pruning.spec.PruningScheme
+   coreai_opt.pruning.spec.Unstructured
+   coreai_opt.pruning.spec.default_weight_pruning_spec
+```
+
+## coreai_opt.quantization
+
+Quantization compressor, configuration, specs, and granularity classes.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.quantization.ExecutionMode
+   coreai_opt.quantization.ModuleQuantizerConfig
+   coreai_opt.quantization.QuantizationSpec
+   coreai_opt.quantization.Quantizer
+   coreai_opt.quantization.QuantizerConfig
+```
+
+### coreai_opt.quantization.config
+
+Quantization configuration classes and execution mode.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.quantization.config.OpQuantizerConfig
+   coreai_opt.quantization.config.QATSchedule
+```
+
+### coreai_opt.quantization.spec
+
+Quantization specs, schemes, granularity classes, and parameter calculators.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator
+   coreai_opt.quantization.spec.MinMaxRangeCalculator
+   coreai_opt.quantization.spec.MovingAverageQParamsCalculator
+   coreai_opt.quantization.spec.PerBlockGranularity
+   coreai_opt.quantization.spec.PerChannelGranularity
+   coreai_opt.quantization.spec.PerTensorGranularity
+   coreai_opt.quantization.spec.QParamsCalculatorBase
+   coreai_opt.quantization.spec.QuantizationComponentFactory
+   coreai_opt.quantization.spec.QuantizationFormulation
+   coreai_opt.quantization.spec.QuantizationGranularity
+   coreai_opt.quantization.spec.QuantizationScheme
+   coreai_opt.quantization.spec.RangeCalculatorBase
+   coreai_opt.quantization.spec.RunningRangeMixin
+   coreai_opt.quantization.spec.StaticQParamsCalculator
+   coreai_opt.quantization.spec.default_activation_quantization_spec
+   coreai_opt.quantization.spec.default_weight_quantization_spec
+```
+
+### coreai_opt.quantization.spec.fake_quantize
+
+Fake quantization implementation base class and default implementation.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase
+```

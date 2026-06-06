@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Joint Compression - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Mixed-Precision Compression" href="mixed_precision.html" /><link rel="prev" title="Config API" href="../palettization/config.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Joint Compression"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../api/index.html">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/integration_coreai.html">Integration with Core AI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/config.html">Config API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/advanced.html">Deeper Dive</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizationSpec.html">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#combining-weight-palettization-with-activation-quantization">Combining weight palettization with activation quantization</a></li>
+<li><a class="reference internal" href="#step-1-palettize-weights">Step 1: Palettize weights</a></li>
+<li><a class="reference internal" href="#step-2-finalize-the-palettizer">Step 2: Finalize the palettizer</a></li>
+<li><a class="reference internal" href="#step-3-configure-and-prepare-activation-quantization">Step 3: Configure and prepare activation quantization</a></li>
+<li><a class="reference internal" href="#step-4-calibrate">Step 4: Calibrate</a></li>
+<li><a class="reference internal" href="#step-5-finalize">Step 5: Finalize</a></li>
+<li><a class="reference internal" href="#notes">Notes</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Joint Compression</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="joint_compression.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="joint_compression.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="joint_compression.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="joint-compression">
+<h1>Joint Compression<a class="headerlink" href="#joint-compression" title="Link to this heading">¶</a></h1>
+<section id="combining-weight-palettization-with-activation-quantization">
+<h2>Combining weight palettization with activation quantization<a class="headerlink" href="#combining-weight-palettization-with-activation-quantization" title="Link to this heading">¶</a></h2>
+<p>Palettization and Quantization can be applied together to compress both weights and activations in a single model.
+The workflow uses the same <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code> and <code class="docutils literal notranslate"><span class="pre">Quantizer</span></code> APIs covered in previous sections, applied sequentially in a specific order: palettize weights first, then quantize activations on the palettized model.</p>
+<p>When combining palettization with activation quantization, the lookup table (LUT) entries should also be quantized to <code class="docutils literal notranslate"><span class="pre">INT8</span></code> via <code class="docutils literal notranslate"><span class="pre">lut_qspec</span></code>.
+A floating-point LUT causes operations to execute in floating-point regardless of the activation quantization, whereas an <code class="docutils literal notranslate"><span class="pre">INT8</span></code> LUT allows the runtime to use the faster W_INT8-A_INT8 execution path where available.</p>
+<p>For quantizing activations, <code class="docutils literal notranslate"><span class="pre">graph</span></code>-mode quantization is used (the default).</p>
+<p><strong>Note</strong>: Models compressed via the joint compression flow can currently only be finalized to the <code class="docutils literal notranslate"><span class="pre">Core</span> <span class="pre">AI</span></code> backend.</p>
+<figure class="align-default" id="id1">
+<object data="../_images/mermaid-e97eb482acd4db9f7fba8d74b3de691f0b1e6d2f.svg" type="image/svg+xml">
+            <p class="warning">flowchart LR
+    model[&quot;FP32 Model&quot;] --&gt; palettize[&quot;Palettize Weights&quot;]
+    palettize --&gt; pfin[&quot;palettizer.finalize(...)&quot;]
+    pfin --&gt; quantize[&quot;Quantize Activations&quot;]
+    quantize --&gt; calibrate[&quot;Calibrate&quot;]
+    calibrate --&gt; qfin[&quot;quantizer.finalize(...)&quot;]
+    style model fill:#f9f9f9,stroke:#999</p></object>
+<figcaption>
+<p><span class="caption-text">Joint Compression Workflow</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="step-1-palettize-weights">
+<h2>Step 1: Palettize weights<a class="headerlink" href="#step-1-palettize-weights" title="Link to this heading">¶</a></h2>
+<p>Configure 4-bit palettization and run <code class="docutils literal notranslate"><span class="pre">prepare</span></code> to install fake-palettization parametrizations on the model weights.
+<code class="docutils literal notranslate"><span class="pre">INT8</span></code> LUT quantization is specified using the <code class="docutils literal notranslate"><span class="pre">lut_qspec</span></code> argument in <code class="docutils literal notranslate"><span class="pre">PalettizationSpec</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">coreai_opt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">opt</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="4">    <span class="n">KMeansPalettizer</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">KMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">PalettizationSpec</span><span class="p">,</span>
+</span><span data-line="8"><span class="p">)</span>
+</span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantizationSpec</span>
+</span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantizationScheme</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="n">lut_qspec</span> <span class="o">=</span> <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span> <span class="n">qscheme</span><span class="o">=</span><span class="n">QuantizationScheme</span><span class="o">.</span><span class="n">SYMMETRIC</span><span class="p">)</span>
+</span><span data-line="13"><span class="n">palett_config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="14">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="15">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">lut_qspec</span><span class="o">=</span><span class="n">lut_qspec</span><span class="p">)},</span>
+</span><span data-line="16">    <span class="p">),</span>
+</span><span data-line="17"><span class="p">)</span>
+</span><span data-line="18">
+</span><span data-line="19"><span class="n">palettizer</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">palett_config</span><span class="p">)</span>
+</span><span data-line="20"><span class="n">palettizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="step-2-finalize-the-palettizer">
+<h2>Step 2: Finalize the palettizer<a class="headerlink" href="#step-2-finalize-the-palettizer" title="Link to this heading">¶</a></h2>
+<p>Call <code class="docutils literal notranslate"><span class="pre">finalize</span></code> to replace the <code class="docutils literal notranslate"><span class="pre">FakePalettize</span></code> parametrizations with a <code class="docutils literal notranslate"><span class="pre">torch.export</span></code>-compatible representation.
+This must happen before activation quantization is applied because <code class="docutils literal notranslate"><span class="pre">quantizer.prepare</span></code> uses <code class="docutils literal notranslate"><span class="pre">torch.export</span></code>, which cannot trace through the parametrizations.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">palettized_model</span> <span class="o">=</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="n">opt</span><span class="o">.</span><span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="step-3-configure-and-prepare-activation-quantization">
+<h2>Step 3: Configure and prepare activation quantization<a class="headerlink" href="#step-3-configure-and-prepare-activation-quantization" title="Link to this heading">¶</a></h2>
+<p>Apply the <code class="docutils literal notranslate"><span class="pre">Quantizer</span></code> to the already-palettized model.
+Set <code class="docutils literal notranslate"><span class="pre">op_state_spec=None</span></code> to disable weight quantization — weights are already compressed via palettization, so applying quantization on top would be redundant.
+Use a representative data sample for <code class="docutils literal notranslate"><span class="pre">example_inputs</span></code> to provide a reasonable starting point for activation quantization parameters.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">ModuleQuantizerConfig</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">Quantizer</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">QuantizerConfig</span><span class="p">,</span>
+</span><span data-line="5"><span class="p">)</span>
+</span><span data-line="6">
+</span><span data-line="7"><span class="n">act_spec</span> <span class="o">=</span> <span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span> <span class="n">qscheme</span><span class="o">=</span><span class="n">QuantizationScheme</span><span class="o">.</span><span class="n">SYMMETRIC</span><span class="p">)</span>
+</span><span data-line="8"><span class="n">quant_config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">(</span>
+</span><span data-line="9">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleQuantizerConfig</span><span class="p">(</span>
+</span><span data-line="10">        <span class="n">op_state_spec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span data-line="11">        <span class="n">op_input_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;*&quot;</span><span class="p">:</span> <span class="n">act_spec</span><span class="p">},</span>
+</span><span data-line="12">        <span class="n">op_output_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;*&quot;</span><span class="p">:</span> <span class="n">act_spec</span><span class="p">},</span>
+</span><span data-line="13">    <span class="p">),</span>
+</span><span data-line="14"><span class="p">)</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="n">quantizer</span> <span class="o">=</span> <span class="n">Quantizer</span><span class="p">(</span><span class="n">palettized_model</span><span class="p">,</span> <span class="n">quant_config</span><span class="p">)</span>
+</span><span data-line="17"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="step-4-calibrate">
+<h2>Step 4: Calibrate<a class="headerlink" href="#step-4-calibrate" title="Link to this heading">¶</a></h2>
+<p>Run representative data through the prepared model inside <code class="docutils literal notranslate"><span class="pre">calibration_mode</span></code> to collect activation statistics used to compute quantization scales.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">with</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">calibration_mode</span><span class="p">():</span>
+</span><span data-line="2">    <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">calibration_dataloader</span><span class="p">:</span>
+</span><span data-line="3">        <span class="n">prepared_model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="step-5-finalize">
+<h2>Step 5: Finalize<a class="headerlink" href="#step-5-finalize" title="Link to this heading">¶</a></h2>
+<p>Call <code class="docutils literal notranslate"><span class="pre">quantizer.finalize</span></code> to convert fake-quantization ops into backend-specific representations.
+The model is then ready to be exported for downstream conversion with <code class="docutils literal notranslate"><span class="pre">coreai-torch</span></code>.
+Refer to <a class="reference internal" href="../introduction/integration_coreai.html"><span class="std std-doc">Integration with Core AI</span></a> for more details.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">final_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="n">opt</span><span class="o">.</span><span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>For a working end-to-end example, see <code class="docutils literal notranslate"><span class="pre">test_p4a8_compression_mnist_accuracy</span></code> in <code class="docutils literal notranslate"><span class="pre">tests/test_joint_compression.py</span></code>.</p></li>
+<li><p>For export-related tests, see <code class="docutils literal notranslate"><span class="pre">test_mnist_p4a8_compression_export</span></code> in <code class="docutils literal notranslate"><span class="pre">tests/export/test_pt2e_mlir_export.py</span></code>.</p></li>
+<li><p>We explore applying joint compression to the EDSR model <a class="reference internal" href="../examples/edsr.html"><span class="std std-doc">here</span></a>.</p></li>
+</ul>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../palettization/config.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Config API</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="mixed_precision.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Mixed-Precision Compression</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../_static/shibuya.js?v=50760d75"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
+      <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+      <script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";
+window.addEventListener("load", () => mermaid.run());
+</script>
+      <script src="../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

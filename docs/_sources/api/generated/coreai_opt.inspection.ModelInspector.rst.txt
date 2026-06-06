@@ -1,0 +1,26 @@
+﻿coreai\_opt.inspection.ModelInspector
+=====================================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autoclass:: ModelInspector
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~ModelInspector.format_summary
+      ~ModelInspector.get_matched_ops_for_module_name
+      ~ModelInspector.get_matched_ops_for_module_type
+      ~ModelInspector.get_matched_ops_for_op_name
+      ~ModelInspector.get_matched_ops_for_op_type
+   
+   
+
+   
+   
+   

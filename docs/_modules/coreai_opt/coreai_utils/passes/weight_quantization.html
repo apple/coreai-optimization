@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>coreai_opt.coreai_utils.passes.weight_quantization - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=86898c54" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="coreai_opt.coreai_utils.passes.weight_quantization"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../../api/index.html">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quantization/index.html">Quantization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/config.html">Config API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/advanced.html">Deeper Dive</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/joint_compression.html">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizationSpec.html">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">coreai_opt.coreai_utils.passes.weight_quantization</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="weight_quantization.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="weight_quantization.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="weight_quantization.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../../../../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <h1>Source code for coreai_opt.coreai_utils.passes.weight_quantization</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># Copyright 2026 Apple Inc.</span>
+</span><span data-line="2"><span class="c1">#</span>
+</span><span data-line="3"><span class="c1"># Use of this source code is governed by a BSD-3-Clause license that can</span>
+</span><span data-line="4"><span class="c1"># be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="sd">&quot;&quot;&quot;Weight quantization pass for Core AI AIProgram.&quot;&quot;&quot;</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span data-line="11"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
+</span><span data-line="12">
+</span><span data-line="13"><span class="kn">import</span><span class="w"> </span><span class="nn">ml_dtypes</span>
+</span><span data-line="14"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.coreai_utils._coreai_imports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="17">    <span class="n">AIProgram</span><span class="p">,</span>
+</span><span data-line="18">    <span class="n">DenseElementsAttr</span><span class="p">,</span>
+</span><span data-line="19">    <span class="n">DenseResourceElementsAttr</span><span class="p">,</span>
+</span><span data-line="20">    <span class="n">FloatAttr</span><span class="p">,</span>
+</span><span data-line="21">    <span class="n">InsertionPoint</span><span class="p">,</span>
+</span><span data-line="22">    <span class="n">IntegerType</span><span class="p">,</span>
+</span><span data-line="23">    <span class="n">RankedTensorType</span><span class="p">,</span>
+</span><span data-line="24">    <span class="n">WalkResult</span><span class="p">,</span>
+</span><span data-line="25">    <span class="n">_get_constant_value_as_np_array</span><span class="p">,</span>
+</span><span data-line="26">    <span class="n">compression_types</span><span class="p">,</span>
+</span><span data-line="27">    <span class="n">coreai</span><span class="p">,</span>
+</span><span data-line="28"><span class="p">)</span>
+</span><span data-line="29"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.coreai_utils._utils.graph_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="30">    <span class="n">_apply_compression_transform</span><span class="p">,</span>
+</span><span data-line="31">    <span class="n">_create_constant_value_from_np_array</span><span class="p">,</span>
+</span><span data-line="32">    <span class="n">_infer_quantization_block_sizes</span><span class="p">,</span>
+</span><span data-line="33">    <span class="n">_should_compress_op</span><span class="p">,</span>
+</span><span data-line="34"><span class="p">)</span>
+</span><span data-line="35"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.coreai_utils._utils.quantize_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">_compute_qparams_by_dtype</span>
+</span><span data-line="36"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.coreai_utils._utils.type_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="37">    <span class="n">_get_fp_mlir_and_ml_dtype</span><span class="p">,</span>
+</span><span data-line="38">    <span class="n">_get_scale_mlir_and_np_dtype</span><span class="p">,</span>
+</span><span data-line="39">    <span class="n">_get_string_to_mlir_type</span><span class="p">,</span>
+</span><span data-line="40"><span class="p">)</span>
+</span><span data-line="41"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.coreai_utils.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionGranularity</span><span class="p">,</span> <span class="n">DType</span><span class="p">,</span> <span class="n">QScheme</span>
+</span><span data-line="42"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.coreai_utils.passes</span><span class="w"> </span><span class="kn">import</span> <span class="n">_OPS_WEIGHT_NEED_COMPRESSION</span>
+</span><span data-line="43">
+</span><span data-line="44"><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span data-line="45">
+</span><span data-line="46"><span class="n">_FLOAT_DTYPE_TO_ML</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="47">    <span class="n">DType</span><span class="o">.</span><span class="n">FP4_E2M1FN</span><span class="p">:</span> <span class="n">ml_dtypes</span><span class="o">.</span><span class="n">float4_e2m1fn</span><span class="p">,</span>
+</span><span data-line="48">    <span class="n">DType</span><span class="o">.</span><span class="n">FP8_E4M3FN</span><span class="p">:</span> <span class="n">ml_dtypes</span><span class="o">.</span><span class="n">float8_e4m3fn</span><span class="p">,</span>
+</span><span data-line="49">    <span class="n">DType</span><span class="o">.</span><span class="n">FP8_E5M2</span><span class="p">:</span> <span class="n">ml_dtypes</span><span class="o">.</span><span class="n">float8_e5m2</span><span class="p">,</span>
+</span><span data-line="50"><span class="p">}</span>
+</span><span data-line="51">
+</span><span data-line="52"><span class="c1"># Valid dtypes for the weight being quantized.</span>
+</span><span data-line="53"><span class="n">_VALID_WEIGHT_DTYPES</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">DType</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+</span><span data-line="54">    <span class="p">{</span>
+</span><span data-line="55">        <span class="n">DType</span><span class="o">.</span><span class="n">FP4_E2M1FN</span><span class="p">,</span>
+</span><span data-line="56">        <span class="n">DType</span><span class="o">.</span><span class="n">FP8_E4M3FN</span><span class="p">,</span>
+</span><span data-line="57">        <span class="n">DType</span><span class="o">.</span><span class="n">FP8_E5M2</span><span class="p">,</span>
+</span><span data-line="58">        <span class="n">DType</span><span class="o">.</span><span class="n">INT2</span><span class="p">,</span>
+</span><span data-line="59">        <span class="n">DType</span><span class="o">.</span><span class="n">INT4</span><span class="p">,</span>
+</span><span data-line="60">        <span class="n">DType</span><span class="o">.</span><span class="n">INT8</span><span class="p">,</span>
+</span><span data-line="61">        <span class="n">DType</span><span class="o">.</span><span class="n">UINT2</span><span class="p">,</span>
+</span><span data-line="62">        <span class="n">DType</span><span class="o">.</span><span class="n">UINT4</span><span class="p">,</span>
+</span><span data-line="63">        <span class="n">DType</span><span class="o">.</span><span class="n">UINT8</span><span class="p">,</span>
+</span><span data-line="64">    <span class="p">}</span>
+</span><span data-line="65"><span class="p">)</span>
+</span><span data-line="66">
+</span><span data-line="67"><span class="c1"># Valid non-None scale_dtype values for FP8 weight dtypes.</span>
+</span><span data-line="68"><span class="n">_VALID_FP8_SCALE_DTYPES</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">DType</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">DType</span><span class="o">.</span><span class="n">FP8_E8M0FNU</span><span class="p">})</span>
+</span><span data-line="69">
+</span><span data-line="70">
+</span><span data-line="71"><span class="k">def</span><span class="w"> </span><span class="nf">_create_int_quantized_weight</span><span class="p">(</span>
+</span><span data-line="72">    <span class="n">quantized_data</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="73">    <span class="n">scale</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="74">    <span class="n">zero_point</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="75">    <span class="n">quantized_mlir_type</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="76">    <span class="n">weight_element_type</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="77"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="78"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create the IR value for integer-quantized weights via blockwise_shift_scale.&quot;&quot;&quot;</span>
+</span><span data-line="79">    <span class="n">quantized_data_val</span> <span class="o">=</span> <span class="n">_create_constant_value_from_np_array</span><span class="p">(</span><span class="n">quantized_data</span><span class="p">,</span> <span class="n">quantized_mlir_type</span><span class="p">)</span>
+</span><span data-line="80">    <span class="n">scale_val</span> <span class="o">=</span> <span class="n">_create_constant_value_from_np_array</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">weight_element_type</span><span class="p">)</span>
+</span><span data-line="81">    <span class="n">zero_point_val</span> <span class="o">=</span> <span class="n">_create_constant_value_from_np_array</span><span class="p">(</span><span class="n">zero_point</span><span class="p">,</span> <span class="n">quantized_mlir_type</span><span class="p">)</span>
+</span><span data-line="82">    <span class="k">return</span> <span class="n">coreai</span><span class="o">.</span><span class="n">blockwise_shift_scale</span><span class="p">(</span>
+</span><span data-line="83">        <span class="n">data</span><span class="o">=</span><span class="n">quantized_data_val</span><span class="p">,</span>
+</span><span data-line="84">        <span class="n">scale</span><span class="o">=</span><span class="n">scale_val</span><span class="p">,</span>
+</span><span data-line="85">        <span class="n">offset1</span><span class="o">=</span><span class="n">zero_point_val</span><span class="p">,</span>
+</span><span data-line="86">        <span class="n">offset2</span><span class="o">=</span><span class="n">_create_constant_value_from_np_array</span><span class="p">(</span>
+</span><span data-line="87">            <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">scale</span><span class="p">),</span>
+</span><span data-line="88">            <span class="n">weight_element_type</span><span class="p">,</span>
+</span><span data-line="89">        <span class="p">),</span>
+</span><span data-line="90">    <span class="p">)</span>
+</span><span data-line="91">
+</span><span data-line="92">
+</span><span data-line="93"><span class="k">def</span><span class="w"> </span><span class="nf">_create_fp_quantized_weight</span><span class="p">(</span>
+</span><span data-line="94">    <span class="n">quantized_data</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="95">    <span class="n">scale</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="96">    <span class="n">fp_mlir_type</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="97">    <span class="n">weight_element_type</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="98">    <span class="n">scale_mlir_type</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="99">    <span class="n">scale_np_dtype</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="100"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="101"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Create the IR value for FP-quantized weights via blockwise_shift_scale.</span>
+</span><span data-line="102">
+</span><span data-line="103"><span class="sd">    When ``scale_mlir_type`` and ``scale_np_dtype`` are provided (FP8_E8M0FNU scale),</span>
+</span><span data-line="104"><span class="sd">    the scale constant is created in that dtype using DenseResourceElementsAttr.</span>
+</span><span data-line="105"><span class="sd">    Otherwise the scale uses the uncompressed weight element type (default behavior).</span>
+</span><span data-line="106"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="107">    <span class="n">tensor_type</span> <span class="o">=</span> <span class="n">RankedTensorType</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">quantized_data</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">fp_mlir_type</span><span class="p">)</span>
+</span><span data-line="108">    <span class="n">data_attr</span> <span class="o">=</span> <span class="n">DenseResourceElementsAttr</span><span class="o">.</span><span class="n">get_from_buffer</span><span class="p">(</span>
+</span><span data-line="109">        <span class="n">quantized_data</span><span class="p">,</span>
+</span><span data-line="110">        <span class="s2">&quot;dense_resource&quot;</span><span class="p">,</span>
+</span><span data-line="111">        <span class="n">tensor_type</span><span class="p">,</span>
+</span><span data-line="112">    <span class="p">)</span>
+</span><span data-line="113">    <span class="n">quantized_data_val</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;Any&quot;</span><span class="p">,</span> <span class="n">coreai</span><span class="o">.</span><span class="n">ConstantOp</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">data_attr</span><span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="114">
+</span><span data-line="115">    <span class="k">if</span> <span class="n">scale_mlir_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="116">        <span class="n">scale_cast</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="n">scale</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">scale_np_dtype</span><span class="p">))</span>
+</span><span data-line="117">        <span class="n">scale_shape</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">scale_cast</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="118">        <span class="n">scale_tensor_type</span> <span class="o">=</span> <span class="n">RankedTensorType</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">scale_shape</span><span class="p">,</span> <span class="n">scale_mlir_type</span><span class="p">)</span>
+</span><span data-line="119">        <span class="n">scale_attr</span> <span class="o">=</span> <span class="n">DenseResourceElementsAttr</span><span class="o">.</span><span class="n">get_from_buffer</span><span class="p">(</span>
+</span><span data-line="120">            <span class="n">scale_cast</span><span class="p">,</span> <span class="s2">&quot;dense_resource&quot;</span><span class="p">,</span> <span class="n">scale_tensor_type</span>
+</span><span data-line="121">        <span class="p">)</span>
+</span><span data-line="122">        <span class="n">scale_val</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;Any&quot;</span><span class="p">,</span> <span class="n">coreai</span><span class="o">.</span><span class="n">ConstantOp</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">scale_attr</span><span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="123">
+</span><span data-line="124">        <span class="c1"># offset2 must be in the output (weight) dtype so blockwise_shift_scale</span>
+</span><span data-line="125">        <span class="c1"># returns a tensor in the original weight precision, not f8E8M0FNU.</span>
+</span><span data-line="126">        <span class="n">offset2_val</span> <span class="o">=</span> <span class="n">_create_constant_value_from_np_array</span><span class="p">(</span>
+</span><span data-line="127">            <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">scale_cast</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span>
+</span><span data-line="128">            <span class="n">weight_element_type</span><span class="p">,</span>
+</span><span data-line="129">        <span class="p">)</span>
+</span><span data-line="130">    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="131">        <span class="n">scale_val</span> <span class="o">=</span> <span class="n">_create_constant_value_from_np_array</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">weight_element_type</span><span class="p">)</span>
+</span><span data-line="132">        <span class="n">offset2_val</span> <span class="o">=</span> <span class="n">_create_constant_value_from_np_array</span><span class="p">(</span>
+</span><span data-line="133">            <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">scale</span><span class="p">),</span>
+</span><span data-line="134">            <span class="n">weight_element_type</span><span class="p">,</span>
+</span><span data-line="135">        <span class="p">)</span>
+</span><span data-line="136">
+</span><span data-line="137">    <span class="n">zero_point_tensor_type</span> <span class="o">=</span> <span class="n">RankedTensorType</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">scale</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">fp_mlir_type</span><span class="p">)</span>
+</span><span data-line="138">    <span class="n">zero_point_attr</span> <span class="o">=</span> <span class="n">DenseElementsAttr</span><span class="o">.</span><span class="n">get_splat</span><span class="p">(</span>
+</span><span data-line="139">        <span class="n">zero_point_tensor_type</span><span class="p">,</span> <span class="n">FloatAttr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">fp_mlir_type</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+</span><span data-line="140">    <span class="p">)</span>
+</span><span data-line="141">    <span class="n">zero_point_val</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;Any&quot;</span><span class="p">,</span> <span class="n">coreai</span><span class="o">.</span><span class="n">ConstantOp</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">zero_point_attr</span><span class="p">)</span><span class="o">.</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="142">
+</span><span data-line="143">    <span class="k">return</span> <span class="n">coreai</span><span class="o">.</span><span class="n">blockwise_shift_scale</span><span class="p">(</span>
+</span><span data-line="144">        <span class="n">data</span><span class="o">=</span><span class="n">quantized_data_val</span><span class="p">,</span>
+</span><span data-line="145">        <span class="n">scale</span><span class="o">=</span><span class="n">scale_val</span><span class="p">,</span>
+</span><span data-line="146">        <span class="n">offset1</span><span class="o">=</span><span class="n">zero_point_val</span><span class="p">,</span>
+</span><span data-line="147">        <span class="n">offset2</span><span class="o">=</span><span class="n">offset2_val</span><span class="p">,</span>
+</span><span data-line="148">    <span class="p">)</span>
+</span><span data-line="149">
+</span><span data-line="150">
+<div class="viewcode-block" id="quantize_weights">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html#coreai_opt.coreai_utils.quantize_weights">[docs]</a>
+</span><span data-line="151"><span class="k">def</span><span class="w"> </span><span class="nf">quantize_weights</span><span class="p">(</span>
+</span><span data-line="152">    <span class="n">coreai_program</span><span class="p">:</span> <span class="n">AIProgram</span><span class="p">,</span>
+</span><span data-line="153">    <span class="n">dtype</span><span class="p">:</span> <span class="n">DType</span><span class="p">,</span>
+</span><span data-line="154">    <span class="n">qscheme</span><span class="p">:</span> <span class="n">QScheme</span> <span class="o">=</span> <span class="n">QScheme</span><span class="o">.</span><span class="n">SYMMETRIC</span><span class="p">,</span>
+</span><span data-line="155">    <span class="n">granularity</span><span class="p">:</span> <span class="n">CompressionGranularity</span> <span class="o">=</span> <span class="n">CompressionGranularity</span><span class="o">.</span><span class="n">PER_CHANNEL</span><span class="p">,</span>
+</span><span data-line="156">    <span class="n">block_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">32</span><span class="p">,</span>
+</span><span data-line="157">    <span class="n">weight_num_threshold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
+</span><span data-line="158">    <span class="n">scale_dtype</span><span class="p">:</span> <span class="n">DType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="159">    <span class="n">in_place</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span data-line="160"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AIProgram</span><span class="p">:</span>
+</span><span data-line="161"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Quantize weights in a Core AI AIProgram (MLIR&lt;CoreAI&gt; IR) by using Core AI ops.</span>
+</span><span data-line="162">
+</span><span data-line="163"><span class="sd">    Walks through the IR and quantizes each coreai.constant op that needs to be</span>
+</span><span data-line="164"><span class="sd">    compressed. Only constants consumed by ops in ``_OPS_WEIGHT_NEED_COMPRESSION``</span>
+</span><span data-line="165"><span class="sd">    are candidates; ops that fail to be quantized are skipped with a warning.</span>
+</span><span data-line="166">
+</span><span data-line="167"><span class="sd">    The ``granularity`` and ``block_size`` parameters determine the effective</span>
+</span><span data-line="168"><span class="sd">    ``block_sizes`` per axis (``0`` means the full axis is one block):</span>
+</span><span data-line="169">
+</span><span data-line="170"><span class="sd">    For a 2-D linear weight ``[C_out, C_in]``:</span>
+</span><span data-line="171">
+</span><span data-line="172"><span class="sd">    .. code-block:: text</span>
+</span><span data-line="173">
+</span><span data-line="174"><span class="sd">        |-------------------------------|--------------------------|</span>
+</span><span data-line="175"><span class="sd">        | Granularity                   | block_sizes              |</span>
+</span><span data-line="176"><span class="sd">        |-------------------------------|--------------------------|</span>
+</span><span data-line="177"><span class="sd">        | PER_TENSOR                    | [0, 0]                   |</span>
+</span><span data-line="178"><span class="sd">        | PER_CHANNEL                   | [1, 0]                   |</span>
+</span><span data-line="179"><span class="sd">        | PER_BLOCK(bs=32)              | [1, 32]                  |</span>
+</span><span data-line="180"><span class="sd">        |-------------------------------|--------------------------|</span>
+</span><span data-line="181">
+</span><span data-line="182"><span class="sd">    For a 4-D Conv weight ``[C_out, C_in, KH, KW]``:</span>
+</span><span data-line="183">
+</span><span data-line="184"><span class="sd">    .. code-block:: text</span>
+</span><span data-line="185">
+</span><span data-line="186"><span class="sd">        |-------------------------------|--------------------------|</span>
+</span><span data-line="187"><span class="sd">        | Granularity                   | block_sizes              |</span>
+</span><span data-line="188"><span class="sd">        |-------------------------------|--------------------------|</span>
+</span><span data-line="189"><span class="sd">        | PER_TENSOR                    | [0, 0, 0, 0]             |</span>
+</span><span data-line="190"><span class="sd">        | PER_CHANNEL                   | [1, 0, 0, 0]             |</span>
+</span><span data-line="191"><span class="sd">        | PER_BLOCK(bs=32)              | [1, 32, 0, 0]            |</span>
+</span><span data-line="192"><span class="sd">        |-------------------------------|--------------------------|</span>
+</span><span data-line="193">
+</span><span data-line="194"><span class="sd">    Args:</span>
+</span><span data-line="195"><span class="sd">        coreai_program (AIProgram): The model to be quantized.</span>
+</span><span data-line="196"><span class="sd">        dtype (DType): Target quantized data type (e.g. ``DType.INT8``,</span>
+</span><span data-line="197"><span class="sd">            ``DType.INT4``, ``DType.FP8_E4M3FN``, ``DType.FP4_E2M1FN``).</span>
+</span><span data-line="198"><span class="sd">        qscheme (QScheme): Quantization scheme. Use ``QScheme.SYMMETRIC`` or</span>
+</span><span data-line="199"><span class="sd">            ``QScheme.ASYMMETRIC``. FP dtypes only support</span>
+</span><span data-line="200"><span class="sd">            ``QScheme.SYMMETRIC``. Defaults to ``QScheme.SYMMETRIC``.</span>
+</span><span data-line="201"><span class="sd">        granularity (CompressionGranularity): Quantization granularity. Supports</span>
+</span><span data-line="202"><span class="sd">            ``CompressionGranularity.PER_TENSOR``,</span>
+</span><span data-line="203"><span class="sd">            ``CompressionGranularity.PER_CHANNEL``, and</span>
+</span><span data-line="204"><span class="sd">            ``CompressionGranularity.PER_BLOCK``.</span>
+</span><span data-line="205"><span class="sd">            Defaults to ``CompressionGranularity.PER_CHANNEL``.</span>
+</span><span data-line="206"><span class="sd">        block_size (int): Block size applied to the input channel axis. Only</span>
+</span><span data-line="207"><span class="sd">            effective when ``granularity`` is</span>
+</span><span data-line="208"><span class="sd">            ``CompressionGranularity.PER_BLOCK``. Defaults to ``32``.</span>
+</span><span data-line="209"><span class="sd">        weight_num_threshold (int): Threshold of weight element count to determine</span>
+</span><span data-line="210"><span class="sd">            whether to compress a weight. Defaults to ``1024``.</span>
+</span><span data-line="211"><span class="sd">        scale_dtype (DType | None): Data type for the scale constants. Must be</span>
+</span><span data-line="212"><span class="sd">            ``None`` for integer ``dtype`` values. Must be ``None`` for</span>
+</span><span data-line="213"><span class="sd">            ``DType.FP4_E2M1FN`` (scale is always stored in ``DType.FP8_E8M0FNU``</span>
+</span><span data-line="214"><span class="sd">            internally). For FP8 ``dtype`` values, ``None`` (default) uses the</span>
+</span><span data-line="215"><span class="sd">            uncompressed weight dtype (e.g. ``f16`` or ``f32``) for the scale;</span>
+</span><span data-line="216"><span class="sd">            ``DType.FP8_E8M0FNU`` stores the scale in the 8-bit E8M0FNU format</span>
+</span><span data-line="217"><span class="sd">            (MXFP). Defaults to ``None``.</span>
+</span><span data-line="218"><span class="sd">        in_place (bool): Whether to quantize the model in-place. Defaults to</span>
+</span><span data-line="219"><span class="sd">            ``False``.</span>
+</span><span data-line="220">
+</span><span data-line="221"><span class="sd">    Returns:</span>
+</span><span data-line="222"><span class="sd">        AIProgram: A quantized Core AI program.</span>
+</span><span data-line="223">
+</span><span data-line="224"><span class="sd">    Raises:</span>
+</span><span data-line="225"><span class="sd">        ValueError: If ``dtype`` is not in the set of supported weight dtypes.</span>
+</span><span data-line="226"><span class="sd">        ValueError: If ``dtype`` is an FP dtype and ``qscheme`` is</span>
+</span><span data-line="227"><span class="sd">            ``QScheme.ASYMMETRIC``. FP quantization only supports symmetric mode.</span>
+</span><span data-line="228"><span class="sd">        ValueError: If ``scale_dtype`` is not ``None`` for an integer ``dtype``.</span>
+</span><span data-line="229"><span class="sd">        ValueError: If ``scale_dtype`` is not ``None`` for ``DType.FP4_E2M1FN``.</span>
+</span><span data-line="230"><span class="sd">        ValueError: If ``dtype`` is ``DType.FP4_E2M1FN`` and ``granularity`` is not</span>
+</span><span data-line="231"><span class="sd">            ``CompressionGranularity.PER_BLOCK`` or ``block_size`` is not ``32``.</span>
+</span><span data-line="232"><span class="sd">            FP4 weights must use per-block quantization with a block size of 32</span>
+</span><span data-line="233"><span class="sd">            to produce a valid MXFP4 encoding.</span>
+</span><span data-line="234"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="235">    <span class="k">if</span> <span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_VALID_WEIGHT_DTYPES</span><span class="p">:</span>
+</span><span data-line="236">        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="237">            <span class="sa">f</span><span class="s2">&quot;Unsupported weight dtype </span><span class="si">{</span><span class="n">dtype</span><span class="si">!r}</span><span class="s2">. &quot;</span>
+</span><span data-line="238">            <span class="sa">f</span><span class="s2">&quot;Valid weight dtypes: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">_VALID_WEIGHT_DTYPES</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+</span><span data-line="239">        <span class="p">)</span>
+</span><span data-line="240">
+</span><span data-line="241">    <span class="k">if</span> <span class="n">dtype</span><span class="o">.</span><span class="n">is_int</span><span class="p">():</span>
+</span><span data-line="242">        <span class="k">if</span> <span class="n">scale_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="243">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="244">                <span class="sa">f</span><span class="s2">&quot;scale_dtype must be None for integer dtype </span><span class="si">{</span><span class="n">dtype</span><span class="si">!r}</span><span class="s2">, got </span><span class="si">{</span><span class="n">scale_dtype</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+</span><span data-line="245">            <span class="p">)</span>
+</span><span data-line="246">    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="247">        <span class="k">if</span> <span class="n">qscheme</span> <span class="o">!=</span> <span class="n">QScheme</span><span class="o">.</span><span class="n">SYMMETRIC</span><span class="p">:</span>
+</span><span data-line="248">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="249">                <span class="sa">f</span><span class="s2">&quot;Asymmetric quantization is not supported for FP dtype </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">. &quot;</span>
+</span><span data-line="250">                <span class="s2">&quot;Use QScheme.SYMMETRIC for FP dtypes.&quot;</span>
+</span><span data-line="251">            <span class="p">)</span>
+</span><span data-line="252">        <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">DType</span><span class="o">.</span><span class="n">FP4_E2M1FN</span><span class="p">:</span>
+</span><span data-line="253">            <span class="k">if</span> <span class="n">scale_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="254">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="255">                    <span class="sa">f</span><span class="s2">&quot;scale_dtype must be None for FP4 dtype </span><span class="si">{</span><span class="n">dtype</span><span class="si">!r}</span><span class="s2">, got </span><span class="si">{</span><span class="n">scale_dtype</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+</span><span data-line="256">                <span class="p">)</span>
+</span><span data-line="257">            <span class="k">if</span> <span class="n">granularity</span> <span class="o">!=</span> <span class="n">CompressionGranularity</span><span class="o">.</span><span class="n">PER_BLOCK</span> <span class="ow">or</span> <span class="n">block_size</span> <span class="o">!=</span> <span class="mi">32</span><span class="p">:</span>
+</span><span data-line="258">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="259">                    <span class="sa">f</span><span class="s2">&quot;DType.FP4_E2M1FN requires &quot;</span>
+</span><span data-line="260">                    <span class="sa">f</span><span class="s2">&quot;granularity=CompressionGranularity.PER_BLOCK &quot;</span>
+</span><span data-line="261">                    <span class="sa">f</span><span class="s2">&quot;and block_size=32 for a valid MXFP4 encoding, &quot;</span>
+</span><span data-line="262">                    <span class="sa">f</span><span class="s2">&quot;got granularity=</span><span class="si">{</span><span class="n">granularity</span><span class="si">!r}</span><span class="s2"> and block_size=</span><span class="si">{</span><span class="n">block_size</span><span class="si">}</span><span class="s2">.&quot;</span>
+</span><span data-line="263">                <span class="p">)</span>
+</span><span data-line="264">        <span class="k">elif</span> <span class="n">scale_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">scale_dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_VALID_FP8_SCALE_DTYPES</span><span class="p">:</span>
+</span><span data-line="265">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="266">                <span class="sa">f</span><span class="s2">&quot;Invalid scale_dtype </span><span class="si">{</span><span class="n">scale_dtype</span><span class="si">!r}</span><span class="s2"> for FP8 weight dtype </span><span class="si">{</span><span class="n">dtype</span><span class="si">!r}</span><span class="s2">. &quot;</span>
+</span><span data-line="267">                <span class="sa">f</span><span class="s2">&quot;Valid scale dtypes: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">_VALID_FP8_SCALE_DTYPES</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+</span><span data-line="268">            <span class="p">)</span>
+</span><span data-line="269">
+</span><span data-line="270">    <span class="k">def</span><span class="w"> </span><span class="nf">replace_weight_with_compression_op</span><span class="p">(</span><span class="n">op</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="271"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply quantization to a single op.</span>
+</span><span data-line="272">
+</span><span data-line="273"><span class="sd">        Op Chaining</span>
+</span><span data-line="274"><span class="sd">        -----------</span>
+</span><span data-line="275"><span class="sd">        .. code-block:: text</span>
+</span><span data-line="276">
+</span><span data-line="277"><span class="sd">            coreai.constant (quantized_data) ──┐</span>
+</span><span data-line="278"><span class="sd">                                               ├─&gt; coreai.blockwise_shift_scale -&gt; output</span>
+</span><span data-line="279"><span class="sd">            coreai.constant (scale) ───────────┤</span>
+</span><span data-line="280"><span class="sd">            coreai.constant (zero_point) ──────┘</span>
+</span><span data-line="281"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="282">        <span class="k">if</span> <span class="ow">not</span> <span class="n">_should_compress_op</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">weight_num_threshold</span><span class="p">,</span> <span class="n">_OPS_WEIGHT_NEED_COMPRESSION</span><span class="p">):</span>
+</span><span data-line="283">            <span class="k">return</span> <span class="n">WalkResult</span><span class="o">.</span><span class="n">ADVANCE</span>
+</span><span data-line="284">
+</span><span data-line="285">        <span class="n">const_weight</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">op</span>
+</span><span data-line="286">        <span class="n">weight</span> <span class="o">=</span> <span class="n">_get_constant_value_as_np_array</span><span class="p">(</span><span class="n">const_weight</span><span class="p">)</span>
+</span><span data-line="287">        <span class="n">block_sizes</span> <span class="o">=</span> <span class="n">_infer_quantization_block_sizes</span><span class="p">(</span>
+</span><span data-line="288">            <span class="n">const_weight</span><span class="p">,</span>
+</span><span data-line="289">            <span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+</span><span data-line="290">            <span class="n">granularity</span><span class="p">,</span>
+</span><span data-line="291">            <span class="n">block_size</span><span class="p">,</span>
+</span><span data-line="292">        <span class="p">)</span>
+</span><span data-line="293">
+</span><span data-line="294">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="295">            <span class="k">if</span> <span class="n">dtype</span><span class="o">.</span><span class="n">is_int</span><span class="p">():</span>
+</span><span data-line="296">                <span class="n">dtype_builtin</span> <span class="o">=</span> <span class="n">compression_types</span><span class="o">.</span><span class="n">string_to_builtin</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="297">                <span class="n">quant_params</span> <span class="o">=</span> <span class="n">_compute_qparams_by_dtype</span><span class="p">(</span>
+</span><span data-line="298">                    <span class="n">weight</span><span class="p">,</span>
+</span><span data-line="299">                    <span class="n">dtype_builtin</span><span class="p">,</span>
+</span><span data-line="300">                    <span class="n">qscheme</span><span class="p">,</span>
+</span><span data-line="301">                    <span class="nb">list</span><span class="p">(</span><span class="n">block_sizes</span><span class="p">),</span>
+</span><span data-line="302">                <span class="p">)</span>
+</span><span data-line="303">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="304">                <span class="n">quant_params</span> <span class="o">=</span> <span class="n">_compute_qparams_by_dtype</span><span class="p">(</span>
+</span><span data-line="305">                    <span class="n">weight</span><span class="p">,</span>
+</span><span data-line="306">                    <span class="n">_FLOAT_DTYPE_TO_ML</span><span class="p">[</span><span class="n">dtype</span><span class="p">],</span>
+</span><span data-line="307">                    <span class="n">QScheme</span><span class="o">.</span><span class="n">SYMMETRIC</span><span class="p">,</span>
+</span><span data-line="308">                    <span class="nb">list</span><span class="p">(</span><span class="n">block_sizes</span><span class="p">),</span>
+</span><span data-line="309">                <span class="p">)</span>
+</span><span data-line="310">            <span class="k">if</span> <span class="n">quant_params</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="311">                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span data-line="312">                    <span class="s2">&quot;Failed to quantize op </span><span class="si">%s</span><span class="s2">. Skipped this op.&quot;</span><span class="p">,</span>
+</span><span data-line="313">                    <span class="n">const_weight</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="314">                <span class="p">)</span>
+</span><span data-line="315">                <span class="k">return</span> <span class="n">WalkResult</span><span class="o">.</span><span class="n">ADVANCE</span>
+</span><span data-line="316">        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span data-line="317">            <span class="k">raise</span>
+</span><span data-line="318">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="319">            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span data-line="320">                <span class="s2">&quot;Failed to quantize op </span><span class="si">%s</span><span class="s2">. Skipped this op. Detailed reason:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span data-line="321">                <span class="n">const_weight</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+</span><span data-line="322">                <span class="n">e</span><span class="p">,</span>
+</span><span data-line="323">            <span class="p">)</span>
+</span><span data-line="324">            <span class="k">return</span> <span class="n">WalkResult</span><span class="o">.</span><span class="n">ADVANCE</span>
+</span><span data-line="325">
+</span><span data-line="326">        <span class="n">quantized_data</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span> <span class="o">=</span> <span class="n">quant_params</span>
+</span><span data-line="327">
+</span><span data-line="328">        <span class="k">with</span> <span class="n">const_weight</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="n">const_weight</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="n">InsertionPoint</span><span class="p">(</span><span class="n">const_weight</span><span class="p">):</span>
+</span><span data-line="329">            <span class="n">weight_element_type</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;Any&quot;</span><span class="p">,</span> <span class="n">const_weight</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">type</span><span class="p">)</span><span class="o">.</span><span class="n">element_type</span>
+</span><span data-line="330">
+</span><span data-line="331">            <span class="k">if</span> <span class="n">dtype</span><span class="o">.</span><span class="n">is_int</span><span class="p">():</span>
+</span><span data-line="332">                <span class="n">ref_mlir_type</span> <span class="o">=</span> <span class="n">_get_string_to_mlir_type</span><span class="p">()[</span><span class="n">dtype</span><span class="p">]</span>
+</span><span data-line="333">                <span class="n">quantized_mlir_type</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="334">                    <span class="n">IntegerType</span><span class="o">.</span><span class="n">get_signed</span><span class="p">(</span><span class="n">ref_mlir_type</span><span class="o">.</span><span class="n">width</span><span class="p">)</span>
+</span><span data-line="335">                    <span class="k">if</span> <span class="n">ref_mlir_type</span><span class="o">.</span><span class="n">is_signed</span>
+</span><span data-line="336">                    <span class="k">else</span> <span class="n">IntegerType</span><span class="o">.</span><span class="n">get_unsigned</span><span class="p">(</span><span class="n">ref_mlir_type</span><span class="o">.</span><span class="n">width</span><span class="p">)</span>
+</span><span data-line="337">                <span class="p">)</span>
+</span><span data-line="338">                <span class="k">if</span> <span class="n">zero_point</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="339">                    <span class="n">zero_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">quantized_data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="340">
+</span><span data-line="341">                <span class="n">quantized_weight</span> <span class="o">=</span> <span class="n">_create_int_quantized_weight</span><span class="p">(</span>
+</span><span data-line="342">                    <span class="n">quantized_data</span><span class="p">,</span>
+</span><span data-line="343">                    <span class="n">scale</span><span class="p">,</span>
+</span><span data-line="344">                    <span class="n">zero_point</span><span class="p">,</span>
+</span><span data-line="345">                    <span class="n">quantized_mlir_type</span><span class="p">,</span>
+</span><span data-line="346">                    <span class="n">weight_element_type</span><span class="p">,</span>
+</span><span data-line="347">                <span class="p">)</span>
+</span><span data-line="348">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="349">                <span class="n">fp_mlir_type</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_get_fp_mlir_and_ml_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="350">
+</span><span data-line="351">                <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">DType</span><span class="o">.</span><span class="n">FP4_E2M1FN</span><span class="p">:</span>
+</span><span data-line="352">                    <span class="n">scale_mlir_type</span><span class="p">,</span> <span class="n">scale_np_dtype</span> <span class="o">=</span> <span class="n">_get_scale_mlir_and_np_dtype</span><span class="p">(</span>
+</span><span data-line="353">                        <span class="n">DType</span><span class="o">.</span><span class="n">FP8_E8M0FNU</span>
+</span><span data-line="354">                    <span class="p">)</span>
+</span><span data-line="355">                <span class="k">elif</span> <span class="n">scale_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="356">                    <span class="n">scale_mlir_type</span><span class="p">,</span> <span class="n">scale_np_dtype</span> <span class="o">=</span> <span class="n">_get_scale_mlir_and_np_dtype</span><span class="p">(</span><span class="n">scale_dtype</span><span class="p">)</span>
+</span><span data-line="357">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="358">                    <span class="n">scale_mlir_type</span><span class="p">,</span> <span class="n">scale_np_dtype</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+</span><span data-line="359">
+</span><span data-line="360">                <span class="n">quantized_weight</span> <span class="o">=</span> <span class="n">_create_fp_quantized_weight</span><span class="p">(</span>
+</span><span data-line="361">                    <span class="n">quantized_data</span><span class="p">,</span>
+</span><span data-line="362">                    <span class="n">scale</span><span class="p">,</span>
+</span><span data-line="363">                    <span class="n">fp_mlir_type</span><span class="p">,</span>
+</span><span data-line="364">                    <span class="n">weight_element_type</span><span class="p">,</span>
+</span><span data-line="365">                    <span class="n">scale_mlir_type</span><span class="p">,</span>
+</span><span data-line="366">                    <span class="n">scale_np_dtype</span><span class="p">,</span>
+</span><span data-line="367">                <span class="p">)</span>
+</span><span data-line="368">
+</span><span data-line="369">        <span class="n">const_weight</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">replace_all_uses_with</span><span class="p">(</span><span class="n">quantized_weight</span><span class="p">)</span>
+</span><span data-line="370">
+</span><span data-line="371">        <span class="k">return</span> <span class="n">WalkResult</span><span class="o">.</span><span class="n">ADVANCE</span>
+</span><span data-line="372">
+</span><span data-line="373">    <span class="k">return</span> <span class="n">_apply_compression_transform</span><span class="p">(</span>
+</span><span data-line="374">        <span class="n">coreai_program</span><span class="p">,</span>
+</span><span data-line="375">        <span class="n">replace_weight_with_compression_op</span><span class="p">,</span>
+</span><span data-line="376">        <span class="n">in_place</span><span class="p">,</span>
+</span><span data-line="377">    <span class="p">)</span></div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../../../../_static/shibuya.js?v=50760d75"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
+      <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+      <script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";
+window.addEventListener("load", () => mermaid.run());
+</script>
+      <script src="../../../../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../../../../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

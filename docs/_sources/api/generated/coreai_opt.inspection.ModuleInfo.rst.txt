@@ -1,0 +1,27 @@
+﻿coreai\_opt.inspection.ModuleInfo
+=================================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autoclass:: ModuleInfo
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~ModuleInfo.all_ops
+      ~ModuleInfo.children
+      ~ModuleInfo.get_submodule
+      ~ModuleInfo.modules
+      ~ModuleInfo.named_children
+      ~ModuleInfo.named_modules
+   
+   
+
+   
+   
+   

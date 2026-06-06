@@ -1,0 +1,14 @@
+﻿coreai\_opt.palettization.PalettizationSpec
+===========================================
+
+.. currentmodule:: coreai_opt.palettization
+
+.. autopydantic_model:: PalettizationSpec
+
+   
+   
+   
+
+   
+   
+   

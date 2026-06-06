@@ -1,0 +1,237 @@
+/*
+ * Copyright 2026 Apple Inc.
+ *
+ * Use of this source code is governed by a BSD-3-Clause license that can
+ * be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
+ */
+
+
+/* ── Typography ── */
+article h2 {
+    border-bottom: 2px solid var(--sy-c-divider);
+    padding-bottom: 0.4em;
+    margin-top: 2.5rem;
+}
+
+article h3 {
+    border-bottom: 1px solid color-mix(in srgb, var(--sy-c-accent) 25%, transparent);
+    padding-bottom: 0.3em;
+    margin-top: 2rem;
+}
+
+article hr {
+    border: none;
+    border-top: 2px solid var(--sy-c-divider);
+    margin: 3rem 0;
+}
+
+article p {
+    line-height: 1.7;
+}
+
+article table td code {
+    white-space: nowrap;
+}
+
+/* ── All code blocks ── */
+.highlight > pre,
+pre.literal-block {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 8px;
+}
+
+.code-block-caption {
+    border: none;
+}
+
+/* Inline code */
+code.literal,
+code.docutils {
+    background: var(--sy-c-surface, #f6f8fa);
+    border: 1px solid var(--sy-c-divider, #d0d7de);
+    border-radius: 4px;
+    padding: 0.15em 0.35em;
+    font-size: 0.88em;
+}
+
+html.dark code.literal,
+html.dark code.docutils {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Header ── */
+.sy-head {
+    border-bottom: 2px solid var(--sy-c-accent);
+}
+
+/* ── Sidebar ── */
+.sy-lside {
+    background: var(--sy-c-foot-background);
+    border-right: 1px solid var(--sy-c-divider);
+}
+
+.sy-sidebar-toc a.current {
+    color: var(--sy-c-accent) !important;
+    font-weight: 600;
+}
+
+/* Reset code font in sidebar nav — prevents identifier-titled pages
+ * from rendering in monospace */
+.sy-lside a code {
+    font-family: inherit;
+    font-size: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+}
+
+/* ── Tables ── */
+article table {
+    border: 1px solid var(--sy-c-divider);
+    border-radius: 6px;
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    overflow: hidden;
+}
+
+article table thead th {
+    background: color-mix(in srgb, var(--sy-c-accent) 8%, transparent);
+    border-bottom: 2px solid color-mix(in srgb, var(--sy-c-accent) 25%, transparent);
+    font-weight: 600;
+    padding: 0.6em 1em;
+}
+
+article table td,
+article table th {
+    padding: 0.6em 1em;
+    border-bottom: 1px solid var(--sy-c-divider);
+}
+
+/* ── Admonitions ── */
+article .admonition {
+    border-radius: 6px;
+    border-left-width: 4px;
+}
+
+article .admonition.warning {
+    border-left-color: var(--sy-c-accent);
+}
+
+/* ── Mermaid diagrams ── */
+figure:has(> .mermaid),
+figure:has(> object[type="image/svg+xml"]) {
+    text-align: center;
+}
+
+/* Cap mermaid diagram height (80vh leaves room for nav/scrollbar). */
+.mermaid svg,
+figure > object[type="image/svg+xml"] {
+    max-height: 80vh;
+}
+
+/* Inline <svg> needs explicit width to scale via viewBox; <object> handles this itself. */
+.mermaid svg {
+    width: auto;
+    max-width: 100%;
+}
+
+/* Dark mode: the generated mermaid SVG is transparent (see docs/scripts/mermaid_compat.py)
+   but uses light node fills with dark text/edges, so it's illegible on the dark page. The
+   SVG is embedded via <object>, so page CSS can't recolor its internals — but a CSS filter
+   applies to the element's rendered output. `invert(1) hue-rotate(180deg)` flips lightness
+   while preserving hue: the transparent background stays transparent (blends with the dark
+   page), dark edges/text become light, and the light green/lavender nodes become darker
+   green/purple with light text. Gated on `html.dark`, so it tracks the in-page theme toggle
+   and leaves light mode untouched. */
+html.dark figure > object[type="image/svg+xml"] {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* ── Preset tables ── */
+
+/* Size the first column (preset name) to fit its widest entry without clipping;
+ * let the second column (description) wrap freely for long text. */
+table.preset-table {
+    width: auto;
+    table-layout: auto;
+}
+
+table.preset-table td:first-child,
+table.preset-table th:first-child {
+    min-width: 10ch;
+    white-space: nowrap;
+}
+
+table.preset-table td:not(:first-child),
+table.preset-table th:not(:first-child) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    min-width: 30ch;
+}
+
+/* The copy-page button is absolutely positioned at the top-right of the
+ * article on lg+ breakpoints, so any wide first-child content (badges, intro
+ * paragraphs) extends underneath it. Reserve right padding to avoid overlap.
+ */
+@media (min-width: 1024px) {
+    .copy-page-wrapper + .yue > p:first-child,
+    .copy-page-wrapper + .yue > section:first-of-type > p:first-child,
+    .copy-page-wrapper + .yue > section:first-of-type > h1:first-of-type {
+        padding-right: 11rem;
+    }
+
+    /* Notebook pages add a "Download notebook" segment, widening the pill, so
+     * reserve more room. Scoped via :has() so other pages keep the tighter value.
+     */
+    .copy-page-wrapper:has(.js-download) + .yue > p:first-child,
+    .copy-page-wrapper:has(.js-download) + .yue > section:first-of-type > p:first-child,
+    .copy-page-wrapper:has(.js-download) + .yue > section:first-of-type > h1:first-of-type {
+        padding-right: 22rem;
+    }
+}
+
+/* The copy-page dropdown's icons are loaded as <img> from _static/icons/.
+ * In <img> context an SVG's fill="currentColor" defaults to black, so
+ * invert in dark mode to keep contrast against the dark dropdown background.
+ */
+html.dark #copy-page-content img {
+    filter: invert(1);
+}
+
+/* nbsphinx: "Download notebook" segment shown in the Shibuya page-action pill on
+ * notebook pages. Matches the height/hover of the sibling copy button; the
+ * leading border separates it from "Copy page" like the theme's button+button rule.
+ */
+#copy-page-trigger a.js-download {
+    height: 32px;
+    color: inherit;
+    text-decoration: none;
+    background-color: var(--sy-c-background);
+    transition: background-color 0.2s;
+}
+
+#copy-page-trigger a.js-download:hover {
+    background-color: var(--sy-c-surface);
+}
+
+#copy-page-trigger a.js-download + button {
+    border-left: 1px solid var(--gray-a4);
+}
+
+/* nbsphinx: scale down output-cell text so it matches the input-cell proportions. */
+.nboutput .output_area pre {
+    font-size: 0.85em;
+    line-height: 1.4;
+}
+
+/* nbsphinx: add space after a code cell before the following markdown cell.
+ * Shibuya is not in nbsphinx's themed-margin allow-list, so nbsphinx adds no
+ * bottom margin by default. `nblast` marks the final container of a code cell.
+ */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 1.5em;
+}

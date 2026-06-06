@@ -1,0 +1,14 @@
+﻿coreai\_opt.quantization.spec.PerChannelGranularity
+===================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autopydantic_model:: PerChannelGranularity
+
+   
+   
+   
+
+   
+   
+   

@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>coreai_opt.quantization.spec.fake_quantize - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=86898c54" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="coreai_opt.quantization.spec.fake_quantize"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../../api/index.html">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quantization/index.html">Quantization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/config.html">Config API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/advanced.html">Deeper Dive</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/joint_compression.html">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizationSpec.html">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">coreai_opt.quantization.spec.fake_quantize</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="fake_quantize.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="fake_quantize.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="fake_quantize.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../../../../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <h1>Source code for coreai_opt.quantization.spec.fake_quantize</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># Copyright 2026 Apple Inc.</span>
+</span><span data-line="2"><span class="c1">#</span>
+</span><span data-line="3"><span class="c1"># Use of this source code is governed by a BSD-3-Clause license that can</span>
+</span><span data-line="4"><span class="c1"># be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="sd">&quot;&quot;&quot;Fake quantization implementation base class and default implementation.&quot;&quot;&quot;</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span data-line="11"><span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
+</span><span data-line="12"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span data-line="15"><span class="kn">from</span><span class="w"> </span><span class="nn">torch.autograd</span><span class="w"> </span><span class="kn">import</span> <span class="n">Function</span>
+</span><span data-line="16"><span class="kn">from</span><span class="w"> </span><span class="nn">torchao.quantization.pt2e</span><span class="w"> </span><span class="kn">import</span> <span class="n">FakeQuantizeBase</span>
+</span><span data-line="17">
+</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.spec_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="19">    <span class="n">PartialConstructor</span> <span class="k">as</span> <span class="n">_PartialConstructor</span><span class="p">,</span>
+</span><span data-line="20">    <span class="n">with_args</span> <span class="k">as</span> <span class="n">_with_args</span><span class="p">,</span>
+</span><span data-line="21"><span class="p">)</span>
+</span><span data-line="22"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="23">    <span class="n">get_n_bits_from_dtype</span> <span class="k">as</span> <span class="n">_get_n_bits_from_dtype</span><span class="p">,</span>
+</span><span data-line="24">    <span class="n">is_float4_dtype</span> <span class="k">as</span> <span class="n">_is_float4_dtype</span><span class="p">,</span>
+</span><span data-line="25">    <span class="n">is_float8_dtype</span> <span class="k">as</span> <span class="n">_is_float8_dtype</span><span class="p">,</span>
+</span><span data-line="26">    <span class="n">is_float_quant_dtype</span> <span class="k">as</span> <span class="n">_is_float_quant_dtype</span><span class="p">,</span>
+</span><span data-line="27"><span class="p">)</span>
+</span><span data-line="28"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSimulatorBase</span><span class="p">,</span> <span class="n">CompressionTargetTensor</span>
+</span><span data-line="29"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization._utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_quantization_shapes</span> <span class="k">as</span> <span class="n">_get_quantization_shapes</span>
+</span><span data-line="30"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.spec.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">_BlockSizeMismatchError</span>
+</span><span data-line="31">
+</span><span data-line="32"><span class="kn">from</span><span class="w"> </span><span class="nn">.granularity</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantizationGranularity</span>
+</span><span data-line="33"><span class="kn">from</span><span class="w"> </span><span class="nn">.qformulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantizationFormulation</span>
+</span><span data-line="34"><span class="kn">from</span><span class="w"> </span><span class="nn">.qparams_calculator</span><span class="w"> </span><span class="kn">import</span> <span class="n">QParamsCalculatorBase</span>
+</span><span data-line="35"><span class="kn">from</span><span class="w"> </span><span class="nn">.qscheme</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantizationScheme</span>
+</span><span data-line="36">
+</span><span data-line="37"><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;FakeQuantizeImplBase&quot;</span><span class="p">]</span>
+</span><span data-line="38">
+</span><span data-line="39"><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span data-line="40">
+</span><span data-line="41">
+<div class="viewcode-block" id="FakeQuantizeImplBase">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase">[docs]</a>
+</span><span data-line="42"><span class="k">class</span><span class="w"> </span><span class="nc">FakeQuantizeImplBase</span><span class="p">(</span><span class="n">CompressionSimulatorBase</span><span class="p">,</span> <span class="n">FakeQuantizeBase</span><span class="p">):</span>
+</span><span data-line="43"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="44"><span class="sd">    Base class for implementing fake quantization</span>
+</span><span data-line="45"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="46">
+<div class="viewcode-block" id="FakeQuantizeImplBase.__init__">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.__init__">[docs]</a>
+</span><span data-line="47">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="48">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="49">        <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+</span><span data-line="50">        <span class="n">qscheme</span><span class="p">:</span> <span class="n">QuantizationScheme</span><span class="p">,</span>
+</span><span data-line="51">        <span class="n">qformulation</span><span class="p">:</span> <span class="n">QuantizationFormulation</span><span class="p">,</span>
+</span><span data-line="52">        <span class="n">granularity</span><span class="p">:</span> <span class="n">QuantizationGranularity</span><span class="p">,</span>
+</span><span data-line="53">        <span class="n">target_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+</span><span data-line="54">        <span class="n">quant_min</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="55">        <span class="n">quant_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="56">        <span class="n">qparams_calculator</span><span class="p">:</span> <span class="n">QParamsCalculatorBase</span><span class="p">,</span>
+</span><span data-line="57">        <span class="n">quantization_target</span><span class="p">:</span> <span class="n">CompressionTargetTensor</span><span class="p">,</span>
+</span><span data-line="58">        <span class="n">n_bits</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="59">        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+</span><span data-line="60">    <span class="p">):</span>
+</span><span data-line="61">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span><span data-line="62">        <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+</span><span data-line="63">        <span class="bp">self</span><span class="o">.</span><span class="n">qscheme</span> <span class="o">=</span> <span class="n">qscheme</span>
+</span><span data-line="64">        <span class="bp">self</span><span class="o">.</span><span class="n">qformulation</span> <span class="o">=</span> <span class="n">qformulation</span>
+</span><span data-line="65">        <span class="bp">self</span><span class="o">.</span><span class="n">_granularity</span> <span class="o">=</span> <span class="n">granularity</span>
+</span><span data-line="66">        <span class="bp">self</span><span class="o">.</span><span class="n">target_dtype</span> <span class="o">=</span> <span class="n">target_dtype</span>
+</span><span data-line="67">        <span class="bp">self</span><span class="o">.</span><span class="n">quant_min</span> <span class="o">=</span> <span class="n">quant_min</span>
+</span><span data-line="68">        <span class="bp">self</span><span class="o">.</span><span class="n">quant_max</span> <span class="o">=</span> <span class="n">quant_max</span>
+</span><span data-line="69">        <span class="bp">self</span><span class="o">.</span><span class="n">qparams_calculator</span> <span class="o">=</span> <span class="n">qparams_calculator</span>
+</span><span data-line="70">        <span class="bp">self</span><span class="o">.</span><span class="n">quantization_target</span> <span class="o">=</span> <span class="n">quantization_target</span>
+</span><span data-line="71">        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;_disabled&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="kc">False</span><span class="p">))</span>
+</span><span data-line="72">
+</span><span data-line="73">        <span class="c1"># Infer n_bits from dtype if not provided</span>
+</span><span data-line="74">        <span class="k">if</span> <span class="n">n_bits</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="75">            <span class="n">n_bits</span> <span class="o">=</span> <span class="n">_get_n_bits_from_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="76">        <span class="bp">self</span><span class="o">.</span><span class="n">n_bits</span> <span class="o">=</span> <span class="n">n_bits</span></div>
+
+</span><span data-line="77">
+</span><span data-line="78">    <span class="nd">@property</span>
+</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">granularity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QuantizationGranularity</span><span class="p">:</span>
+</span><span data-line="80"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Getter for granularity.&quot;&quot;&quot;</span>
+</span><span data-line="81">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_granularity</span>
+</span><span data-line="82">
+</span><span data-line="83">    <span class="nd">@granularity</span><span class="o">.</span><span class="n">setter</span>
+</span><span data-line="84">    <span class="k">def</span><span class="w"> </span><span class="nf">granularity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">granularity</span><span class="p">:</span> <span class="n">QuantizationGranularity</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="85"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Update granularity for the fake quantize class and its qparams calculator.</span>
+</span><span data-line="86">
+</span><span data-line="87"><span class="sd">        Can only be performed before the first forward pass.</span>
+</span><span data-line="88"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="89">        <span class="bp">self</span><span class="o">.</span><span class="n">qparams_calculator</span><span class="o">.</span><span class="n">granularity</span> <span class="o">=</span> <span class="n">granularity</span>
+</span><span data-line="90">        <span class="bp">self</span><span class="o">.</span><span class="n">_granularity</span> <span class="o">=</span> <span class="n">granularity</span>
+</span><span data-line="91">
+<div class="viewcode-block" id="FakeQuantizeImplBase.extra_repr">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr">[docs]</a>
+</span><span data-line="92">    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span data-line="93">        <span class="n">obs</span> <span class="o">=</span> <span class="s2">&quot;on&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">observer_enabled</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;off&quot;</span>
+</span><span data-line="94">        <span class="n">fq</span> <span class="o">=</span> <span class="s2">&quot;on&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fake_quant_enabled</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;off&quot;</span>
+</span><span data-line="95">        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;qformulation=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qformulation</span><span class="si">}</span><span class="s2">, observer=</span><span class="si">{</span><span class="n">obs</span><span class="si">}</span><span class="s2">, fake_quant=</span><span class="si">{</span><span class="n">fq</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+</span><span data-line="96">
+<div class="viewcode-block" id="FakeQuantizeImplBase.is_disabled">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.is_disabled">[docs]</a>
+</span><span data-line="97">    <span class="k">def</span><span class="w"> </span><span class="nf">is_disabled</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="98"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if fake quantization has been disabled.&quot;&quot;&quot;</span>
+</span><span data-line="99">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_disabled</span><span class="o">.</span><span class="n">item</span><span class="p">()</span></div>
+
+</span><span data-line="100">
+</span><span data-line="101">    <span class="k">def</span><span class="w"> </span><span class="nf">_warn_and_disable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="n">_BlockSizeMismatchError</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="102"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Log a warning and permanently disable this module.&quot;&quot;&quot;</span>
+</span><span data-line="103">        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span data-line="104">            <span class="s2">&quot;Tensor (target: </span><span class="si">%s</span><span class="s2">) incompatible with block size &quot;</span>
+</span><span data-line="105">            <span class="s2">&quot;configuration: </span><span class="si">%s</span><span class="s2">. Skipping quantization.&quot;</span><span class="p">,</span>
+</span><span data-line="106">            <span class="bp">self</span><span class="o">.</span><span class="n">quantization_target</span><span class="p">,</span>
+</span><span data-line="107">            <span class="n">error</span><span class="p">,</span>
+</span><span data-line="108">        <span class="p">)</span>
+</span><span data-line="109">        <span class="bp">self</span><span class="o">.</span><span class="n">_disabled</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="110">
+<div class="viewcode-block" id="FakeQuantizeImplBase.forward">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward">[docs]</a>
+</span><span data-line="111">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="112"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="113"><span class="sd">        Performs fake quantization of the given tensor using the qparams</span>
+</span><span data-line="114"><span class="sd">        (scale, zero point, minval) computed by the QParamsCalculator.</span>
+</span><span data-line="115"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="116">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_disabled</span><span class="o">.</span><span class="n">item</span><span class="p">():</span>
+</span><span data-line="117">            <span class="k">return</span> <span class="n">tensor</span>
+</span><span data-line="118">
+</span><span data-line="119">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">observer_enabled</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="120">            <span class="c1"># Call the forward function of the qparams_calculator</span>
+</span><span data-line="121">            <span class="c1"># to collect observer statistics when the observer is</span>
+</span><span data-line="122">            <span class="c1"># enabled</span>
+</span><span data-line="123">            <span class="c1"># Use no_grad to prevent gradients flowing through the scale/zp computation path.</span>
+</span><span data-line="124">            <span class="c1"># Gradients should be computed through the actual QDQ path only.</span>
+</span><span data-line="125">            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+</span><span data-line="126">                <span class="k">try</span><span class="p">:</span>
+</span><span data-line="127">                    <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">minval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">qparams_calculator</span><span class="p">(</span><span class="n">tensor</span><span class="p">)</span>
+</span><span data-line="128">                <span class="k">except</span> <span class="n">_BlockSizeMismatchError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="129">                    <span class="bp">self</span><span class="o">.</span><span class="n">_warn_and_disable</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+</span><span data-line="130">                    <span class="k">return</span> <span class="n">tensor</span>
+</span><span data-line="131">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="132">            <span class="c1"># When the observer is not enabled, call the get_qparams</span>
+</span><span data-line="133">            <span class="c1"># function to retrieved the stored statistics</span>
+</span><span data-line="134">            <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">minval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">qparams_calculator</span><span class="o">.</span><span class="n">get_qparams</span><span class="p">()</span>
+</span><span data-line="135">
+</span><span data-line="136">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fake_quant_enabled</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="137">            <span class="c1"># Cast incoming tensor to fp32 to perform qdq operations in high precision.</span>
+</span><span data-line="138">            <span class="c1"># Cast the tensor to return back to the original dtype.</span>
+</span><span data-line="139">            <span class="n">orig_dtype</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span>
+</span><span data-line="140">            <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</span><span data-line="141">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fused_fake_quant_dequant</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">minval</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">orig_dtype</span><span class="p">)</span>
+</span><span data-line="142">
+</span><span data-line="143">        <span class="k">return</span> <span class="n">tensor</span></div>
+
+</span><span data-line="144">
+<div class="viewcode-block" id="FakeQuantizeImplBase.quantize">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.quantize">[docs]</a>
+</span><span data-line="145">    <span class="nd">@abstractmethod</span>
+</span><span data-line="146">    <span class="k">def</span><span class="w"> </span><span class="nf">quantize</span><span class="p">(</span>
+</span><span data-line="147">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="148">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="149">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="150">        <span class="n">zero_point</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="151">        <span class="n">minval</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="152">        <span class="n">cast_to_target_dtype</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="153">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="154"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="155"><span class="sd">        Given a tensor, scale and zero point, perform quantization of the tensor based</span>
+</span><span data-line="156"><span class="sd">        on the configuration in the ``QuantizationSpec``.</span>
+</span><span data-line="157">
+</span><span data-line="158"><span class="sd">        Args:</span>
+</span><span data-line="159"><span class="sd">            tensor: The tensor to quantize</span>
+</span><span data-line="160"><span class="sd">            scale: The scale to use for quantization</span>
+</span><span data-line="161"><span class="sd">            zero_point: The zero point computed by the qparams calculator</span>
+</span><span data-line="162"><span class="sd">                (None for floating-point dtypes).</span>
+</span><span data-line="163"><span class="sd">            minval: The minimum representable float value of the observed</span>
+</span><span data-line="164"><span class="sd">                range, computed by the qparams calculator</span>
+</span><span data-line="165"><span class="sd">                (None for floating-point dtypes).</span>
+</span><span data-line="166"><span class="sd">            cast_to_target_dtype: If True, the quantized tensor is cast to the target_dtype.</span>
+</span><span data-line="167"><span class="sd">                Otherwise, the values of the tensor are quantized to appropriate bins but the dtype</span>
+</span><span data-line="168"><span class="sd">                used to represent the quantized tensor remains the same as the original tensor.</span>
+</span><span data-line="169"><span class="sd">                This allows fake quantization to capture the quantization error while allowing</span>
+</span><span data-line="170"><span class="sd">                gradients to backpropagate.</span>
+</span><span data-line="171"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="172">        <span class="k">pass</span></div>
+
+</span><span data-line="173">
+<div class="viewcode-block" id="FakeQuantizeImplBase.dequantize">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.dequantize">[docs]</a>
+</span><span data-line="174">    <span class="nd">@abstractmethod</span>
+</span><span data-line="175">    <span class="k">def</span><span class="w"> </span><span class="nf">dequantize</span><span class="p">(</span>
+</span><span data-line="176">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="177">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="178">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="179">        <span class="n">zero_point</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="180">        <span class="n">minval</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="181">        <span class="n">output_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+</span><span data-line="182">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="183"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="184"><span class="sd">        Given a quantized tensor, the scale and zero point used to perform quantization,</span>
+</span><span data-line="185"><span class="sd">        perform de-quantization of the tensor based on the configuration in the</span>
+</span><span data-line="186"><span class="sd">        ``QuantizationSpec`` and return it as a tensor with dtype as ``output_dtype``.</span>
+</span><span data-line="187">
+</span><span data-line="188"><span class="sd">        Args:</span>
+</span><span data-line="189"><span class="sd">            tensor: The tensor to dequantize</span>
+</span><span data-line="190"><span class="sd">            scale: The scale to use for dequantization</span>
+</span><span data-line="191"><span class="sd">            zero_point: The zero point computed by the qparams calculator</span>
+</span><span data-line="192"><span class="sd">                (None for floating-point dtypes).</span>
+</span><span data-line="193"><span class="sd">            minval: The minimum representable float value of the observed</span>
+</span><span data-line="194"><span class="sd">                range, computed by the qparams calculator</span>
+</span><span data-line="195"><span class="sd">                (None for floating-point dtypes).</span>
+</span><span data-line="196"><span class="sd">            output_dtype: The dtype to use for the dequantized tensor</span>
+</span><span data-line="197"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="198">        <span class="k">pass</span></div>
+
+</span><span data-line="199">
+</span><span data-line="200">    <span class="nd">@abstractmethod</span>
+</span><span data-line="201">    <span class="k">def</span><span class="w"> </span><span class="nf">_fused_fake_quant_dequant</span><span class="p">(</span>
+</span><span data-line="202">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="203">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="204">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="205">        <span class="n">zero_point</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="206">        <span class="n">minval</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="207">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="208"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Fused quantize → dequantize as a single autograd node with STE gradient.</span>
+</span><span data-line="209">
+</span><span data-line="210"><span class="sd">        Expects the input tensor to already be in fp32. Returns an fp32 tensor;</span>
+</span><span data-line="211"><span class="sd">        the caller is responsible for casting to the desired output dtype.</span>
+</span><span data-line="212"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="213">        <span class="k">pass</span>
+</span><span data-line="214">
+<div class="viewcode-block" id="FakeQuantizeImplBase.with_args">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.with_args">[docs]</a>
+</span><span data-line="215">    <span class="nd">@classmethod</span>
+</span><span data-line="216">    <span class="k">def</span><span class="w"> </span><span class="nf">with_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_PartialConstructor</span><span class="p">[</span><span class="n">FakeQuantizeImplBase</span><span class="p">]:</span>
+</span><span data-line="217">        <span class="c1"># This is needed for compatibility with torch prepare_pt2e</span>
+</span><span data-line="218">        <span class="n">fake_quant_constructor</span> <span class="o">=</span> <span class="n">_with_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="219">
+</span><span data-line="220">        <span class="c1"># need to assign the correct module to fake_quantize</span>
+</span><span data-line="221">        <span class="c1"># constructors to satisfy public v private requirements</span>
+</span><span data-line="222">        <span class="n">fake_quant_constructor</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span data-line="223">        <span class="k">return</span> <span class="n">fake_quant_constructor</span></div>
+
+</span><span data-line="224">
+<div class="viewcode-block" id="FakeQuantizeImplBase.calculate_qparams">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.calculate_qparams">[docs]</a>
+</span><span data-line="225">    <span class="k">def</span><span class="w"> </span><span class="nf">calculate_qparams</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+</span><span data-line="226"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="227"><span class="sd">        Returns the computed (scale, zero_point, minval).</span>
+</span><span data-line="228"><span class="sd">        ``zero_point`` and ``minval`` are None for floating-point dtypes.</span>
+</span><span data-line="229"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="230">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">qparams_calculator</span><span class="o">.</span><span class="n">get_qparams</span><span class="p">()</span></div>
+
+</span><span data-line="231">
+<div class="viewcode-block" id="FakeQuantizeImplBase.set_export_mode">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.set_export_mode">[docs]</a>
+</span><span data-line="232">    <span class="k">def</span><span class="w"> </span><span class="nf">set_export_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="233"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="234"><span class="sd">        Set or unset export mode.</span>
+</span><span data-line="235"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="236">        <span class="bp">self</span><span class="o">.</span><span class="n">qparams_calculator</span><span class="o">.</span><span class="n">set_export_mode</span><span class="p">(</span><span class="n">enabled</span><span class="o">=</span><span class="n">enabled</span><span class="p">)</span></div>
+
+</span><span data-line="237">
+<div class="viewcode-block" id="FakeQuantizeImplBase.convert">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.convert">[docs]</a>
+</span><span data-line="238">    <span class="k">def</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">,</span> <span class="n">observer_node</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">fx</span><span class="o">.</span><span class="n">Node</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="239"><span class="w">        </span><span class="sd">&quot;&quot;&quot;No-op: keep fake quant nodes intact during convert_pt2e.</span>
+</span><span data-line="240">
+</span><span data-line="241"><span class="sd">        If this method is not present, torchao&#39;s convert method will try to replace</span>
+</span><span data-line="242"><span class="sd">        fake quant nodes with its standard quantize/dequantize ops and fails in the process</span>
+</span><span data-line="243"><span class="sd">        &quot;&quot;&quot;</span></div>
+</div>
+
+</span><span data-line="244">
+</span><span data-line="245">
+</span><span data-line="246"><span class="nd">@FakeQuantizeImplBase</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;default&quot;</span><span class="p">)</span>
+</span><span data-line="247"><span class="k">class</span><span class="w"> </span><span class="nc">_DefaultFakeQuantizeImpl</span><span class="p">(</span><span class="n">FakeQuantizeImplBase</span><span class="p">):</span>
+</span><span data-line="248">    <span class="k">def</span><span class="w"> </span><span class="nf">_select_int_offsets</span><span class="p">(</span>
+</span><span data-line="249">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="250">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="251">        <span class="n">zero_point</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="252">        <span class="n">minval</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="253">        <span class="n">reduced_shape</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="254">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+</span><span data-line="255"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Pick ``(quant_offset, float_offset)`` for the active integer formulation.</span>
+</span><span data-line="256">
+</span><span data-line="257"><span class="sd">        ``quant_offset`` lives in the integer (quantized) domain.</span>
+</span><span data-line="258"><span class="sd">        ``float_offset`` lives in the float domain and is returned in</span>
+</span><span data-line="259"><span class="sd">        ``tensor.dtype``. Works uniformly for signed and unsigned integers.</span>
+</span><span data-line="260">
+</span><span data-line="261"><span class="sd">        - ZP:     ``(zero_point, 0)``</span>
+</span><span data-line="262"><span class="sd">        - MINVAL: ``(quant_min, minval)``</span>
+</span><span data-line="263"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="264">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">qformulation</span> <span class="o">==</span> <span class="n">QuantizationFormulation</span><span class="o">.</span><span class="n">ZP</span><span class="p">:</span>
+</span><span data-line="265">            <span class="k">return</span> <span class="p">(</span>
+</span><span data-line="266">                <span class="n">zero_point</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">reduced_shape</span><span class="p">),</span>
+</span><span data-line="267">                <span class="n">tensor</span><span class="o">.</span><span class="n">new_zeros</span><span class="p">(()),</span>
+</span><span data-line="268">            <span class="p">)</span>
+</span><span data-line="269">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">qformulation</span> <span class="o">==</span> <span class="n">QuantizationFormulation</span><span class="o">.</span><span class="n">MINVAL</span><span class="p">:</span>
+</span><span data-line="270">            <span class="k">return</span> <span class="p">(</span>
+</span><span data-line="271">                <span class="n">tensor</span><span class="o">.</span><span class="n">new_full</span><span class="p">((),</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_min</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">zero_point</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+</span><span data-line="272">                <span class="n">minval</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">reduced_shape</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+</span><span data-line="273">            <span class="p">)</span>
+</span><span data-line="274">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown qformulation: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qformulation</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="275">
+</span><span data-line="276">    <span class="k">def</span><span class="w"> </span><span class="nf">quantize</span><span class="p">(</span>
+</span><span data-line="277">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="278">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="279">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="280">        <span class="n">zero_point</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="281">        <span class="n">minval</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="282">        <span class="n">cast_to_target_dtype</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="283">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="284">        <span class="c1"># Cast incoming tensor to fp32 to perform quantize operations in high precision.</span>
+</span><span data-line="285">        <span class="c1"># Track the original dtype of the incoming tensor in case we need to cast the returning</span>
+</span><span data-line="286">        <span class="c1"># tensor back (if cast_to_target_dtype is False).</span>
+</span><span data-line="287">        <span class="n">orig_dtype</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">dtype</span>
+</span><span data-line="288">        <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</span><span data-line="289">        <span class="k">if</span> <span class="n">_is_float_quant_dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+</span><span data-line="290">            <span class="k">assert</span> <span class="n">zero_point</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;zero_point must be None for floating-point quantization&quot;</span>
+</span><span data-line="291">            <span class="k">assert</span> <span class="n">minval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;minval must be None for floating-point quantization&quot;</span>
+</span><span data-line="292">            <span class="n">quantized_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantize_float</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+</span><span data-line="293">
+</span><span data-line="294">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="295">            <span class="k">assert</span> <span class="n">zero_point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;zero_point must not be None for integer quantization&quot;</span>
+</span><span data-line="296">            <span class="k">assert</span> <span class="n">minval</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;minval must not be None for integer quantization&quot;</span>
+</span><span data-line="297">            <span class="n">quantized_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantize_int</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">minval</span><span class="p">)</span>
+</span><span data-line="298">
+</span><span data-line="299">        <span class="n">output_dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_dtype</span> <span class="k">if</span> <span class="n">cast_to_target_dtype</span> <span class="k">else</span> <span class="n">orig_dtype</span>
+</span><span data-line="300">        <span class="k">return</span> <span class="n">quantized_tensor</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">output_dtype</span><span class="p">)</span>
+</span><span data-line="301">
+</span><span data-line="302">    <span class="k">def</span><span class="w"> </span><span class="nf">dequantize</span><span class="p">(</span>
+</span><span data-line="303">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="304">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="305">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="306">        <span class="n">zero_point</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="307">        <span class="n">minval</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="308">        <span class="n">output_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+</span><span data-line="309">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="310">        <span class="c1"># Cast incoming tensor to fp32 to perform dequantize operations in high precision.</span>
+</span><span data-line="311">        <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</span><span data-line="312">        <span class="k">if</span> <span class="n">_is_float_quant_dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_dtype</span><span class="p">):</span>
+</span><span data-line="313">            <span class="k">assert</span> <span class="n">zero_point</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;zero_point must be None for floating-point dequantization&quot;</span>
+</span><span data-line="314">            <span class="k">assert</span> <span class="n">minval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;minval must be None for floating-point dequantization&quot;</span>
+</span><span data-line="315">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dequantize_float</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">output_dtype</span><span class="p">)</span>
+</span><span data-line="316">
+</span><span data-line="317">        <span class="c1"># Integer dequantization</span>
+</span><span data-line="318">        <span class="k">assert</span> <span class="n">zero_point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;zero_point must not be None for integer dequantization&quot;</span>
+</span><span data-line="319">        <span class="k">assert</span> <span class="n">minval</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;minval must not be None for integer dequantization&quot;</span>
+</span><span data-line="320">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dequantize_int</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">minval</span><span class="p">,</span> <span class="n">output_dtype</span><span class="p">)</span>
+</span><span data-line="321">
+</span><span data-line="322">    <span class="k">def</span><span class="w"> </span><span class="nf">_quantize_int</span><span class="p">(</span>
+</span><span data-line="323">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="324">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="325">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="326">        <span class="n">zero_point</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="327">        <span class="n">minval</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="328">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="329"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="330"><span class="sd">        Integer quantization. See :func:`_quantize_int` for the math; offsets are</span>
+</span><span data-line="331"><span class="sd">        selected from ``self.qformulation`` via :meth:`_select_int_offsets`.</span>
+</span><span data-line="332">
+</span><span data-line="333"><span class="sd">        This function quantizes the values in tensor but keeps the quantized tensor dtype in FP.</span>
+</span><span data-line="334"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="335">        <span class="n">block_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">granularity</span><span class="o">.</span><span class="n">get_block_size</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="336">        <span class="n">original_shape</span><span class="p">,</span> <span class="n">blockwise_shape</span><span class="p">,</span> <span class="n">reduced_shape</span> <span class="o">=</span> <span class="n">_get_quantization_shapes</span><span class="p">(</span>
+</span><span data-line="337">            <span class="n">tensor</span><span class="p">,</span> <span class="n">block_size</span>
+</span><span data-line="338">        <span class="p">)</span>
+</span><span data-line="339">
+</span><span data-line="340">        <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">blockwise_shape</span><span class="p">)</span>
+</span><span data-line="341">        <span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">reduced_shape</span><span class="p">)</span>
+</span><span data-line="342">        <span class="n">quant_offset</span><span class="p">,</span> <span class="n">float_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_int_offsets</span><span class="p">(</span>
+</span><span data-line="343">            <span class="n">tensor</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">minval</span><span class="p">,</span> <span class="n">reduced_shape</span>
+</span><span data-line="344">        <span class="p">)</span>
+</span><span data-line="345">
+</span><span data-line="346">        <span class="n">quant</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_quantize_int</span><span class="p">(</span>
+</span><span data-line="347">            <span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">quant_offset</span><span class="p">,</span> <span class="n">float_offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_max</span>
+</span><span data-line="348">        <span class="p">)</span>
+</span><span data-line="349">        <span class="k">return</span> <span class="n">quant</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">original_shape</span><span class="p">)</span>
+</span><span data-line="350">
+</span><span data-line="351">    <span class="k">def</span><span class="w"> </span><span class="nf">_dequantize_int</span><span class="p">(</span>
+</span><span data-line="352">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="353">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="354">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="355">        <span class="n">zero_point</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="356">        <span class="n">minval</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="357">        <span class="n">output_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+</span><span data-line="358">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="359"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Integer dequantization. See :func:`_dequantize_int` for the math.&quot;&quot;&quot;</span>
+</span><span data-line="360">        <span class="n">block_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">granularity</span><span class="o">.</span><span class="n">get_block_size</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="361">        <span class="n">original_shape</span><span class="p">,</span> <span class="n">blockwise_shape</span><span class="p">,</span> <span class="n">reduced_shape</span> <span class="o">=</span> <span class="n">_get_quantization_shapes</span><span class="p">(</span>
+</span><span data-line="362">            <span class="n">tensor</span><span class="p">,</span> <span class="n">block_size</span>
+</span><span data-line="363">        <span class="p">)</span>
+</span><span data-line="364">
+</span><span data-line="365">        <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">blockwise_shape</span><span class="p">)</span>
+</span><span data-line="366">        <span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">reduced_shape</span><span class="p">)</span>
+</span><span data-line="367">        <span class="n">quant_offset</span><span class="p">,</span> <span class="n">float_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_int_offsets</span><span class="p">(</span>
+</span><span data-line="368">            <span class="n">tensor</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">minval</span><span class="p">,</span> <span class="n">reduced_shape</span>
+</span><span data-line="369">        <span class="p">)</span>
+</span><span data-line="370">
+</span><span data-line="371">        <span class="n">dequant</span> <span class="o">=</span> <span class="n">_dequantize_int</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">quant_offset</span><span class="p">,</span> <span class="n">float_offset</span><span class="p">)</span>
+</span><span data-line="372">        <span class="k">return</span> <span class="n">dequant</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">original_shape</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">output_dtype</span><span class="p">)</span>
+</span><span data-line="373">
+</span><span data-line="374">    <span class="k">def</span><span class="w"> </span><span class="nf">_quantize_float</span><span class="p">(</span>
+</span><span data-line="375">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="376">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="377">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="378">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="379"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="380"><span class="sd">        Floating-point quantization: cast_to_low_precision(clamp(input / scale, min, max))</span>
+</span><span data-line="381"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="382">        <span class="n">block_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">granularity</span><span class="o">.</span><span class="n">get_block_size</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="383">        <span class="n">original_shape</span><span class="p">,</span> <span class="n">blockwise_shape</span><span class="p">,</span> <span class="n">reduced_shape</span> <span class="o">=</span> <span class="n">_get_quantization_shapes</span><span class="p">(</span>
+</span><span data-line="384">            <span class="n">tensor</span><span class="p">,</span> <span class="n">block_size</span>
+</span><span data-line="385">        <span class="p">)</span>
+</span><span data-line="386">
+</span><span data-line="387">        <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">blockwise_shape</span><span class="p">)</span>
+</span><span data-line="388">        <span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">reduced_shape</span><span class="p">)</span>
+</span><span data-line="389">
+</span><span data-line="390">        <span class="n">quantized_tensor</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_quantize_float</span><span class="p">(</span>
+</span><span data-line="391">            <span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_min</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_max</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span>
+</span><span data-line="392">        <span class="p">)</span>
+</span><span data-line="393">
+</span><span data-line="394">        <span class="k">return</span> <span class="n">quantized_tensor</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">original_shape</span><span class="p">)</span>
+</span><span data-line="395">
+</span><span data-line="396">    <span class="k">def</span><span class="w"> </span><span class="nf">_dequantize_float</span><span class="p">(</span>
+</span><span data-line="397">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="398">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="399">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="400">        <span class="n">output_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+</span><span data-line="401">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="402"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Floating-point dequantization: input * scale&quot;&quot;&quot;</span>
+</span><span data-line="403">        <span class="n">block_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">granularity</span><span class="o">.</span><span class="n">get_block_size</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="404">        <span class="n">original_shape</span><span class="p">,</span> <span class="n">blockwise_shape</span><span class="p">,</span> <span class="n">reduced_shape</span> <span class="o">=</span> <span class="n">_get_quantization_shapes</span><span class="p">(</span>
+</span><span data-line="405">            <span class="n">tensor</span><span class="p">,</span> <span class="n">block_size</span>
+</span><span data-line="406">        <span class="p">)</span>
+</span><span data-line="407">
+</span><span data-line="408">        <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">blockwise_shape</span><span class="p">)</span>
+</span><span data-line="409">        <span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">reduced_shape</span><span class="p">)</span>
+</span><span data-line="410">
+</span><span data-line="411">        <span class="n">dequant</span> <span class="o">=</span> <span class="n">_dequantize_float</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+</span><span data-line="412">        <span class="k">return</span> <span class="n">dequant</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">original_shape</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">output_dtype</span><span class="p">)</span>
+</span><span data-line="413">
+</span><span data-line="414">    <span class="k">def</span><span class="w"> </span><span class="nf">_fused_fake_quant_dequant</span><span class="p">(</span>
+</span><span data-line="415">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="416">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="417">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="418">        <span class="n">zero_point</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="419">        <span class="n">minval</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="420">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="421"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Fused quantize → dequantize as a single autograd node with STE gradient.</span>
+</span><span data-line="422">
+</span><span data-line="423"><span class="sd">        Dispatches to the int or float fused STE class based on self.dtype.</span>
+</span><span data-line="424"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="425">        <span class="n">block_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">granularity</span><span class="o">.</span><span class="n">get_block_size</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="426">        <span class="n">original_shape</span><span class="p">,</span> <span class="n">blockwise_shape</span><span class="p">,</span> <span class="n">reduced_shape</span> <span class="o">=</span> <span class="n">_get_quantization_shapes</span><span class="p">(</span>
+</span><span data-line="427">            <span class="n">tensor</span><span class="p">,</span> <span class="n">block_size</span>
+</span><span data-line="428">        <span class="p">)</span>
+</span><span data-line="429">        <span class="k">if</span> <span class="n">_is_float_quant_dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+</span><span data-line="430">            <span class="k">return</span> <span class="n">_FusedFakeQuantizeFloatSTE</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+</span><span data-line="431">                <span class="n">tensor</span><span class="p">,</span>
+</span><span data-line="432">                <span class="n">scale</span><span class="p">,</span>
+</span><span data-line="433">                <span class="bp">self</span><span class="o">.</span><span class="n">quant_min</span><span class="p">,</span>
+</span><span data-line="434">                <span class="bp">self</span><span class="o">.</span><span class="n">quant_max</span><span class="p">,</span>
+</span><span data-line="435">                <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+</span><span data-line="436">                <span class="n">original_shape</span><span class="p">,</span>
+</span><span data-line="437">                <span class="n">blockwise_shape</span><span class="p">,</span>
+</span><span data-line="438">                <span class="n">reduced_shape</span><span class="p">,</span>
+</span><span data-line="439">            <span class="p">)</span>
+</span><span data-line="440">
+</span><span data-line="441">        <span class="n">quant_offset</span><span class="p">,</span> <span class="n">float_offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_int_offsets</span><span class="p">(</span>
+</span><span data-line="442">            <span class="n">tensor</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">minval</span><span class="p">,</span> <span class="n">reduced_shape</span>
+</span><span data-line="443">        <span class="p">)</span>
+</span><span data-line="444">
+</span><span data-line="445">        <span class="k">return</span> <span class="n">_FusedFakeQuantizeIntSTE</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+</span><span data-line="446">            <span class="n">tensor</span><span class="p">,</span>
+</span><span data-line="447">            <span class="n">scale</span><span class="p">,</span>
+</span><span data-line="448">            <span class="n">quant_offset</span><span class="p">,</span>
+</span><span data-line="449">            <span class="n">float_offset</span><span class="p">,</span>
+</span><span data-line="450">            <span class="bp">self</span><span class="o">.</span><span class="n">quant_min</span><span class="p">,</span>
+</span><span data-line="451">            <span class="bp">self</span><span class="o">.</span><span class="n">quant_max</span><span class="p">,</span>
+</span><span data-line="452">            <span class="n">original_shape</span><span class="p">,</span>
+</span><span data-line="453">            <span class="n">blockwise_shape</span><span class="p">,</span>
+</span><span data-line="454">            <span class="n">reduced_shape</span><span class="p">,</span>
+</span><span data-line="455">        <span class="p">)</span>
+</span><span data-line="456">
+</span><span data-line="457">
+</span><span data-line="458"><span class="k">def</span><span class="w"> </span><span class="nf">_qdq_int</span><span class="p">(</span>
+</span><span data-line="459">    <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="460">    <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="461">    <span class="n">quant_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="462">    <span class="n">float_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="463">    <span class="n">quant_min</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span data-line="464">    <span class="n">quant_max</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span data-line="465">    <span class="n">original_shape</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span>
+</span><span data-line="466">    <span class="n">blockwise_shape</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="467">    <span class="n">reduced_shape</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="468"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+</span><span data-line="469"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="470"><span class="sd">    Fused quantize → dequantize for integer types.</span>
+</span><span data-line="471">
+</span><span data-line="472"><span class="sd">    The quantized-dequantized tensor as well as a mask tensor marking positions in the tensor which</span>
+</span><span data-line="473"><span class="sd">    were clamped are both returned.</span>
+</span><span data-line="474"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="475">    <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">blockwise_shape</span><span class="p">)</span>
+</span><span data-line="476">    <span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">reduced_shape</span><span class="p">)</span>
+</span><span data-line="477">
+</span><span data-line="478">    <span class="n">quantized</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">_quantize_int</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">quant_offset</span><span class="p">,</span> <span class="n">float_offset</span><span class="p">,</span> <span class="n">quant_min</span><span class="p">,</span> <span class="n">quant_max</span><span class="p">)</span>
+</span><span data-line="479">    <span class="n">dequantized</span> <span class="o">=</span> <span class="n">_dequantize_int</span><span class="p">(</span><span class="n">quantized</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">quant_offset</span><span class="p">,</span> <span class="n">float_offset</span><span class="p">)</span>
+</span><span data-line="480">
+</span><span data-line="481">    <span class="k">return</span> <span class="n">dequantized</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">original_shape</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span> <span class="n">mask</span>
+</span><span data-line="482">
+</span><span data-line="483">
+</span><span data-line="484"><span class="k">class</span><span class="w"> </span><span class="nc">_FusedFakeQuantizeIntSTE</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+</span><span data-line="485"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="486"><span class="sd">    Fused fake quantize + dequantize for integer types with STE gradient.</span>
+</span><span data-line="487">
+</span><span data-line="488"><span class="sd">    Handles blockwise reshaping internally so the entire fake-quantize operation</span>
+</span><span data-line="489"><span class="sd">    (reshape → quantize → dequantize → reshape back) is a single autograd node.</span>
+</span><span data-line="490">
+</span><span data-line="491"><span class="sd">    Fusing into one node reduces QAT memory: intermediate tensors (scaled, rounded,</span>
+</span><span data-line="492"><span class="sd">    clamped) are local to forward and freed immediately instead of being retained by</span>
+</span><span data-line="493"><span class="sd">    the autograd graph. Only a boolean mask (1 byte/element) is saved for backward,</span>
+</span><span data-line="494"><span class="sd">    replacing multiple float32 intermediates (4 bytes/element each).</span>
+</span><span data-line="495"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="496">
+</span><span data-line="497">    <span class="nd">@staticmethod</span>
+</span><span data-line="498">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span>
+</span><span data-line="499">        <span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="500">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="501">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="502">        <span class="n">quant_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="503">        <span class="n">float_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="504">        <span class="n">quant_min</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span data-line="505">        <span class="n">quant_max</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span data-line="506">        <span class="n">original_shape</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span>
+</span><span data-line="507">        <span class="n">blockwise_shape</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="508">        <span class="n">reduced_shape</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="509">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="510">        <span class="n">dequantized</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">_qdq_int</span><span class="p">(</span>
+</span><span data-line="511">            <span class="n">tensor</span><span class="p">,</span>
+</span><span data-line="512">            <span class="n">scale</span><span class="p">,</span>
+</span><span data-line="513">            <span class="n">quant_offset</span><span class="p">,</span>
+</span><span data-line="514">            <span class="n">float_offset</span><span class="p">,</span>
+</span><span data-line="515">            <span class="n">quant_min</span><span class="p">,</span>
+</span><span data-line="516">            <span class="n">quant_max</span><span class="p">,</span>
+</span><span data-line="517">            <span class="n">original_shape</span><span class="p">,</span>
+</span><span data-line="518">            <span class="n">blockwise_shape</span><span class="p">,</span>
+</span><span data-line="519">            <span class="n">reduced_shape</span><span class="p">,</span>
+</span><span data-line="520">        <span class="p">)</span>
+</span><span data-line="521">        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+</span><span data-line="522">        <span class="n">ctx</span><span class="o">.</span><span class="n">original_shape</span> <span class="o">=</span> <span class="n">original_shape</span>
+</span><span data-line="523">        <span class="k">return</span> <span class="n">dequantized</span>
+</span><span data-line="524">
+</span><span data-line="525">    <span class="nd">@staticmethod</span>
+</span><span data-line="526">    <span class="k">def</span><span class="w"> </span><span class="nf">backward</span><span class="p">(</span>
+</span><span data-line="527">        <span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span data-line="528">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+</span><span data-line="529">        <span class="p">(</span><span class="n">mask</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+</span><span data-line="530">        <span class="c1"># Reshape grad to blockwise shape to apply mask, then reshape back</span>
+</span><span data-line="531">        <span class="n">grad_blockwise</span> <span class="o">=</span> <span class="n">grad_output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="532">        <span class="k">return</span> <span class="p">(</span>
+</span><span data-line="533">            <span class="p">(</span><span class="n">grad_blockwise</span> <span class="o">*</span> <span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">original_shape</span><span class="p">),</span>
+</span><span data-line="534">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="535">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="536">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="537">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="538">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="539">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="540">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="541">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="542">        <span class="p">)</span>
+</span><span data-line="543">
+</span><span data-line="544">
+</span><span data-line="545"><span class="k">def</span><span class="w"> </span><span class="nf">_qdq_float</span><span class="p">(</span>
+</span><span data-line="546">    <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="547">    <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="548">    <span class="n">quant_min</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="549">    <span class="n">quant_max</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="550">    <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+</span><span data-line="551">    <span class="n">original_shape</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span>
+</span><span data-line="552">    <span class="n">blockwise_shape</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="553">    <span class="n">reduced_shape</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="554"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+</span><span data-line="555"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="556"><span class="sd">    Fused quantize → dequantize for float types.</span>
+</span><span data-line="557">
+</span><span data-line="558"><span class="sd">    The quantized-dequantized tensor as well as a mask tensor marking positions in the tensor which</span>
+</span><span data-line="559"><span class="sd">    were clamped are both returned.</span>
+</span><span data-line="560"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="561">    <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">blockwise_shape</span><span class="p">)</span>
+</span><span data-line="562">    <span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">reduced_shape</span><span class="p">)</span>
+</span><span data-line="563">
+</span><span data-line="564">    <span class="n">quantized</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">_quantize_float</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">quant_min</span><span class="p">,</span> <span class="n">quant_max</span><span class="p">,</span> <span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="565">    <span class="n">dequantized</span> <span class="o">=</span> <span class="n">_dequantize_float</span><span class="p">(</span><span class="n">quantized</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+</span><span data-line="566">
+</span><span data-line="567">    <span class="k">return</span> <span class="n">dequantized</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">original_shape</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">(),</span> <span class="n">mask</span>
+</span><span data-line="568">
+</span><span data-line="569">
+</span><span data-line="570"><span class="k">class</span><span class="w"> </span><span class="nc">_FusedFakeQuantizeFloatSTE</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+</span><span data-line="571"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="572"><span class="sd">    Fused fake quantize + dequantize for float types with STE gradient.</span>
+</span><span data-line="573">
+</span><span data-line="574"><span class="sd">    Handles blockwise reshaping internally so the entire fake-quantize operation</span>
+</span><span data-line="575"><span class="sd">    (reshape → quantize → dequantize → reshape back) is a single autograd node.</span>
+</span><span data-line="576">
+</span><span data-line="577"><span class="sd">    Fusing into one node reduces QAT memory: intermediate tensors (scaled, rounded,</span>
+</span><span data-line="578"><span class="sd">    clamped) are local to forward and freed immediately instead of being retained by</span>
+</span><span data-line="579"><span class="sd">    the autograd graph. Only a boolean mask (1 byte/element) is saved for backward,</span>
+</span><span data-line="580"><span class="sd">    replacing multiple float32 intermediates (4 bytes/element each).</span>
+</span><span data-line="581"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="582">
+</span><span data-line="583">    <span class="nd">@staticmethod</span>
+</span><span data-line="584">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span>
+</span><span data-line="585">        <span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="586">        <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="587">        <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="588">        <span class="n">quant_min</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="589">        <span class="n">quant_max</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="590">        <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+</span><span data-line="591">        <span class="n">original_shape</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">,</span>
+</span><span data-line="592">        <span class="n">blockwise_shape</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="593">        <span class="n">reduced_shape</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="594">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="595">        <span class="n">dequantized</span><span class="p">,</span> <span class="n">mask</span> <span class="o">=</span> <span class="n">_qdq_float</span><span class="p">(</span>
+</span><span data-line="596">            <span class="n">tensor</span><span class="p">,</span>
+</span><span data-line="597">            <span class="n">scale</span><span class="p">,</span>
+</span><span data-line="598">            <span class="n">quant_min</span><span class="p">,</span>
+</span><span data-line="599">            <span class="n">quant_max</span><span class="p">,</span>
+</span><span data-line="600">            <span class="n">dtype</span><span class="p">,</span>
+</span><span data-line="601">            <span class="n">original_shape</span><span class="p">,</span>
+</span><span data-line="602">            <span class="n">blockwise_shape</span><span class="p">,</span>
+</span><span data-line="603">            <span class="n">reduced_shape</span><span class="p">,</span>
+</span><span data-line="604">        <span class="p">)</span>
+</span><span data-line="605">        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+</span><span data-line="606">        <span class="n">ctx</span><span class="o">.</span><span class="n">original_shape</span> <span class="o">=</span> <span class="n">original_shape</span>
+</span><span data-line="607">        <span class="k">return</span> <span class="n">dequantized</span>
+</span><span data-line="608">
+</span><span data-line="609">    <span class="nd">@staticmethod</span>
+</span><span data-line="610">    <span class="k">def</span><span class="w"> </span><span class="nf">backward</span><span class="p">(</span>
+</span><span data-line="611">        <span class="n">ctx</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span data-line="612">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+</span><span data-line="613">        <span class="p">(</span><span class="n">mask</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+</span><span data-line="614">        <span class="c1"># Reshape grad to blockwise shape to apply mask, then reshape back</span>
+</span><span data-line="615">        <span class="n">grad_blockwise</span> <span class="o">=</span> <span class="n">grad_output</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="616">        <span class="k">return</span> <span class="p">(</span>
+</span><span data-line="617">            <span class="p">(</span><span class="n">grad_blockwise</span> <span class="o">*</span> <span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">ctx</span><span class="o">.</span><span class="n">original_shape</span><span class="p">),</span>
+</span><span data-line="618">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="619">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="620">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="621">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="622">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="623">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="624">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="625">        <span class="p">)</span>
+</span><span data-line="626">
+</span><span data-line="627">
+</span><span data-line="628"><span class="k">def</span><span class="w"> </span><span class="nf">_quantize_int</span><span class="p">(</span>
+</span><span data-line="629">    <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="630">    <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="631">    <span class="n">quant_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="632">    <span class="n">float_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="633">    <span class="n">quant_min</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span data-line="634">    <span class="n">quant_max</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span data-line="635"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+</span><span data-line="636"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="637"><span class="sd">    Integer quantization:</span>
+</span><span data-line="638"><span class="sd">        clamp(round((tensor - float_offset) / scale) + quant_offset, quant_min, quant_max)</span>
+</span><span data-line="639">
+</span><span data-line="640"><span class="sd">    Generic form parameterized by two offsets so the same kernel handles both</span>
+</span><span data-line="641"><span class="sd">    formulations:</span>
+</span><span data-line="642">
+</span><span data-line="643"><span class="sd">    - ZP:     ``quant_offset = zero_point``, ``float_offset = 0``</span>
+</span><span data-line="644"><span class="sd">    - MINVAL: ``quant_offset = quant_min``,  ``float_offset = minval``</span>
+</span><span data-line="645">
+</span><span data-line="646"><span class="sd">    The quantized tensor remains in FP dtype.</span>
+</span><span data-line="647"><span class="sd">    The quantized tensor as well as a mask tensor marking positions in the tensor which were clamped</span>
+</span><span data-line="648"><span class="sd">    are both returned.</span>
+</span><span data-line="649"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="650">    <span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">tensor</span> <span class="o">-</span> <span class="n">float_offset</span><span class="p">)</span> <span class="o">/</span> <span class="n">scale</span>
+</span><span data-line="651">    <span class="n">result</span><span class="o">.</span><span class="n">round_</span><span class="p">()</span>
+</span><span data-line="652">    <span class="n">result</span><span class="o">.</span><span class="n">add_</span><span class="p">(</span><span class="n">quant_offset</span><span class="p">)</span>
+</span><span data-line="653">    <span class="n">mask</span> <span class="o">=</span> <span class="n">result</span> <span class="o">&gt;=</span> <span class="n">quant_min</span>
+</span><span data-line="654">    <span class="n">mask</span> <span class="o">&amp;=</span> <span class="n">result</span> <span class="o">&lt;=</span> <span class="n">quant_max</span>
+</span><span data-line="655">    <span class="n">result</span><span class="o">.</span><span class="n">clamp_</span><span class="p">(</span><span class="n">quant_min</span><span class="p">,</span> <span class="n">quant_max</span><span class="p">)</span>
+</span><span data-line="656">    <span class="k">return</span> <span class="n">result</span><span class="p">,</span> <span class="n">mask</span>
+</span><span data-line="657">
+</span><span data-line="658">
+</span><span data-line="659"><span class="k">def</span><span class="w"> </span><span class="nf">_dequantize_int</span><span class="p">(</span>
+</span><span data-line="660">    <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="661">    <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="662">    <span class="n">quant_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="663">    <span class="n">float_offset</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="664"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="665"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="666"><span class="sd">    Integer dequantization:</span>
+</span><span data-line="667"><span class="sd">        (tensor - quant_offset) * scale + float_offset</span>
+</span><span data-line="668">
+</span><span data-line="669"><span class="sd">    Inverse of :func:`_quantize_int`. See that function&#39;s docstring for the</span>
+</span><span data-line="670"><span class="sd">    ZP / MINVAL offset conventions.</span>
+</span><span data-line="671"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="672">    <span class="k">return</span> <span class="p">(</span><span class="n">tensor</span> <span class="o">-</span> <span class="n">quant_offset</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale</span> <span class="o">+</span> <span class="n">float_offset</span>
+</span><span data-line="673">
+</span><span data-line="674">
+</span><span data-line="675"><span class="k">def</span><span class="w"> </span><span class="nf">_quantize_float</span><span class="p">(</span>
+</span><span data-line="676">    <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="677">    <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="678">    <span class="n">quant_min</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="679">    <span class="n">quant_max</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="680">    <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+</span><span data-line="681"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+</span><span data-line="682"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="683"><span class="sd">    Float quantization: cast_decast(clamp(tensor / scale, min, max))</span>
+</span><span data-line="684">
+</span><span data-line="685"><span class="sd">    The quantized tensor as well as a mask tensor marking positions in the tensor which were clamped</span>
+</span><span data-line="686"><span class="sd">    are both returned.</span>
+</span><span data-line="687"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="688">    <span class="n">result</span> <span class="o">=</span> <span class="n">tensor</span> <span class="o">/</span> <span class="n">scale</span>
+</span><span data-line="689">    <span class="n">mask</span> <span class="o">=</span> <span class="n">result</span> <span class="o">&gt;=</span> <span class="n">quant_min</span>
+</span><span data-line="690">    <span class="n">mask</span> <span class="o">&amp;=</span> <span class="n">result</span> <span class="o">&lt;=</span> <span class="n">quant_max</span>
+</span><span data-line="691">    <span class="n">result</span><span class="o">.</span><span class="n">clamp_</span><span class="p">(</span><span class="nb">min</span><span class="o">=</span><span class="n">quant_min</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="n">quant_max</span><span class="p">)</span>
+</span><span data-line="692">    <span class="k">if</span> <span class="n">_is_float8_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+</span><span data-line="693">        <span class="k">return</span> <span class="n">_fp8_forward</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">dtype</span><span class="p">),</span> <span class="n">mask</span>
+</span><span data-line="694">    <span class="k">elif</span> <span class="n">_is_float4_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+</span><span data-line="695">        <span class="k">return</span> <span class="n">_fp4_forward</span><span class="p">(</span><span class="n">result</span><span class="p">),</span> <span class="n">mask</span>
+</span><span data-line="696">    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="697">        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected float4/float8 dtype, got </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="698">
+</span><span data-line="699">
+</span><span data-line="700"><span class="k">def</span><span class="w"> </span><span class="nf">_fp8_forward</span><span class="p">(</span><span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+</span><span data-line="701">    <span class="c1"># Hardcoding return dtype to torch.float32 - all callers of this private method already cast</span>
+</span><span data-line="702">    <span class="c1"># the incoming tensor to float32.</span>
+</span><span data-line="703">    <span class="k">return</span> <span class="n">tensor</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</span><span data-line="704">
+</span><span data-line="705">
+</span><span data-line="706"><span class="k">def</span><span class="w"> </span><span class="nf">_fp4_forward</span><span class="p">(</span><span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+</span><span data-line="707"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform tensor quantization for fp4 dtype&quot;&quot;&quot;</span>
+</span><span data-line="708">    <span class="kn">from</span><span class="w"> </span><span class="nn">torchao.prototype.mx_formats.kernels</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>  <span class="c1"># noqa: PLC0415</span>
+</span><span data-line="709">        <span class="n">f4_unpacked_to_f32</span><span class="p">,</span>
+</span><span data-line="710">        <span class="n">f32_to_f4_unpacked</span><span class="p">,</span>
+</span><span data-line="711">    <span class="p">)</span>
+</span><span data-line="712">
+</span><span data-line="713">    <span class="n">fp4_bits</span> <span class="o">=</span> <span class="n">f32_to_f4_unpacked</span><span class="p">(</span><span class="n">tensor</span><span class="p">)</span>
+</span><span data-line="714">    <span class="k">return</span> <span class="n">f4_unpacked_to_f32</span><span class="p">(</span><span class="n">fp4_bits</span><span class="p">)</span>
+</span><span data-line="715">
+</span><span data-line="716">
+</span><span data-line="717"><span class="k">def</span><span class="w"> </span><span class="nf">_dequantize_float</span><span class="p">(</span>
+</span><span data-line="718">    <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="719">    <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="720"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="721"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Float dequantization: tensor * scale&quot;&quot;&quot;</span>
+</span><span data-line="722">    <span class="k">return</span> <span class="n">tensor</span> <span class="o">*</span> <span class="n">scale</span>
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../../../../_static/shibuya.js?v=50760d75"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
+      <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+      <script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";
+window.addEventListener("load", () => mermaid.run());
+</script>
+      <script src="../../../../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../../../../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

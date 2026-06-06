@@ -1,0 +1,14 @@
+﻿coreai\_opt.config.CompressionSpec
+==================================
+
+.. currentmodule:: coreai_opt.config
+
+.. autopydantic_model:: CompressionSpec
+
+   
+   
+   
+
+   
+   
+   

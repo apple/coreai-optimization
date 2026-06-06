@@ -1,0 +1,6 @@
+﻿coreai\_opt.quantization.spec.default\_activation\_quantization\_spec
+=====================================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autofunction:: default_activation_quantization_spec

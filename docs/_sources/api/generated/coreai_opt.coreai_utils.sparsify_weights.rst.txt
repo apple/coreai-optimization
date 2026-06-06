@@ -1,0 +1,6 @@
+﻿coreai\_opt.coreai\_utils.sparsify\_weights
+===========================================
+
+.. currentmodule:: coreai_opt.coreai_utils
+
+.. autofunction:: sparsify_weights

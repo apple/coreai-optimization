@@ -1,0 +1,16 @@
+﻿coreai\_opt.inspection.OpInfo
+=============================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autoclass:: OpInfo
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

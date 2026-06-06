@@ -1,0 +1,14 @@
+﻿coreai\_opt.palettization.spec.PerGroupedChannelGranularity
+===========================================================
+
+.. currentmodule:: coreai_opt.palettization.spec
+
+.. autopydantic_model:: PerGroupedChannelGranularity
+
+   
+   
+   
+
+   
+   
+   

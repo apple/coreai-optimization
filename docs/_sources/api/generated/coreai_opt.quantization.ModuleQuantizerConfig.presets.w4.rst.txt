@@ -1,0 +1,16 @@
+w4
+==
+
+.. py:method:: w4(*, axis=None)
+   :noindex:
+
+   int4 weight-only quantization, per-channel symmetric.
+
+   :param axis: Channel axis for per-channel quantization.
+                When ``None`` (default), the axis is auto-resolved based on the module type
+                during quantization.
+   :type axis: int | None
+
+   :returns: int4 weight-only module configuration.
+   :rtype: ModuleQuantizerConfig
+

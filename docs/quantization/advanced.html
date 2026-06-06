@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Deeper Dive - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Palettization" href="../palettization/index.html" /><link rel="prev" title="Config API" href="config.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Deeper Dive"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../api/index.html">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/integration_coreai.html">Integration with Core AI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Quantization</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="config.html">Config API</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Deeper Dive</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../utils/joint_compression.html">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizationSpec.html">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#qat-api-overview-with-custom-schedule">QAT: API overview with custom schedule</a></li>
+<li><a class="reference internal" href="#symmetric-vs-asymmetric-quantization">Symmetric vs asymmetric quantization</a></li>
+<li><a class="reference internal" href="#quantization-defaults-for-known-range-activations">Quantization Defaults for Known-Range Activations</a></li>
+<li><a class="reference internal" href="#customization-options">Customization options</a><ul>
+<li><a class="reference internal" href="#custom-patterns-for-placement-of-activation-quantizers">Custom patterns for placement of activation quantizers</a></li>
+<li><a class="reference internal" href="#custom-hooks-for-quantization-param-calculator">Custom hooks for quantization param calculator</a></li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">Quantization</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Deeper Dive</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="advanced.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="advanced.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="advanced.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="deeper-dive">
+<h1>Deeper Dive<a class="headerlink" href="#deeper-dive" title="Link to this heading">¶</a></h1>
+<section id="qat-api-overview-with-custom-schedule">
+<h2>QAT: API overview with custom schedule<a class="headerlink" href="#qat-api-overview-with-custom-schedule" title="Link to this heading">¶</a></h2>
+<p>The QAT workflow shown in <a class="reference internal" href="overview.html#weight-and-or-activation-quantization-qat-quantization-aware-training"><span class="std std-ref">Quantization Overview</span></a> demonstrates a typical scenario.
+However, one of the hyperparameters that may need to be tuned, for better accuracy, is the “QAT schedule”.
+Through an example, let us see how the API lets us do that.</p>
+<p>Let’s say, here is what we want to do during QAT:</p>
+<ul class="simple">
+<li><p>We want to do QAT for 30 epochs. Each epoch comprises 100 mini-batch grad steps. (Total: 3k steps).</p></li>
+<li><p>For 1.5 epochs, i.e. 150 steps, keep the observers ON (so that quant scales and zp can get updated based on data distribution) while keeping fake quant OFF. This phase would be different than PTQ calibration in that the weights will continue to get updated.</p></li>
+<li><p>Turn on fake quant after 150 steps, so that the model output and loss incorporate the effect of quantization, and gradient updates start to change the weights to adjust to quantization effects. The weight updates will continue till the end of training (30th epoch).</p></li>
+<li><p>At epoch 20 (i.e. step count 2k), we want to turn the observers OFF, so that quant scales and zp stop updating, and the weights can continue to adapt to a model with fixed qparams.</p></li>
+</ul>
+<p>Now let’s see what this would look like in pseudo-code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization</span><span class="w"> </span><span class="kn">import</span> <span class="n">Quantizer</span><span class="p">,</span> <span class="n">QuantizerConfig</span><span class="p">,</span> <span class="n">ModuleQuantizerConfig</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">QATSchedule</span>
+</span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="n">model</span> <span class="o">=</span> <span class="n">MyModel</span><span class="p">()</span>
+</span><span data-line="6"><span class="n">example_inputs</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="7">    <span class="o">...</span>
+</span><span data-line="8"><span class="p">)</span>  <span class="c1"># use a representative data sample when activation quantization is in use</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="c1"># default INT8_INT8 config</span>
+</span><span data-line="11"><span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">(</span>
+</span><span data-line="12">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleQuantizerConfig</span><span class="p">(</span>
+</span><span data-line="13">        <span class="n">qat_schedule</span><span class="o">=</span><span class="n">QATSchedule</span><span class="p">(</span>
+</span><span data-line="14">            <span class="n">enable_observer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>  <span class="c1"># step 0: observers ON, fake quant OFF (to start with)</span>
+</span><span data-line="15">            <span class="n">enable_fake_quant</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span>  <span class="c1"># step 150: observers already ON, fake quant turned ON</span>
+</span><span data-line="16">            <span class="n">disable_observer</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>  <span class="c1"># step 2000: observers turned OFF, fake quant stays ON</span>
+</span><span data-line="17">        <span class="p">)</span>
+</span><span data-line="18">    <span class="p">)</span>
+</span><span data-line="19"><span class="p">)</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="22"><span class="sd"># equivalent yaml config</span>
+</span><span data-line="23"><span class="sd">quantization_config:</span>
+</span><span data-line="24"><span class="sd">  global_config:</span>
+</span><span data-line="25"><span class="sd">    qat_schedule:</span>
+</span><span data-line="26"><span class="sd">      enable_observer: 0</span>
+</span><span data-line="27"><span class="sd">      enable_fake_quant: 150</span>
+</span><span data-line="28"><span class="sd">      disable_observer: 2000</span>
+</span><span data-line="29"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="30">
+</span><span data-line="31"><span class="n">quantizer</span> <span class="o">=</span> <span class="n">Quantizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span data-line="32"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="33">
+</span><span data-line="34"><span class="c1"># Training loop</span>
+</span><span data-line="35">
+</span><span data-line="36"><span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">prepared_model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+</span><span data-line="37"><span class="c1"># define the learning rate scheduler (e.g., reduce LR by half every 5 epochs)</span>
+</span><span data-line="38"><span class="n">scheduler</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">lr_scheduler</span><span class="o">.</span><span class="n">StepLR</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">step_size</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+</span><span data-line="39">
+</span><span data-line="40"><span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">30</span><span class="p">):</span>
+</span><span data-line="41">    <span class="k">with</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">training_mode</span><span class="p">():</span>
+</span><span data-line="42">        <span class="c1"># enter QAT context.</span>
+</span><span data-line="43">        <span class="c1">#  - It will apply the QAT schedule specified in the config.</span>
+</span><span data-line="44">        <span class="c1">#  - It also moves the model to the train mode and resets it back to whatever it was on exiting the context</span>
+</span><span data-line="45">        <span class="k">for</span> <span class="n">batch</span><span class="p">,</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">train_dataloader</span><span class="p">:</span>
+</span><span data-line="46">            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+</span><span data-line="47">            <span class="n">output</span> <span class="o">=</span> <span class="n">prepared_model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</span><span data-line="48">            <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+</span><span data-line="49">            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+</span><span data-line="50">            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>  <span class="c1"># update weights</span>
+</span><span data-line="51">            <span class="c1"># advance the QAT schedule (inside the mini-batch loop as QATschedule is specified in units of &#39;steps&#39;)</span>
+</span><span data-line="52">            <span class="n">quantizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</span><span data-line="53">
+</span><span data-line="54">        <span class="c1"># update the LR. Outside of the mini-batch loop (for per-epoch schedulers)</span>
+</span><span data-line="55">        <span class="n">scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</span><span data-line="56">
+</span><span data-line="57">    <span class="c1"># outside &quot;training_mode&quot; : prepared model restored to validation state (observers off, fake quantization on)</span>
+</span><span data-line="58">    <span class="n">val_metric</span> <span class="o">=</span> <span class="n">validate</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">,</span> <span class="n">val_dataloader</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>If the schedule we wanted to try was slightly different: turn fake quant ON after one epoch, we could use purely epoch-based counting, similar to the LR scheduler:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># default INT8_INT8 config</span>
+</span><span data-line="2"><span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">(</span>
+</span><span data-line="3">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleQuantizerConfig</span><span class="p">(</span>
+</span><span data-line="4">        <span class="n">qat_schedule</span><span class="o">=</span><span class="n">QATSchedule</span><span class="p">(</span>
+</span><span data-line="5">            <span class="n">enable_observer</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>  <span class="c1"># turn observer ON at 0-th epoch</span>
+</span><span data-line="6">            <span class="n">enable_fake_quant</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># turn fake quant ON after 1st epoch</span>
+</span><span data-line="7">            <span class="n">disable_observer</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>  <span class="c1"># turn observer OFF after 20-th epoch</span>
+</span><span data-line="8">        <span class="p">)</span>
+</span><span data-line="9">    <span class="p">)</span>
+</span><span data-line="10"><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">30</span><span class="p">):</span>
+</span><span data-line="13">    <span class="k">with</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">training_mode</span><span class="p">():</span>
+</span><span data-line="14">        <span class="c1"># enter QAT context. It will apply the QAT schedule specified in the config.</span>
+</span><span data-line="15">        <span class="k">for</span> <span class="n">batch</span><span class="p">,</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">train_dataloader</span><span class="p">:</span>
+</span><span data-line="16">            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+</span><span data-line="17">            <span class="n">output</span> <span class="o">=</span> <span class="n">prepared_model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</span><span data-line="18">            <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+</span><span data-line="19">            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+</span><span data-line="20">            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>  <span class="c1"># update weights</span>
+</span><span data-line="21">
+</span><span data-line="22">        <span class="c1"># update the LR. Outside of the mini-batch loop (for per-epoch schedulers)</span>
+</span><span data-line="23">        <span class="n">scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</span><span data-line="24">        <span class="c1"># update the QAT schedule counts. Outside of the mini-batch loop</span>
+</span><span data-line="25">        <span class="n">quantizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</span><span data-line="26">
+</span><span data-line="27">    <span class="c1"># outside &quot;training_mode&quot; : prepared model restored to validation state (observers off, fake quantization on)</span>
+</span><span data-line="28">    <span class="n">val_metric</span> <span class="o">=</span> <span class="n">validate</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">,</span> <span class="n">val_dataloader</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Since <code class="docutils literal notranslate"><span class="pre">QATSchedule</span></code> is a property of <code class="xref py py-class docutils literal notranslate"><span class="pre">ModuleQuantizerConfig</span></code>, different ones can be defined for different modules, to customize the schedule for different parts of the model.</p>
+<p>If not provided it defaults to <code class="docutils literal notranslate"><span class="pre">{enable_observer=0,</span> <span class="pre">enable_fake_quant=0,</span> <span class="pre">disable_observer=∞}</span></code>, which matches the behavior shown in the <a class="reference internal" href="overview.html#weight-and-or-activation-quantization-qat-quantization-aware-training"><span class="std std-ref">QAT example</span></a>.</p>
+<p>If for a certain reason (e.g. if the observer/fake_quantize enablement/disablement needs to be tuned based on values of loss or validation metric instead of a predefined schedule), you do not want to use the <code class="docutils literal notranslate"><span class="pre">QATSchedule</span></code> and want to do it explicitly, it can be done by using the methods <code class="docutils literal notranslate"><span class="pre">enable_observer</span></code>, <code class="docutils literal notranslate"><span class="pre">disable_observer</span></code>, <code class="docutils literal notranslate"><span class="pre">disable_fake_quant</span></code> and <code class="docutils literal notranslate"><span class="pre">enable_fake_quant</span></code>, without invoking the <code class="docutils literal notranslate"><span class="pre">training_mode</span></code> context manager.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization</span><span class="w"> </span><span class="kn">import</span> <span class="n">Quantizer</span><span class="p">,</span> <span class="n">QuantizerConfig</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="c1"># default INT8_INT8 config</span>
+</span><span data-line="4"><span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">()</span>
+</span><span data-line="5"><span class="n">quantizer</span> <span class="o">=</span> <span class="n">Quantizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span>
+</span><span data-line="7">    <span class="n">example_inputs</span>
+</span><span data-line="8"><span class="p">)</span>  <span class="c1"># prepared model: observers OFF, fake quant ON</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="c1"># Training loop</span>
+</span><span data-line="11"><span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">30</span><span class="p">):</span>
+</span><span data-line="12">    <span class="k">if</span> <span class="n">epoch</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="13">        <span class="n">quantizer</span><span class="o">.</span><span class="n">enable_observer</span><span class="p">()</span>  <span class="c1"># update quant scales</span>
+</span><span data-line="14">        <span class="n">quantizer</span><span class="o">.</span><span class="n">disable_fake_quant</span><span class="p">()</span>  <span class="c1"># loss/output does not have effect of quantization</span>
+</span><span data-line="15">    <span class="k">elif</span> <span class="n">epoch</span> <span class="o">&lt;</span> <span class="mi">20</span><span class="p">:</span>
+</span><span data-line="16">        <span class="n">quantizer</span><span class="o">.</span><span class="n">enable_observer</span><span class="p">()</span>  <span class="c1"># update quant scales</span>
+</span><span data-line="17">        <span class="n">quantizer</span><span class="o">.</span><span class="n">enable_fake_quant</span><span class="p">()</span>  <span class="c1"># weight update adjusting to quantization effect</span>
+</span><span data-line="18">    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="19">        <span class="n">quantizer</span><span class="o">.</span><span class="n">disable_observer</span><span class="p">()</span>  <span class="c1"># freeze quant scales</span>
+</span><span data-line="20">        <span class="n">quantizer</span><span class="o">.</span><span class="n">enable_fake_quant</span><span class="p">()</span>
+</span><span data-line="21">
+</span><span data-line="22">    <span class="n">prepared_model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+</span><span data-line="23">
+</span><span data-line="24">    <span class="k">for</span> <span class="n">batch</span><span class="p">,</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">train_dataloader</span><span class="p">:</span>
+</span><span data-line="25">        <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+</span><span data-line="26">        <span class="n">output</span> <span class="o">=</span> <span class="n">prepared_model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</span><span data-line="27">        <span class="n">loss</span> <span class="o">=</span> <span class="n">criterion</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+</span><span data-line="28">        <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+</span><span data-line="29">        <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</span><span data-line="30">
+</span><span data-line="31">    <span class="c1"># validation code</span>
+</span><span data-line="32">
+</span><span data-line="33">    <span class="c1"># get the model in a state apt for validation</span>
+</span><span data-line="34">    <span class="n">prepared_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+</span><span data-line="35">    <span class="n">quantizer</span><span class="o">.</span><span class="n">disable_observer</span><span class="p">()</span>
+</span><span data-line="36">    <span class="n">quantizer</span><span class="o">.</span><span class="n">enable_fake_quant</span><span class="p">()</span>
+</span><span data-line="37">    <span class="n">val_metric</span> <span class="o">=</span> <span class="n">validate</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">,</span> <span class="n">val_dataloader</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="symmetric-vs-asymmetric-quantization">
+<h2>Symmetric vs asymmetric quantization<a class="headerlink" href="#symmetric-vs-asymmetric-quantization" title="Link to this heading">¶</a></h2>
+<p>Quantization maps floating-point values to a fixed set of discrete values (<strong>bins</strong>). The number of bins is determined by the dtype — for example, <code class="docutils literal notranslate"><span class="pre">int8</span></code> has 256 bins (<code class="docutils literal notranslate"><span class="pre">-128</span></code> to <code class="docutils literal notranslate"><span class="pre">127</span></code>), <code class="docutils literal notranslate"><span class="pre">uint8</span></code> has 256 bins (<code class="docutils literal notranslate"><span class="pre">0</span></code> to <code class="docutils literal notranslate"><span class="pre">255</span></code>), and <code class="docutils literal notranslate"><span class="pre">int4</span></code> has 16 bins (<code class="docutils literal notranslate"><span class="pre">-8</span></code> to <code class="docutils literal notranslate"><span class="pre">7</span></code>). Each bin represents a distinct quantized value that a floating-point value can be mapped to.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">qscheme</span></code> controls how these bins are distributed around zero, by determining where the <strong>zero point</strong> is placed:</p>
+<ul class="simple">
+<li><p><strong>Symmetric</strong>: the zero point is fixed at <code class="docutils literal notranslate"><span class="pre">0</span></code> for signed types (<code class="docutils literal notranslate"><span class="pre">int8</span></code>, <code class="docutils literal notranslate"><span class="pre">int4</span></code>) or at the midpoint for unsigned types (<code class="docutils literal notranslate"><span class="pre">128</span></code> for <code class="docutils literal notranslate"><span class="pre">uint8</span></code>, <code class="docutils literal notranslate"><span class="pre">8</span></code> for <code class="docutils literal notranslate"><span class="pre">uint4</span></code>). This places an equal number of bins on both sides of the zero point, which works well when the data distribution is roughly centered around zero.</p></li>
+<li><p><strong>Asymmetric</strong>: the zero point is chosen based on the observed data distribution (running statistics during calibration). This typically places an unequal number of bins on each side of the zero point, which allows the quantized range to better fit skewed distributions — for example, activations that are always non-negative after <code class="docutils literal notranslate"><span class="pre">relu</span></code>.</p></li>
+</ul>
+</section>
+<section id="quantization-defaults-for-known-range-activations">
+<h2>Quantization Defaults for Known-Range Activations<a class="headerlink" href="#quantization-defaults-for-known-range-activations" title="Link to this heading">¶</a></h2>
+<p>In graph mode, certain ops have known output ranges. For these ops, the user’s <code class="docutils literal notranslate"><span class="pre">qscheme</span></code> setting is not respected — the activation is always treated as asymmetric or symmetric depending on the op, regardless of what the user configured. The treatment also differs between <code class="docutils literal notranslate"><span class="pre">relu</span></code> and the <code class="docutils literal notranslate"><span class="pre">sigmoid</span></code> / <code class="docutils literal notranslate"><span class="pre">tanh</span></code> family. For <code class="docutils literal notranslate"><span class="pre">relu</span></code>, only <code class="docutils literal notranslate"><span class="pre">qscheme</span></code> is overridden; <code class="docutils literal notranslate"><span class="pre">dtype</span></code>, scale, and zero point are still derived from the user’s spec and calibration data. For <code class="docutils literal notranslate"><span class="pre">sigmoid</span></code> and <code class="docutils literal notranslate"><span class="pre">tanh</span></code>, scale, zero point, <strong>and</strong> <code class="docutils literal notranslate"><span class="pre">dtype</span></code> are pinned to fixed values (always <code class="docutils literal notranslate"><span class="pre">torch.uint8</span></code>, ignoring whatever <code class="docutils literal notranslate"><span class="pre">dtype</span></code> the user configured).</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Op</p></th>
+<th class="head"><p>Output range</p></th>
+<th class="head"><p>Always treated as</p></th>
+<th class="head"><p>Scale</p></th>
+<th class="head"><p>Zero point</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">relu</span></code></p></td>
+<td><p>[0, ∞)</p></td>
+<td><p>asymmetric</p></td>
+<td><p>dynamic</p></td>
+<td><p>dynamic</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sigmoid</span></code></p></td>
+<td><p>[0, 1]</p></td>
+<td><p>asymmetric</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">/</span> <span class="pre">256</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tanh</span></code></p></td>
+<td><p>[-1, 1]</p></td>
+<td><p>symmetric</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">/</span> <span class="pre">256</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">128</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Relu</strong>: Treated as asymmetric. The user’s <code class="docutils literal notranslate"><span class="pre">qscheme</span></code> is ignored, but <code class="docutils literal notranslate"><span class="pre">dtype</span></code>, scale, and zero point are still derived from the user’s spec and calibration data. The zero point follows <code class="docutils literal notranslate"><span class="pre">zero_point</span> <span class="pre">=</span> <span class="pre">quant_min</span> <span class="pre">-</span> <span class="pre">round(min_val</span> <span class="pre">/</span> <span class="pre">scale)</span></code>. Since <code class="docutils literal notranslate"><span class="pre">relu</span></code>’s observed min is always <code class="docutils literal notranslate"><span class="pre">0</span></code>, the zero point very commonly ends up near <code class="docutils literal notranslate"><span class="pre">quant_min</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">-128</span></code> for <code class="docutils literal notranslate"><span class="pre">int8</span></code>).</p>
+<blockquote>
+<div><p><strong>Motivation for asymmetric <code class="docutils literal notranslate"><span class="pre">relu</span></code> and <code class="docutils literal notranslate"><span class="pre">sigmoid</span></code></strong>: Both ops produce non-negative outputs. With symmetric quantization, the zero point sits at the center of the quantized range, placing half the bins in negative territory that these ops never produce. Those bins are effectively wasted — no floating-point value will ever map to them, reducing quantization resolution by half. Asymmetric treatment shifts the zero point toward the edge of the range so all bins cover values the op actually produces.</p>
+</div></blockquote>
+<p>Eager mode does not perform these adjustments — all activations are quantized uniformly using the user-configured spec.</p>
+</section>
+<section id="customization-options">
+<h2>Customization options<a class="headerlink" href="#customization-options" title="Link to this heading">¶</a></h2>
+<section id="custom-patterns-for-placement-of-activation-quantizers">
+<h3>Custom patterns for placement of activation quantizers<a class="headerlink" href="#custom-patterns-for-placement-of-activation-quantizers" title="Link to this heading">¶</a></h3>
+<p>The graph-mode quantizer uses a pattern registry (<code class="docutils literal notranslate"><span class="pre">_AnnotationPatternRegistry</span></code>) to determine where activation quantizers are placed in the graph. When a pattern matches a subgraph, the quantizer inserts quantize/dequantize nodes around the matched ops’ inputs and outputs.</p>
+<p>To add activation quantization for a custom op with an activation function, subclass <code class="docutils literal notranslate"><span class="pre">NAryActPattern</span></code> and register it. For example, to quantize <code class="docutils literal notranslate"><span class="pre">div</span> <span class="pre">-&gt;</span> <span class="pre">activation</span></code> as a fused pair:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization._graph._annotation_pattern_registry</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">NAryActPattern</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">_AnnotationPatternRegistry</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">_get_all_patterns_from_base_ops</span><span class="p">,</span>
+</span><span data-line="5"><span class="p">)</span>
+</span><span data-line="6">
+</span><span data-line="7">
+</span><span data-line="8"><span class="nd">@_AnnotationPatternRegistry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;div_act&quot;</span><span class="p">)</span>
+</span><span data-line="9"><span class="k">class</span><span class="w"> </span><span class="nc">DivActPattern</span><span class="p">(</span><span class="n">NAryActPattern</span><span class="p">):</span>
+</span><span data-line="10">    <span class="nd">@classmethod</span>
+</span><span data-line="11">    <span class="k">def</span><span class="w"> </span><span class="nf">generate_patterns</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+</span><span data-line="12">        <span class="k">return</span> <span class="n">_get_all_patterns_from_base_ops</span><span class="p">(</span>
+</span><span data-line="13">            <span class="p">{</span><span class="n">torch</span><span class="o">.</span><span class="n">div</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">truediv</span><span class="p">},</span> <span class="n">use_act</span><span class="o">=</span><span class="kc">True</span>
+</span><span data-line="14">        <span class="p">)</span>
+</span></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">use_act=True</span></code> generates patterns for every supported activation function (relu, silu, gelu, etc.) appended to the base op. The quantizer then treats the <code class="docutils literal notranslate"><span class="pre">div</span> <span class="pre">-&gt;</span> <span class="pre">activation</span></code> pair as a single unit, placing quantizers only on the inputs and final output.</p>
+<p>For multi-op chains longer than 2, <code class="docutils literal notranslate"><span class="pre">NAryActPattern</span></code> does not support this — the annotation function raises an error for chains longer than 2. You need to subclass <code class="docutils literal notranslate"><span class="pre">BaseAnnotationPattern</span></code> directly with a custom annotator function. Note that sequential partition matching requires each op type in the chain to be unique (e.g., <code class="docutils literal notranslate"><span class="pre">mul</span> <span class="pre">-&gt;</span> <span class="pre">sub</span></code> works but <code class="docutils literal notranslate"><span class="pre">mul</span> <span class="pre">-&gt;</span> <span class="pre">mul</span> <span class="pre">-&gt;</span> <span class="pre">sub</span></code> does not):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization._graph._annotation_pattern_registry</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">BaseAnnotationPattern</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">_AnnotationPatternRegistry</span><span class="p">,</span>
+</span><span data-line="4"><span class="p">)</span>
+</span><span data-line="5"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization._graph._annotation_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="6">    <span class="n">OpsListPattern</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">Q_ANNOTATION_KEY</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">_get_call_function_node_from_partition</span><span class="p">,</span>
+</span><span data-line="9">    <span class="n">_get_input_qspec_map</span><span class="p">,</span>
+</span><span data-line="10">    <span class="n">_get_output_qspec</span><span class="p">,</span>
+</span><span data-line="11">    <span class="n">is_any_annotated</span><span class="p">,</span>
+</span><span data-line="12">    <span class="n">mark_nodes_as_annotated</span><span class="p">,</span>
+</span><span data-line="13">    <span class="n">match_pattern_with_sequential_partitions</span><span class="p">,</span>
+</span><span data-line="14"><span class="p">)</span>
+</span><span data-line="15"><span class="kn">from</span><span class="w"> </span><span class="nn">torch.ao.quantization.quantizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantizationAnnotation</span>
+</span><span data-line="16">
+</span><span data-line="17">
+</span><span data-line="18"><span class="k">def</span><span class="w"> </span><span class="nf">_annotate_multi_op_match</span><span class="p">(</span>
+</span><span data-line="19">    <span class="n">annotator_match</span><span class="p">,</span> <span class="n">quantization_config</span><span class="p">,</span> <span class="n">shared_observer_nodes</span>
+</span><span data-line="20"><span class="p">):</span>
+</span><span data-line="21"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Annotate a multi-op chain: quantize inputs of first op, output of last op.&quot;&quot;&quot;</span>
+</span><span data-line="22">    <span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">_get_call_function_node_from_partition</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">annotator_match</span><span class="p">]</span>
+</span><span data-line="23">    <span class="k">if</span> <span class="n">is_any_annotated</span><span class="p">(</span><span class="n">nodes</span><span class="p">):</span>
+</span><span data-line="24">        <span class="k">return</span>
+</span><span data-line="25">
+</span><span data-line="26">    <span class="n">first_node</span><span class="p">,</span> <span class="n">last_node</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">nodes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="27">    <span class="n">input_qspec_map</span> <span class="o">=</span> <span class="n">_get_input_qspec_map</span><span class="p">(</span>
+</span><span data-line="28">        <span class="n">first_node</span><span class="o">.</span><span class="n">all_input_nodes</span><span class="p">,</span> <span class="n">quantization_config</span>
+</span><span data-line="29">    <span class="p">)</span>
+</span><span data-line="30">    <span class="n">output_qspec</span> <span class="o">=</span> <span class="n">_get_output_qspec</span><span class="p">(</span>
+</span><span data-line="31">        <span class="n">last_node</span><span class="p">,</span> <span class="n">quantization_config</span><span class="p">,</span> <span class="n">shared_observer_nodes</span>
+</span><span data-line="32">    <span class="p">)</span>
+</span><span data-line="33">
+</span><span data-line="34">    <span class="c1"># Annotate first op with input specs only</span>
+</span><span data-line="35">    <span class="n">first_node</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="n">Q_ANNOTATION_KEY</span><span class="p">]</span> <span class="o">=</span> <span class="n">QuantizationAnnotation</span><span class="p">(</span>
+</span><span data-line="36">        <span class="n">input_qspec_map</span><span class="o">=</span><span class="n">input_qspec_map</span><span class="p">,</span>
+</span><span data-line="37">        <span class="n">_annotated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="38">    <span class="p">)</span>
+</span><span data-line="39">    <span class="c1"># Mark intermediate ops as annotated (no q/dq inserted between them)</span>
+</span><span data-line="40">    <span class="n">mark_nodes_as_annotated</span><span class="p">(</span><span class="n">nodes</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+</span><span data-line="41">    <span class="c1"># Annotate last op with output spec only</span>
+</span><span data-line="42">    <span class="n">last_node</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="n">Q_ANNOTATION_KEY</span><span class="p">]</span> <span class="o">=</span> <span class="n">QuantizationAnnotation</span><span class="p">(</span>
+</span><span data-line="43">        <span class="n">output_qspec</span><span class="o">=</span><span class="n">output_qspec</span><span class="p">,</span>
+</span><span data-line="44">        <span class="n">_annotated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="45">    <span class="p">)</span>
+</span><span data-line="46">
+</span><span data-line="47">
+</span><span data-line="48"><span class="nd">@_AnnotationPatternRegistry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;add_mul_sub&quot;</span><span class="p">)</span>
+</span><span data-line="49"><span class="k">class</span><span class="w"> </span><span class="nc">AddMulSubPattern</span><span class="p">(</span><span class="n">BaseAnnotationPattern</span><span class="p">):</span>
+</span><span data-line="50">    <span class="nd">@classmethod</span>
+</span><span data-line="51">    <span class="k">def</span><span class="w"> </span><span class="nf">get_annotator_func</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+</span><span data-line="52">        <span class="k">return</span> <span class="n">_annotate_multi_op_match</span>
+</span><span data-line="53">
+</span><span data-line="54">    <span class="nd">@classmethod</span>
+</span><span data-line="55">    <span class="k">def</span><span class="w"> </span><span class="nf">generate_patterns</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+</span><span data-line="56">        <span class="c1"># _get_function_or_string_set converts torch functions to string names</span>
+</span><span data-line="57">        <span class="c1"># for torch &gt;= 2.8 compatibility</span>
+</span><span data-line="58">        <span class="n">add_names</span> <span class="o">=</span> <span class="n">_get_function_or_string_set</span><span class="p">({</span><span class="n">torch</span><span class="o">.</span><span class="n">add</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">add</span><span class="p">})</span>
+</span><span data-line="59">        <span class="n">mul_names</span> <span class="o">=</span> <span class="n">_get_function_or_string_set</span><span class="p">({</span><span class="n">torch</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">})</span>
+</span><span data-line="60">        <span class="n">sub_names</span> <span class="o">=</span> <span class="n">_get_function_or_string_set</span><span class="p">({</span><span class="n">torch</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">sub</span><span class="p">})</span>
+</span><span data-line="61">        <span class="k">return</span> <span class="p">[</span>
+</span><span data-line="62">            <span class="n">OpsListPattern</span><span class="p">([</span><span class="n">a</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">s</span><span class="p">])</span>
+</span><span data-line="63">            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">add_names</span>
+</span><span data-line="64">            <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">mul_names</span>
+</span><span data-line="65">            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sub_names</span>
+</span><span data-line="66">        <span class="p">]</span>
+</span><span data-line="67">
+</span><span data-line="68">    <span class="nd">@classmethod</span>
+</span><span data-line="69">    <span class="k">def</span><span class="w"> </span><span class="nf">match_single_pattern</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">pattern</span><span class="p">):</span>
+</span><span data-line="70">        <span class="k">return</span> <span class="n">match_pattern_with_sequential_partitions</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Registering with a key that already exists overwrites the previous pattern with a warning. There is no <code class="docutils literal notranslate"><span class="pre">unregister</span></code> method — to remove a pattern, delete it directly from the registry dict:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">del</span> <span class="n">_AnnotationPatternRegistry</span><span class="o">.</span><span class="n">REGISTRY</span><span class="p">[</span><span class="s2">&quot;add_mul_sub&quot;</span><span class="p">]</span>
+</span></pre></div>
+</div>
+</section>
+<section id="custom-hooks-for-quantization-param-calculator">
+<h3>Custom hooks for quantization param calculator<a class="headerlink" href="#custom-hooks-for-quantization-param-calculator" title="Link to this heading">¶</a></h3>
+<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">QuantizationSpec</span></code> fields <code class="docutils literal notranslate"><span class="pre">qparam_calculator_cls</span></code>, <code class="docutils literal notranslate"><span class="pre">range_calculator_cls</span></code>, and <code class="docutils literal notranslate"><span class="pre">fake_quantize_cls</span></code> are all pluggable via the same registry pattern. To create a custom component:</p>
+<ol class="arabic simple">
+<li><p>Subclass the corresponding base class</p></li>
+<li><p>Register it with <code class="docutils literal notranslate"><span class="pre">&#64;BaseClass.register(&quot;my_key&quot;)</span></code></p></li>
+<li><p>Reference it by string key in <code class="xref py py-class docutils literal notranslate"><span class="pre">QuantizationSpec</span></code></p></li>
+</ol>
+<p>The following example implements a custom qparam calculator that tracks the maximum observed range across all calibration batches (as opposed to <a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html#coreai_opt.quantization.spec.MovingAverageQParamsCalculator" title="coreai_opt.quantization.spec.MovingAverageQParamsCalculator"><code class="xref py py-class docutils literal notranslate"><span class="pre">MovingAverageQParamsCalculator</span></code></a> which uses EMA smoothing):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.spec</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="3">    <span class="n">QParamsCalculatorBase</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">RunningRangeMixin</span><span class="p">,</span>
+</span><span data-line="5"><span class="p">)</span>
+</span><span data-line="6">
+</span><span data-line="7">
+</span><span data-line="8"><span class="nd">@QParamsCalculatorBase</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;max_range&quot;</span><span class="p">)</span>
+</span><span data-line="9"><span class="k">class</span><span class="w"> </span><span class="nc">MaxRangeQParamsCalculator</span><span class="p">(</span><span class="n">RunningRangeMixin</span><span class="p">,</span> <span class="n">QParamsCalculatorBase</span><span class="p">):</span>
+</span><span data-line="10"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Track the widest observed min/max range across all calibration batches.&quot;&quot;&quot;</span>
+</span><span data-line="11">
+</span><span data-line="12">    <span class="k">def</span><span class="w"> </span><span class="nf">update_running_range</span><span class="p">(</span>
+</span><span data-line="13">        <span class="bp">self</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+</span><span data-line="14">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+</span><span data-line="15">        <span class="n">running_min</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">running_min</span><span class="p">,</span> <span class="n">min_val</span><span class="p">)</span>
+</span><span data-line="16">        <span class="n">running_max</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">running_max</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+</span><span data-line="17">        <span class="k">return</span> <span class="n">running_min</span><span class="p">,</span> <span class="n">running_max</span>
+</span></pre></div>
+</div>
+<p>Use it by passing the registered key to <code class="xref py py-class docutils literal notranslate"><span class="pre">QuantizationSpec</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantizationSpec</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">spec</span> <span class="o">=</span> <span class="n">QuantizationSpec</span><span class="p">(</span>
+</span><span data-line="4">    <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">qparam_calculator_cls</span><span class="o">=</span><span class="s2">&quot;max_range&quot;</span><span class="p">,</span>
+</span><span data-line="6"><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">RunningRangeMixin</span></code> provides <code class="docutils literal notranslate"><span class="pre">running_min</span></code>/<code class="docutils literal notranslate"><span class="pre">running_max</span></code> buffers and handles initialization on the first forward pass. Subclasses only need to implement <code class="docutils literal notranslate"><span class="pre">update_running_range()</span></code> to define how the running statistics are updated each batch. For stateless calculators that don’t need running state, subclass <code class="docutils literal notranslate"><span class="pre">QParamsCalculatorBase</span></code> directly and override <code class="docutils literal notranslate"><span class="pre">compute_qparams()</span></code>.</p>
+<p>The same pattern applies to the other pluggable fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">range_calculator_cls</span></code>: subclass <code class="docutils literal notranslate"><span class="pre">RangeCalculatorBase</span></code>, register, and reference by key</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fake_quantize_cls</span></code>: subclass <code class="docutils literal notranslate"><span class="pre">FakeQuantizeImplBase</span></code>, register, and reference by key</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="config.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Config API</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../palettization/index.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Palettization</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../_static/shibuya.js?v=50760d75"></script>
+      <script src="../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

@@ -1,0 +1,6 @@
+﻿coreai\_opt.casting.cast\_to\_16\_bit\_precision
+================================================
+
+.. currentmodule:: coreai_opt.casting
+
+.. autofunction:: cast_to_16_bit_precision

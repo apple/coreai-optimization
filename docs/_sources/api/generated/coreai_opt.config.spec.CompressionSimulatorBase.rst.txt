@@ -1,0 +1,26 @@
+﻿coreai\_opt.config.spec.CompressionSimulatorBase
+================================================
+
+.. currentmodule:: coreai_opt.config.spec
+
+.. autoclass:: CompressionSimulatorBase
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~CompressionSimulatorBase.forward
+      ~CompressionSimulatorBase.get_class
+      ~CompressionSimulatorBase.list_registry_keys
+      ~CompressionSimulatorBase.list_registry_values
+      ~CompressionSimulatorBase.register
+   
+   
+
+   
+   
+   

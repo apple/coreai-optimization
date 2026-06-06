@@ -1,0 +1,26 @@
+﻿coreai\_opt.quantization.spec.MinMaxRangeCalculator
+===================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autoclass:: MinMaxRangeCalculator
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~MinMaxRangeCalculator.forward
+      ~MinMaxRangeCalculator.get_class
+      ~MinMaxRangeCalculator.list_registry_keys
+      ~MinMaxRangeCalculator.list_registry_values
+      ~MinMaxRangeCalculator.register
+   
+   
+
+   
+   
+   

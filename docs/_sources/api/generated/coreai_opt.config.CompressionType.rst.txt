@@ -1,0 +1,22 @@
+﻿coreai\_opt.config.CompressionType
+==================================
+
+.. currentmodule:: coreai_opt.config
+
+.. autoclass:: CompressionType
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~CompressionType.to_coreml_code
+   
+   
+
+   
+   
+   

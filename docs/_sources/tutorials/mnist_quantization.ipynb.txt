@@ -1,0 +1,1163 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "e9d01c5b",
+   "metadata": {},
+   "source": [
+    "# Applying quantization to an MNIST model"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "bfd632e8",
+   "metadata": {},
+   "source": [
+    "In this tutorial, we will be providing a basic introduction to quantizing a model with CoreAI-Opt.\n",
+    "\n",
+    "After the end of this tutorial, you should be familiar with the following:\n",
+    "1. [How to apply CoreAI-Opt's Weight-Only quantization](#Weight-Only-Quantization)\n",
+    "2. [How to apply CoreAI-Opt's Weight + Activation quantization](#Weight-and-Activation-Quantization)\n",
+    "3. [How to apply CoreAI-Opt's Quantization-Aware Training](#Quantization-Aware-Training)\n",
+    "4. [How to export CoreAI-Opt quantized models to Core AI](#Export-to-Core-AI)\n",
+    "\n",
+    "**Table of Contents:**\n",
+    "\n",
+    "- [Setup](#Setup)\n",
+    "  - [MNIST Dataset download](#MNIST-Dataset-download)\n",
+    "  - [Model definition](#Model-definition)\n",
+    "  - [Training and Evaluation](#Training-and-Evaluation)\n",
+    "  - [Train unquantized model](#Train-unquantized-model)\n",
+    "- [Weight Only Quantization](#Weight-Only-Quantization)\n",
+    "- [Weight and Activation Quantization](#Weight-and-Activation-Quantization)\n",
+    "- [Quantization Aware Training](#Quantization-Aware-Training)\n",
+    "- [Export to Core AI](#Export-to-Core-AI)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "23da4e6c",
+   "metadata": {},
+   "source": [
+    "## Setup"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a06e76d0",
+   "metadata": {},
+   "source": [
+    "We will be using a basic CNN model and train it on the MNIST dataset and observe its final accuracy.\n",
+    "\n",
+    "Once we train this CNN model, we will apply quantization to it using `coreai-opt` starting with *weight only quantization (data free)*, then moving to apply calibration data based *weight + activation quantization*, and then finally do *Quantization Aware Training (QAT)*."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "id": "954e0f62",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:19.743254Z",
+     "iopub.status.busy": "2026-06-02T20:30:19.743145Z",
+     "iopub.status.idle": "2026-06-02T20:30:25.633095Z",
+     "shell.execute_reply": "2026-06-02T20:30:25.632674Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "import random\n",
+    "from pathlib import Path\n",
+    "\n",
+    "import numpy as np\n",
+    "import torch\n",
+    "from torch import nn\n",
+    "from torch.utils.data import DataLoader\n",
+    "from torchinfo import summary\n",
+    "from torchvision import datasets, transforms"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "id": "a55c2a50",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:25.634633Z",
+     "iopub.status.busy": "2026-06-02T20:30:25.634532Z",
+     "iopub.status.idle": "2026-06-02T20:30:25.638596Z",
+     "shell.execute_reply": "2026-06-02T20:30:25.637819Z"
+    }
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<torch._C.Generator at 0x11286cc50>"
+      ]
+     },
+     "execution_count": 24,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "SEED = 1976\n",
+    "\n",
+    "random.seed(SEED)\n",
+    "np.random.seed(SEED)\n",
+    "torch.manual_seed(SEED)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "id": "978adffb",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:25.639657Z",
+     "iopub.status.busy": "2026-06-02T20:30:25.639593Z",
+     "iopub.status.idle": "2026-06-02T20:30:25.640980Z",
+     "shell.execute_reply": "2026-06-02T20:30:25.640670Z"
+    },
+    "tags": [
+     "parameters"
+    ]
+   },
+   "outputs": [],
+   "source": [
+    "# Used to save intermediate results and datasets\n",
+    "SAVE_DIRECTORY = \".\""
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "99291311",
+   "metadata": {},
+   "source": [
+    "### MNIST Dataset download\n",
+    "\n",
+    "Helper to download the MNIST dataset with standard normalization applied."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "id": "e0b7cfe7",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:25.642041Z",
+     "iopub.status.busy": "2026-06-02T20:30:25.641985Z",
+     "iopub.status.idle": "2026-06-02T20:30:25.643895Z",
+     "shell.execute_reply": "2026-06-02T20:30:25.643540Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "def mnist_transforms() -> transforms.Compose:\n",
+    "    return transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])\n",
+    "\n",
+    "\n",
+    "def download_mnist_dataset(\n",
+    "    download_path: Path, transform: transforms.Compose | None = None\n",
+    ") -> tuple[datasets.MNIST, datasets.MNIST]:\n",
+    "    if transform is None:\n",
+    "        transform = mnist_transforms()\n",
+    "    train = datasets.MNIST(download_path, train=True, download=True, transform=transform)\n",
+    "    test = datasets.MNIST(download_path, train=False, download=True, transform=transform)\n",
+    "    return train, test"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "1b0dc97e",
+   "metadata": {},
+   "source": [
+    "### Model definition\n",
+    "\n",
+    "A simple CNN with a single Conv2d → ReLU → MaxPool block, followed by Flatten and a Linear classifier."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "id": "8671c764",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:25.644949Z",
+     "iopub.status.busy": "2026-06-02T20:30:25.644881Z",
+     "iopub.status.idle": "2026-06-02T20:30:25.646788Z",
+     "shell.execute_reply": "2026-06-02T20:30:25.646465Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "class MnistNetwork(nn.Module):\n",
+    "    def __init__(self, num_classes: int = 10, state_dict: dict | None = None) -> None:\n",
+    "        super().__init__()\n",
+    "        self.model = nn.Sequential(\n",
+    "            nn.Conv2d(1, 12, 3, padding=1),\n",
+    "            nn.ReLU(),\n",
+    "            nn.MaxPool2d(2, stride=2, padding=0),\n",
+    "            nn.Flatten(),\n",
+    "            nn.Linear(2352, num_classes),\n",
+    "        )\n",
+    "        if state_dict is not None:\n",
+    "            self.load_state_dict(state_dict)\n",
+    "\n",
+    "    def forward(self, x: torch.Tensor) -> torch.Tensor:\n",
+    "        return self.model(x)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "dea5d5f8",
+   "metadata": {},
+   "source": [
+    "### Training and Evaluation\n",
+    "\n",
+    "Standard PyTorch training loop and evaluation function that computes accuracy."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "id": "f48fdf9b",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:25.647793Z",
+     "iopub.status.busy": "2026-06-02T20:30:25.647734Z",
+     "iopub.status.idle": "2026-06-02T20:30:25.650436Z",
+     "shell.execute_reply": "2026-06-02T20:30:25.650092Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "def train_step(model, optimizer, loss_fn, inputs, ground_truth) -> float:\n",
+    "    model.train()\n",
+    "    device = next(model.parameters()).device\n",
+    "    inputs = inputs.to(device)\n",
+    "    ground_truth = ground_truth.to(device)\n",
+    "    optimizer.zero_grad()\n",
+    "    predictions = model(inputs)\n",
+    "    loss = loss_fn(predictions, ground_truth)\n",
+    "    loss.backward()\n",
+    "    optimizer.step()\n",
+    "    return loss.item()\n",
+    "\n",
+    "\n",
+    "def train_epoch(model, train_loader, optimizer, loss_fn) -> float:\n",
+    "    total_loss = 0.0\n",
+    "    for inputs, ground_truth in train_loader:\n",
+    "        loss = train_step(model, optimizer, loss_fn, inputs, ground_truth)\n",
+    "        total_loss += loss\n",
+    "    return total_loss / len(train_loader)\n",
+    "\n",
+    "\n",
+    "def create_adam_optimizer(model: nn.Module, lr: float = 1e-3) -> torch.optim.Adam:\n",
+    "    return torch.optim.Adam(model.parameters(), lr=lr)\n",
+    "\n",
+    "\n",
+    "def eval_model(model: nn.Module, test_dataloader: DataLoader) -> float:\n",
+    "    model.eval()\n",
+    "    device = next(model.parameters()).device\n",
+    "    num_correct = 0\n",
+    "    total = 0\n",
+    "    with torch.no_grad():\n",
+    "        for inputs, ground_truth in test_dataloader:\n",
+    "            inputs = inputs.to(device)\n",
+    "            ground_truth = ground_truth.to(device)\n",
+    "            predictions = model(inputs)\n",
+    "            _, predicted = torch.max(predictions.data, 1)\n",
+    "            total += ground_truth.size(0)\n",
+    "            num_correct += (predicted == ground_truth).sum().item()\n",
+    "    return num_correct / total"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 29,
+   "id": "878f7025",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:25.651409Z",
+     "iopub.status.busy": "2026-06-02T20:30:25.651346Z",
+     "iopub.status.idle": "2026-06-02T20:30:29.724341Z",
+     "shell.execute_reply": "2026-06-02T20:30:29.723620Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "# Download and instantiate datasets\n",
+    "DOWNLOAD_PATH = Path(SAVE_DIRECTORY) / \".mnist_dataset\"\n",
+    "\n",
+    "train_dataset, test_dataset = download_mnist_dataset(\n",
+    "    download_path=DOWNLOAD_PATH\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "id": "35dbf869",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:29.725915Z",
+     "iopub.status.busy": "2026-06-02T20:30:29.725807Z",
+     "iopub.status.idle": "2026-06-02T20:30:29.728330Z",
+     "shell.execute_reply": "2026-06-02T20:30:29.727882Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "BATCH_SIZE = 128\n",
+    "\n",
+    "# Instantiate dataloaders\n",
+    "train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)\n",
+    "test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "49da290c",
+   "metadata": {},
+   "source": [
+    "The CNN model used for this tutorial contains a single Conv2d, ReLU, MaxPool2d, Flatten, and Linear layer. Here's the structure:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "id": "3bbae265",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:29.729514Z",
+     "iopub.status.busy": "2026-06-02T20:30:29.729437Z",
+     "iopub.status.idle": "2026-06-02T20:30:29.736122Z",
+     "shell.execute_reply": "2026-06-02T20:30:29.735702Z"
+    }
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "==========================================================================================\n",
+       "Layer (type:depth-idx)                   Output Shape              Param #\n",
+       "==========================================================================================\n",
+       "MnistNetwork                             [1, 10]                   --\n",
+       "├─Sequential: 1-1                        [1, 10]                   --\n",
+       "│    └─Conv2d: 2-1                       [1, 12, 28, 28]           120\n",
+       "│    └─ReLU: 2-2                         [1, 12, 28, 28]           --\n",
+       "│    └─MaxPool2d: 2-3                    [1, 12, 14, 14]           --\n",
+       "│    └─Flatten: 2-4                      [1, 2352]                 --\n",
+       "│    └─Linear: 2-5                       [1, 10]                   23,530\n",
+       "==========================================================================================\n",
+       "Total params: 23,650\n",
+       "Trainable params: 23,650\n",
+       "Non-trainable params: 0\n",
+       "Total mult-adds (Units.MEGABYTES): 0.12\n",
+       "==========================================================================================\n",
+       "Input size (MB): 0.00\n",
+       "Forward/backward pass size (MB): 0.08\n",
+       "Params size (MB): 0.09\n",
+       "Estimated Total Size (MB): 0.17\n",
+       "=========================================================================================="
+      ]
+     },
+     "execution_count": 31,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "basic_cnn_model = MnistNetwork(num_classes=10)\n",
+    "\n",
+    "# Print summary of model\n",
+    "summary(basic_cnn_model, input_size=(1, 1, 28, 28))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "50719992",
+   "metadata": {},
+   "source": [
+    "### Train unquantized model"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "d94c8b21",
+   "metadata": {},
+   "source": [
+    "Let's train this model (unquantized) so we can get a baseline accuracy. We save the trained weights so we can reload them for each quantization experiment."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "id": "91c17bb8",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:30:29.737695Z",
+     "iopub.status.busy": "2026-06-02T20:30:29.737614Z",
+     "iopub.status.idle": "2026-06-02T20:31:26.858279Z",
+     "shell.execute_reply": "2026-06-02T20:31:26.857732Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "  Epoch 1: loss=0.3126\n",
+      "  Epoch 2: loss=0.1170\n",
+      "  Epoch 3: loss=0.0821\n",
+      "  Epoch 4: loss=0.0669\n",
+      "  Epoch 5: loss=0.0590\n",
+      "  Epoch 6: loss=0.0522\n",
+      "  Epoch 7: loss=0.0481\n",
+      "  Epoch 8: loss=0.0452\n",
+      "  Epoch 9: loss=0.0415\n",
+      "  Epoch 10: loss=0.0379\n"
+     ]
+    }
+   ],
+   "source": [
+    "EPOCHS = 10\n",
+    "\n",
+    "loss_fn = torch.nn.CrossEntropyLoss()\n",
+    "optimizer = create_adam_optimizer(basic_cnn_model)\n",
+    "\n",
+    "basic_cnn_model = basic_cnn_model.to(\"mps\")\n",
+    "\n",
+    "epoch_results = []\n",
+    "for epoch in range(EPOCHS):\n",
+    "    epoch_avg_loss = train_epoch(\n",
+    "        model=basic_cnn_model, train_loader=train_loader, optimizer=optimizer, loss_fn=loss_fn\n",
+    "    )\n",
+    "    epoch_results.append(f\"  Epoch {epoch + 1}: loss={epoch_avg_loss:.4f}\")\n",
+    "\n",
+    "basic_cnn_model = basic_cnn_model.cpu().eval()\n",
+    "print(\"\\n\".join(epoch_results))\n",
+    "\n",
+    "# Save trained weights for reuse in quantization sections\n",
+    "pretrained_state_dict = basic_cnn_model.state_dict()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 33,
+   "id": "fcb3fd97",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:26.859549Z",
+     "iopub.status.busy": "2026-06-02T20:31:26.859477Z",
+     "iopub.status.idle": "2026-06-02T20:31:27.312874Z",
+     "shell.execute_reply": "2026-06-02T20:31:27.312531Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Baseline accuracy: 0.9799\n"
+     ]
+    }
+   ],
+   "source": [
+    "accuracy = eval_model(basic_cnn_model, test_loader)\n",
+    "print(f\"Baseline accuracy: {accuracy:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7aba4ffb",
+   "metadata": {},
+   "source": [
+    "## Weight Only Quantization"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "372df563",
+   "metadata": {},
+   "source": [
+    "Weight-only quantization compresses model weights to a lower precision (e.g., INT8) while keeping activations in full precision (FP32). This is the simplest form of quantization — it requires **no calibration data** and can be applied directly to a trained model."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 34,
+   "id": "7434e08f",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:27.314307Z",
+     "iopub.status.busy": "2026-06-02T20:31:27.314231Z",
+     "iopub.status.idle": "2026-06-02T20:31:32.431993Z",
+     "shell.execute_reply": "2026-06-02T20:31:32.431486Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "from coreai_opt.quantization import (\n",
+    "    ModuleQuantizerConfig,\n",
+    "    QuantizationSpec,\n",
+    "    Quantizer,\n",
+    "    QuantizerConfig,\n",
+    ")\n",
+    "\n",
+    "example_inputs = (torch.randn(1, 1, 28, 28),)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "db85134e",
+   "metadata": {},
+   "source": [
+    "For this tutorial, we will use the `INT8` dtype. Refer to the `QuantizationSpec` reference for all options."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 35,
+   "id": "0218c7aa",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:32.433453Z",
+     "iopub.status.busy": "2026-06-02T20:31:32.433334Z",
+     "iopub.status.idle": "2026-06-02T20:31:32.434987Z",
+     "shell.execute_reply": "2026-06-02T20:31:32.434630Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "WEIGHT_DTYPE = \"int8\""
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7e29c833",
+   "metadata": {},
+   "source": [
+    "`QuantizerConfig` describes how to quantize each operation through three spec keys:\n",
+    "\n",
+    "- `op_state_spec`: state tensors of the op (weights, biases).\n",
+    "- `op_input_spec`: input activations — tensors flowing into the op.\n",
+    "- `op_output_spec`: output activations — tensors flowing out of the op.\n",
+    "\n",
+    "For weight-only quantization, only the `weight` state spec is populated; setting `op_input_spec` and `op_output_spec` to `None` tells the quantizer to leave activations in full precision."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 36,
+   "id": "d1fd4ba2",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:32.436193Z",
+     "iopub.status.busy": "2026-06-02T20:31:32.436132Z",
+     "iopub.status.idle": "2026-06-02T20:31:35.561518Z",
+     "shell.execute_reply": "2026-06-02T20:31:35.561063Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Prepared weight-only quantization with dtype=int8\n"
+     ]
+    }
+   ],
+   "source": [
+    "wo_model = MnistNetwork(num_classes=10, state_dict=pretrained_state_dict)\n",
+    "wo_model.eval()\n",
+    "\n",
+    "weight_spec = QuantizationSpec(dtype=WEIGHT_DTYPE)\n",
+    "\n",
+    "wo_config = QuantizerConfig(\n",
+    "    global_config=ModuleQuantizerConfig(\n",
+    "        op_state_spec={\"weight\": weight_spec},\n",
+    "        op_input_spec=None,\n",
+    "        op_output_spec=None,\n",
+    "    )\n",
+    ")\n",
+    "\n",
+    "wo_quantizer = Quantizer(wo_model, wo_config)\n",
+    "wo_prepared = wo_quantizer.prepare(example_inputs)\n",
+    "print(f\"Prepared weight-only quantization with dtype={WEIGHT_DTYPE}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "18b21f83",
+   "metadata": {},
+   "source": [
+    "> Note: `coreai-opt` also offers `QuantizerConfig.presets.w8()` as a shortcut for the above config."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2a22b012",
+   "metadata": {},
+   "source": [
+    "After calling `prepare()`, the model now has FakeQuantize modules inserted for weight tensors. These simulate quantization during the forward pass."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 37,
+   "id": "db4e1e88",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:35.562857Z",
+     "iopub.status.busy": "2026-06-02T20:31:35.562716Z",
+     "iopub.status.idle": "2026-06-02T20:31:35.988166Z",
+     "shell.execute_reply": "2026-06-02T20:31:35.987707Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Weight-only PTQ accuracy: 0.9800\n"
+     ]
+    }
+   ],
+   "source": [
+    "wo_accuracy = eval_model(wo_prepared, test_loader)\n",
+    "print(f\"Weight-only PTQ accuracy: {wo_accuracy:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3f384f2d",
+   "metadata": {},
+   "source": [
+    "## Weight and Activation Quantization"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cd62a496",
+   "metadata": {},
+   "source": [
+    "Now, let's try using weight + activation quantization through `coreai-opt`. \n",
+    "\n",
+    "Weight + Activation quantization compresses both the model's weights **and** intermediate activation tensors to a lower precision. This provides a greater speedup than weight-only, but requires **calibration data** — representative inputs are run through the model so it can compute appropriate scale and zero-point values for the quantized activations."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "0a72ad38",
+   "metadata": {},
+   "source": [
+    "For this tutorial, we will use the `INT8` dtype for activations. Refer to the `QuantizationSpec` reference for all options."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 38,
+   "id": "ad3be560",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:35.989498Z",
+     "iopub.status.busy": "2026-06-02T20:31:35.989427Z",
+     "iopub.status.idle": "2026-06-02T20:31:35.991013Z",
+     "shell.execute_reply": "2026-06-02T20:31:35.990677Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "ACTIVATION_DTYPE = \"int8\""
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "108f8896",
+   "metadata": {},
+   "source": [
+    "Two changes from the weight-only config:\n",
+    "\n",
+    "- `op_input_spec` and `op_output_spec` are now populated, so activations are quantized too.\n",
+    "- The `\"*\"` key applies the same INT8 spec to every operation input/output."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 39,
+   "id": "14a00586",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:35.992203Z",
+     "iopub.status.busy": "2026-06-02T20:31:35.992144Z",
+     "iopub.status.idle": "2026-06-02T20:31:36.278826Z",
+     "shell.execute_reply": "2026-06-02T20:31:36.251170Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Prepared weight + activation quantization (weight=int8, activation=int8)\n"
+     ]
+    }
+   ],
+   "source": [
+    "wa_model = MnistNetwork(num_classes=10, state_dict=pretrained_state_dict)\n",
+    "wa_model.eval()\n",
+    "\n",
+    "activation_spec = QuantizationSpec(dtype=ACTIVATION_DTYPE)\n",
+    "\n",
+    "wa_config = QuantizerConfig(\n",
+    "    global_config=ModuleQuantizerConfig(\n",
+    "        op_state_spec={\"weight\": weight_spec},\n",
+    "        op_input_spec={\"*\": activation_spec},\n",
+    "        op_output_spec={\"*\": activation_spec},\n",
+    "    )\n",
+    ")\n",
+    "\n",
+    "wa_quantizer = Quantizer(wa_model, wa_config)\n",
+    "wa_prepared = wa_quantizer.prepare(example_inputs)\n",
+    "print(\n",
+    "    f\"Prepared weight + activation quantization (weight={WEIGHT_DTYPE}, activation={ACTIVATION_DTYPE})\"\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ebdec705",
+   "metadata": {},
+   "source": [
+    "We now call `calibration_mode()` and feed it representative inputs to populate scale and zero-point value.\n",
+    "\n",
+    "The `calibration_mode()` context manager enables range observers (to collect activation statistics) while disabling fake quantization (so the forward pass is numerically identical to the unquantized model). After exiting the context, observers are frozen and fake quantization is re-enabled."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 40,
+   "id": "cab3a185",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:36.280748Z",
+     "iopub.status.busy": "2026-06-02T20:31:36.280654Z",
+     "iopub.status.idle": "2026-06-02T20:31:36.295020Z",
+     "shell.execute_reply": "2026-06-02T20:31:36.294576Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Calibrated with 1 batch(es) (128 samples)\n"
+     ]
+    }
+   ],
+   "source": [
+    "NUM_CALIBRATION_BATCHES = 1\n",
+    "\n",
+    "with wa_quantizer.calibration_mode():\n",
+    "    for i, (data, _) in enumerate(train_loader):\n",
+    "        if i >= NUM_CALIBRATION_BATCHES:\n",
+    "            break\n",
+    "        wa_prepared(data)\n",
+    "\n",
+    "print(\n",
+    "    f\"Calibrated with {NUM_CALIBRATION_BATCHES} batch(es) ({NUM_CALIBRATION_BATCHES * BATCH_SIZE} samples)\"\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 41,
+   "id": "a47189f5",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:36.296190Z",
+     "iopub.status.busy": "2026-06-02T20:31:36.296119Z",
+     "iopub.status.idle": "2026-06-02T20:31:37.231601Z",
+     "shell.execute_reply": "2026-06-02T20:31:37.231138Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Weight + Activation accuracy after prepare + calibration: 0.9798\n"
+     ]
+    }
+   ],
+   "source": [
+    "wa_accuracy = eval_model(wa_prepared, test_loader)\n",
+    "print(f\"Weight + Activation accuracy after prepare + calibration: {wa_accuracy:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6b14e1a6",
+   "metadata": {},
+   "source": [
+    "## Quantization Aware Training"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "28d85aa4",
+   "metadata": {},
+   "source": [
+    "Now, let's try to fine-tune the weight + activation quantized model with QAT to recover any accuracy lost from quantization."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6d8dc580",
+   "metadata": {},
+   "source": [
+    "The QAT training loop wraps each epoch in `wa_quantizer.training_mode()`:\n",
+    "\n",
+    "- During the context: fake quantization is enabled and observers are enabled (collecting activation statistics during training batches).\n",
+    "- On exit: observers are frozen; fake quantization stays enabled, so the model is ready for evaluation with quant-aware weights."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 42,
+   "id": "1209c6c2",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:31:37.261881Z",
+     "iopub.status.busy": "2026-06-02T20:31:37.261777Z",
+     "iopub.status.idle": "2026-06-02T20:32:37.589281Z",
+     "shell.execute_reply": "2026-06-02T20:32:37.588767Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "  Epoch 1: loss=0.0276, accuracy=0.9832\n",
+      "  Epoch 2: loss=0.0261, accuracy=0.9828\n",
+      "  Epoch 3: loss=0.0253, accuracy=0.9835\n",
+      "  Epoch 4: loss=0.0249, accuracy=0.9837\n",
+      "  Epoch 5: loss=0.0242, accuracy=0.9830\n",
+      "\n",
+      "QAT final accuracy: 0.9830\n"
+     ]
+    }
+   ],
+   "source": [
+    "QAT_EPOCHS = 5\n",
+    "qat_optimizer = create_adam_optimizer(wa_prepared, lr=1e-4)\n",
+    "\n",
+    "wa_prepared.to(\"mps\")\n",
+    "\n",
+    "for epoch in range(QAT_EPOCHS):\n",
+    "    with wa_quantizer.training_mode():\n",
+    "        epoch_loss = train_epoch(\n",
+    "            model=wa_prepared,\n",
+    "            train_loader=train_loader,\n",
+    "            optimizer=qat_optimizer,\n",
+    "            loss_fn=torch.nn.CrossEntropyLoss(),\n",
+    "        )\n",
+    "\n",
+    "    qat_acc = eval_model(wa_prepared, test_loader)\n",
+    "    print(f\"  Epoch {epoch + 1}: loss={epoch_loss:.4f}, accuracy={qat_acc:.4f}\")\n",
+    "\n",
+    "qat_prepared = wa_prepared.cpu()\n",
+    "print(f\"\\nQAT final accuracy: {qat_acc:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "207ab5e8",
+   "metadata": {},
+   "source": [
+    "## Export to Core AI"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "06636898",
+   "metadata": {},
+   "source": [
+    "Once the quantized model is ready, call `finalize()` to convert the fake quantization modules into the real quantized representation for deployment.\n",
+    "\n",
+    "Pass `ExportBackend.CoreAI` to `finalize(backend=...)` to target the `.aimodel` format produced by `coreai-torch`.\n",
+    "\n",
+    "We'll export the finetuned weight + activation model from the previous section."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 43,
+   "id": "76f11a15",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:32:37.591084Z",
+     "iopub.status.busy": "2026-06-02T20:32:37.591001Z",
+     "iopub.status.idle": "2026-06-02T20:32:39.452909Z",
+     "shell.execute_reply": "2026-06-02T20:32:39.452486Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "from coreai_opt import ExportBackend\n",
+    "\n",
+    "coreai_model = wa_quantizer.finalize(backend=ExportBackend.CoreAI)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "317dbe30",
+   "metadata": {},
+   "source": [
+    "The export proceeds in three steps:\n",
+    "\n",
+    "- Trace the model with `torch.export.export()` to obtain a graph representation.\n",
+    "- Apply `cast_to_16_bit_precision()` to cast remaining FP32 parameters to FP16 for optimal on-device performance.\n",
+    "- Convert the exported program to Core AI format using `coreai-torch.TorchConverter`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 44,
+   "id": "f2b809f3",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-02T20:32:39.454508Z",
+     "iopub.status.busy": "2026-06-02T20:32:39.454440Z",
+     "iopub.status.idle": "2026-06-02T20:32:39.661190Z",
+     "shell.execute_reply": "2026-06-02T20:32:39.660786Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Exported: exported_model.aimodel\n"
+     ]
+    }
+   ],
+   "source": [
+    "import shutil\n",
+    "\n",
+    "from coreai_opt.casting import cast_to_16_bit_precision\n",
+    "from coreai_torch import TorchConverter, get_decomp_table\n",
+    "\n",
+    "exported_program = torch.export.export(coreai_model, example_inputs, strict=False)\n",
+    "exported_program = exported_program.run_decompositions(get_decomp_table())\n",
+    "cast_to_16_bit_precision(exported_program)\n",
+    "\n",
+    "coreai_program = TorchConverter().add_exported_program(exported_program).to_coreai()\n",
+    "coreai_program.optimize()\n",
+    "\n",
+    "output_path = Path(SAVE_DIRECTORY) / \"exported_model.aimodel\"\n",
+    "if output_path.exists():\n",
+    "    shutil.rmtree(output_path)\n",
+    "coreai_program.save_asset(output_path)\n",
+    "print(f\"Exported: {output_path}\")"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": ".venv-tutorial",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.14"
+  },
+  "widgets": {
+   "application/vnd.jupyter.widget-state+json": {
+    "state": {
+     "0cb2b49da1e54aa386c87a7574163883": {
+      "model_module": "@jupyter-widgets/base",
+      "model_module_version": "2.0.0",
+      "model_name": "LayoutModel",
+      "state": {
+       "_model_module": "@jupyter-widgets/base",
+       "_model_module_version": "2.0.0",
+       "_model_name": "LayoutModel",
+       "_view_count": null,
+       "_view_module": "@jupyter-widgets/base",
+       "_view_module_version": "2.0.0",
+       "_view_name": "LayoutView",
+       "align_content": null,
+       "align_items": null,
+       "align_self": null,
+       "border_bottom": null,
+       "border_left": null,
+       "border_right": null,
+       "border_top": null,
+       "bottom": null,
+       "display": null,
+       "flex": null,
+       "flex_flow": null,
+       "grid_area": null,
+       "grid_auto_columns": null,
+       "grid_auto_flow": null,
+       "grid_auto_rows": null,
+       "grid_column": null,
+       "grid_gap": null,
+       "grid_row": null,
+       "grid_template_areas": null,
+       "grid_template_columns": null,
+       "grid_template_rows": null,
+       "height": null,
+       "justify_content": null,
+       "justify_items": null,
+       "left": null,
+       "margin": null,
+       "max_height": null,
+       "max_width": null,
+       "min_height": null,
+       "min_width": null,
+       "object_fit": null,
+       "object_position": null,
+       "order": null,
+       "overflow": null,
+       "padding": null,
+       "right": null,
+       "top": null,
+       "visibility": null,
+       "width": null
+      }
+     },
+     "27a85aecd0f545dfb569e3d5a035439d": {
+      "model_module": "@jupyter-widgets/base",
+      "model_module_version": "2.0.0",
+      "model_name": "LayoutModel",
+      "state": {
+       "_model_module": "@jupyter-widgets/base",
+       "_model_module_version": "2.0.0",
+       "_model_name": "LayoutModel",
+       "_view_count": null,
+       "_view_module": "@jupyter-widgets/base",
+       "_view_module_version": "2.0.0",
+       "_view_name": "LayoutView",
+       "align_content": null,
+       "align_items": null,
+       "align_self": null,
+       "border_bottom": null,
+       "border_left": null,
+       "border_right": null,
+       "border_top": null,
+       "bottom": null,
+       "display": null,
+       "flex": null,
+       "flex_flow": null,
+       "grid_area": null,
+       "grid_auto_columns": null,
+       "grid_auto_flow": null,
+       "grid_auto_rows": null,
+       "grid_column": null,
+       "grid_gap": null,
+       "grid_row": null,
+       "grid_template_areas": null,
+       "grid_template_columns": null,
+       "grid_template_rows": null,
+       "height": null,
+       "justify_content": null,
+       "justify_items": null,
+       "left": null,
+       "margin": null,
+       "max_height": null,
+       "max_width": null,
+       "min_height": null,
+       "min_width": null,
+       "object_fit": null,
+       "object_position": null,
+       "order": null,
+       "overflow": null,
+       "padding": null,
+       "right": null,
+       "top": null,
+       "visibility": null,
+       "width": null
+      }
+     },
+     "82822052bb6b494d851768fb1a125d8f": {
+      "model_module": "@jupyter-widgets/output",
+      "model_module_version": "1.0.0",
+      "model_name": "OutputModel",
+      "state": {
+       "_dom_classes": [],
+       "_model_module": "@jupyter-widgets/output",
+       "_model_module_version": "1.0.0",
+       "_model_name": "OutputModel",
+       "_view_count": null,
+       "_view_module": "@jupyter-widgets/output",
+       "_view_module_version": "1.0.0",
+       "_view_name": "OutputView",
+       "layout": "IPY_MODEL_0cb2b49da1e54aa386c87a7574163883",
+       "msg_id": "",
+       "outputs": [
+        {
+         "data": {
+          "text/html": "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\">Calibrating<span style=\"color: #800080; text-decoration-color: #800080\">  62%</span> <span style=\"color: #f92672; text-decoration-color: #f92672\">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸</span><span style=\"color: #3a3a3a; text-decoration-color: #3a3a3a\">━━━━━━━━━━━━━━━━━━━━━━</span> <span style=\"color: #008000; text-decoration-color: #008000\">10/16 </span> [ <span style=\"color: #808000; text-decoration-color: #808000\">0:00:00</span> &lt; <span style=\"color: #008080; text-decoration-color: #008080\">0:00:01</span> , <span style=\"color: #800000; text-decoration-color: #800000\">53 it/s</span> ]\n</pre>\n",
+          "text/plain": "Calibrating\u001b[35m  62%\u001b[0m \u001b[38;2;249;38;114m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\u001b[38;2;249;38;114m╸\u001b[0m\u001b[38;5;237m━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m10/16 \u001b[0m [ \u001b[33m0:00:00\u001b[0m < \u001b[36m0:00:01\u001b[0m , \u001b[31m53 it/s\u001b[0m ]\n"
+         },
+         "metadata": {},
+         "output_type": "display_data"
+        }
+       ],
+       "tabbable": null,
+       "tooltip": null
+      }
+     },
+     "8fa6ecf14b9d46a18e4f6aece19f6f20": {
+      "model_module": "@jupyter-widgets/output",
+      "model_module_version": "1.0.0",
+      "model_name": "OutputModel",
+      "state": {
+       "_dom_classes": [],
+       "_model_module": "@jupyter-widgets/output",
+       "_model_module_version": "1.0.0",
+       "_model_name": "OutputModel",
+       "_view_count": null,
+       "_view_module": "@jupyter-widgets/output",
+       "_view_module_version": "1.0.0",
+       "_view_name": "OutputView",
+       "layout": "IPY_MODEL_27a85aecd0f545dfb569e3d5a035439d",
+       "msg_id": "",
+       "outputs": [
+        {
+         "data": {
+          "text/html": "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\">QAT Training<span style=\"color: #800080; text-decoration-color: #800080\">  80%</span> <span style=\"color: #f92672; text-decoration-color: #f92672\">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸</span><span style=\"color: #3a3a3a; text-decoration-color: #3a3a3a\">━━━━━━━━━━━━</span> <span style=\"color: #008000; text-decoration-color: #008000\">4/5 </span> [ <span style=\"color: #808000; text-decoration-color: #808000\">0:01:04</span> &lt; <span style=\"color: #008080; text-decoration-color: #008080\">0:00:13</span> , <span style=\"color: #800000; text-decoration-color: #800000\">0 it/s</span> ]\n</pre>\n",
+          "text/plain": "QAT Training\u001b[35m  80%\u001b[0m \u001b[38;2;249;38;114m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m\u001b[38;2;249;38;114m╸\u001b[0m\u001b[38;5;237m━━━━━━━━━━━━\u001b[0m \u001b[32m4/5 \u001b[0m [ \u001b[33m0:01:04\u001b[0m < \u001b[36m0:00:13\u001b[0m , \u001b[31m0 it/s\u001b[0m ]\n"
+         },
+         "metadata": {},
+         "output_type": "display_data"
+        }
+       ],
+       "tabbable": null,
+       "tooltip": null
+      }
+     }
+    },
+    "version_major": 2,
+    "version_minor": 0
+   }
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

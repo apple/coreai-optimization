@@ -1,0 +1,14 @@
+﻿coreai\_opt.quantization.config.QATSchedule
+===========================================
+
+.. currentmodule:: coreai_opt.quantization.config
+
+.. autopydantic_model:: QATSchedule
+
+   
+   
+   
+
+   
+   
+   

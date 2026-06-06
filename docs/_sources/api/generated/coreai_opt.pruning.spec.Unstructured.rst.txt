@@ -1,0 +1,14 @@
+﻿coreai\_opt.pruning.spec.Unstructured
+=====================================
+
+.. currentmodule:: coreai_opt.pruning.spec
+
+.. autopydantic_model:: Unstructured
+
+   
+   
+   
+
+   
+   
+   

@@ -1,0 +1,31 @@
+﻿coreai\_opt.quantization.spec.GlobalMinMaxQParamsCalculator
+===========================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autoclass:: GlobalMinMaxQParamsCalculator
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~GlobalMinMaxQParamsCalculator.compute_qparams
+      ~GlobalMinMaxQParamsCalculator.extra_repr
+      ~GlobalMinMaxQParamsCalculator.forward
+      ~GlobalMinMaxQParamsCalculator.get_class
+      ~GlobalMinMaxQParamsCalculator.get_qparams
+      ~GlobalMinMaxQParamsCalculator.list_registry_keys
+      ~GlobalMinMaxQParamsCalculator.list_registry_values
+      ~GlobalMinMaxQParamsCalculator.register
+      ~GlobalMinMaxQParamsCalculator.set_export_mode
+      ~GlobalMinMaxQParamsCalculator.update_running_range
+   
+   
+
+   
+   
+   

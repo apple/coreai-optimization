@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>API Reference - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="coreai_opt.CoreMLExportError" href="generated/coreai_opt.CoreMLExportError.html" /><link rel="prev" title="Compressing Core AI Models" href="../utils/coreai_compression.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="API Reference"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="#">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/integration_coreai.html">Integration with Core AI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/config.html">Config API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/advanced.html">Deeper Dive</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../utils/joint_compression.html">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.QuantizationSpec.html">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#coreai-opt">coreai_opt</a></li>
+<li><a class="reference internal" href="#coreai-opt-casting">coreai_opt.casting</a></li>
+<li><a class="reference internal" href="#coreai-opt-config">coreai_opt.config</a><ul>
+<li><a class="reference internal" href="#coreai-opt-config-spec">coreai_opt.config.spec</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#coreai-opt-coreai-utils">coreai_opt.coreai_utils</a><ul>
+<li><a class="reference internal" href="#coreai-opt-coreai-utils-common">coreai_opt.coreai_utils.common</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#coreai-opt-inspection">coreai_opt.inspection</a></li>
+<li><a class="reference internal" href="#coreai-opt-palettization">coreai_opt.palettization</a><ul>
+<li><a class="reference internal" href="#coreai-opt-palettization-config">coreai_opt.palettization.config</a></li>
+<li><a class="reference internal" href="#coreai-opt-palettization-spec">coreai_opt.palettization.spec</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#coreai-opt-pruning">coreai_opt.pruning</a><ul>
+<li><a class="reference internal" href="#coreai-opt-pruning-config">coreai_opt.pruning.config</a></li>
+<li><a class="reference internal" href="#coreai-opt-pruning-spec">coreai_opt.pruning.spec</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#coreai-opt-quantization">coreai_opt.quantization</a><ul>
+<li><a class="reference internal" href="#coreai-opt-quantization-config">coreai_opt.quantization.config</a></li>
+<li><a class="reference internal" href="#coreai-opt-quantization-spec">coreai_opt.quantization.spec</a></li>
+<li><a class="reference internal" href="#coreai-opt-quantization-spec-fake-quantize">coreai_opt.quantization.spec.fake_quantize</a></li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">API Reference</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="index.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="index.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="index.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">¶</a></h1>
+<section id="coreai-opt">
+<h2>coreai_opt<a class="headerlink" href="#coreai-opt" title="Link to this heading">¶</a></h2>
+<p>coreai_opt - A library for PyTorch model compression and optimizations.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.CoreMLExportError.html#coreai_opt.CoreMLExportError" title="coreai_opt.CoreMLExportError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.CoreMLExportError</span></code></a>(dtype, context)</p></td>
+<td><p>Raised when a model cannot be exported to the CoreML backend.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.ExportBackend.html#coreai_opt.ExportBackend" title="coreai_opt.ExportBackend"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.ExportBackend</span></code></a>(value, *args, **kwargs)</p></td>
+<td><p>Enum representing supported model export backends.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="coreai-opt-casting">
+<h2>coreai_opt.casting<a class="headerlink" href="#coreai-opt-casting" title="Link to this heading">¶</a></h2>
+<p>Casting related utilities including FP32 -&gt; FP16 and INT32 -&gt; INT16 passes.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.casting.cast_fp32_to_fp16.html#coreai_opt.casting.cast_fp32_to_fp16" title="coreai_opt.casting.cast_fp32_to_fp16"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.casting.cast_fp32_to_fp16</span></code></a>(...)</p></td>
+<td><p>Convert a torch exported program from FP32 to FP16 where applicable.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.casting.cast_int32_to_int16.html#coreai_opt.casting.cast_int32_to_int16" title="coreai_opt.casting.cast_int32_to_int16"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.casting.cast_int32_to_int16</span></code></a>(...)</p></td>
+<td><p>Convert INT32/INT64 tensors to INT16 in a torch exported program.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.casting.cast_to_16_bit_precision.html#coreai_opt.casting.cast_to_16_bit_precision" title="coreai_opt.casting.cast_to_16_bit_precision"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.casting.cast_to_16_bit_precision</span></code></a>(...)</p></td>
+<td><p>Convert a torch exported program to 16-bit precision: FP32→FP16 and INT32/64→INT16.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="coreai-opt-config">
+<h2>coreai_opt.config<a class="headerlink" href="#coreai-opt-config" title="Link to this heading">¶</a></h2>
+<p>Configuration and specification modules for coreai_opt.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.config.CompressionConfig.html#coreai_opt.config.CompressionConfig" title="coreai_opt.config.CompressionConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.CompressionConfig</span></code></a></p></td>
+<td><p>Top level configuration class for model compression.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.config.CompressionSpec.html#coreai_opt.config.CompressionSpec" title="coreai_opt.config.CompressionSpec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.CompressionSpec</span></code></a></p></td>
+<td><p>Base class for compression specifications.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.config.CompressionType.html#coreai_opt.config.CompressionType" title="coreai_opt.config.CompressionType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.CompressionType</span></code></a>(value[, ...])</p></td>
+<td><p>Enum representing compression techniques applied to the model.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.config.ModuleCompressionConfig.html#coreai_opt.config.ModuleCompressionConfig" title="coreai_opt.config.ModuleCompressionConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.ModuleCompressionConfig</span></code></a></p></td>
+<td><p>Abstract base configuration class for module-level compression settings.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.config.OpCompressionConfig.html#coreai_opt.config.OpCompressionConfig" title="coreai_opt.config.OpCompressionConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.OpCompressionConfig</span></code></a></p></td>
+<td><p>Abstract base configuration class for op-level compression settings.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html#coreai_opt.config.WeightOnlyModuleValidationMixin" title="coreai_opt.config.WeightOnlyModuleValidationMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.WeightOnlyModuleValidationMixin</span></code></a>()</p></td>
+<td><p>Mixin that adds weight-only validation to ModuleCompressionConfig subclasses.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.config.WeightOnlyOpValidationMixin.html#coreai_opt.config.WeightOnlyOpValidationMixin" title="coreai_opt.config.WeightOnlyOpValidationMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.WeightOnlyOpValidationMixin</span></code></a>()</p></td>
+<td><p>Mixin that adds weight-only validation to OpCompressionConfig subclasses.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="coreai-opt-config-spec">
+<h3>coreai_opt.config.spec<a class="headerlink" href="#coreai-opt-config-spec" title="Link to this heading">¶</a></h3>
+<p>Base abstractions for compression specs, simulators, and component factories.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html#coreai_opt.config.spec.CompressionComponentFactoryBase" title="coreai_opt.config.spec.CompressionComponentFactoryBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.spec.CompressionComponentFactoryBase</span></code></a>()</p></td>
+<td><p>Abstract base class for compression component factories.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.config.spec.CompressionSimulatorBase.html#coreai_opt.config.spec.CompressionSimulatorBase" title="coreai_opt.config.spec.CompressionSimulatorBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.spec.CompressionSimulatorBase</span></code></a>(...)</p></td>
+<td><p>Abstract base class for compression simulators.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.config.spec.CompressionTargetTensor.html#coreai_opt.config.spec.CompressionTargetTensor" title="coreai_opt.config.spec.CompressionTargetTensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.config.spec.CompressionTargetTensor</span></code></a>(value)</p></td>
+<td><p>Enum to specify the target tensor for compression.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="coreai-opt-coreai-utils">
+<h2>coreai_opt.coreai_utils<a class="headerlink" href="#coreai-opt-coreai-utils" title="Link to this heading">¶</a></h2>
+<p>Core AI MLIR-level compression transforms.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.coreai_utils.CompressionGranularity.html#coreai_opt.coreai_utils.CompressionGranularity" title="coreai_opt.coreai_utils.CompressionGranularity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.coreai_utils.CompressionGranularity</span></code></a>(value)</p></td>
+<td><p>Enum representing the granularity of quantization for Core AI weight compression.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.coreai_utils.DType.html#coreai_opt.coreai_utils.DType" title="coreai_opt.coreai_utils.DType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.coreai_utils.DType</span></code></a>(value[, ...])</p></td>
+<td><p>Enum representing data types for Core AI weight compression.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.coreai_utils.palettize_weights.html#coreai_opt.coreai_utils.palettize_weights" title="coreai_opt.coreai_utils.palettize_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.coreai_utils.palettize_weights</span></code></a>(...)</p></td>
+<td><p>Palettize weights in a Core AI AIProgram (MLIR&lt;CoreAI&gt; IR) by using Core AI ops.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.coreai_utils.quantize_weights.html#coreai_opt.coreai_utils.quantize_weights" title="coreai_opt.coreai_utils.quantize_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.coreai_utils.quantize_weights</span></code></a>(...)</p></td>
+<td><p>Quantize weights in a Core AI AIProgram (MLIR&lt;CoreAI&gt; IR) by using Core AI ops.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.coreai_utils.sparsify_weights.html#coreai_opt.coreai_utils.sparsify_weights" title="coreai_opt.coreai_utils.sparsify_weights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.coreai_utils.sparsify_weights</span></code></a>(...)</p></td>
+<td><p>Sparsify weights in a Core AI AIProgram (MLIR&lt;CoreAI&gt; IR) by using Core AI ops.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="coreai-opt-coreai-utils-common">
+<h3>coreai_opt.coreai_utils.common<a class="headerlink" href="#coreai-opt-coreai-utils-common" title="Link to this heading">¶</a></h3>
+<p>Common enums and constants for coreai_opt.coreai_utils.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.coreai_utils.common.QScheme.html#coreai_opt.coreai_utils.common.QScheme" title="coreai_opt.coreai_utils.common.QScheme"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.coreai_utils.common.QScheme</span></code></a>(value)</p></td>
+<td><p>Enum representing the quantization scheme.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="coreai-opt-inspection">
+<h2>coreai_opt.inspection<a class="headerlink" href="#coreai-opt-inspection" title="Link to this heading">¶</a></h2>
+<p>Utilities for inspecting model operations and compression configuration.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.inspection.ModelInspector.html#coreai_opt.inspection.ModelInspector" title="coreai_opt.inspection.ModelInspector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.inspection.ModelInspector</span></code></a>(model, ...)</p></td>
+<td><p>Inspect operations in a PyTorch model for compression configuration.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.inspection.ModelSummary.html#coreai_opt.inspection.ModelSummary" title="coreai_opt.inspection.ModelSummary"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.inspection.ModelSummary</span></code></a>(model, mode)</p></td>
+<td><p>Complete listing of operations discovered in a model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.inspection.ModuleContext.html#coreai_opt.inspection.ModuleContext" title="coreai_opt.inspection.ModuleContext"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.inspection.ModuleContext</span></code></a>(...)</p></td>
+<td><p>One level of the <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> nesting hierarchy.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.inspection.ModuleInfo.html#coreai_opt.inspection.ModuleInfo" title="coreai_opt.inspection.ModuleInfo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.inspection.ModuleInfo</span></code></a>(...)</p></td>
+<td><p>A node in the <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> hierarchy with its directly-owned ops.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.OpInfo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.inspection.OpInfo</span></code></a>(op_name, ...)</p></td>
+<td><p>Information about a single operation discovered in a model.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.inspection.SourceFrame.html#coreai_opt.inspection.SourceFrame" title="coreai_opt.inspection.SourceFrame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.inspection.SourceFrame</span></code></a>(filename, ...)</p></td>
+<td><p>A single frame in the source call stack leading to an operation.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="coreai-opt-palettization">
+<h2>coreai_opt.palettization<a class="headerlink" href="#coreai-opt-palettization" title="Link to this heading">¶</a></h2>
+<p>Palettization specification and utilities for weight compression via lookup tables.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.palettization.KMeansPalettizer.html#coreai_opt.palettization.KMeansPalettizer" title="coreai_opt.palettization.KMeansPalettizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.palettization.KMeansPalettizer</span></code></a>(model)</p></td>
+<td><p>K-means palettizer with integrated supported operations strategy.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.palettization.KMeansPalettizerConfig.html#coreai_opt.palettization.KMeansPalettizerConfig" title="coreai_opt.palettization.KMeansPalettizerConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.palettization.KMeansPalettizerConfig</span></code></a></p></td>
+<td><p>Top-level configuration class for kmeans palettization.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html#coreai_opt.palettization.ModuleKMeansPalettizerConfig" title="coreai_opt.palettization.ModuleKMeansPalettizerConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.palettization.ModuleKMeansPalettizerConfig</span></code></a></p></td>
+<td><p>Configuration for palettizing a specific module using K-means clustering.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.palettization.PalettizationSpec.html#coreai_opt.palettization.PalettizationSpec" title="coreai_opt.palettization.PalettizationSpec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.palettization.PalettizationSpec</span></code></a></p></td>
+<td><p>Specification for palettization compression of neural network weights.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="coreai-opt-palettization-config">
+<h3>coreai_opt.palettization.config<a class="headerlink" href="#coreai-opt-palettization-config" title="Link to this heading">¶</a></h3>
+<p>Palettization configuration classes.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html#coreai_opt.palettization.config.OpKMeansPalettizerConfig" title="coreai_opt.palettization.config.OpKMeansPalettizerConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.palettization.config.OpKMeansPalettizerConfig</span></code></a></p></td>
+<td><p>Configuration class for palettization at the operation level.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="coreai-opt-palettization-spec">
+<h3>coreai_opt.palettization.spec<a class="headerlink" href="#coreai-opt-palettization-spec" title="Link to this heading">¶</a></h3>
+<p>Palettization specs, granularity classes, and factory functions.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.palettization.spec.PalettizationGranularity.html#coreai_opt.palettization.spec.PalettizationGranularity" title="coreai_opt.palettization.spec.PalettizationGranularity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.palettization.spec.PalettizationGranularity</span></code></a></p></td>
+<td><p>Base class for palettization granularity specifications.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html#coreai_opt.palettization.spec.PerGroupedChannelGranularity" title="coreai_opt.palettization.spec.PerGroupedChannelGranularity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.palettization.spec.PerGroupedChannelGranularity</span></code></a></p></td>
+<td><p>Per-grouped-channel palettization granularity.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.palettization.spec.PerTensorGranularity.html#coreai_opt.palettization.spec.PerTensorGranularity" title="coreai_opt.palettization.spec.PerTensorGranularity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.palettization.spec.PerTensorGranularity</span></code></a></p></td>
+<td><p>Per-tensor palettization granularity.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html#coreai_opt.palettization.spec.default_weight_palettization_spec" title="coreai_opt.palettization.spec.default_weight_palettization_spec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.palettization.spec.default_weight_palettization_spec</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="coreai-opt-pruning">
+<h2>coreai_opt.pruning<a class="headerlink" href="#coreai-opt-pruning" title="Link to this heading">¶</a></h2>
+<p>Pruning infrastructure for coreai_opt.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.MagnitudePruner.html#coreai_opt.pruning.MagnitudePruner" title="coreai_opt.pruning.MagnitudePruner"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.MagnitudePruner</span></code></a>(model[, ...])</p></td>
+<td><p>Apply magnitude-based pruning to a model.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.MagnitudePrunerConfig.html#coreai_opt.pruning.MagnitudePrunerConfig" title="coreai_opt.pruning.MagnitudePrunerConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.MagnitudePrunerConfig</span></code></a></p></td>
+<td><p>Top-level configuration for magnitude pruning.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html#coreai_opt.pruning.ModuleMagnitudePrunerConfig" title="coreai_opt.pruning.ModuleMagnitudePrunerConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.ModuleMagnitudePrunerConfig</span></code></a></p></td>
+<td><p>Module-level pruning configuration.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.PruningSpec.html#coreai_opt.pruning.PruningSpec" title="coreai_opt.pruning.PruningSpec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.PruningSpec</span></code></a></p></td>
+<td><p>Specification for pruning tensors.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="coreai-opt-pruning-config">
+<h3>coreai_opt.pruning.config<a class="headerlink" href="#coreai-opt-pruning-config" title="Link to this heading">¶</a></h3>
+<p>Pruning configuration exports.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html#coreai_opt.pruning.config.ConstantSparsitySchedule" title="coreai_opt.pruning.config.ConstantSparsitySchedule"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.config.ConstantSparsitySchedule</span></code></a></p></td>
+<td><p>Step function: zero before <code class="docutils literal notranslate"><span class="pre">begin_step</span></code>, <code class="docutils literal notranslate"><span class="pre">target_sparsity</span></code> at and after.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html#coreai_opt.pruning.config.OpMagnitudePrunerConfig" title="coreai_opt.pruning.config.OpMagnitudePrunerConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.config.OpMagnitudePrunerConfig</span></code></a></p></td>
+<td><p>Operation-level pruning configuration.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html#coreai_opt.pruning.config.PolynomialDecaySchedule" title="coreai_opt.pruning.config.PolynomialDecaySchedule"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.config.PolynomialDecaySchedule</span></code></a></p></td>
+<td><p>Polynomial schedule from <code class="docutils literal notranslate"><span class="pre">initial_sparsity</span></code> to <code class="docutils literal notranslate"><span class="pre">target_sparsity</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.config.SparsityScheduleBase.html#coreai_opt.pruning.config.SparsityScheduleBase" title="coreai_opt.pruning.config.SparsityScheduleBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.config.SparsityScheduleBase</span></code></a></p></td>
+<td><p>Abstract base for sparsity schedules used by <code class="docutils literal notranslate"><span class="pre">MagnitudePruner</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="coreai-opt-pruning-spec">
+<h3>coreai_opt.pruning.spec<a class="headerlink" href="#coreai-opt-pruning-spec" title="Link to this heading">¶</a></h3>
+<p>Pruning spec components: specs, schemes, and parametrizations.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.spec.ChannelStructured.html#coreai_opt.pruning.spec.ChannelStructured" title="coreai_opt.pruning.spec.ChannelStructured"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.spec.ChannelStructured</span></code></a></p></td>
+<td><p>Channel-structured pruning scheme.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase" title="coreai_opt.pruning.spec.PruneImplBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.spec.PruneImplBase</span></code></a>(...)</p></td>
+<td><p>Abstract base for pruning parametrizations that mask a layer's weight.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.spec.PruningScheme.html#coreai_opt.pruning.spec.PruningScheme" title="coreai_opt.pruning.spec.PruningScheme"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.spec.PruningScheme</span></code></a></p></td>
+<td><p>Base class for pruning scheme specifications.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.spec.Unstructured.html#coreai_opt.pruning.spec.Unstructured" title="coreai_opt.pruning.spec.Unstructured"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.spec.Unstructured</span></code></a></p></td>
+<td><p>Unstructured pruning scheme.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html#coreai_opt.pruning.spec.default_weight_pruning_spec" title="coreai_opt.pruning.spec.default_weight_pruning_spec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.pruning.spec.default_weight_pruning_spec</span></code></a>()</p></td>
+<td><p>Return the default pruning spec for weight tensors.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="coreai-opt-quantization">
+<h2>coreai_opt.quantization<a class="headerlink" href="#coreai-opt-quantization" title="Link to this heading">¶</a></h2>
+<p>Quantization compressor, configuration, specs, and granularity classes.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.ExecutionMode.html#coreai_opt.quantization.ExecutionMode" title="coreai_opt.quantization.ExecutionMode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.ExecutionMode</span></code></a>(value, ...)</p></td>
+<td><p>Enum representing quantization execution modes.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.ModuleQuantizerConfig.html#coreai_opt.quantization.ModuleQuantizerConfig" title="coreai_opt.quantization.ModuleQuantizerConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.ModuleQuantizerConfig</span></code></a></p></td>
+<td><p>Configuration class for quantization at the module level.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec" title="coreai_opt.quantization.QuantizationSpec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.QuantizationSpec</span></code></a></p></td>
+<td><p>Specification for quantizing tensors in neural networks.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer" title="coreai_opt.quantization.Quantizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.Quantizer</span></code></a>(model[, ...])</p></td>
+<td><p>Unified quantizer API that provides a single entry point for various quantization workflows, including:</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.QuantizerConfig.html#coreai_opt.quantization.QuantizerConfig" title="coreai_opt.quantization.QuantizerConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.QuantizerConfig</span></code></a></p></td>
+<td><p>Top-level configuration class for quantization.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="coreai-opt-quantization-config">
+<h3>coreai_opt.quantization.config<a class="headerlink" href="#coreai-opt-quantization-config" title="Link to this heading">¶</a></h3>
+<p>Quantization configuration classes and execution mode.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.config.OpQuantizerConfig.html#coreai_opt.quantization.config.OpQuantizerConfig" title="coreai_opt.quantization.config.OpQuantizerConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.config.OpQuantizerConfig</span></code></a></p></td>
+<td><p>Configuration class for quantization at the operation level.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.config.QATSchedule.html#coreai_opt.quantization.config.QATSchedule" title="coreai_opt.quantization.config.QATSchedule"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.config.QATSchedule</span></code></a></p></td>
+<td><p>Schedule for controlling observer and fake quantization state in QAT.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="coreai-opt-quantization-spec">
+<h3>coreai_opt.quantization.spec<a class="headerlink" href="#coreai-opt-quantization-spec" title="Link to this heading">¶</a></h3>
+<p>Quantization specs, schemes, granularity classes, and parameter calculators.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator" title="coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</span></code></a>(...)</p></td>
+<td><p>Computes scale and zero point by tracking the running min/max.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html#coreai_opt.quantization.spec.MinMaxRangeCalculator" title="coreai_opt.quantization.spec.MinMaxRangeCalculator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.MinMaxRangeCalculator</span></code></a>(...)</p></td>
+<td><p>Range calculator that computes the range of a given tensor as the min and max values of the tensor.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html#coreai_opt.quantization.spec.MovingAverageQParamsCalculator" title="coreai_opt.quantization.spec.MovingAverageQParamsCalculator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</span></code></a>(...)</p></td>
+<td><p>Computes the scale and zero point using a moving average of the range.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.PerBlockGranularity.html#coreai_opt.quantization.spec.PerBlockGranularity" title="coreai_opt.quantization.spec.PerBlockGranularity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.PerBlockGranularity</span></code></a></p></td>
+<td><p>Per-block quantization granularity.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.PerChannelGranularity.html#coreai_opt.quantization.spec.PerChannelGranularity" title="coreai_opt.quantization.spec.PerChannelGranularity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.PerChannelGranularity</span></code></a></p></td>
+<td><p>Per-channel quantization granularity.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.PerTensorGranularity.html#coreai_opt.quantization.spec.PerTensorGranularity" title="coreai_opt.quantization.spec.PerTensorGranularity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.PerTensorGranularity</span></code></a></p></td>
+<td><p>Per-tensor quantization granularity.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html#coreai_opt.quantization.spec.QParamsCalculatorBase" title="coreai_opt.quantization.spec.QParamsCalculatorBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.QParamsCalculatorBase</span></code></a>(...)</p></td>
+<td><p>Base class for implementing logic to calculate quantization parameters (scale, zero_point, minval) given min/max values.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html#coreai_opt.quantization.spec.QuantizationComponentFactory" title="coreai_opt.quantization.spec.QuantizationComponentFactory"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.QuantizationComponentFactory</span></code></a>()</p></td>
+<td><p>Factory class for creating quantization components from QuantizationSpec.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.QuantizationFormulation.html#coreai_opt.quantization.spec.QuantizationFormulation" title="coreai_opt.quantization.spec.QuantizationFormulation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.QuantizationFormulation</span></code></a>(value)</p></td>
+<td><p>Formula used to map between quantized integers and dequantized values.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.QuantizationGranularity.html#coreai_opt.quantization.spec.QuantizationGranularity" title="coreai_opt.quantization.spec.QuantizationGranularity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.QuantizationGranularity</span></code></a></p></td>
+<td><p>Base class for quantization granularity specifications.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.QuantizationScheme.html#coreai_opt.quantization.spec.QuantizationScheme" title="coreai_opt.quantization.spec.QuantizationScheme"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.QuantizationScheme</span></code></a>(value)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.RangeCalculatorBase.html#coreai_opt.quantization.spec.RangeCalculatorBase" title="coreai_opt.quantization.spec.RangeCalculatorBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.RangeCalculatorBase</span></code></a>(...)</p></td>
+<td><p>Base class and registry for classes used to compute the range of a given tensor.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.RunningRangeMixin.html#coreai_opt.quantization.spec.RunningRangeMixin" title="coreai_opt.quantization.spec.RunningRangeMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.RunningRangeMixin</span></code></a>(...)</p></td>
+<td><p>Mixin for calculators that maintain running min/max range buffers.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html#coreai_opt.quantization.spec.StaticQParamsCalculator" title="coreai_opt.quantization.spec.StaticQParamsCalculator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.StaticQParamsCalculator</span></code></a>(...)</p></td>
+<td><p>Computes scale and zero point using min/max values from the current tensor.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html#coreai_opt.quantization.spec.default_activation_quantization_spec" title="coreai_opt.quantization.spec.default_activation_quantization_spec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.default_activation_quantization_spec</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html#coreai_opt.quantization.spec.default_weight_quantization_spec" title="coreai_opt.quantization.spec.default_weight_quantization_spec"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.default_weight_quantization_spec</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="coreai-opt-quantization-spec-fake-quantize">
+<h3>coreai_opt.quantization.spec.fake_quantize<a class="headerlink" href="#coreai-opt-quantization-spec-fake-quantize" title="Link to this heading">¶</a></h3>
+<p>Fake quantization implementation base class and default implementation.</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</span></code></a>(...)</p></td>
+<td><p>Base class for implementing fake quantization</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../utils/coreai_compression.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Compressing Core AI Models</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="generated/coreai_opt.CoreMLExportError.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">coreai_opt.CoreMLExportError</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../_static/shibuya.js?v=50760d75"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

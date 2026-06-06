@@ -1,0 +1,27 @@
+﻿coreai\_opt.pruning.MagnitudePruner
+===================================
+
+.. currentmodule:: coreai_opt.pruning
+
+.. autoclass:: MagnitudePruner
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~MagnitudePruner.calibration_mode
+      ~MagnitudePruner.finalize
+      ~MagnitudePruner.prepare
+      ~MagnitudePruner.step
+      ~MagnitudePruner.supported_modules
+      ~MagnitudePruner.training_mode
+   
+   
+
+   
+   
+   

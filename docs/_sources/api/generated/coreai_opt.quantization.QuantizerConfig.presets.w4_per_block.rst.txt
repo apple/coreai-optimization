@@ -1,0 +1,21 @@
+w4_per_block
+============
+
+.. py:method:: w4_per_block(*, block_size=32, axis=None, execution_mode=<ExecutionMode.GRAPH: 'graph'>)
+   :noindex:
+
+   int4 weight-only quantization, per-block symmetric, block_size defaults to 32.
+
+   :param block_size: Block size along the input channel dimension (default 32).
+   :type block_size: int
+   :param axis: Axis to apply blocks along.
+                When ``None`` (default), the axis is auto-resolved based on the module type
+                during quantization.
+   :type axis: int | None
+   :param execution_mode: Quantization execution mode.
+                          Defaults to ``ExecutionMode.GRAPH``.
+   :type execution_mode: ExecutionMode
+
+   :returns: int4 per-block weight-only configuration.
+   :rtype: QuantizerConfig
+

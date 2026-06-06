@@ -1,0 +1,16 @@
+﻿coreai\_opt.quantization.ExecutionMode
+======================================
+
+.. currentmodule:: coreai_opt.quantization
+
+.. autoclass:: ExecutionMode
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

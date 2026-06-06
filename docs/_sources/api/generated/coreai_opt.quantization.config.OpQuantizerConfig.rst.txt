@@ -1,0 +1,14 @@
+﻿coreai\_opt.quantization.config.OpQuantizerConfig
+=================================================
+
+.. currentmodule:: coreai_opt.quantization.config
+
+.. autopydantic_model:: OpQuantizerConfig
+
+   
+   
+   
+
+   
+   
+   

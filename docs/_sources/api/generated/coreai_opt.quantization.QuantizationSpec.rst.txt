@@ -1,0 +1,14 @@
+﻿coreai\_opt.quantization.QuantizationSpec
+=========================================
+
+.. currentmodule:: coreai_opt.quantization
+
+.. autopydantic_model:: QuantizationSpec
+
+   
+   
+   
+
+   
+   
+   

@@ -1,0 +1,14 @@
+﻿coreai\_opt.quantization.spec.QuantizationGranularity
+=====================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autopydantic_model:: QuantizationGranularity
+
+   
+   
+   
+
+   
+   
+   

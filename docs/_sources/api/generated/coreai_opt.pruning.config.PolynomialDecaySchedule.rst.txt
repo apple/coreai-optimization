@@ -1,0 +1,14 @@
+﻿coreai\_opt.pruning.config.PolynomialDecaySchedule
+==================================================
+
+.. currentmodule:: coreai_opt.pruning.config
+
+.. autopydantic_model:: PolynomialDecaySchedule
+
+   
+   
+   
+
+   
+   
+   

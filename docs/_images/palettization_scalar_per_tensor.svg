@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1192" height="416" viewBox="0 0 1192 416">
+<defs><filter id="cardShadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="4" stdDeviation="9" flood-color="#1A1A2E" flood-opacity="0.10"/></filter><filter id="cellShadow" x="-40%" y="-40%" width="180%" height="200%"><feDropShadow dx="0" dy="2" stdDeviation="2.2" flood-color="#3C4043" flood-opacity="0.18"/></filter></defs>
+<rect width="1192" height="416" fill="#F5F6F8"/>
+<text x="596.00" y="46.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="21" font-weight="700" font-style="normal" fill="#202124" text-anchor="middle">Scalar palettization — per-tensor</text>
+<text x="596.00" y="70.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="500" font-style="normal" fill="#5F6368" text-anchor="middle">A single lookup table (LUT) is shared by the whole weight tensor · n_bits = 2 → 4 entries</text>
+<rect x="40.00" y="100.00" width="260.00" height="260.00" rx="18.00" ry="18.00" fill="#FFFFFF" filter="url(#cardShadow)" />
+<rect x="60.00" y="120.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="83.00" y="148.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">0.5</text>
+<rect x="118.00" y="120.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="141.00" y="148.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">-1.9</text>
+<rect x="176.00" y="120.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="199.00" y="148.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">-1.6</text>
+<rect x="234.00" y="120.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="257.00" y="148.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">-1.5</text>
+<rect x="60.00" y="178.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="83.00" y="206.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">5.8</text>
+<rect x="118.00" y="178.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="141.00" y="206.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">1.6</text>
+<rect x="176.00" y="178.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="199.00" y="206.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">2.1</text>
+<rect x="234.00" y="178.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="257.00" y="206.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">-2.0</text>
+<rect x="60.00" y="236.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="83.00" y="264.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">2.2</text>
+<rect x="118.00" y="236.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="141.00" y="264.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">-4.5</text>
+<rect x="176.00" y="236.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="199.00" y="264.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">-5.4</text>
+<rect x="234.00" y="236.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="257.00" y="264.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">4.2</text>
+<rect x="60.00" y="294.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="83.00" y="322.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">-5.9</text>
+<rect x="118.00" y="294.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="141.00" y="322.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">5.7</text>
+<rect x="176.00" y="294.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="199.00" y="322.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">3.9</text>
+<rect x="234.00" y="294.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<text x="257.00" y="322.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">3.4</text>
+<text x="170.00" y="390.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">Float weights</text>
+<line x1="324.00" y1="230.00" x2="514.00" y2="230.00" stroke="#9AA0A6" stroke-width="2.2" stroke-linecap="round" />
+<polygon points="514.00,225.10 521.00,230.00 514.00,234.90" fill="#9AA0A6" />
+<text x="422.00" y="214.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14.5" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">Construct codebook/LUT</text>
+<text x="422.00" y="252.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="500" font-style="normal" fill="#5F6368" text-anchor="middle">n_bits = 2</text>
+<text x="422.00" y="269.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="500" font-style="normal" fill="#5F6368" text-anchor="middle">(k-means 1-D)</text>
+<rect x="544.00" y="161.00" width="40.00" height="30.00" rx="6.00" ry="6.00" fill="#4285F4" filter="url(#cellShadow)" />
+<text x="564.00" y="180.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">00</text>
+<rect x="590.00" y="161.00" width="58.00" height="30.00" rx="6.00" ry="6.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.2" />
+<text x="619.00" y="181.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">-5.3</text>
+<rect x="544.00" y="197.00" width="40.00" height="30.00" rx="6.00" ry="6.00" fill="#FBBC04" filter="url(#cellShadow)" />
+<text x="564.00" y="216.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#202124" text-anchor="middle">01</text>
+<rect x="590.00" y="197.00" width="58.00" height="30.00" rx="6.00" ry="6.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.2" />
+<text x="619.00" y="217.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">-1.8</text>
+<rect x="544.00" y="233.00" width="40.00" height="30.00" rx="6.00" ry="6.00" fill="#34A853" filter="url(#cellShadow)" />
+<text x="564.00" y="252.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">10</text>
+<rect x="590.00" y="233.00" width="58.00" height="30.00" rx="6.00" ry="6.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.2" />
+<text x="619.00" y="253.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">1.6</text>
+<rect x="544.00" y="269.00" width="40.00" height="30.00" rx="6.00" ry="6.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="564.00" y="288.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">11</text>
+<rect x="590.00" y="269.00" width="58.00" height="30.00" rx="6.00" ry="6.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.2" />
+<text x="619.00" y="289.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">4.6</text>
+<text x="596.00" y="390.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">2-bit LUT</text>
+<line x1="672.00" y1="230.00" x2="862.00" y2="230.00" stroke="#9AA0A6" stroke-width="2.2" stroke-linecap="round" />
+<polygon points="862.00,225.10 869.00,230.00 862.00,234.90" fill="#9AA0A6" />
+<text x="770.00" y="214.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14.5" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">Map weights to LUT indices</text>
+<text x="770.00" y="252.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="500" font-style="normal" fill="#5F6368" text-anchor="middle">each weight →</text>
+<text x="770.00" y="269.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="500" font-style="normal" fill="#5F6368" text-anchor="middle">nearest entry</text>
+<rect x="892.00" y="100.00" width="260.00" height="260.00" rx="18.00" ry="18.00" fill="#FFFFFF" filter="url(#cardShadow)" />
+<rect x="912.00" y="120.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#34A853" filter="url(#cellShadow)" />
+<text x="935.00" y="148.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">10</text>
+<rect x="970.00" y="120.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FBBC04" filter="url(#cellShadow)" />
+<text x="993.00" y="148.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">01</text>
+<rect x="1028.00" y="120.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FBBC04" filter="url(#cellShadow)" />
+<text x="1051.00" y="148.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">01</text>
+<rect x="1086.00" y="120.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FBBC04" filter="url(#cellShadow)" />
+<text x="1109.00" y="148.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">01</text>
+<rect x="912.00" y="178.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="935.00" y="206.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">11</text>
+<rect x="970.00" y="178.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#34A853" filter="url(#cellShadow)" />
+<text x="993.00" y="206.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">10</text>
+<rect x="1028.00" y="178.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#34A853" filter="url(#cellShadow)" />
+<text x="1051.00" y="206.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">10</text>
+<rect x="1086.00" y="178.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FBBC04" filter="url(#cellShadow)" />
+<text x="1109.00" y="206.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">01</text>
+<rect x="912.00" y="236.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#34A853" filter="url(#cellShadow)" />
+<text x="935.00" y="264.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">10</text>
+<rect x="970.00" y="236.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#4285F4" filter="url(#cellShadow)" />
+<text x="993.00" y="264.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">00</text>
+<rect x="1028.00" y="236.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#4285F4" filter="url(#cellShadow)" />
+<text x="1051.00" y="264.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">00</text>
+<rect x="1086.00" y="236.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="1109.00" y="264.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">11</text>
+<rect x="912.00" y="294.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#4285F4" filter="url(#cellShadow)" />
+<text x="935.00" y="322.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">00</text>
+<rect x="970.00" y="294.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="993.00" y="322.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">11</text>
+<rect x="1028.00" y="294.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="1051.00" y="322.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">11</text>
+<rect x="1086.00" y="294.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="1109.00" y="322.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#FFFFFF" text-anchor="middle">11</text>
+<text x="1022.00" y="390.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">Scalar palettized weights</text>
+</svg>

@@ -1,0 +1,11 @@
+w8
+==
+
+.. py:method:: w8()
+   :noindex:
+
+   8-bit palettization, per-tensor.
+
+   :returns: 8-bit palettization module configuration.
+   :rtype: ModuleKMeansPalettizerConfig
+

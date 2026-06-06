@@ -1,0 +1,14 @@
+﻿coreai\_opt.pruning.config.OpMagnitudePrunerConfig
+==================================================
+
+.. currentmodule:: coreai_opt.pruning.config
+
+.. autopydantic_model:: OpMagnitudePrunerConfig
+
+   
+   
+   
+
+   
+   
+   

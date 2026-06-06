@@ -1,0 +1,126 @@
+# CoreAI-Opt
+
+> CoreAI-Opt is an Apple library for model compression, quantization, and related optimizations.
+
+
+2026, Apple, Inc. All rights reserved
+
+## Pages
+
+- [Core AI Optimization Documentation](index.html.md): `coreai-opt` is a Python library for compressing PyTorch models for deployment on Apple Silicon. It ...
+- [Quantization](quantization/index.html.md): * [Basics](basics.md)
+- [API Reference](api/index.html.md): coreai_opt - A library for PyTorch model compression and optimizations.
+- [Palettization](palettization/index.html.md): * [Basics](basics.md)
+- [Deeper Dive](quantization/advanced.html.md): The QAT workflow shown in [Quantization Overview](overview.md#weight-and-or-activation-quantization-...
+- [Basics](quantization/basics.html.md): Quantization refers to the process of reducing the number of bits that represent a number. This proc...
+- [Basics](palettization/basics.html.md): Palettization compresses model weights by clustering them into a look-up table (LUT) of
+- [16-bit PyTorch Model Casting](utils/casting.html.md): Running a model in 16-bit precision roughly halves the size of its parameters on disk and in memory,...
+- [Changelog](changelog.html.md): All notable changes to this project will be documented in this file.
+- [Config API](quantization/config.html.md): `QuantizerConfig` controls which ops/modules get quantized and how — the dtype,
+- [Config API](palettization/config.html.md): Palettization Configs follow the same philosophy as the [Quantization Config](../quantization/config...
+- [Compressing Core AI Models](utils/coreai_compression.html.md): The Core AI model compression path accepts a Core AI AIProgram as input and produces a compressed AI...
+- [coreai_opt.CoreMLExportError](api/generated/coreai_opt.CoreMLExportError.html.md): Bases: `ValueError`
+- [coreai_opt.ExportBackend](api/generated/coreai_opt.ExportBackend.html.md): Bases: `StrEnum`
+- [coreai_opt.casting.cast_fp32_to_fp16](api/generated/coreai_opt.casting.cast_fp32_to_fp16.html.md): Convert a torch exported program from FP32 to FP16 where applicable.
+- [coreai_opt.casting.cast_int32_to_int16](api/generated/coreai_opt.casting.cast_int32_to_int16.html.md): Convert INT32/INT64 tensors to INT16 in a torch exported program.
+- [coreai_opt.casting.cast_to_16_bit_precision](api/generated/coreai_opt.casting.cast_to_16_bit_precision.html.md): Convert a torch exported program to 16-bit precision: FP32→FP16 and INT32/64→INT16.
+- [coreai_opt.config.CompressionConfig](api/generated/coreai_opt.config.CompressionConfig.html.md): Bases: `BaseModel`, `Generic`[`_T`]
+- [coreai_opt.config.CompressionSpec](api/generated/coreai_opt.config.CompressionSpec.html.md): Bases: `BaseModel`
+- [coreai_opt.config.CompressionType](api/generated/coreai_opt.config.CompressionType.html.md): Bases: `StrEnum`
+- [coreai_opt.config.ModuleCompressionConfig](api/generated/coreai_opt.config.ModuleCompressionConfig.html.md): Bases: `BaseModel`, `Generic`[`_OpConfigT`, `_SpecT`]
+- [coreai_opt.config.OpCompressionConfig](api/generated/coreai_opt.config.OpCompressionConfig.html.md): Bases: `BaseModel`, `ABC`, `Generic`[`_SpecT`]
+- [coreai_opt.config.WeightOnlyModuleValidationMixin](api/generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html.md): Bases: `object`
+- [coreai_opt.config.WeightOnlyOpValidationMixin](api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html.md): Bases: `object`
+- [coreai_opt.config.spec.CompressionComponentFactoryBase](api/generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html.md): Bases: `ABC`
+- [coreai_opt.config.spec.CompressionSimulatorBase](api/generated/coreai_opt.config.spec.CompressionSimulatorBase.html.md): Bases: `ClassRegistryMixin`, `Module`
+- [coreai_opt.config.spec.CompressionTargetTensor](api/generated/coreai_opt.config.spec.CompressionTargetTensor.html.md): Bases: `Enum`
+- [coreai_opt.coreai_utils.CompressionGranularity](api/generated/coreai_opt.coreai_utils.CompressionGranularity.html.md): Bases: `StrEnum`
+- [coreai_opt.coreai_utils.DType](api/generated/coreai_opt.coreai_utils.DType.html.md): Bases: `StrEnum`
+- [coreai_opt.coreai_utils.common.QScheme](api/generated/coreai_opt.coreai_utils.common.QScheme.html.md): Bases: `StrEnum`
+- [coreai_opt.coreai_utils.palettize_weights](api/generated/coreai_opt.coreai_utils.palettize_weights.html.md): Palettize weights in a Core AI AIProgram (MLIR<CoreAI> IR) by using Core AI ops.
+- [coreai_opt.coreai_utils.quantize_weights](api/generated/coreai_opt.coreai_utils.quantize_weights.html.md): Quantize weights in a Core AI AIProgram (MLIR<CoreAI> IR) by using Core AI ops.
+- [coreai_opt.coreai_utils.sparsify_weights](api/generated/coreai_opt.coreai_utils.sparsify_weights.html.md): Sparsify weights in a Core AI AIProgram (MLIR<CoreAI> IR) by using Core AI ops.
+- [coreai_opt.inspection.ModelInspector](api/generated/coreai_opt.inspection.ModelInspector.html.md): Bases: `object`
+- [coreai_opt.inspection.ModelSummary](api/generated/coreai_opt.inspection.ModelSummary.html.md): Bases: `object`
+- [coreai_opt.inspection.ModuleContext](api/generated/coreai_opt.inspection.ModuleContext.html.md): Bases: `object`
+- [coreai_opt.inspection.ModuleInfo](api/generated/coreai_opt.inspection.ModuleInfo.html.md): Bases: `object`
+- [coreai_opt.inspection.OpInfo](api/generated/coreai_opt.inspection.OpInfo.html.md): Bases: `object`
+- [coreai_opt.inspection.SourceFrame](api/generated/coreai_opt.inspection.SourceFrame.html.md): Bases: `object`
+- [coreai_opt.palettization.KMeansPalettizer](api/generated/coreai_opt.palettization.KMeansPalettizer.html.md): Bases: `_BasePalettizer`, `EagerCompressionComponentBuilderMixin`
+- [coreai_opt.palettization.KMeansPalettizerConfig](api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html.md): Bases: `CompressionConfig[ModuleKMeansPalettizerConfig]`
+- [presets](api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html.md): Convenient factories for common compression recipes. Each preset
+- [w4](api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html.md): 4-bit palettization, per-grouped-channel, group_size defaults to 16.
+- [w6](api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html.md): 6-bit palettization, per-grouped-channel, group_size defaults to 16.
+- [w8](api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html.md): 8-bit palettization, per-tensor.
+- [coreai_opt.palettization.ModuleKMeansPalettizerConfig](api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html.md): Bases: [`WeightOnlyModuleValidationMixin`](coreai_opt.config.WeightOnlyModuleValidationMixin.md#core...
+- [presets](api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html.md): Convenient factories for common compression recipes. Each preset
+- [w4](api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html.md): 4-bit palettization, per-grouped-channel, group_size defaults to 16.
+- [w6](api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html.md): 6-bit palettization, per-grouped-channel, group_size defaults to 16.
+- [w8](api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html.md): 8-bit palettization, per-tensor.
+- [coreai_opt.palettization.PalettizationSpec](api/generated/coreai_opt.palettization.PalettizationSpec.html.md): Bases: [`CompressionSpec`](coreai_opt.config.CompressionSpec.md#coreai_opt.config.CompressionSpec)
+- [coreai_opt.palettization.config.OpKMeansPalettizerConfig](api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html.md): Bases: [`WeightOnlyOpValidationMixin`](coreai_opt.config.WeightOnlyOpValidationMixin.md#coreai_opt.c...
+- [coreai_opt.palettization.spec.PalettizationGranularity](api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html.md): Bases: `BaseModel`, `ConfigRegistryMixin`
+- [coreai_opt.palettization.spec.PerGroupedChannelGranularity](api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html.md): Bases: [`PalettizationGranularity`](coreai_opt.palettization.spec.PalettizationGranularity.md#coreai...
+- [coreai_opt.palettization.spec.PerTensorGranularity](api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html.md): Bases: [`PalettizationGranularity`](coreai_opt.palettization.spec.PalettizationGranularity.md#coreai...
+- [coreai_opt.palettization.spec.default_weight_palettization_spec](api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html.md): * **Return type:**
+- [coreai_opt.pruning.MagnitudePruner](api/generated/coreai_opt.pruning.MagnitudePruner.html.md): Bases: `_BasePruner`, `EagerCompressionComponentBuilderMixin`
+- [coreai_opt.pruning.MagnitudePrunerConfig](api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html.md): Bases: `CompressionConfig[ModuleMagnitudePrunerConfig]`
+- [coreai_opt.pruning.ModuleMagnitudePrunerConfig](api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html.md): Bases: [`WeightOnlyModuleValidationMixin`](coreai_opt.config.WeightOnlyModuleValidationMixin.md#core...
+- [coreai_opt.pruning.PruningSpec](api/generated/coreai_opt.pruning.PruningSpec.html.md): Bases: [`CompressionSpec`](coreai_opt.config.CompressionSpec.md#coreai_opt.config.CompressionSpec)
+- [coreai_opt.pruning.config.ConstantSparsitySchedule](api/generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html.md): Bases: [`SparsityScheduleBase`](coreai_opt.pruning.config.SparsityScheduleBase.md#coreai_opt.pruning...
+- [coreai_opt.pruning.config.OpMagnitudePrunerConfig](api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html.md): Bases: [`WeightOnlyOpValidationMixin`](coreai_opt.config.WeightOnlyOpValidationMixin.md#coreai_opt.c...
+- [coreai_opt.pruning.config.PolynomialDecaySchedule](api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html.md): Bases: [`SparsityScheduleBase`](coreai_opt.pruning.config.SparsityScheduleBase.md#coreai_opt.pruning...
+- [coreai_opt.pruning.config.SparsityScheduleBase](api/generated/coreai_opt.pruning.config.SparsityScheduleBase.html.md): Bases: `BaseModel`, `ConfigRegistryMixin`
+- [coreai_opt.pruning.spec.ChannelStructured](api/generated/coreai_opt.pruning.spec.ChannelStructured.html.md): Bases: [`PruningScheme`](coreai_opt.pruning.spec.PruningScheme.md#coreai_opt.pruning.spec.PruningSch...
+- [coreai_opt.pruning.spec.PruneImplBase](api/generated/coreai_opt.pruning.spec.PruneImplBase.html.md): Bases: [`CompressionSimulatorBase`](coreai_opt.config.spec.CompressionSimulatorBase.md#coreai_opt.co...
+- [coreai_opt.pruning.spec.PruningScheme](api/generated/coreai_opt.pruning.spec.PruningScheme.html.md): Bases: `BaseModel`, `ConfigRegistryMixin`
+- [coreai_opt.pruning.spec.Unstructured](api/generated/coreai_opt.pruning.spec.Unstructured.html.md): Bases: [`PruningScheme`](coreai_opt.pruning.spec.PruningScheme.md#coreai_opt.pruning.spec.PruningSch...
+- [coreai_opt.pruning.spec.default_weight_pruning_spec](api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html.md): Return the default pruning spec for weight tensors.
+- [coreai_opt.quantization.ExecutionMode](api/generated/coreai_opt.quantization.ExecutionMode.html.md): Bases: `StrEnum`
+- [coreai_opt.quantization.ModuleQuantizerConfig](api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html.md): Bases: `ModuleCompressionConfig[OpQuantizerConfig, QuantizationSpec]`
+- [presets](api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html.md): Convenient factories for common compression recipes. Each preset
+- [w4](api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html.md): int4 weight-only quantization, per-channel symmetric.
+- [w4_per_block](api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html.md): int4 weight-only quantization, per-block symmetric, block_size defaults to 32.
+- [w8](api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html.md): int8 weight-only quantization, per-channel symmetric.
+- [coreai_opt.quantization.QuantizationSpec](api/generated/coreai_opt.quantization.QuantizationSpec.html.md): Bases: [`CompressionSpec`](coreai_opt.config.CompressionSpec.md#coreai_opt.config.CompressionSpec)
+- [coreai_opt.quantization.Quantizer](api/generated/coreai_opt.quantization.Quantizer.html.md): Bases: `_BaseQuantizer`
+- [coreai_opt.quantization.QuantizerConfig](api/generated/coreai_opt.quantization.QuantizerConfig.html.md): Bases: `CompressionConfig[ModuleQuantizerConfig]`
+- [presets](api/generated/coreai_opt.quantization.QuantizerConfig.presets.html.md): Convenient factories for common compression recipes. Each preset
+- [w4](api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html.md): int4 weight-only quantization, per-channel symmetric.
+- [w4_per_block](api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html.md): int4 weight-only quantization, per-block symmetric, block_size defaults to 32.
+- [w8](api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html.md): int8 weight-only quantization, per-channel symmetric.
+- [coreai_opt.quantization.config.OpQuantizerConfig](api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html.md): Bases: `OpCompressionConfig[QuantizationSpec]`
+- [coreai_opt.quantization.config.QATSchedule](api/generated/coreai_opt.quantization.config.QATSchedule.html.md): Bases: `BaseModel`
+- [coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator](api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html.md): Bases: [`RunningRangeMixin`](coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantizati...
+- [coreai_opt.quantization.spec.MinMaxRangeCalculator](api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html.md): Bases: [`RangeCalculatorBase`](coreai_opt.quantization.spec.RangeCalculatorBase.md#coreai_opt.quanti...
+- [coreai_opt.quantization.spec.MovingAverageQParamsCalculator](api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html.md): Bases: [`RunningRangeMixin`](coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantizati...
+- [coreai_opt.quantization.spec.PerBlockGranularity](api/generated/coreai_opt.quantization.spec.PerBlockGranularity.html.md): Bases: [`QuantizationGranularity`](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_op...
+- [coreai_opt.quantization.spec.PerChannelGranularity](api/generated/coreai_opt.quantization.spec.PerChannelGranularity.html.md): Bases: [`QuantizationGranularity`](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_op...
+- [coreai_opt.quantization.spec.PerTensorGranularity](api/generated/coreai_opt.quantization.spec.PerTensorGranularity.html.md): Bases: [`QuantizationGranularity`](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_op...
+- [coreai_opt.quantization.spec.QParamsCalculatorBase](api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html.md): Bases: `ClassRegistryMixin`, `Module`
+- [coreai_opt.quantization.spec.QuantizationComponentFactory](api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html.md): Bases: [`CompressionComponentFactoryBase`](coreai_opt.config.spec.CompressionComponentFactoryBase.md...
+- [coreai_opt.quantization.spec.QuantizationFormulation](api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html.md): Bases: `StrEnum`
+- [coreai_opt.quantization.spec.QuantizationGranularity](api/generated/coreai_opt.quantization.spec.QuantizationGranularity.html.md): Bases: `BaseModel`, `ConfigRegistryMixin`
+- [coreai_opt.quantization.spec.QuantizationScheme](api/generated/coreai_opt.quantization.spec.QuantizationScheme.html.md): Bases: `Enum`
+- [coreai_opt.quantization.spec.RangeCalculatorBase](api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html.md): Bases: `ClassRegistryMixin`, `Module`
+- [coreai_opt.quantization.spec.RunningRangeMixin](api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html.md): Bases: `object`
+- [coreai_opt.quantization.spec.StaticQParamsCalculator](api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html.md): Bases: [`QParamsCalculatorBase`](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.qu...
+- [coreai_opt.quantization.spec.default_activation_quantization_spec](api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html.md): * **Return type:**
+- [coreai_opt.quantization.spec.default_weight_quantization_spec](api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html.md): * **Return type:**
+- [coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase](api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html.md): Bases: [`CompressionSimulatorBase`](coreai_opt.config.spec.CompressionSimulatorBase.md#coreai_opt.co...
+- [EDSR model: Weight palettization + activation quantization (PTQ)](examples/edsr.html.md): In this article we explore two compression strategies for a super-resolution model: weight + activat...
+- [How to use coreai-opt](introduction/how_to_use_coreaiopt.html.md): `coreai-opt`’s compressors share a consistent API. This page walks through the building blocks every...
+- [Installation](introduction/installation.html.md): Install the latest release from PyPI:
+- [Integration with Core AI](introduction/integration_coreai.html.md): `coreai-opt` is built to optimize PyTorch models in a way that lets them be easily converted into th...
+- [Joint Compression](utils/joint_compression.html.md): Palettization and Quantization can be applied together to compress both weights and activations in a...
+- [Mixed-Precision Compression](utils/mixed_precision.html.md): The key idea behind mixed precision compression is that compressing different layers of a model can ...
+- [Mixed-precision palettization with ResNet50](examples/mixed_precision_palettization.html.md): In this article we walk through the [Mixed-Precision Compression](../utils/mixed_precision.md) workf...
+- [Applying palettization to an MNIST model](tutorials/mnist_palettization.html.md): In this tutorial, we will be providing a basic introduction to palettizing a model with CoreAI-Opt.
+- [Applying joint palettization and activation quantization to an MNIST model](tutorials/mnist_palettization_and_activation_quantization.html.md): In this tutorial, we will demonstrate how to combine weight palettization with activation quantizati...
+- [Applying quantization to an MNIST model](tutorials/mnist_quantization.html.md): In this tutorial, we will be providing a basic introduction to quantizing a model with CoreAI-Opt.
+- [Model Examples](examples/model_examples.html.md): Check out the [coreai-models](https://github.com/apple/coreai-models/blob/main/models/README.md) pro...
+- [Inspecting PyTorch Model Structure](utils/model_inspection.html.md): `coreai-opt` configs reference module names, module types, op names, and op types to target specific...
+- [API Overview](quantization/overview.html.md): Weight-only quantization compresses the model’s weight tensors to a lower precision while keeping ac...
+- [API Overview](palettization/overview.html.md): import coreai_opt as opt
+- [ResNet50 model: Weight + Activation Quantization (PTQ)](examples/resnet50.html.md): In this article we will experiment with a few knobs for quantizing a model for both weight and activ...
+- [Toy Model Examples (Jupyter Notebooks)](examples/toy_models.html.md): These tutorials demonstrate model compression techniques using simple toy models. Each tutorial is a...

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Inspecting PyTorch Model Structure - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="16-bit PyTorch Model Casting" href="casting.html" /><link rel="prev" title="Mixed-Precision Compression" href="mixed_precision.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Inspecting PyTorch Model Structure"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../api/index.html">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/integration_coreai.html">Integration with Core AI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/config.html">Config API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/advanced.html">Deeper Dive</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="joint_compression.html">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizationSpec.html">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#basic-usage">Basic Usage</a></li>
+<li><a class="reference internal" href="#querying-operations-by-config-key">Querying Operations by Config Key</a></li>
+<li><a class="reference internal" href="#navigating-the-module-hierarchy">Navigating the Module Hierarchy</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Inspecting PyTorch Model Structure</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="model_inspection.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="model_inspection.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="model_inspection.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="inspecting-pytorch-model-structure">
+<h1>Inspecting PyTorch Model Structure<a class="headerlink" href="#inspecting-pytorch-model-structure" title="Link to this heading">¶</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code> configs reference module names, module types, op names, and op types to target specific parts of a model. Before writing a config, you need to know exactly which strings your model exposes. <a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html#coreai_opt.inspection.ModelInspector" title="coreai_opt.inspection.ModelInspector"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelInspector</span></code></a> discovers these automatically and provides query methods corresponding to each config key type (<code class="docutils literal notranslate"><span class="pre">op_type_config</span></code>, <code class="docutils literal notranslate"><span class="pre">op_name_config</span></code>, <code class="docutils literal notranslate"><span class="pre">module_name_configs</span></code>, <code class="docutils literal notranslate"><span class="pre">module_type_configs</span></code>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">ModelInspector</span></code> currently supports <strong>graph execution mode only</strong>. Eager mode support is planned. For eager mode op naming, see <a class="reference internal" href="../quantization/config.html#how-to-get-names-types-for-modules-and-ops"><span class="std std-ref">How to get names + types</span></a>.</p>
+</div>
+<section id="basic-usage">
+<h2>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.inspection</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelInspector</span>
+</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization</span><span class="w"> </span><span class="kn">import</span> <span class="n">Quantizer</span>
+</span><span data-line="5">
+</span><span data-line="6">
+</span><span data-line="7"><span class="k">class</span><span class="w"> </span><span class="nc">MyModel</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span><span data-line="8">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="9">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span><span data-line="10">        <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+</span><span data-line="11">        <span class="bp">self</span><span class="o">.</span><span class="n">relu</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
+</span><span data-line="12">        <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+</span><span data-line="13">
+</span><span data-line="14">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span><span data-line="15">        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="16">        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="17">        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="18">        <span class="k">return</span> <span class="n">x</span>
+</span><span data-line="19">
+</span><span data-line="20">
+</span><span data-line="21"><span class="n">model</span> <span class="o">=</span> <span class="n">MyModel</span><span class="p">()</span>
+</span><span data-line="22">
+</span><span data-line="23"><span class="n">inspector</span> <span class="o">=</span> <span class="n">ModelInspector</span><span class="p">(</span>
+</span><span data-line="24">    <span class="n">model</span><span class="p">,</span>
+</span><span data-line="25">    <span class="n">example_inputs</span><span class="o">=</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">),),</span>
+</span><span data-line="26">    <span class="n">execution_mode</span><span class="o">=</span><span class="s2">&quot;graph&quot;</span><span class="p">,</span>
+</span><span data-line="27">    <span class="n">compressor</span><span class="o">=</span><span class="n">Quantizer</span><span class="p">,</span>
+</span><span data-line="28"><span class="p">)</span>
+</span><span data-line="29">
+</span><span data-line="30"><span class="c1"># Print a module-hierarchy tree showing ops, source locations, and connectivity</span>
+</span><span data-line="31"><span class="nb">print</span><span class="p">(</span><span class="n">inspector</span><span class="o">.</span><span class="n">format_summary</span><span class="p">())</span>
+</span></pre></div>
+</div>
+<p>Note the use of <code class="docutils literal notranslate"><span class="pre">compressor=Quantizer</span></code> in the list of arguments to <code class="docutils literal notranslate"><span class="pre">ModelInspector</span></code>. This filters the list of ops captured and displayed by <code class="docutils literal notranslate"><span class="pre">ModelInspector</span></code> to only those operations which are registered for compressibility by <code class="docutils literal notranslate"><span class="pre">Quantizer</span></code>. Omitting this argument allows for all ops to be captured and displayed.</p>
+<p>The above code produces output like the following (colors omitted for brevity):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><span data-line="1">Legend:  ■ module_name (module_type)  ◆ op_name [op_type]
+</span><span data-line="2">
+</span><span data-line="3">(MyModel)
+</span><span data-line="4">    module inputs:  linear
+</span><span data-line="5">    module outputs: linear_1
+</span><span data-line="6">├── ■ linear1 (torch.nn.modules.linear.Linear)
+</span><span data-line="7">│       module inputs:  linear
+</span><span data-line="8">│       module outputs: linear
+</span><span data-line="9">│   └── ◆ linear [linear]
+</span><span data-line="10">│         op inputs:  x, linear1_weight, linear1_bias
+</span><span data-line="11">│         op outputs: relu
+</span><span data-line="12">│         filepath:  my_model.py:16
+</span><span data-line="13">│         code:      x = self.linear1(x)
+</span><span data-line="14">├── ■ relu (torch.nn.modules.activation.ReLU)
+</span><span data-line="15">│       module inputs:  relu
+</span><span data-line="16">│       module outputs: relu
+</span><span data-line="17">└── ■ linear2 (torch.nn.modules.linear.Linear)
+</span><span data-line="18">        module inputs:  linear_1
+</span><span data-line="19">        module outputs: linear_1
+</span><span data-line="20">    └── ◆ linear_1 [linear]
+</span><span data-line="21">          op inputs:  relu, linear2_weight, linear2_bias
+</span><span data-line="22">          op outputs: output
+</span><span data-line="23">          filepath:  my_model.py:18
+</span><span data-line="24">          code:      x = self.linear2(x)
+</span></pre></div>
+</div>
+<p>The output shows the model’s module hierarchy and the ops within each module. Note in particular that since <code class="docutils literal notranslate"><span class="pre">relu</span></code> is not a registered compressible op by <code class="docutils literal notranslate"><span class="pre">Quantizer</span></code>, it does not show up as an operation within the <code class="docutils literal notranslate"><span class="pre">ReLU</span></code> module.</p>
+<p>Reading the tree:</p>
+<ul class="simple">
+<li><p><strong>Module name</strong> and <strong>module type</strong> appear on module lines: <code class="docutils literal notranslate"><span class="pre">■</span> <span class="pre">module_name</span> <span class="pre">(module_type)</span></code>. For example, <code class="docutils literal notranslate"><span class="pre">■</span> <span class="pre">linear1</span> <span class="pre">(torch.nn.modules.linear.Linear)</span></code> — <code class="docutils literal notranslate"><span class="pre">&quot;linear1&quot;</span></code> is the module name (usable in <code class="docutils literal notranslate"><span class="pre">module_name_configs</span></code>) and <code class="docutils literal notranslate"><span class="pre">&quot;torch.nn.modules.linear.Linear&quot;</span></code> is the module type (usable in <code class="docutils literal notranslate"><span class="pre">module_type_configs</span></code>).</p></li>
+<li><p><strong>Op name</strong> and <strong>op type</strong> appear on operation lines: <code class="docutils literal notranslate"><span class="pre">◆</span> <span class="pre">op_name</span> <span class="pre">[op_type]</span></code>. For example, <code class="docutils literal notranslate"><span class="pre">◆</span> <span class="pre">linear_1</span> <span class="pre">[linear]</span></code> — <code class="docutils literal notranslate"><span class="pre">&quot;linear_1&quot;</span></code> is the op name (usable in <code class="docutils literal notranslate"><span class="pre">op_name_config</span></code>) and <code class="docutils literal notranslate"><span class="pre">&quot;linear&quot;</span></code> is the op type (usable in <code class="docutils literal notranslate"><span class="pre">op_type_config</span></code>).</p></li>
+<li><p><strong>Op inputs/outputs</strong> show connectivity between operations.</p></li>
+<li><p><strong>filepath</strong> and <strong>code</strong> (shown for user-defined modules) show where in your source code the operation originates.</p></li>
+</ul>
+<p>Using these strings directly in a config:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">(</span>
+</span><span data-line="2">    <span class="c1"># Target a specific module by name</span>
+</span><span data-line="3">    <span class="n">module_name_configs</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="4">        <span class="s2">&quot;linear1&quot;</span><span class="p">:</span> <span class="n">ModuleQuantizerConfig</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
+</span><span data-line="5">    <span class="p">},</span>
+</span><span data-line="6">    <span class="c1"># Target all modules of a given type</span>
+</span><span data-line="7">    <span class="n">module_type_configs</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="8">        <span class="s2">&quot;torch.nn.modules.linear.Linear&quot;</span><span class="p">:</span> <span class="n">ModuleQuantizerConfig</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
+</span><span data-line="9">    <span class="p">},</span>
+</span><span data-line="10"><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="c1"># Op-level targeting within a ModuleQuantizerConfig</span>
+</span><span data-line="13"><span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">(</span>
+</span><span data-line="14">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleQuantizerConfig</span><span class="p">(</span>
+</span><span data-line="15">        <span class="c1"># Target a specific op by name</span>
+</span><span data-line="16">        <span class="n">op_name_config</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="17">            <span class="s2">&quot;linear_1&quot;</span><span class="p">:</span> <span class="n">OpQuantizerConfig</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
+</span><span data-line="18">        <span class="p">},</span>
+</span><span data-line="19">        <span class="c1"># Target all ops of a given type</span>
+</span><span data-line="20">        <span class="n">op_type_config</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="21">            <span class="s2">&quot;linear&quot;</span><span class="p">:</span> <span class="n">OpQuantizerConfig</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
+</span><span data-line="22">        <span class="p">},</span>
+</span><span data-line="23">    <span class="p">),</span>
+</span><span data-line="24"><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">colorize=False</span></code> to suppress ANSI color codes (e.g., when writing to a file).</p>
+</section>
+<section id="querying-operations-by-config-key">
+<h2>Querying Operations by Config Key<a class="headerlink" href="#querying-operations-by-config-key" title="Link to this heading">¶</a></h2>
+<p>Once you have reviewed the full summary to see what names and types are present, you can use query methods to check which operations would be matched by a specific name or type pattern. This is useful for verifying your config will target the intended ops before applying compression.</p>
+<p>Each query method returns a tuple of <a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.OpInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">OpInfo</span></code></a> objects matching the filter. The method names correspond directly to the config keys they help populate.</p>
+<p>From the Basic Usage summary, this model exposes:</p>
+<ul class="simple">
+<li><p><strong>Op types</strong>: <code class="docutils literal notranslate"><span class="pre">linear</span></code></p></li>
+<li><p><strong>Op names</strong>: <code class="docutils literal notranslate"><span class="pre">linear</span></code>, <code class="docutils literal notranslate"><span class="pre">linear_1</span></code></p></li>
+<li><p><strong>Module types</strong>: <code class="docutils literal notranslate"><span class="pre">torch.nn.modules.linear.Linear</span></code>, <code class="docutils literal notranslate"><span class="pre">torch.nn.modules.activation.ReLU</span></code></p></li>
+<li><p><strong>Module names</strong>: <code class="docutils literal notranslate"><span class="pre">linear1</span></code>, <code class="docutils literal notranslate"><span class="pre">relu</span></code>, <code class="docutils literal notranslate"><span class="pre">linear2</span></code></p></li>
+</ul>
+<p>Op names and module names can be passed as a literal name or as a regex following <a class="reference external" href="https://docs.python.org/3/library/re.html">Python re syntax</a> for wildcard matching; the pattern is matched against the entire string. The matching methodology is identical to how compression config entries match modules and ops in a model, allowing the user to see exactly which modules or ops would be matched given a particular string.</p>
+<p>Each query method returns a tuple of <a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.OpInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">OpInfo</span></code></a> objects matching the filter:</p>
+<p><strong>By op type</strong> — exact-string match against <code class="docutils literal notranslate"><span class="pre">op_type_config</span></code> keys:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">inspector</span><span class="o">.</span><span class="n">get_matched_ops_for_op_type</span><span class="p">(</span><span class="s2">&quot;linear&quot;</span><span class="p">)</span>  <span class="c1"># matches both linear ops</span>
+</span></pre></div>
+</div>
+<p><strong>By op name</strong> — regex against <code class="docutils literal notranslate"><span class="pre">op_name_config</span></code> keys:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">inspector</span><span class="o">.</span><span class="n">get_matched_ops_for_op_name</span><span class="p">(</span><span class="s2">&quot;linear_1&quot;</span><span class="p">)</span>  <span class="c1"># matches just linear_1</span>
+</span><span data-line="2"><span class="n">inspector</span><span class="o">.</span><span class="n">get_matched_ops_for_op_name</span><span class="p">(</span><span class="s2">&quot;.*linear.*&quot;</span><span class="p">)</span>  <span class="c1"># matches both linear and linear_1</span>
+</span></pre></div>
+</div>
+<p><strong>By module name</strong> — regex against <code class="docutils literal notranslate"><span class="pre">module_name_configs</span></code> keys:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">inspector</span><span class="o">.</span><span class="n">get_matched_ops_for_module_name</span><span class="p">(</span>
+</span><span data-line="2">    <span class="s2">&quot;linear1&quot;</span>
+</span><span data-line="3"><span class="p">)</span>  <span class="c1"># matches the op in module &quot;linear1&quot;</span>
+</span><span data-line="4"><span class="n">inspector</span><span class="o">.</span><span class="n">get_matched_ops_for_module_name</span><span class="p">(</span>
+</span><span data-line="5">    <span class="s2">&quot;linear[12]&quot;</span>
+</span><span data-line="6"><span class="p">)</span>  <span class="c1"># matches ops in modules &quot;linear1&quot; and &quot;linear2&quot;</span>
+</span></pre></div>
+</div>
+<p>Each returned <a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.OpInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">OpInfo</span></code></a> provides <code class="docutils literal notranslate"><span class="pre">op_name</span></code>, <code class="docutils literal notranslate"><span class="pre">op_type</span></code>, and <code class="docutils literal notranslate"><span class="pre">module_stack</span></code> (the nesting of modules containing the op):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">inspector</span><span class="o">.</span><span class="n">get_matched_ops_for_op_type</span><span class="p">(</span><span class="s2">&quot;linear&quot;</span><span class="p">):</span>
+</span><span data-line="2"><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  op_name=</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">op_name</span><span class="si">}</span><span class="s2">, op_type=</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">op_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="3"><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  module: </span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">module_stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">module_name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">module_stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">module_type</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="4"><span class="go">  op_name=linear, op_type=linear</span>
+</span><span data-line="5"><span class="go">  module: linear1 (torch.nn.modules.linear.Linear)</span>
+</span><span data-line="6"><span class="go">  op_name=linear_1, op_type=linear</span>
+</span><span data-line="7"><span class="go">  module: linear2 (torch.nn.modules.linear.Linear)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="navigating-the-module-hierarchy">
+<h2>Navigating the Module Hierarchy<a class="headerlink" href="#navigating-the-module-hierarchy" title="Link to this heading">¶</a></h2>
+<p>For programmatic access to the inspector’s data structures, the <a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelSummary.html#coreai_opt.inspection.ModelSummary" title="coreai_opt.inspection.ModelSummary"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelSummary</span></code></a> exposes a <a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html#coreai_opt.inspection.ModuleInfo" title="coreai_opt.inspection.ModuleInfo"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModuleInfo</span></code></a> tree that mirrors the <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> hierarchy. These types are publicly exported from <code class="docutils literal notranslate"><span class="pre">coreai_opt.inspection</span></code> for use in custom analysis or tooling.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="n">root</span> <span class="o">=</span> <span class="n">inspector</span><span class="o">.</span><span class="n">summary</span><span class="o">.</span><span class="n">model</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
+</span><span data-line="3"><span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">child</span><span class="o">.</span><span class="n">module_type</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">child</span><span class="o">.</span><span class="n">ops</span><span class="p">)</span><span class="si">}</span><span class="s2"> direct ops&quot;</span><span class="p">)</span>
+</span><span data-line="4"><span class="go">linear1: torch.nn.modules.linear.Linear, 1 direct ops</span>
+</span><span data-line="5"><span class="go">relu: torch.nn.modules.activation.ReLU, 0 direct ops</span>
+</span><span data-line="6"><span class="go">linear2: torch.nn.modules.linear.Linear, 1 direct ops</span>
+</span></pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># look up a specific submodule</span>
+</span><span data-line="2"><span class="n">linear2_module</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">get_submodule</span><span class="p">(</span><span class="s2">&quot;linear2&quot;</span><span class="p">)</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># get all ops under this subtree (depth-first)</span>
+</span><span data-line="5"><span class="n">linear2_ops</span> <span class="o">=</span> <span class="n">linear2_module</span><span class="o">.</span><span class="n">all_ops</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ModuleInfo</span></code> supports the same iteration patterns as <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code>: <code class="docutils literal notranslate"><span class="pre">children()</span></code>, <code class="docutils literal notranslate"><span class="pre">named_children()</span></code>, <code class="docutils literal notranslate"><span class="pre">modules()</span></code>, <code class="docutils literal notranslate"><span class="pre">named_modules()</span></code>, and <code class="docutils literal notranslate"><span class="pre">get_submodule()</span></code>.</p>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="mixed_precision.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Mixed-Precision Compression</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="casting.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">16-bit PyTorch Model Casting</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../_static/shibuya.js?v=50760d75"></script>
+      <script src="../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

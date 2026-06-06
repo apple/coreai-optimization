@@ -1,0 +1,16 @@
+﻿coreai\_opt.coreai\_utils.common.QScheme
+========================================
+
+.. currentmodule:: coreai_opt.coreai_utils.common
+
+.. autoclass:: QScheme
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

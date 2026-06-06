@@ -1,0 +1,29 @@
+presets
+=======
+
+Convenient factories for common compression recipes. Each preset
+returns a ready-to-use config that can be further refined by chaining
+:meth:`~coreai_opt.config.CompressionConfig.set_module_type`,
+:meth:`~coreai_opt.config.CompressionConfig.set_module_name`,
+:meth:`~coreai_opt.config.CompressionConfig.only_for`, or
+:meth:`~coreai_opt.config.CompressionConfig.without`.
+
+.. list-table::
+   :header-rows: 1
+   :class: preset-table
+
+   * - Preset
+     - Description
+   * - :doc:`w4() </api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4>`
+     - 4-bit palettization, per-grouped-channel, group_size defaults to 16.
+   * - :doc:`w6() </api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6>`
+     - 6-bit palettization, per-grouped-channel, group_size defaults to 16.
+   * - :doc:`w8() </api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8>`
+     - 8-bit palettization, per-tensor.
+
+.. toctree::
+   :hidden:
+
+   w4 </api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4>
+   w6 </api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6>
+   w8 </api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8>

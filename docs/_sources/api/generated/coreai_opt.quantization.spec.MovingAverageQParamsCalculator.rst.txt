@@ -1,0 +1,31 @@
+﻿coreai\_opt.quantization.spec.MovingAverageQParamsCalculator
+============================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autoclass:: MovingAverageQParamsCalculator
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~MovingAverageQParamsCalculator.compute_qparams
+      ~MovingAverageQParamsCalculator.extra_repr
+      ~MovingAverageQParamsCalculator.forward
+      ~MovingAverageQParamsCalculator.get_class
+      ~MovingAverageQParamsCalculator.get_qparams
+      ~MovingAverageQParamsCalculator.list_registry_keys
+      ~MovingAverageQParamsCalculator.list_registry_values
+      ~MovingAverageQParamsCalculator.register
+      ~MovingAverageQParamsCalculator.set_export_mode
+      ~MovingAverageQParamsCalculator.update_running_range
+   
+   
+
+   
+   
+   

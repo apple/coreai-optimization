@@ -1,0 +1,16 @@
+﻿coreai\_opt.ExportBackend
+=========================
+
+.. currentmodule:: coreai_opt
+
+.. autoclass:: ExportBackend
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>coreai_opt.quantization.spec.spec - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=86898c54" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="coreai_opt.quantization.spec.spec"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../../api/index.html">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quantization/index.html">Quantization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/config.html">Config API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/advanced.html">Deeper Dive</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/joint_compression.html">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizationSpec.html">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">coreai_opt.quantization.spec.spec</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="spec.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="spec.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="spec.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../../../../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <h1>Source code for coreai_opt.quantization.spec.spec</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># Copyright 2026 Apple Inc.</span>
+</span><span data-line="2"><span class="c1">#</span>
+</span><span data-line="3"><span class="c1"># Use of this source code is governed by a BSD-3-Clause license that can</span>
+</span><span data-line="4"><span class="c1"># be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cached_property</span>
+</span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Annotated</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span>
+</span><span data-line="10">
+</span><span data-line="11"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span data-line="12"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="13">    <span class="n">BeforeValidator</span><span class="p">,</span>
+</span><span data-line="14">    <span class="n">Field</span><span class="p">,</span>
+</span><span data-line="15">    <span class="n">PrivateAttr</span><span class="p">,</span>
+</span><span data-line="16">    <span class="n">computed_field</span><span class="p">,</span>
+</span><span data-line="17">    <span class="n">field_validator</span><span class="p">,</span>
+</span><span data-line="18">    <span class="n">model_validator</span><span class="p">,</span>
+</span><span data-line="19"><span class="p">)</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.registry_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassRegistryMixin</span>
+</span><span data-line="22"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="23">    <span class="n">get_n_bits_from_dtype</span><span class="p">,</span>
+</span><span data-line="24">    <span class="n">is_float4_dtype</span> <span class="k">as</span> <span class="n">_is_float4_dtype</span><span class="p">,</span>
+</span><span data-line="25"><span class="p">)</span>
+</span><span data-line="26"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSpec</span><span class="p">,</span> <span class="n">CompressionType</span>
+</span><span data-line="27">
+</span><span data-line="28"><span class="kn">from</span><span class="w"> </span><span class="nn">.fake_quantize</span><span class="w"> </span><span class="kn">import</span> <span class="n">FakeQuantizeImplBase</span>
+</span><span data-line="29"><span class="kn">from</span><span class="w"> </span><span class="nn">.granularity</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="30">    <span class="n">PerChannelGranularity</span><span class="p">,</span>
+</span><span data-line="31">    <span class="n">PerTensorGranularity</span><span class="p">,</span>
+</span><span data-line="32">    <span class="n">QuantizationGranularity</span><span class="p">,</span>
+</span><span data-line="33"><span class="p">)</span>
+</span><span data-line="34"><span class="kn">from</span><span class="w"> </span><span class="nn">.qformulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantizationFormulation</span>
+</span><span data-line="35"><span class="kn">from</span><span class="w"> </span><span class="nn">.qparams_calculator</span><span class="w"> </span><span class="kn">import</span> <span class="n">QParamsCalculatorBase</span>
+</span><span data-line="36"><span class="kn">from</span><span class="w"> </span><span class="nn">.qscheme</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantizationScheme</span>
+</span><span data-line="37"><span class="kn">from</span><span class="w"> </span><span class="nn">.range_calculator</span><span class="w"> </span><span class="kn">import</span> <span class="n">RangeCalculatorBase</span>
+</span><span data-line="38">
+</span><span data-line="39">
+<div class="viewcode-block" id="QuantizationSpec">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec">[docs]</a>
+</span><span data-line="40"><span class="k">class</span><span class="w"> </span><span class="nc">QuantizationSpec</span><span class="p">(</span><span class="n">CompressionSpec</span><span class="p">):</span>
+</span><span data-line="41"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="42"><span class="sd">    Specification for quantizing tensors in neural networks.</span>
+</span><span data-line="43">
+</span><span data-line="44"><span class="sd">    This class defines all the parameters needed to quantize a tensor, including the</span>
+</span><span data-line="45"><span class="sd">    target data type, quantization scheme, granularity, and the algorithms used for fake</span>
+</span><span data-line="46"><span class="sd">    quantization, quantization parameter calculation, and range calculation.</span>
+</span><span data-line="47">
+</span><span data-line="48"><span class="sd">    Attributes:</span>
+</span><span data-line="49"><span class="sd">        dtype (str | torch.dtype): Target data type for quantization.</span>
+</span><span data-line="50"><span class="sd">            Valid inputs:</span>
+</span><span data-line="51">
+</span><span data-line="52"><span class="sd">            - Integer dtypes: torch.int8, torch.uint8, torch.int4, torch.uint4, etc.</span>
+</span><span data-line="53"><span class="sd">            - Floating-point dtypes: torch.float8_e4m3fn, torch.float8_e5m2,</span>
+</span><span data-line="54"><span class="sd">              torch.float4_e2m1fn_x2.</span>
+</span><span data-line="55"><span class="sd">              For FP8 dtypes, the notation specifies the format (e.g., in</span>
+</span><span data-line="56"><span class="sd">              torch.float8_e4m3fn, &#39;e4m3&#39; indicates 4 exponent bits and 3</span>
+</span><span data-line="57"><span class="sd">              mantissa bits, &#39;f&#39; stands for finite values only, and &#39;n&#39; stands</span>
+</span><span data-line="58"><span class="sd">              for non-standard NaN representation). For more details on FP8</span>
+</span><span data-line="59"><span class="sd">              dtypes, see https://arxiv.org/pdf/2209.05433</span>
+</span><span data-line="60"><span class="sd">            - String names: &quot;int8&quot;, &quot;int4&quot;, &quot;float8_e4m3fn&quot;, etc. Must correspond to</span>
+</span><span data-line="61"><span class="sd">              an existing torch dtype</span>
+</span><span data-line="62">
+</span><span data-line="63"><span class="sd">            Default: torch.int8</span>
+</span><span data-line="64">
+</span><span data-line="65"><span class="sd">        qscheme (str | coreai_opt.quantization.QuantizationScheme):</span>
+</span><span data-line="66"><span class="sd">            Quantization scheme determining how values are mapped to the quantized</span>
+</span><span data-line="67"><span class="sd">            range.</span>
+</span><span data-line="68"><span class="sd">            Valid inputs:</span>
+</span><span data-line="69"><span class="sd">             - &quot;symmetric&quot; (default), &quot;symmetric_with_clipping&quot;, &quot;asymmetric&quot;</span>
+</span><span data-line="70">
+</span><span data-line="71"><span class="sd">            On how it affects the quantization and dequantization formulae,</span>
+</span><span data-line="72"><span class="sd">            please refer to the `qformulation` description below.</span>
+</span><span data-line="73">
+</span><span data-line="74"><span class="sd">        qformulation (str | coreai_opt.quantization.QuantizationFormulation):</span>
+</span><span data-line="75"><span class="sd">            Quantization formula determining how values are mapped between the</span>
+</span><span data-line="76"><span class="sd">            quantized and dequantized domains.</span>
+</span><span data-line="77"><span class="sd">            Valid inputs:</span>
+</span><span data-line="78">
+</span><span data-line="79"><span class="sd">            - ``&quot;zp&quot;`` (default), ``&quot;minval&quot;``</span>
+</span><span data-line="80"><span class="sd">            - ``QuantizationFormulation.ZP``, ``QuantizationFormulation.MINVAL``</span>
+</span><span data-line="81">
+</span><span data-line="82"><span class="sd">            Notation used in the formulae below:</span>
+</span><span data-line="83">
+</span><span data-line="84"><span class="sd">            - ``x``: unquantized data.</span>
+</span><span data-line="85"><span class="sd">            - ``q``: quantized data (dtype as specified by ``QuantizationSpec.dtype``).</span>
+</span><span data-line="86"><span class="sd">            - ``x&#39;``: dequantized data (same dtype as ``x``).</span>
+</span><span data-line="87"><span class="sd">            - ``scale``: for INT quantization, defaults to the same dtype as</span>
+</span><span data-line="88"><span class="sd">              ``x``. For FP quantization, see the ``scale_dtype`` description</span>
+</span><span data-line="89"><span class="sd">              below.</span>
+</span><span data-line="90">
+</span><span data-line="91"><span class="sd">            Formulae:</span>
+</span><span data-line="92">
+</span><span data-line="93"><span class="sd">            - ``&quot;zp&quot;`` — Zero-point formulation. ``zero_point`` has the same</span>
+</span><span data-line="94"><span class="sd">              dtype as ``q``.</span>
+</span><span data-line="95">
+</span><span data-line="96"><span class="sd">              - ``q  = clamp(round(x / scale) + zero_point, quant_min, quant_max)``</span>
+</span><span data-line="97"><span class="sd">              - ``x&#39; = (q - zero_point) * scale``</span>
+</span><span data-line="98">
+</span><span data-line="99"><span class="sd">            - ``&quot;minval&quot;`` — Min-value formulation. ``minval`` has the same</span>
+</span><span data-line="100"><span class="sd">              dtype as ``x``.</span>
+</span><span data-line="101">
+</span><span data-line="102"><span class="sd">              - ``q  = clamp(round((x - minval) / scale) + quant_min, quant_min, quant_max)``</span>
+</span><span data-line="103"><span class="sd">              - ``x&#39; = (q - quant_min) * scale + minval``</span>
+</span><span data-line="104">
+</span><span data-line="105"><span class="sd">            Default: ``QuantizationFormulation.ZP``</span>
+</span><span data-line="106">
+</span><span data-line="107"><span class="sd">            The tables below illustrate how the joint settings across</span>
+</span><span data-line="108"><span class="sd">            ``QuantizationSpec.dtype``, ``QuantizationSpec.qscheme``,</span>
+</span><span data-line="109"><span class="sd">            ``QuantizationSpec.qformulation`` manifest in the formulae above.</span>
+</span><span data-line="110"><span class="sd">            (Note that the min and max values of &quot;x&quot; assumed below are the ones</span>
+</span><span data-line="111"><span class="sd">            which will be calculated based on observer settings, as specified in</span>
+</span><span data-line="112"><span class="sd">            ``QuantizationSpec.qparam_calculator_cls``,</span>
+</span><span data-line="113"><span class="sd">            ``QuantizationSpec.range_calculator_cls``,</span>
+</span><span data-line="114"><span class="sd">            ``QuantizationSpec.float_range``.)</span>
+</span><span data-line="115">
+</span><span data-line="116"><span class="sd">            Derived quantities used in the tables:</span>
+</span><span data-line="117">
+</span><span data-line="118"><span class="sd">            - ``max_abs     = max(|x|)``</span>
+</span><span data-line="119"><span class="sd">            - ``max_val_pos = max(0, max(x))``</span>
+</span><span data-line="120"><span class="sd">            - ``min_val_neg = min(0, min(x))``</span>
+</span><span data-line="121"><span class="sd">            - ``range       = max_val_pos - min_val_neg``</span>
+</span><span data-line="122">
+</span><span data-line="123"><span class="sd">            For per-channel / per-block granularity, the reductions above are</span>
+</span><span data-line="124"><span class="sd">            taken over each quantization unit (channel slice or block) rather</span>
+</span><span data-line="125"><span class="sd">            than the full tensor.</span>
+</span><span data-line="126">
+</span><span data-line="127"><span class="sd">            **ZP formulation**, e.g. with 8 bit signed and unsigned fixed point types:</span>
+</span><span data-line="128">
+</span><span data-line="129"><span class="sd">            +-------+------------+-------------+-----------------+--------------------------------+</span>
+</span><span data-line="130"><span class="sd">            | dtype | qscheme    | quant range | scale           | zero_point                     |</span>
+</span><span data-line="131"><span class="sd">            +=======+============+=============+=================+================================+</span>
+</span><span data-line="132"><span class="sd">            | INT8  | SYMMETRIC  | [-128, 127] | max_abs / 127.5 | 0                              |</span>
+</span><span data-line="133"><span class="sd">            +-------+------------+-------------+-----------------+--------------------------------+</span>
+</span><span data-line="134"><span class="sd">            | INT8  | SYM_W_CLIP | [-127, 127] | max_abs / 127   | 0                              |</span>
+</span><span data-line="135"><span class="sd">            +-------+------------+-------------+-----------------+--------------------------------+</span>
+</span><span data-line="136"><span class="sd">            | INT8  | ASYMMETRIC | [-128, 127] | range / 255     | clip(-128-round(               |</span>
+</span><span data-line="137"><span class="sd">            |       |            |             |                 | min_val_neg/scale), -128, 127) |</span>
+</span><span data-line="138"><span class="sd">            +-------+------------+-------------+-----------------+--------------------------------+</span>
+</span><span data-line="139"><span class="sd">            | UINT8 | SYMMETRIC  | [0, 255]    | max_abs / 127.5 | 128                            |</span>
+</span><span data-line="140"><span class="sd">            +-------+------------+-------------+-----------------+--------------------------------+</span>
+</span><span data-line="141"><span class="sd">            | UINT8 | SYM_W_CLIP | [0, 255]    | max_abs / 127.5 | 128                            |</span>
+</span><span data-line="142"><span class="sd">            +-------+------------+-------------+-----------------+--------------------------------+</span>
+</span><span data-line="143"><span class="sd">            | UINT8 | ASYMMETRIC | [0, 255]    | range / 255     | clip(-round(                   |</span>
+</span><span data-line="144"><span class="sd">            |       |            |             |                 | min_val_neg/scale), 0, 255)    |</span>
+</span><span data-line="145"><span class="sd">            +-------+------------+-------------+-----------------+--------------------------------+</span>
+</span><span data-line="146">
+</span><span data-line="147"><span class="sd">            And for FP4/FP8 dtypes, zero-point is always set to 0 (FP supports only the</span>
+</span><span data-line="148"><span class="sd">            symmetric qscheme). The scale formula depends on ``scale_dtype``:</span>
+</span><span data-line="149">
+</span><span data-line="150"><span class="sd">            - ``scale_dtype=None`` (FP8 only): ``scale = max_abs / fp_max``, where</span>
+</span><span data-line="151"><span class="sd">              ``fp_max`` is the largest representable value for the target FP dtype</span>
+</span><span data-line="152"><span class="sd">              (448.0 for FP8 E4M3, 57344.0 for FP8 E5M2).</span>
+</span><span data-line="153"><span class="sd">            - ``scale_dtype=torch.float8_e8m0fnu`` (FP4 and FP8):</span>
+</span><span data-line="154"><span class="sd">              power-of-2 scale per OCP MX spec —</span>
+</span><span data-line="155"><span class="sd">              ``scale = 2^(floor(log2(max_abs)) - target_max_pow2)``, with</span>
+</span><span data-line="156"><span class="sd">              ``target_max_pow2`` of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2.</span>
+</span><span data-line="157">
+</span><span data-line="158"><span class="sd">            **MINVAL formulation**, e.g. with 8 bit signed and unsigned fixed point types:</span>
+</span><span data-line="159">
+</span><span data-line="160"><span class="sd">            ======  =============  =============  ===============  ===========  =============</span>
+</span><span data-line="161"><span class="sd">            dtype   qscheme        quant range    scale            minval       quant_offset</span>
+</span><span data-line="162"><span class="sd">            ======  =============  =============  ===============  ===========  =============</span>
+</span><span data-line="163"><span class="sd">            INT8    SYMMETRIC      [-128, 127]    max_abs / 127.5  -max_abs     -128</span>
+</span><span data-line="164"><span class="sd">            INT8    SYM_W_CLIP     [-127, 127]    max_abs / 127    -max_abs     -127</span>
+</span><span data-line="165"><span class="sd">            INT8    ASYMMETRIC     [-128, 127]    range / 255      min_val_neg  -128</span>
+</span><span data-line="166"><span class="sd">            UINT8   SYMMETRIC      [0, 255]       max_abs / 127.5  -max_abs     0</span>
+</span><span data-line="167"><span class="sd">            UINT8   SYM_W_CLIP     [0, 255]       max_abs / 127.5  -max_abs     0</span>
+</span><span data-line="168"><span class="sd">            UINT8   ASYMMETRIC     [0, 255]       range / 255      min_val_neg  0</span>
+</span><span data-line="169"><span class="sd">            ======  =============  =============  ===============  ===========  =============</span>
+</span><span data-line="170">
+</span><span data-line="171"><span class="sd">            ``quant_offset`` equals ``q_min`` (the lower bound of the &quot;quant range&quot; column).</span>
+</span><span data-line="172">
+</span><span data-line="173"><span class="sd">            This formulation is not allowed with FP4/FP8 dtypes.</span>
+</span><span data-line="174">
+</span><span data-line="175"><span class="sd">            Note:</span>
+</span><span data-line="176"><span class="sd">                Export-backend constraints:</span>
+</span><span data-line="177">
+</span><span data-line="178"><span class="sd">                - CoreML export only supports ``ZP``. Specs with ``qformulation=MINVAL``</span>
+</span><span data-line="179"><span class="sd">                  are rejected during finalize with CoreML Export-backend.</span>
+</span><span data-line="180"><span class="sd">                - CoreAI export supports both ``ZP`` and ``MINVAL``.</span>
+</span><span data-line="181">
+</span><span data-line="182"><span class="sd">        granularity (dict | coreai_opt.quantization.QuantizationGranularity):</span>
+</span><span data-line="183"><span class="sd">            Quantization granularity determining the scope of</span>
+</span><span data-line="184"><span class="sd">            quantization parameters.</span>
+</span><span data-line="185"><span class="sd">            Valid inputs:</span>
+</span><span data-line="186">
+</span><span data-line="187"><span class="sd">            - Dictionary format:</span>
+</span><span data-line="188">
+</span><span data-line="189"><span class="sd">              - ``{&quot;type&quot;: &quot;per_tensor&quot;}`` - Single scale/zero-point for entire</span>
+</span><span data-line="190"><span class="sd">                tensor</span>
+</span><span data-line="191"><span class="sd">              - ``{&quot;type&quot;: &quot;per_channel&quot;, &quot;axis&quot;: &lt;int&gt;}`` - Per-channel</span>
+</span><span data-line="192"><span class="sd">                quantization along axis</span>
+</span><span data-line="193"><span class="sd">              - ``{&quot;type&quot;: &quot;per_block&quot;, &quot;axis&quot;: &lt;int&gt;, &quot;block_size&quot;: &lt;tuple&gt;}`` -</span>
+</span><span data-line="194"><span class="sd">                Block-wise quantization along axis with specified block size</span>
+</span><span data-line="195">
+</span><span data-line="196"><span class="sd">            - coreai_opt.quantization.QuantizationGranularity instances:</span>
+</span><span data-line="197"><span class="sd">              PerTensorGranularity(), PerChannelGranularity(axis=1), etc.</span>
+</span><span data-line="198">
+</span><span data-line="199"><span class="sd">            Default: PerTensorGranularity()</span>
+</span><span data-line="200">
+</span><span data-line="201"><span class="sd">        fake_quantize_cls (str | type[coreai_opt.quantization.fake_quantize.FakeQuantizeImplBase]):</span>
+</span><span data-line="202"><span class="sd">            Fake quantization implementation class for simulating quantization.</span>
+</span><span data-line="203"><span class="sd">            This entity makes use of the scale and zero point computed from</span>
+</span><span data-line="204"><span class="sd">            qparam_calculator_cls in order to perform fake quantization (back to back</span>
+</span><span data-line="205"><span class="sd">            quantize/dequantize) to simulate quantization by adding quantization error</span>
+</span><span data-line="206"><span class="sd">            to tensors in the model.</span>
+</span><span data-line="207"><span class="sd">            Users may define their own fake_quantize_cls by inheriting from</span>
+</span><span data-line="208"><span class="sd">            coreai_opt.quantization.fake_quantize.FakeQuantizeImplBase and register</span>
+</span><span data-line="209"><span class="sd">            the class using the decorator</span>
+</span><span data-line="210"><span class="sd">            @FakeQuantizeImplBase.register(&quot;&lt;identifier&gt;&quot;), where &lt;identifier&gt; is a</span>
+</span><span data-line="211"><span class="sd">            string which can be used to refer to the registered class in</span>
+</span><span data-line="212"><span class="sd">            fake_quantize_cls.</span>
+</span><span data-line="213"><span class="sd">            Valid inputs:</span>
+</span><span data-line="214">
+</span><span data-line="215"><span class="sd">            - String key: &quot;default&quot; or custom registered class string name</span>
+</span><span data-line="216"><span class="sd">            - Class type:</span>
+</span><span data-line="217"><span class="sd">              coreai_opt.quantization.fake_quantize._DefaultFakeQuantizeImpl</span>
+</span><span data-line="218"><span class="sd">              or custom registered class type</span>
+</span><span data-line="219">
+</span><span data-line="220"><span class="sd">            Default: &quot;default&quot;</span>
+</span><span data-line="221">
+</span><span data-line="222"><span class="sd">        qparam_calculator_cls</span>
+</span><span data-line="223"><span class="sd">            (str | type[QParamsCalculatorBase]):</span>
+</span><span data-line="224"><span class="sd">            Algorithm for calculating quantization parameters (scale and zero</span>
+</span><span data-line="225"><span class="sd">            point).</span>
+</span><span data-line="226"><span class="sd">            Users may define their own qparam_calculator_cls by inheriting from</span>
+</span><span data-line="227"><span class="sd">            coreai_opt.quantization.qparams_calculator.QParamsCalculatorBase</span>
+</span><span data-line="228"><span class="sd">            and register the class using the decorator</span>
+</span><span data-line="229"><span class="sd">            @QParamsCalculatorBase.register(&quot;&lt;identifier&gt;&quot;), where</span>
+</span><span data-line="230"><span class="sd">            &lt;identifier&gt; is a string which can be used to refer to the</span>
+</span><span data-line="231"><span class="sd">            registered class in qparam_calculator_cls.</span>
+</span><span data-line="232"><span class="sd">            If float_range is provided, the &quot;default&quot;, &quot;static&quot;, and</span>
+</span><span data-line="233"><span class="sd">            &quot;moving_average&quot; qparam calculators will take it into account when</span>
+</span><span data-line="234"><span class="sd">            computing scale and zero point.</span>
+</span><span data-line="235"><span class="sd">            Valid inputs:</span>
+</span><span data-line="236">
+</span><span data-line="237"><span class="sd">            - &quot;default&quot;: Context-aware default:</span>
+</span><span data-line="238">
+</span><span data-line="239"><span class="sd">              * For weights → StaticQParamsCalculator</span>
+</span><span data-line="240"><span class="sd">              * For activations → MovingAverageQParamsCalculator</span>
+</span><span data-line="241">
+</span><span data-line="242"><span class="sd">            - &quot;static&quot;: Direct min/max quantization parameter calculation based on</span>
+</span><span data-line="243"><span class="sd">              most recent calibration sample only</span>
+</span><span data-line="244"><span class="sd">            - &quot;moving_average&quot;: Uses exponential moving average for stability</span>
+</span><span data-line="245"><span class="sd">            - &quot;global_minmax&quot;: Tracks running min/max across all calibration samples</span>
+</span><span data-line="246"><span class="sd">            - Custom registered class string name</span>
+</span><span data-line="247"><span class="sd">            - coreai_opt.quantization.qparams_calculator.QParamsCalculatorBase</span>
+</span><span data-line="248"><span class="sd">              class type: StaticQParamsCalculator,</span>
+</span><span data-line="249"><span class="sd">              MovingAverageQParamsCalculator, or custom registered class type</span>
+</span><span data-line="250">
+</span><span data-line="251"><span class="sd">            Default: &quot;default&quot;</span>
+</span><span data-line="252">
+</span><span data-line="253"><span class="sd">        range_calculator_cls</span>
+</span><span data-line="254"><span class="sd">            (str | type[RangeCalculatorBase]):</span>
+</span><span data-line="255"><span class="sd">            Algorithm for calculating the min/max range of values to quantize.</span>
+</span><span data-line="256"><span class="sd">            Users may define their own range_calculator_cls by inheriting from</span>
+</span><span data-line="257"><span class="sd">            coreai_opt.quantization.range_calculator.RangeCalculatorBase and</span>
+</span><span data-line="258"><span class="sd">            register the class using the decorator</span>
+</span><span data-line="259"><span class="sd">            @RangeCalculatorBase.register(&quot;identifier&quot;), where &lt;identifier&gt;</span>
+</span><span data-line="260"><span class="sd">            is a string which can be used to refer to the registered class in</span>
+</span><span data-line="261"><span class="sd">            range_calculator_cls.</span>
+</span><span data-line="262"><span class="sd">            Valid inputs:</span>
+</span><span data-line="263">
+</span><span data-line="264"><span class="sd">            - &quot;minmax&quot;: Uses actual min/max values from the tensor</span>
+</span><span data-line="265"><span class="sd">            - Custom registered class string name</span>
+</span><span data-line="266"><span class="sd">            - coreai_opt.quantization.range_calculator.RangeCalculatorBase</span>
+</span><span data-line="267"><span class="sd">              class type: MinMaxRangeCalculator or custom registered class type</span>
+</span><span data-line="268">
+</span><span data-line="269"><span class="sd">            Default: &quot;minmax&quot;</span>
+</span><span data-line="270">
+</span><span data-line="271"><span class="sd">        float_range (list[float | int | None]): Custom floating-point</span>
+</span><span data-line="272"><span class="sd">            range [min, max] to set for quantization.</span>
+</span><span data-line="273"><span class="sd">            This can be used to set ranges for functions with known bounds (ReLU, Tanh,</span>
+</span><span data-line="274"><span class="sd">            Sigmoid, Softmax, etc.) as well as constraining certain tensors in the model</span>
+</span><span data-line="275"><span class="sd">            to be within a specified range if users want to exclude outliers.</span>
+</span><span data-line="276"><span class="sd">            float_range is used by qparams_calculator_cls. Predefined qparam classes</span>
+</span><span data-line="277"><span class="sd">            &quot;default&quot;, &quot;static&quot;, and &quot;moving_average&quot; handle float_range. If the</span>
+</span><span data-line="278"><span class="sd">            user defines a custom qparam_calculator_cls, float_range would need to be</span>
+</span><span data-line="279"><span class="sd">            handled properly within the implementation.</span>
+</span><span data-line="280"><span class="sd">            Default: [None, None] (no constraints, allow qparam_calculator_cls</span>
+</span><span data-line="281"><span class="sd">            to determine range)</span>
+</span><span data-line="282"><span class="sd">            Valid inputs:</span>
+</span><span data-line="283">
+</span><span data-line="284"><span class="sd">            - [None, None]: No range constraints (default)</span>
+</span><span data-line="285"><span class="sd">            - [None, float_max]: Fix float max while allowing float min to be</span>
+</span><span data-line="286"><span class="sd">              determined</span>
+</span><span data-line="287"><span class="sd">            - [float_min, None]: Fix float min while allowing float max to be</span>
+</span><span data-line="288"><span class="sd">              determined</span>
+</span><span data-line="289"><span class="sd">            - [float_min, float_max]: Fix both float min and max to a specific</span>
+</span><span data-line="290"><span class="sd">              range</span>
+</span><span data-line="291">
+</span><span data-line="292"><span class="sd">            Constraints:</span>
+</span><span data-line="293">
+</span><span data-line="294"><span class="sd">            - Must be a list or tuple of length 2</span>
+</span><span data-line="295"><span class="sd">            - float_min must be &lt;= 0</span>
+</span><span data-line="296"><span class="sd">            - float_max must be &gt;= 0</span>
+</span><span data-line="297"><span class="sd">            - float_min &lt; float_max</span>
+</span><span data-line="298">
+</span><span data-line="299"><span class="sd">        scale_dtype (torch.dtype | None): Data type for quantization scale factors.</span>
+</span><span data-line="300"><span class="sd">            Controls whether scales are constrained to power-of-2 values (e8m0 format)</span>
+</span><span data-line="301"><span class="sd">            or allowed to be arbitrary floating-point values.</span>
+</span><span data-line="302"><span class="sd">            Valid inputs:</span>
+</span><span data-line="303">
+</span><span data-line="304"><span class="sd">            - None: Use default scale computation via torchao&#39;s</span>
+</span><span data-line="305"><span class="sd">              choose_qparams_affine_with_min_max (integer and FP8 dtypes).</span>
+</span><span data-line="306"><span class="sd">              For FP4, None is resolved to torch.float8_e8m0fnu automatically.</span>
+</span><span data-line="307"><span class="sd">            - torch.float8_e8m0fnu: Power-of-2 scales following OCP Microscaling (MX)</span>
+</span><span data-line="308"><span class="sd">              spec. Required for FP4 quantization, optional for FP8.</span>
+</span><span data-line="309">
+</span><span data-line="310"><span class="sd">            Constraints:</span>
+</span><span data-line="311">
+</span><span data-line="312"><span class="sd">            - FP4 (float4_e2m1fn_x2): scale_dtype must be torch.float8_e8m0fnu or None</span>
+</span><span data-line="313"><span class="sd">              (defaults to e8m0)</span>
+</span><span data-line="314"><span class="sd">            - FP8 (float8_e4m3fn, float8_e5m2): scale_dtype must be</span>
+</span><span data-line="315"><span class="sd">              torch.float8_e8m0fnu or None (defaults to None)</span>
+</span><span data-line="316"><span class="sd">            - Integer dtypes: scale_dtype must be None (defaults to None)</span>
+</span><span data-line="317">
+</span><span data-line="318"><span class="sd">            Default: None</span>
+</span><span data-line="319">
+</span><span data-line="320"><span class="sd">    Example:</span>
+</span><span data-line="321"><span class="sd">        &gt;&gt;&gt; # Minimal config using defaults (int8, symmetric, per-tensor)</span>
+</span><span data-line="322"><span class="sd">        &gt;&gt;&gt; spec = QuantizationSpec()</span>
+</span><span data-line="323"><span class="sd">        &gt;&gt;&gt;</span>
+</span><span data-line="324"><span class="sd">        &gt;&gt;&gt; # Quantization with per-channel granularity</span>
+</span><span data-line="325"><span class="sd">        &gt;&gt;&gt; spec = QuantizationSpec(</span>
+</span><span data-line="326"><span class="sd">        ...     dtype=torch.int8,</span>
+</span><span data-line="327"><span class="sd">        ...     qscheme=&quot;symmetric&quot;,</span>
+</span><span data-line="328"><span class="sd">        ...     granularity={&quot;type&quot;: &quot;per_channel&quot;, &quot;axis&quot;: 1},</span>
+</span><span data-line="329"><span class="sd">        ...     fake_quantize_cls=&quot;default&quot;,</span>
+</span><span data-line="330"><span class="sd">        ...     qparam_calculator_cls=&quot;default&quot;,</span>
+</span><span data-line="331"><span class="sd">        ...     range_calculator_cls=&quot;minmax&quot;,</span>
+</span><span data-line="332"><span class="sd">        ... )</span>
+</span><span data-line="333"><span class="sd">        &gt;&gt;&gt;</span>
+</span><span data-line="334"><span class="sd">        &gt;&gt;&gt; # Quantization with per-tensor granularity and specific float range</span>
+</span><span data-line="335"><span class="sd">        &gt;&gt;&gt; spec = QuantizationSpec(</span>
+</span><span data-line="336"><span class="sd">        ...     dtype=&quot;int8&quot;,</span>
+</span><span data-line="337"><span class="sd">        ...     qscheme=&quot;symmetric&quot;,</span>
+</span><span data-line="338"><span class="sd">        ...     granularity={&quot;type&quot;: &quot;per_tensor&quot;},</span>
+</span><span data-line="339"><span class="sd">        ...     fake_quantize_cls=&quot;default&quot;,</span>
+</span><span data-line="340"><span class="sd">        ...     qparam_calculator_cls=&quot;moving_average&quot;,</span>
+</span><span data-line="341"><span class="sd">        ...     range_calculator_cls=&quot;minmax&quot;,</span>
+</span><span data-line="342"><span class="sd">        ...     float_range=[-1.0, 1.0]</span>
+</span><span data-line="343"><span class="sd">        ... )</span>
+</span><span data-line="344">
+</span><span data-line="345"><span class="sd">    Notes:</span>
+</span><span data-line="346"><span class="sd">        - All fields have defaults and are optional</span>
+</span><span data-line="347"><span class="sd">        - The qparam_calculator_cls &quot;default&quot; is context-aware and resolved by the</span>
+</span><span data-line="348"><span class="sd">          factory based on whether it&#39;s used for weight or activation quantization</span>
+</span><span data-line="349"><span class="sd">        - String inputs are automatically converted to their corresponding types if</span>
+</span><span data-line="350"><span class="sd">          present in corresponding registries.</span>
+</span><span data-line="351"><span class="sd">        - The spec is immutable (frozen=True) once created</span>
+</span><span data-line="352"><span class="sd">        - Custom implementations can be registered and used via string keys</span>
+</span><span data-line="353"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="354">
+</span><span data-line="355">    <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">int8</span>
+</span><span data-line="356">    <span class="n">qscheme</span><span class="p">:</span> <span class="n">QuantizationScheme</span> <span class="o">=</span> <span class="n">QuantizationScheme</span><span class="o">.</span><span class="n">SYMMETRIC</span>
+</span><span data-line="357">    <span class="n">qformulation</span><span class="p">:</span> <span class="n">QuantizationFormulation</span> <span class="o">=</span> <span class="n">QuantizationFormulation</span><span class="o">.</span><span class="n">ZP</span>
+</span><span data-line="358">    <span class="n">granularity</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+</span><span data-line="359">        <span class="n">QuantizationGranularity</span><span class="p">,</span>
+</span><span data-line="360">        <span class="n">BeforeValidator</span><span class="p">(</span><span class="n">QuantizationGranularity</span><span class="o">.</span><span class="n">maybe_build_from_dict</span><span class="p">),</span>
+</span><span data-line="361">    <span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PerTensorGranularity</span><span class="p">)</span>
+</span><span data-line="362">    <span class="n">fake_quantize_cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">FakeQuantizeImplBase</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="363">    <span class="n">qparam_calculator_cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">QParamsCalculatorBase</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+</span><span data-line="364">        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span>
+</span><span data-line="365">    <span class="p">)</span>
+</span><span data-line="366">    <span class="n">range_calculator_cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">RangeCalculatorBase</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">&quot;minmax&quot;</span><span class="p">,</span> <span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="367">    <span class="n">float_range</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">])</span>
+</span><span data-line="368">    <span class="n">scale_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="369">
+</span><span data-line="370">    <span class="c1"># Private attribute for compression type</span>
+</span><span data-line="371">    <span class="n">_compression_type</span><span class="p">:</span> <span class="n">CompressionType</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">CompressionType</span><span class="o">.</span><span class="n">QUANTIZATION</span><span class="p">)</span>
+</span><span data-line="372">
+</span><span data-line="373">    <span class="c1"># Supported dtypes for quantization (class attribute for testing extensibility)</span>
+</span><span data-line="374">    <span class="n">SUPPORTED_DTYPES</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">set</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="375">        <span class="c1"># Signed integer types</span>
+</span><span data-line="376">        <span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span>
+</span><span data-line="377">        <span class="n">torch</span><span class="o">.</span><span class="n">int4</span><span class="p">,</span>
+</span><span data-line="378">        <span class="n">torch</span><span class="o">.</span><span class="n">int2</span><span class="p">,</span>
+</span><span data-line="379">        <span class="c1"># Unsigned integer types</span>
+</span><span data-line="380">        <span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span>
+</span><span data-line="381">        <span class="n">torch</span><span class="o">.</span><span class="n">uint4</span><span class="p">,</span>
+</span><span data-line="382">        <span class="n">torch</span><span class="o">.</span><span class="n">uint2</span><span class="p">,</span>
+</span><span data-line="383">        <span class="c1"># FP8 types (standard formats)</span>
+</span><span data-line="384">        <span class="n">torch</span><span class="o">.</span><span class="n">float8_e4m3fn</span><span class="p">,</span>
+</span><span data-line="385">        <span class="n">torch</span><span class="o">.</span><span class="n">float8_e5m2</span><span class="p">,</span>
+</span><span data-line="386">        <span class="c1"># FP4 types</span>
+</span><span data-line="387">        <span class="n">torch</span><span class="o">.</span><span class="n">float4_e2m1fn_x2</span><span class="p">,</span>
+</span><span data-line="388">    <span class="p">}</span>
+</span><span data-line="389">
+</span><span data-line="390">    <span class="c1"># String aliases for convenience (e.g. &quot;float4_e2m1fn&quot; → torch.float4_e2m1fn_x2,</span>
+</span><span data-line="391">    <span class="c1">#                                       &quot;float8_e4m3&quot;   → torch.float8_e4m3fn)</span>
+</span><span data-line="392">    <span class="n">_DTYPE_ALIASES</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="393">        <span class="s2">&quot;float4_e2m1fn&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">float4_e2m1fn_x2</span><span class="p">,</span>
+</span><span data-line="394">        <span class="s2">&quot;float8_e4m3&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">float8_e4m3fn</span><span class="p">,</span>
+</span><span data-line="395">        <span class="s2">&quot;float8_e8m0&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">float8_e8m0fnu</span><span class="p">,</span>
+</span><span data-line="396">    <span class="p">}</span>
+</span><span data-line="397">
+</span><span data-line="398">    <span class="c1"># Field Validators</span>
+</span><span data-line="399">    <span class="nd">@classmethod</span>
+</span><span data-line="400">    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_str_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+</span><span data-line="401"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve a string to a torch.dtype via aliases or ``torch.&lt;name&gt;``.&quot;&quot;&quot;</span>
+</span><span data-line="402">        <span class="n">dtype</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_DTYPE_ALIASES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">torch</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="403">        <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="404">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported dtype: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="405">        <span class="k">return</span> <span class="n">dtype</span>
+</span><span data-line="406">
+</span><span data-line="407">    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;dtype&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span data-line="408">    <span class="nd">@classmethod</span>
+</span><span data-line="409">    <span class="k">def</span><span class="w"> </span><span class="nf">convert_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+</span><span data-line="410">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+</span><span data-line="411">            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_resolve_str_dtype</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span><span data-line="412">        <span class="k">return</span> <span class="n">data</span>
+</span><span data-line="413">
+</span><span data-line="414">    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;dtype&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;after&quot;</span><span class="p">)</span>
+</span><span data-line="415">    <span class="nd">@classmethod</span>
+</span><span data-line="416">    <span class="k">def</span><span class="w"> </span><span class="nf">validate_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+</span><span data-line="417"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate that dtype is supported for quantization.&quot;&quot;&quot;</span>
+</span><span data-line="418">        <span class="k">if</span> <span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_DTYPES</span><span class="p">:</span>
+</span><span data-line="419">            <span class="n">allowed_names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span> <span class="k">for</span> <span class="n">dt</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">SUPPORTED_DTYPES</span><span class="p">])</span>
+</span><span data-line="420">            <span class="n">error_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Unsupported dtype: </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">. Allowed dtypes: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">allowed_names</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span data-line="421">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">error_msg</span><span class="p">)</span>
+</span><span data-line="422">        <span class="k">return</span> <span class="n">dtype</span>
+</span><span data-line="423">
+</span><span data-line="424">    <span class="nd">@staticmethod</span>
+</span><span data-line="425">    <span class="k">def</span><span class="w"> </span><span class="nf">_convert_with_registry</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">type</span><span class="p">,</span> <span class="n">registry_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">ClassRegistryMixin</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">:</span>
+</span><span data-line="426"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="427"><span class="sd">        Convert string or type to a registered class from the given registry.</span>
+</span><span data-line="428">
+</span><span data-line="429"><span class="sd">        Args:</span>
+</span><span data-line="430"><span class="sd">            data: Either a string key or a class type</span>
+</span><span data-line="431"><span class="sd">            registry_class: The registry class to look up the key/type in</span>
+</span><span data-line="432">
+</span><span data-line="433"><span class="sd">        Returns:</span>
+</span><span data-line="434"><span class="sd">            The registered class type</span>
+</span><span data-line="435">
+</span><span data-line="436"><span class="sd">        Raises:</span>
+</span><span data-line="437"><span class="sd">            ValueError: If the key is not found in registry or type is not registered</span>
+</span><span data-line="438"><span class="sd">            TypeError: If data is neither string nor type</span>
+</span><span data-line="439"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="440">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+</span><span data-line="441">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="442">                <span class="k">return</span> <span class="n">registry_class</span><span class="o">.</span><span class="n">get_class</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span><span data-line="443">            <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+</span><span data-line="444">                <span class="n">available_keys</span> <span class="o">=</span> <span class="n">registry_class</span><span class="o">.</span><span class="n">list_registry_keys</span><span class="p">()</span>
+</span><span data-line="445">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="446">                    <span class="sa">f</span><span class="s2">&quot;No class is registered with key: &#39;</span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s2">&#39; &quot;</span>
+</span><span data-line="447">                    <span class="sa">f</span><span class="s2">&quot;in registry </span><span class="si">{</span><span class="n">registry_class</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">. &quot;</span>
+</span><span data-line="448">                    <span class="sa">f</span><span class="s2">&quot;Available keys: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">available_keys</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span data-line="449">                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
+</span><span data-line="450">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+</span><span data-line="451">            <span class="k">if</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">registry_class</span><span class="o">.</span><span class="n">list_registry_values</span><span class="p">():</span>
+</span><span data-line="452">                <span class="k">return</span> <span class="n">data</span>
+</span><span data-line="453">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="454">                <span class="n">available_classes</span> <span class="o">=</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">registry_class</span><span class="o">.</span><span class="n">list_registry_values</span><span class="p">()]</span>
+</span><span data-line="455">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="456">                    <span class="sa">f</span><span class="s2">&quot;Class </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> is not registered in &quot;</span>
+</span><span data-line="457">                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">registry_class</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">. &quot;</span>
+</span><span data-line="458">                    <span class="sa">f</span><span class="s2">&quot;Available classes: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">available_classes</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span data-line="459">                <span class="p">)</span>
+</span><span data-line="460">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="461">            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+</span><span data-line="462">                <span class="sa">f</span><span class="s2">&quot;Expected str or type for registry lookup, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span data-line="463">            <span class="p">)</span>
+</span><span data-line="464">
+</span><span data-line="465">    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;range_calculator_cls&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span data-line="466">    <span class="nd">@classmethod</span>
+</span><span data-line="467">    <span class="k">def</span><span class="w"> </span><span class="nf">convert_range_calculator</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">RangeCalculatorBase</span><span class="p">]:</span>
+</span><span data-line="468">        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_convert_with_registry</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">RangeCalculatorBase</span><span class="p">)</span>
+</span><span data-line="469">
+</span><span data-line="470">    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;float_range&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span data-line="471">    <span class="nd">@classmethod</span>
+</span><span data-line="472">    <span class="k">def</span><span class="w"> </span><span class="nf">validate_float_range</span><span class="p">(</span>
+</span><span data-line="473">        <span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
+</span><span data-line="474">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+</span><span data-line="475">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span> <span class="o">|</span> <span class="nb">list</span><span class="p">)):</span>
+</span><span data-line="476">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Float range must be a list or tuple.&quot;</span><span class="p">)</span>
+</span><span data-line="477">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+</span><span data-line="478">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Float range must have length 2.&quot;</span><span class="p">)</span>
+</span><span data-line="479">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+</span><span data-line="480">            <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">)</span>
+</span><span data-line="481">        <span class="p">):</span>
+</span><span data-line="482">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Float range entries must be ints, floats or None.&quot;</span><span class="p">)</span>
+</span><span data-line="483">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">bool</span><span class="p">):</span>
+</span><span data-line="484">            <span class="c1"># This is needed since bool is a subclass of int and will pass the previous</span>
+</span><span data-line="485">            <span class="c1"># check.</span>
+</span><span data-line="486">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Float range entries must be ints, floats or None.&quot;</span><span class="p">)</span>
+</span><span data-line="487">        <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+</span><span data-line="488">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Float range [float_min, float_max] expects float_min &lt; float_max.&quot;</span><span class="p">)</span>
+</span><span data-line="489">        <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="490">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Float range min value must be less than or equal to 0.&quot;</span><span class="p">)</span>
+</span><span data-line="491">        <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="492">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Float range max value must be greater than or equal to 0.&quot;</span><span class="p">)</span>
+</span><span data-line="493">        <span class="c1"># Standardize tuples to lists and ints to floats</span>
+</span><span data-line="494">        <span class="k">return</span> <span class="p">[</span>
+</span><span data-line="495">            <span class="kc">None</span> <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+</span><span data-line="496">            <span class="kc">None</span> <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+</span><span data-line="497">        <span class="p">]</span>
+</span><span data-line="498">
+</span><span data-line="499">    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;qparam_calculator_cls&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span data-line="500">    <span class="nd">@classmethod</span>
+</span><span data-line="501">    <span class="k">def</span><span class="w"> </span><span class="nf">convert_qparam_calculator</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">QParamsCalculatorBase</span><span class="p">]:</span>
+</span><span data-line="502">        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_convert_with_registry</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">QParamsCalculatorBase</span><span class="p">)</span>
+</span><span data-line="503">
+</span><span data-line="504">    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;fake_quantize_cls&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span data-line="505">    <span class="nd">@classmethod</span>
+</span><span data-line="506">    <span class="k">def</span><span class="w"> </span><span class="nf">convert_fake_quantize</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">FakeQuantizeImplBase</span><span class="p">]:</span>
+</span><span data-line="507">        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_convert_with_registry</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">FakeQuantizeImplBase</span><span class="p">)</span>
+</span><span data-line="508">
+</span><span data-line="509">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span data-line="510">    <span class="nd">@classmethod</span>
+</span><span data-line="511">    <span class="k">def</span><span class="w"> </span><span class="nf">_strip_computed_fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="512"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Strip computed fields when deserializing from dict.</span>
+</span><span data-line="513">
+</span><span data-line="514"><span class="sd">        Computed fields (n_bits, target_dtype, _quant_range, quant_min,</span>
+</span><span data-line="515"><span class="sd">        quant_max) are included in model_dump() output but rejected on</span>
+</span><span data-line="516"><span class="sd">        construction since the model uses extra=&quot;forbid&quot;. We dynamically</span>
+</span><span data-line="517"><span class="sd">        strip any keys that are not declared model fields so round-tripping</span>
+</span><span data-line="518"><span class="sd">        via model_dump works.</span>
+</span><span data-line="519"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="520">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span data-line="521">            <span class="n">declared</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">model_fields</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</span><span data-line="522">            <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">declared</span><span class="p">}</span>
+</span><span data-line="523">        <span class="k">return</span> <span class="n">data</span>
+</span><span data-line="524">
+</span><span data-line="525">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span data-line="526">    <span class="nd">@classmethod</span>
+</span><span data-line="527">    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_scale_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="528"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve scale_dtype: convert string to torch.dtype and default to e8m0 for FP4.&quot;&quot;&quot;</span>
+</span><span data-line="529">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span data-line="530">            <span class="n">dtype</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dtype&quot;</span><span class="p">)</span>
+</span><span data-line="531">            <span class="n">scale_dtype</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scale_dtype&quot;</span><span class="p">)</span>
+</span><span data-line="532">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+</span><span data-line="533">                <span class="n">dtype</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_resolve_str_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="534">                <span class="n">data</span><span class="p">[</span><span class="s2">&quot;dtype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dtype</span>
+</span><span data-line="535">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scale_dtype</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+</span><span data-line="536">                <span class="n">data</span><span class="p">[</span><span class="s2">&quot;scale_dtype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_resolve_str_dtype</span><span class="p">(</span><span class="n">scale_dtype</span><span class="p">)</span>
+</span><span data-line="537">            <span class="k">if</span> <span class="n">_is_float4_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scale_dtype&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="538">                <span class="n">data</span><span class="p">[</span><span class="s2">&quot;scale_dtype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float8_e8m0fnu</span>
+</span><span data-line="539">        <span class="k">return</span> <span class="n">data</span>
+</span><span data-line="540">
+</span><span data-line="541">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;after&quot;</span><span class="p">)</span>
+</span><span data-line="542">    <span class="k">def</span><span class="w"> </span><span class="nf">validate_qscheme_for_fp_quant</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QuantizationSpec</span><span class="p">:</span>
+</span><span data-line="543"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="544"><span class="sd">        Validate that FP quantization uses symmetric quantization scheme.</span>
+</span><span data-line="545"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="546">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">is_floating_point</span><span class="p">:</span>
+</span><span data-line="547">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">qscheme</span> <span class="o">!=</span> <span class="n">QuantizationScheme</span><span class="o">.</span><span class="n">SYMMETRIC</span><span class="p">:</span>
+</span><span data-line="548">                <span class="n">error_msg</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="549">                    <span class="sa">f</span><span class="s2">&quot;FP quantization (dtype=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">) requires &quot;</span>
+</span><span data-line="550">                    <span class="sa">f</span><span class="s2">&quot;symmetric quantization scheme, got &quot;</span>
+</span><span data-line="551">                    <span class="sa">f</span><span class="s2">&quot;qscheme=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qscheme</span><span class="si">}</span><span class="s2">. Valid option: &#39;symmetric&#39;&quot;</span>
+</span><span data-line="552">                <span class="p">)</span>
+</span><span data-line="553">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">error_msg</span><span class="p">)</span>
+</span><span data-line="554">        <span class="k">return</span> <span class="bp">self</span>
+</span><span data-line="555">
+</span><span data-line="556">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;after&quot;</span><span class="p">)</span>
+</span><span data-line="557">    <span class="k">def</span><span class="w"> </span><span class="nf">validate_qformulation_for_fp_quant</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QuantizationSpec</span><span class="p">:</span>
+</span><span data-line="558"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="559"><span class="sd">        Validate that FP quantization uses zero-point quantization formulation.</span>
+</span><span data-line="560"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="561">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">is_floating_point</span><span class="p">:</span>
+</span><span data-line="562">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">qformulation</span> <span class="o">!=</span> <span class="n">QuantizationFormulation</span><span class="o">.</span><span class="n">ZP</span><span class="p">:</span>
+</span><span data-line="563">                <span class="n">error_msg</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="564">                    <span class="sa">f</span><span class="s2">&quot;FP quantization (dtype=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">) requires &quot;</span>
+</span><span data-line="565">                    <span class="sa">f</span><span class="s2">&quot;zero-point quantization formulation, got &quot;</span>
+</span><span data-line="566">                    <span class="sa">f</span><span class="s2">&quot;qformulation=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">qformulation</span><span class="si">}</span><span class="s2">. Valid option: &#39;zp&#39;&quot;</span>
+</span><span data-line="567">                <span class="p">)</span>
+</span><span data-line="568">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">error_msg</span><span class="p">)</span>
+</span><span data-line="569">        <span class="k">return</span> <span class="bp">self</span>
+</span><span data-line="570">
+</span><span data-line="571">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;after&quot;</span><span class="p">)</span>
+</span><span data-line="572">    <span class="k">def</span><span class="w"> </span><span class="nf">validate_scale_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QuantizationSpec</span><span class="p">:</span>
+</span><span data-line="573"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="574"><span class="sd">        Validate scale_dtype based on element dtype.</span>
+</span><span data-line="575">
+</span><span data-line="576"><span class="sd">        Rules:</span>
+</span><span data-line="577"><span class="sd">            - Only None or torch.float8_e8m0fnu are supported.</span>
+</span><span data-line="578"><span class="sd">            - Integer dtypes: scale_dtype must be None.</span>
+</span><span data-line="579"><span class="sd">            - FP8 dtypes: scale_dtype may be None or torch.float8_e8m0fnu.</span>
+</span><span data-line="580"><span class="sd">            - FP4 dtypes: scale_dtype is resolved to torch.float8_e8m0fnu</span>
+</span><span data-line="581"><span class="sd">              by resolve_scale_dtype (before validator).</span>
+</span><span data-line="582"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="583">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_dtype</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float8_e8m0fnu</span><span class="p">:</span>
+</span><span data-line="584">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="585">                <span class="sa">f</span><span class="s2">&quot;Unsupported scale_dtype: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_dtype</span><span class="si">}</span><span class="s2">. &quot;</span>
+</span><span data-line="586">                <span class="sa">f</span><span class="s2">&quot;Only None or torch.float8_e8m0fnu are supported.&quot;</span>
+</span><span data-line="587">            <span class="p">)</span>
+</span><span data-line="588">
+</span><span data-line="589">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">is_floating_point</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="590">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="591">                <span class="sa">f</span><span class="s2">&quot;scale_dtype must be None for integer dtypes, &quot;</span>
+</span><span data-line="592">                <span class="sa">f</span><span class="s2">&quot;got scale_dtype=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_dtype</span><span class="si">}</span><span class="s2"> with dtype=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">.&quot;</span>
+</span><span data-line="593">            <span class="p">)</span>
+</span><span data-line="594">
+</span><span data-line="595">        <span class="k">return</span> <span class="bp">self</span>
+</span><span data-line="596">
+<div class="viewcode-block" id="QuantizationSpec.get_extra_args">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec.get_extra_args">[docs]</a>
+</span><span data-line="597">    <span class="k">def</span><span class="w"> </span><span class="nf">get_extra_args</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+</span><span data-line="598"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="599"><span class="sd">        Automatically detect and return fields beyond base QuantizationSpec.</span>
+</span><span data-line="600">
+</span><span data-line="601"><span class="sd">        This method introspects the current instance to find any additional fields</span>
+</span><span data-line="602"><span class="sd">        that have been added in subclasses, allowing the factory to automatically</span>
+</span><span data-line="603"><span class="sd">        pass them to component constructors.</span>
+</span><span data-line="604">
+</span><span data-line="605"><span class="sd">        Returns:</span>
+</span><span data-line="606"><span class="sd">            Dict[str, Any]: Dictionary of extra field names and their values</span>
+</span><span data-line="607">
+</span><span data-line="608"><span class="sd">        Example:</span>
+</span><span data-line="609"><span class="sd">            &gt;&gt;&gt; class ExtraArgQuantizationSpec(QuantizationSpec):</span>
+</span><span data-line="610"><span class="sd">            ...     eps: float</span>
+</span><span data-line="611"><span class="sd">            ...     temperature: float = 1.0</span>
+</span><span data-line="612"><span class="sd">            &gt;&gt;&gt;</span>
+</span><span data-line="613"><span class="sd">            &gt;&gt;&gt; spec = ExtraArgQuantizationSpec(eps=0.1, ...)</span>
+</span><span data-line="614"><span class="sd">            &gt;&gt;&gt; extra_args = spec.get_extra_args()</span>
+</span><span data-line="615"><span class="sd">            &gt;&gt;&gt; # Returns: {&#39;eps&#39;: 0.1, &#39;temperature&#39;: 1.0}</span>
+</span><span data-line="616"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="617">        <span class="c1"># Get base class field names</span>
+</span><span data-line="618">        <span class="n">base_field_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">QuantizationSpec</span><span class="o">.</span><span class="n">model_fields</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</span><span data-line="619">
+</span><span data-line="620">        <span class="c1"># Get current instance&#39;s field values, excluding base fields</span>
+</span><span data-line="621">        <span class="n">extra_args</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="622">        <span class="k">for</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">model_fields</span><span class="p">:</span>
+</span><span data-line="623">            <span class="k">if</span> <span class="n">field_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">base_field_names</span><span class="p">:</span>
+</span><span data-line="624">                <span class="n">extra_args</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field_name</span><span class="p">)</span>
+</span><span data-line="625">
+</span><span data-line="626">        <span class="k">return</span> <span class="n">extra_args</span></div>
+
+</span><span data-line="627">
+</span><span data-line="628">    <span class="c1"># Factory Methods</span>
+<div class="viewcode-block" id="QuantizationSpec.get_n_bits_from_dtype">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec.get_n_bits_from_dtype">[docs]</a>
+</span><span data-line="629">    <span class="nd">@classmethod</span>
+</span><span data-line="630">    <span class="k">def</span><span class="w"> </span><span class="nf">get_n_bits_from_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="631"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="632"><span class="sd">        Extract the number of bits from a torch dtype.</span>
+</span><span data-line="633">
+</span><span data-line="634"><span class="sd">        Args:</span>
+</span><span data-line="635"><span class="sd">            dtype: The torch dtype to extract bits from</span>
+</span><span data-line="636">
+</span><span data-line="637"><span class="sd">        Returns:</span>
+</span><span data-line="638"><span class="sd">            Number of bits for the dtype</span>
+</span><span data-line="639">
+</span><span data-line="640"><span class="sd">        Raises:</span>
+</span><span data-line="641"><span class="sd">            RuntimeError: If unable to extract bits from the dtype</span>
+</span><span data-line="642"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="643">        <span class="k">return</span> <span class="n">get_n_bits_from_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
+
+</span><span data-line="644">
+<div class="viewcode-block" id="QuantizationSpec.get_target_dtype">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec.get_target_dtype">[docs]</a>
+</span><span data-line="645">    <span class="nd">@classmethod</span>
+</span><span data-line="646">    <span class="k">def</span><span class="w"> </span><span class="nf">get_target_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+</span><span data-line="647"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="648"><span class="sd">        Returns the target dtype for quantization, mapping custom dtypes</span>
+</span><span data-line="649"><span class="sd">        to concrete ones.</span>
+</span><span data-line="650">
+</span><span data-line="651"><span class="sd">        Custom integer dtypes (int1-int7, uint1-uint7) are mapped to their 8-bit</span>
+</span><span data-line="652"><span class="sd">        equivalents, since PyTorch doesn&#39;t have native support for</span>
+</span><span data-line="653"><span class="sd">        sub-byte integer types.</span>
+</span><span data-line="654">
+</span><span data-line="655"><span class="sd">        FP4 (float4_e2m1fn_x2) is mapped to float8_e4m3fn, since</span>
+</span><span data-line="656"><span class="sd">        PyTorch support is minimal for float4_e2m1fn_x2. All FP4</span>
+</span><span data-line="657"><span class="sd">        representable values are exactly representable in FP8.</span>
+</span><span data-line="658">
+</span><span data-line="659"><span class="sd">        Args:</span>
+</span><span data-line="660"><span class="sd">            dtype: The source dtype</span>
+</span><span data-line="661">
+</span><span data-line="662"><span class="sd">        Returns:</span>
+</span><span data-line="663"><span class="sd">            The target dtype for quantization:</span>
+</span><span data-line="664"><span class="sd">            - int1, int2, ..., int7 → int8</span>
+</span><span data-line="665"><span class="sd">            - uint1, uint2, ..., uint7 → uint8</span>
+</span><span data-line="666"><span class="sd">            - float4_e2m1fn_x2 → float8_e4m3fn</span>
+</span><span data-line="667"><span class="sd">            - int8, uint8, float16, float32, etc. → unchanged</span>
+</span><span data-line="668"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="669">        <span class="n">n_bits</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_n_bits_from_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="670">        <span class="k">if</span> <span class="ow">not</span> <span class="n">dtype</span><span class="o">.</span><span class="n">is_floating_point</span> <span class="ow">and</span> <span class="n">n_bits</span> <span class="o">&lt;=</span> <span class="mi">8</span><span class="p">:</span>
+</span><span data-line="671">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">int8</span> <span class="k">if</span> <span class="n">dtype</span><span class="o">.</span><span class="n">is_signed</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">uint8</span>
+</span><span data-line="672">        <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float4_e2m1fn_x2</span><span class="p">:</span>
+</span><span data-line="673">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">float8_e4m3fn</span>
+</span><span data-line="674">        <span class="k">return</span> <span class="n">dtype</span></div>
+
+</span><span data-line="675">
+<div class="viewcode-block" id="QuantizationSpec.get_quant_range">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec.get_quant_range">[docs]</a>
+</span><span data-line="676">    <span class="nd">@classmethod</span>
+</span><span data-line="677">    <span class="k">def</span><span class="w"> </span><span class="nf">get_quant_range</span><span class="p">(</span>
+</span><span data-line="678">        <span class="bp">cls</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">qscheme</span><span class="p">:</span> <span class="n">QuantizationScheme</span>
+</span><span data-line="679">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span data-line="680"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="681"><span class="sd">        Calculate quantization range (quant_min, quant_max) for the given</span>
+</span><span data-line="682"><span class="sd">        dtype and scheme.</span>
+</span><span data-line="683">
+</span><span data-line="684"><span class="sd">        Args:</span>
+</span><span data-line="685"><span class="sd">            dtype: The quantization dtype</span>
+</span><span data-line="686"><span class="sd">            qscheme: The quantization scheme (symmetric, asymmetric, etc.)</span>
+</span><span data-line="687">
+</span><span data-line="688"><span class="sd">        Returns:</span>
+</span><span data-line="689"><span class="sd">            Tuple of (quant_min, quant_max) values. Returns floats for</span>
+</span><span data-line="690"><span class="sd">            floating-point dtypes and ints for integer dtypes.</span>
+</span><span data-line="691">
+</span><span data-line="692"><span class="sd">        Examples:</span>
+</span><span data-line="693"><span class="sd">            - int8 symmetric: (-128, 127)</span>
+</span><span data-line="694"><span class="sd">            - int8 symmetric_with_clipping: (-127, 127)</span>
+</span><span data-line="695"><span class="sd">            - int4 symmetric: (-8, 7)</span>
+</span><span data-line="696"><span class="sd">            - int4 symmetric_with_clipping: (-7, 7)</span>
+</span><span data-line="697"><span class="sd">            - uint8: (0, 255)</span>
+</span><span data-line="698"><span class="sd">            - uint8 symmetric_with_clipping: (0, 255) (same as symmetric)</span>
+</span><span data-line="699"><span class="sd">            - float4_e2m1fn_x2: (-6.0, 6.0)</span>
+</span><span data-line="700"><span class="sd">            - float8_e4m3fn: (-448.0, 448.0)</span>
+</span><span data-line="701"><span class="sd">            - float8_e5m2: (-57344.0, 57344.0)</span>
+</span><span data-line="702"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="703">        <span class="c1"># Handle FP4, FP8 and other floating-point dtypes</span>
+</span><span data-line="704">        <span class="k">if</span> <span class="n">dtype</span><span class="o">.</span><span class="n">is_floating_point</span><span class="p">:</span>
+</span><span data-line="705">            <span class="c1"># Special handling for FP4 as torch.finfo() is not implemented yet</span>
+</span><span data-line="706">            <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float4_e2m1fn_x2</span><span class="p">:</span>
+</span><span data-line="707">                <span class="c1"># FP4 E2M1 format: 1 sign + 2 exp + 1 mantissa</span>
+</span><span data-line="708">                <span class="c1"># Max value: 2^(3-1) * (1 + 1/2) = 4 * 1.5 = 6.0</span>
+</span><span data-line="709">                <span class="c1"># Range is symmetric: [-6.0, 6.0]</span>
+</span><span data-line="710">                <span class="k">return</span> <span class="o">-</span><span class="mf">6.0</span><span class="p">,</span> <span class="mf">6.0</span>
+</span><span data-line="711">
+</span><span data-line="712">            <span class="n">finfo</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="713">            <span class="k">return</span> <span class="n">finfo</span><span class="o">.</span><span class="n">min</span><span class="p">,</span> <span class="n">finfo</span><span class="o">.</span><span class="n">max</span>
+</span><span data-line="714">
+</span><span data-line="715">        <span class="c1"># Integer quantization logic</span>
+</span><span data-line="716">        <span class="n">n_bits</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_n_bits_from_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="717">        <span class="n">max_q</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">n_bits</span>
+</span><span data-line="718">        <span class="k">if</span> <span class="ow">not</span> <span class="n">dtype</span><span class="o">.</span><span class="n">is_signed</span><span class="p">:</span>
+</span><span data-line="719">            <span class="n">quant_min</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="720">            <span class="n">quant_max</span> <span class="o">=</span> <span class="n">max_q</span> <span class="o">-</span> <span class="mi">1</span>
+</span><span data-line="721">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="722">            <span class="n">quant_min</span> <span class="o">=</span> <span class="o">-</span><span class="n">max_q</span> <span class="o">/</span> <span class="mi">2</span>
+</span><span data-line="723">            <span class="n">quant_max</span> <span class="o">=</span> <span class="n">max_q</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span>
+</span><span data-line="724">
+</span><span data-line="725">        <span class="c1"># Apply clipping for SYMMETRIC_WITH_CLIPPING</span>
+</span><span data-line="726">        <span class="k">return</span> <span class="n">QuantizationScheme</span><span class="o">.</span><span class="n">_maybe_clip_bounds</span><span class="p">(</span><span class="n">qscheme</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">quant_min</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">quant_max</span><span class="p">))</span></div>
+
+</span><span data-line="727">
+</span><span data-line="728">    <span class="c1"># Computed Properties</span>
+</span><span data-line="729">    <span class="nd">@computed_field</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># type: ignore[misc]</span>
+</span><span data-line="730">    <span class="nd">@cached_property</span>
+</span><span data-line="731">    <span class="k">def</span><span class="w"> </span><span class="nf">n_bits</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="732">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_n_bits_from_dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="733">
+</span><span data-line="734">    <span class="nd">@computed_field</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># type: ignore[misc]</span>
+</span><span data-line="735">    <span class="nd">@cached_property</span>
+</span><span data-line="736">    <span class="k">def</span><span class="w"> </span><span class="nf">target_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+</span><span data-line="737">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_target_dtype</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="738">
+</span><span data-line="739">    <span class="nd">@computed_field</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="740">    <span class="nd">@cached_property</span>
+</span><span data-line="741">    <span class="k">def</span><span class="w"> </span><span class="nf">_quant_range</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span data-line="742">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_quant_range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qscheme</span><span class="p">)</span>
+</span><span data-line="743">
+</span><span data-line="744">    <span class="nd">@computed_field</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="745">    <span class="nd">@cached_property</span>
+</span><span data-line="746">    <span class="k">def</span><span class="w"> </span><span class="nf">quant_min</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="747">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quant_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="748">
+</span><span data-line="749">    <span class="nd">@computed_field</span><span class="p">(</span><span class="nb">repr</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="750">    <span class="nd">@cached_property</span>
+</span><span data-line="751">    <span class="k">def</span><span class="w"> </span><span class="nf">quant_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="752">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quant_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span></div>
+
+</span><span data-line="753">
+</span><span data-line="754">
+<div class="viewcode-block" id="default_weight_quantization_spec">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html#coreai_opt.quantization.default_weight_quantization_spec">[docs]</a>
+</span><span data-line="755"><span class="k">def</span><span class="w"> </span><span class="nf">default_weight_quantization_spec</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">QuantizationSpec</span><span class="p">:</span>
+</span><span data-line="756">    <span class="k">return</span> <span class="n">QuantizationSpec</span><span class="p">(</span>
+</span><span data-line="757">        <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span>
+</span><span data-line="758">        <span class="n">qscheme</span><span class="o">=</span><span class="s2">&quot;symmetric&quot;</span><span class="p">,</span>
+</span><span data-line="759">        <span class="n">granularity</span><span class="o">=</span><span class="n">PerChannelGranularity</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+</span><span data-line="760">        <span class="n">fake_quantize_cls</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+</span><span data-line="761">        <span class="n">qparam_calculator_cls</span><span class="o">=</span><span class="s2">&quot;static&quot;</span><span class="p">,</span>
+</span><span data-line="762">        <span class="n">range_calculator_cls</span><span class="o">=</span><span class="s2">&quot;minmax&quot;</span><span class="p">,</span>
+</span><span data-line="763">    <span class="p">)</span></div>
+
+</span><span data-line="764">
+</span><span data-line="765">
+<div class="viewcode-block" id="default_activation_quantization_spec">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html#coreai_opt.quantization.default_activation_quantization_spec">[docs]</a>
+</span><span data-line="766"><span class="k">def</span><span class="w"> </span><span class="nf">default_activation_quantization_spec</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">QuantizationSpec</span><span class="p">:</span>
+</span><span data-line="767">    <span class="k">return</span> <span class="n">QuantizationSpec</span><span class="p">(</span>
+</span><span data-line="768">        <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span>
+</span><span data-line="769">        <span class="n">qscheme</span><span class="o">=</span><span class="s2">&quot;symmetric&quot;</span><span class="p">,</span>
+</span><span data-line="770">        <span class="n">granularity</span><span class="o">=</span><span class="n">PerTensorGranularity</span><span class="p">(),</span>
+</span><span data-line="771">        <span class="n">fake_quantize_cls</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+</span><span data-line="772">        <span class="n">qparam_calculator_cls</span><span class="o">=</span><span class="s2">&quot;moving_average&quot;</span><span class="p">,</span>
+</span><span data-line="773">        <span class="n">range_calculator_cls</span><span class="o">=</span><span class="s2">&quot;minmax&quot;</span><span class="p">,</span>
+</span><span data-line="774">    <span class="p">)</span></div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../../../../_static/shibuya.js?v=50760d75"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
+      <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+      <script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";
+window.addEventListener("load", () => mermaid.run());
+</script>
+      <script src="../../../../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../../../../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

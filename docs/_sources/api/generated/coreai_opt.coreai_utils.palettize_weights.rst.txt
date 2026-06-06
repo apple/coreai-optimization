@@ -1,0 +1,6 @@
+﻿coreai\_opt.coreai\_utils.palettize\_weights
+============================================
+
+.. currentmodule:: coreai_opt.coreai_utils
+
+.. autofunction:: palettize_weights

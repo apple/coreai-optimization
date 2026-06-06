@@ -1,0 +1,32 @@
+﻿coreai\_opt.quantization.Quantizer
+==================================
+
+.. currentmodule:: coreai_opt.quantization
+
+.. autoclass:: Quantizer
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~Quantizer.calibration_mode
+      ~Quantizer.disable_fake_quant
+      ~Quantizer.disable_observer
+      ~Quantizer.enable_fake_quant
+      ~Quantizer.enable_observer
+      ~Quantizer.finalize
+      ~Quantizer.get_compressible_op_names
+      ~Quantizer.prepare
+      ~Quantizer.step
+      ~Quantizer.supported_modules
+      ~Quantizer.training_mode
+   
+   
+
+   
+   
+   

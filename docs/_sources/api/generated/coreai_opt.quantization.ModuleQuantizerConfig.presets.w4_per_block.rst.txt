@@ -1,0 +1,18 @@
+w4_per_block
+============
+
+.. py:method:: w4_per_block(*, block_size=32, axis=None)
+   :noindex:
+
+   int4 weight-only quantization, per-block symmetric, block_size defaults to 32.
+
+   :param block_size: Block size along the input channel dimension (default 32).
+   :type block_size: int
+   :param axis: Axis to apply blocks along.
+                When ``None`` (default), the axis is auto-resolved based on the module type
+                during quantization.
+   :type axis: int | None
+
+   :returns: int4 per-block weight-only module configuration.
+   :rtype: ModuleQuantizerConfig
+

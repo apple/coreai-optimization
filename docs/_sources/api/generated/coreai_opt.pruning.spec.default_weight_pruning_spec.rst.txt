@@ -1,0 +1,6 @@
+﻿coreai\_opt.pruning.spec.default\_weight\_pruning\_spec
+=======================================================
+
+.. currentmodule:: coreai_opt.pruning.spec
+
+.. autofunction:: default_weight_pruning_spec

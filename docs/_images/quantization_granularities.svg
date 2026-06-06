@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1292" height="356" viewBox="0 0 1292 356">
+<defs><filter id="cardShadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="4" stdDeviation="9" flood-color="#1A1A2E" flood-opacity="0.10"/></filter><filter id="cellShadow" x="-40%" y="-40%" width="180%" height="200%"><feDropShadow dx="0" dy="2" stdDeviation="2.2" flood-color="#3C4043" flood-opacity="0.18"/></filter></defs>
+<rect width="1292" height="356" fill="#F5F6F8"/>
+<rect x="36.00" y="40.00" width="380.00" height="260.00" rx="18.00" ry="18.00" fill="#FFFFFF" filter="url(#cardShadow)" />
+<rect x="138.00" y="54.00" width="232.00" height="232.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="138.00" y="54.00" width="232.00" height="232.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="144.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="202.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="260.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="318.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="144.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="202.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="260.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="318.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="144.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="202.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="260.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="318.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="144.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="202.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="260.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="318.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="88.00" y="153.00" width="42.00" height="34.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="109.00" y="175.76" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S</text>
+<text x="226.00" y="332.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">per-tensor</text>
+<rect x="456.00" y="40.00" width="380.00" height="260.00" rx="18.00" ry="18.00" fill="#FFFFFF" filter="url(#cardShadow)" />
+<rect x="558.00" y="55.00" width="232.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="558.00" y="55.00" width="232.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="558.00" y="113.00" width="232.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="558.00" y="113.00" width="232.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="558.00" y="171.00" width="232.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="558.00" y="171.00" width="232.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="558.00" y="229.00" width="232.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="558.00" y="229.00" width="232.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="564.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="622.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="680.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="738.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="564.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="622.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="680.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="738.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="564.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="622.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="680.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="738.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="564.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="622.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="680.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="738.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="508.00" y="67.00" width="42.00" height="32.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="529.00" y="88.04" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₁</text>
+<rect x="508.00" y="125.00" width="42.00" height="32.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="529.00" y="146.04" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₂</text>
+<rect x="508.00" y="183.00" width="42.00" height="32.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="529.00" y="204.04" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₃</text>
+<rect x="508.00" y="241.00" width="42.00" height="32.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="529.00" y="262.04" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₄</text>
+<text x="646.00" y="332.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">per-channel</text>
+<rect x="876.00" y="40.00" width="380.00" height="260.00" rx="18.00" ry="18.00" fill="#FFFFFF" filter="url(#cardShadow)" />
+<rect x="1011.00" y="55.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="1011.00" y="55.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="1127.00" y="55.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="1127.00" y="55.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="1011.00" y="113.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="1011.00" y="113.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="1127.00" y="113.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="1127.00" y="113.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="1011.00" y="171.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="1011.00" y="171.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="1127.00" y="171.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="1127.00" y="171.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="1011.00" y="229.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="1011.00" y="229.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="1127.00" y="229.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="#EA4335" opacity="0.07" />
+<rect x="1127.00" y="229.00" width="114.00" height="56.00" rx="14.00" ry="14.00" fill="none" stroke="#EA4335" stroke-width="1.8" opacity="0.65" />
+<rect x="1016.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1074.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1132.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1190.00" y="60.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1016.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1074.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1132.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1190.00" y="118.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1016.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1074.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1132.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1190.00" y="176.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1016.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1074.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1132.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="1190.00" y="234.00" width="46.00" height="46.00" rx="9.00" ry="9.00" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.4" filter="url(#cellShadow)" />
+<rect x="896.00" y="70.00" width="46.00" height="26.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="919.00" y="87.50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₁₁</text>
+<rect x="950.00" y="70.00" width="46.00" height="26.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="973.00" y="87.50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₁₂</text>
+<rect x="896.00" y="128.00" width="46.00" height="26.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="919.00" y="145.50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₂₁</text>
+<rect x="950.00" y="128.00" width="46.00" height="26.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="973.00" y="145.50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₂₂</text>
+<rect x="896.00" y="186.00" width="46.00" height="26.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="919.00" y="203.50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₃₁</text>
+<rect x="950.00" y="186.00" width="46.00" height="26.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="973.00" y="203.50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₃₂</text>
+<rect x="896.00" y="244.00" width="46.00" height="26.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="919.00" y="261.50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₄₁</text>
+<rect x="950.00" y="244.00" width="46.00" height="26.00" rx="8.00" ry="8.00" fill="#EA4335" filter="url(#cellShadow)" />
+<text x="973.00" y="261.50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" font-style="normal" fill="#FFFFFF" text-anchor="middle">S₄₂</text>
+<text x="1066.00" y="332.00" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="600" font-style="normal" fill="#202124" text-anchor="middle">per-block</text>
+</svg>

@@ -1,0 +1,19 @@
+w4
+==
+
+.. py:method:: w4(*, axis=None, execution_mode=<ExecutionMode.GRAPH: 'graph'>)
+   :noindex:
+
+   int4 weight-only quantization, per-channel symmetric.
+
+   :param axis: Channel axis for per-channel quantization.
+                When ``None`` (default), the axis is auto-resolved based on the module type
+                during quantization.
+   :type axis: int | None
+   :param execution_mode: Quantization execution mode.
+                          Defaults to ``ExecutionMode.GRAPH``.
+   :type execution_mode: ExecutionMode
+
+   :returns: int4 weight-only configuration.
+   :rtype: QuantizerConfig
+

@@ -1,0 +1,16 @@
+﻿coreai\_opt.inspection.ModelSummary
+===================================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autoclass:: ModelSummary
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

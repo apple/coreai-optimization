@@ -1,0 +1,19 @@
+﻿coreai\_opt.quantization.QuantizerConfig
+========================================
+
+.. currentmodule:: coreai_opt.quantization
+
+.. autopydantic_model:: QuantizerConfig
+
+   
+   
+   
+
+   
+   
+   .. toctree::
+      :hidden:
+
+      /api/generated/coreai_opt.quantization.QuantizerConfig.presets
+   
+   

@@ -1,0 +1,6 @@
+﻿coreai\_opt.casting.cast\_int32\_to\_int16
+==========================================
+
+.. currentmodule:: coreai_opt.casting
+
+.. autofunction:: cast_int32_to_int16

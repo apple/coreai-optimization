@@ -1,0 +1,6 @@
+﻿coreai\_opt.palettization.spec.default\_weight\_palettization\_spec
+===================================================================
+
+.. currentmodule:: coreai_opt.palettization.spec
+
+.. autofunction:: default_weight_palettization_spec

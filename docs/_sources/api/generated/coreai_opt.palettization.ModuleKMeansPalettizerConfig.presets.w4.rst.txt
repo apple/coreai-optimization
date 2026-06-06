@@ -1,0 +1,16 @@
+w4
+==
+
+.. py:method:: w4(*, axis=0, group_size=16)
+   :noindex:
+
+   4-bit palettization, per-grouped-channel, group_size defaults to 16.
+
+   :param axis: Channel axis to group along. Defaults to 0.
+   :type axis: int
+   :param group_size: Number of channels per palette group.
+   :type group_size: int
+
+   :returns: 4-bit palettization module configuration.
+   :rtype: ModuleKMeansPalettizerConfig
+

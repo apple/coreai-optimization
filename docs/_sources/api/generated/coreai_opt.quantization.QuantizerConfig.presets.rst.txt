@@ -1,0 +1,29 @@
+presets
+=======
+
+Convenient factories for common compression recipes. Each preset
+returns a ready-to-use config that can be further refined by chaining
+:meth:`~coreai_opt.config.CompressionConfig.set_module_type`,
+:meth:`~coreai_opt.config.CompressionConfig.set_module_name`,
+:meth:`~coreai_opt.config.CompressionConfig.only_for`, or
+:meth:`~coreai_opt.config.CompressionConfig.without`.
+
+.. list-table::
+   :header-rows: 1
+   :class: preset-table
+
+   * - Preset
+     - Description
+   * - :doc:`w4() </api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4>`
+     - int4 weight-only quantization, per-channel symmetric.
+   * - :doc:`w4_per_block() </api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block>`
+     - int4 weight-only quantization, per-block symmetric, block_size defaults to 32.
+   * - :doc:`w8() </api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8>`
+     - int8 weight-only quantization, per-channel symmetric.
+
+.. toctree::
+   :hidden:
+
+   w4 </api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4>
+   w4_per_block </api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block>
+   w8 </api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8>

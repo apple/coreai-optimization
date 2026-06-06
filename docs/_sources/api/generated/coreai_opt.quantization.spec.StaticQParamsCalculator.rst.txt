@@ -1,0 +1,30 @@
+﻿coreai\_opt.quantization.spec.StaticQParamsCalculator
+=====================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autoclass:: StaticQParamsCalculator
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~StaticQParamsCalculator.compute_qparams
+      ~StaticQParamsCalculator.extra_repr
+      ~StaticQParamsCalculator.forward
+      ~StaticQParamsCalculator.get_class
+      ~StaticQParamsCalculator.get_qparams
+      ~StaticQParamsCalculator.list_registry_keys
+      ~StaticQParamsCalculator.list_registry_values
+      ~StaticQParamsCalculator.register
+      ~StaticQParamsCalculator.set_export_mode
+   
+   
+
+   
+   
+   

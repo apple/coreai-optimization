@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>coreai_opt.quantization.QuantizationSpec - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="coreai_opt.quantization.Quantizer" href="coreai_opt.quantization.Quantizer.html" /><link rel="prev" title="w8" href="coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=86898c54" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="coreai_opt.quantization.QuantizationSpec"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../index.html">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../quantization/index.html">Quantization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../quantization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quantization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quantization/config.html">Config API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quantization/advanced.html">Deeper Dive</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../utils/joint_compression.html">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec"><code class="docutils literal notranslate"><span class="pre">QuantizationSpec</span></code></a><ul>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.dtype"><code class="docutils literal notranslate">dtype</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.qscheme"><code class="docutils literal notranslate">qscheme</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.qformulation"><code class="docutils literal notranslate">qformulation</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.granularity"><code class="docutils literal notranslate">granularity</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.fake_quantize_cls"><code class="docutils literal notranslate">fake_quantize_cls</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.qparam_calculator_cls"><code class="docutils literal notranslate">qparam_calculator_cls</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.range_calculator_cls"><code class="docutils literal notranslate">range_calculator_cls</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.float_range"><code class="docutils literal notranslate">float_range</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.scale_dtype"><code class="docutils literal notranslate">scale_dtype</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.get_extra_args"><code class="docutils literal notranslate">get_extra_args()</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.get_n_bits_from_dtype"><code class="docutils literal notranslate">get_n_bits_from_dtype()</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.get_quant_range"><code class="docutils literal notranslate">get_quant_range()</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizationSpec.get_target_dtype"><code class="docutils literal notranslate">get_target_dtype()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">API Reference</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">coreai_opt.quantization.QuantizationSpec</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="coreai_opt.quantization.QuantizationSpec.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="coreai_opt.quantization.QuantizationSpec.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="coreai_opt.quantization.QuantizationSpec.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section id="coreai-opt-quantization-quantizationspec">
+<h1>coreai_opt.quantization.QuantizationSpec<a class="headerlink" href="#coreai-opt-quantization-quantizationspec" title="Link to this heading">¶</a></h1>
+<dl class="py class pydantic_model">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">coreai_opt.quantization.</span></span><span class="sig-name descname"><span class="pre">QuantizationSpec</span></span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/spec.html#QuantizationSpec"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="coreai_opt.config.CompressionSpec.html#coreai_opt.config.CompressionSpec" title="coreai_opt.config.spec.base.CompressionSpec"><code class="xref py py-class docutils literal notranslate"><span class="pre">CompressionSpec</span></code></a></p>
+<p>Specification for quantizing tensors in neural networks.</p>
+<p>This class defines all the parameters needed to quantize a tensor, including the
+target data type, quantization scheme, granularity, and the algorithms used for fake
+quantization, quantization parameter calculation, and range calculation.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.dtype">
+<span class="sig-name descname"><span class="pre">dtype</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.dtype" title="Link to this definition">¶</a></dt>
+<dd><p>Target data type for quantization.
+Valid inputs:</p>
+<ul class="simple">
+<li><p>Integer dtypes: torch.int8, torch.uint8, torch.int4, torch.uint4, etc.</p></li>
+<li><p>Floating-point dtypes: torch.float8_e4m3fn, torch.float8_e5m2,
+torch.float4_e2m1fn_x2.
+For FP8 dtypes, the notation specifies the format (e.g., in
+torch.float8_e4m3fn, ‘e4m3’ indicates 4 exponent bits and 3
+mantissa bits, ‘f’ stands for finite values only, and ‘n’ stands
+for non-standard NaN representation). For more details on FP8
+dtypes, see <a class="reference external" href="https://arxiv.org/pdf/2209.05433">https://arxiv.org/pdf/2209.05433</a></p></li>
+<li><p>String names: “int8”, “int4”, “float8_e4m3fn”, etc. Must correspond to
+an existing torch dtype</p></li>
+</ul>
+<p>Default: torch.int8</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str | torch.dtype</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.qscheme">
+<span class="sig-name descname"><span class="pre">qscheme</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.qscheme" title="Link to this definition">¶</a></dt>
+<dd><p>Quantization scheme determining how values are mapped to the quantized
+range.
+Valid inputs:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>“symmetric” (default), “symmetric_with_clipping”, “asymmetric”</p></li>
+</ul>
+</div></blockquote>
+<p>On how it affects the quantization and dequantization formulae,
+please refer to the <cite>qformulation</cite> description below.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str | coreai_opt.quantization.QuantizationScheme</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.qformulation">
+<span class="sig-name descname"><span class="pre">qformulation</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.qformulation" title="Link to this definition">¶</a></dt>
+<dd><p>Quantization formula determining how values are mapped between the
+quantized and dequantized domains.
+Valid inputs:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;zp&quot;</span></code> (default), <code class="docutils literal notranslate"><span class="pre">&quot;minval&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">QuantizationFormulation.ZP</span></code>, <code class="docutils literal notranslate"><span class="pre">QuantizationFormulation.MINVAL</span></code></p></li>
+</ul>
+<p>Notation used in the formulae below:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">x</span></code>: unquantized data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">q</span></code>: quantized data (dtype as specified by <code class="docutils literal notranslate"><span class="pre">QuantizationSpec.dtype</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x'</span></code>: dequantized data (same dtype as <code class="docutils literal notranslate"><span class="pre">x</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scale</span></code>: for INT quantization, defaults to the same dtype as
+<code class="docutils literal notranslate"><span class="pre">x</span></code>. For FP quantization, see the <code class="docutils literal notranslate"><span class="pre">scale_dtype</span></code> description
+below.</p></li>
+</ul>
+<p>Formulae:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;zp&quot;</span></code> — Zero-point formulation. <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> has the same
+dtype as <code class="docutils literal notranslate"><span class="pre">q</span></code>.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">q</span>&#160; <span class="pre">=</span> <span class="pre">clamp(round(x</span> <span class="pre">/</span> <span class="pre">scale)</span> <span class="pre">+</span> <span class="pre">zero_point,</span> <span class="pre">quant_min,</span> <span class="pre">quant_max)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x'</span> <span class="pre">=</span> <span class="pre">(q</span> <span class="pre">-</span> <span class="pre">zero_point)</span> <span class="pre">*</span> <span class="pre">scale</span></code></p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;minval&quot;</span></code> — Min-value formulation. <code class="docutils literal notranslate"><span class="pre">minval</span></code> has the same
+dtype as <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">q</span>&#160; <span class="pre">=</span> <span class="pre">clamp(round((x</span> <span class="pre">-</span> <span class="pre">minval)</span> <span class="pre">/</span> <span class="pre">scale)</span> <span class="pre">+</span> <span class="pre">quant_min,</span> <span class="pre">quant_min,</span> <span class="pre">quant_max)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x'</span> <span class="pre">=</span> <span class="pre">(q</span> <span class="pre">-</span> <span class="pre">quant_min)</span> <span class="pre">*</span> <span class="pre">scale</span> <span class="pre">+</span> <span class="pre">minval</span></code></p></li>
+</ul>
+</li>
+</ul>
+<p>Default: <code class="docutils literal notranslate"><span class="pre">QuantizationFormulation.ZP</span></code></p>
+<p>The tables below illustrate how the joint settings across
+<code class="docutils literal notranslate"><span class="pre">QuantizationSpec.dtype</span></code>, <code class="docutils literal notranslate"><span class="pre">QuantizationSpec.qscheme</span></code>,
+<code class="docutils literal notranslate"><span class="pre">QuantizationSpec.qformulation</span></code> manifest in the formulae above.
+(Note that the min and max values of “x” assumed below are the ones
+which will be calculated based on observer settings, as specified in
+<code class="docutils literal notranslate"><span class="pre">QuantizationSpec.qparam_calculator_cls</span></code>,
+<code class="docutils literal notranslate"><span class="pre">QuantizationSpec.range_calculator_cls</span></code>,
+<code class="docutils literal notranslate"><span class="pre">QuantizationSpec.float_range</span></code>.)</p>
+<p>Derived quantities used in the tables:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">max_abs</span>&#160;&#160;&#160;&#160; <span class="pre">=</span> <span class="pre">max(|x|)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_val_pos</span> <span class="pre">=</span> <span class="pre">max(0,</span> <span class="pre">max(x))</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_val_neg</span> <span class="pre">=</span> <span class="pre">min(0,</span> <span class="pre">min(x))</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">range</span>&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">=</span> <span class="pre">max_val_pos</span> <span class="pre">-</span> <span class="pre">min_val_neg</span></code></p></li>
+</ul>
+<p>For per-channel / per-block granularity, the reductions above are
+taken over each quantization unit (channel slice or block) rather
+than the full tensor.</p>
+<p><strong>ZP formulation</strong>, e.g. with 8 bit signed and unsigned fixed point types:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>dtype</p></th>
+<th class="head"><p>qscheme</p></th>
+<th class="head"><p>quant range</p></th>
+<th class="head"><p>scale</p></th>
+<th class="head"><p>zero_point</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>INT8</p></td>
+<td><p>SYMMETRIC</p></td>
+<td><p>[-128, 127]</p></td>
+<td><p>max_abs / 127.5</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>INT8</p></td>
+<td><p>SYM_W_CLIP</p></td>
+<td><p>[-127, 127]</p></td>
+<td><p>max_abs / 127</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p>INT8</p></td>
+<td><p>ASYMMETRIC</p></td>
+<td><p>[-128, 127]</p></td>
+<td><p>range / 255</p></td>
+<td><p>clip(-128-round(
+min_val_neg/scale), -128, 127)</p></td>
+</tr>
+<tr class="row-odd"><td><p>UINT8</p></td>
+<td><p>SYMMETRIC</p></td>
+<td><p>[0, 255]</p></td>
+<td><p>max_abs / 127.5</p></td>
+<td><p>128</p></td>
+</tr>
+<tr class="row-even"><td><p>UINT8</p></td>
+<td><p>SYM_W_CLIP</p></td>
+<td><p>[0, 255]</p></td>
+<td><p>max_abs / 127.5</p></td>
+<td><p>128</p></td>
+</tr>
+<tr class="row-odd"><td><p>UINT8</p></td>
+<td><p>ASYMMETRIC</p></td>
+<td><p>[0, 255]</p></td>
+<td><p>range / 255</p></td>
+<td><p>clip(-round(
+min_val_neg/scale), 0, 255)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>And for FP4/FP8 dtypes, zero-point is always set to 0 (FP supports only the
+symmetric qscheme). The scale formula depends on <code class="docutils literal notranslate"><span class="pre">scale_dtype</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">scale_dtype=None</span></code> (FP8 only): <code class="docutils literal notranslate"><span class="pre">scale</span> <span class="pre">=</span> <span class="pre">max_abs</span> <span class="pre">/</span> <span class="pre">fp_max</span></code>, where
+<code class="docutils literal notranslate"><span class="pre">fp_max</span></code> is the largest representable value for the target FP dtype
+(448.0 for FP8 E4M3, 57344.0 for FP8 E5M2).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scale_dtype=torch.float8_e8m0fnu</span></code> (FP4 and FP8):
+power-of-2 scale per OCP MX spec —
+<code class="docutils literal notranslate"><span class="pre">scale</span> <span class="pre">=</span> <span class="pre">2^(floor(log2(max_abs))</span> <span class="pre">-</span> <span class="pre">target_max_pow2)</span></code>, with
+<code class="docutils literal notranslate"><span class="pre">target_max_pow2</span></code> of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2.</p></li>
+</ul>
+<p><strong>MINVAL formulation</strong>, e.g. with 8 bit signed and unsigned fixed point types:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>dtype</p></th>
+<th class="head"><p>qscheme</p></th>
+<th class="head"><p>quant range</p></th>
+<th class="head"><p>scale</p></th>
+<th class="head"><p>minval</p></th>
+<th class="head"><p>quant_offset</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>INT8</p></td>
+<td><p>SYMMETRIC</p></td>
+<td><p>[-128, 127]</p></td>
+<td><p>max_abs / 127.5</p></td>
+<td><p>-max_abs</p></td>
+<td><p>-128</p></td>
+</tr>
+<tr class="row-odd"><td><p>INT8</p></td>
+<td><p>SYM_W_CLIP</p></td>
+<td><p>[-127, 127]</p></td>
+<td><p>max_abs / 127</p></td>
+<td><p>-max_abs</p></td>
+<td><p>-127</p></td>
+</tr>
+<tr class="row-even"><td><p>INT8</p></td>
+<td><p>ASYMMETRIC</p></td>
+<td><p>[-128, 127]</p></td>
+<td><p>range / 255</p></td>
+<td><p>min_val_neg</p></td>
+<td><p>-128</p></td>
+</tr>
+<tr class="row-odd"><td><p>UINT8</p></td>
+<td><p>SYMMETRIC</p></td>
+<td><p>[0, 255]</p></td>
+<td><p>max_abs / 127.5</p></td>
+<td><p>-max_abs</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p>UINT8</p></td>
+<td><p>SYM_W_CLIP</p></td>
+<td><p>[0, 255]</p></td>
+<td><p>max_abs / 127.5</p></td>
+<td><p>-max_abs</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>UINT8</p></td>
+<td><p>ASYMMETRIC</p></td>
+<td><p>[0, 255]</p></td>
+<td><p>range / 255</p></td>
+<td><p>min_val_neg</p></td>
+<td><p>0</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">quant_offset</span></code> equals <code class="docutils literal notranslate"><span class="pre">q_min</span></code> (the lower bound of the “quant range” column).</p>
+<p>This formulation is not allowed with FP4/FP8 dtypes.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Export-backend constraints:</p>
+<ul class="simple">
+<li><p>CoreML export only supports <code class="docutils literal notranslate"><span class="pre">ZP</span></code>. Specs with <code class="docutils literal notranslate"><span class="pre">qformulation=MINVAL</span></code>
+are rejected during finalize with CoreML Export-backend.</p></li>
+<li><p>CoreAI export supports both <code class="docutils literal notranslate"><span class="pre">ZP</span></code> and <code class="docutils literal notranslate"><span class="pre">MINVAL</span></code>.</p></li>
+</ul>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str | coreai_opt.quantization.QuantizationFormulation</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.granularity">
+<span class="sig-name descname"><span class="pre">granularity</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.granularity" title="Link to this definition">¶</a></dt>
+<dd><p>Quantization granularity determining the scope of
+quantization parameters.
+Valid inputs:</p>
+<ul class="simple">
+<li><p>Dictionary format:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">{&quot;type&quot;:</span> <span class="pre">&quot;per_tensor&quot;}</span></code> - Single scale/zero-point for entire
+tensor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{&quot;type&quot;:</span> <span class="pre">&quot;per_channel&quot;,</span> <span class="pre">&quot;axis&quot;:</span> <span class="pre">&lt;int&gt;}</span></code> - Per-channel
+quantization along axis</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{&quot;type&quot;:</span> <span class="pre">&quot;per_block&quot;,</span> <span class="pre">&quot;axis&quot;:</span> <span class="pre">&lt;int&gt;,</span> <span class="pre">&quot;block_size&quot;:</span> <span class="pre">&lt;tuple&gt;}</span></code> -
+Block-wise quantization along axis with specified block size</p></li>
+</ul>
+</li>
+<li><p>coreai_opt.quantization.QuantizationGranularity instances:
+PerTensorGranularity(), PerChannelGranularity(axis=1), etc.</p></li>
+</ul>
+<p>Default: PerTensorGranularity()</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict | coreai_opt.quantization.QuantizationGranularity</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.fake_quantize_cls">
+<span class="sig-name descname"><span class="pre">fake_quantize_cls</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.fake_quantize_cls" title="Link to this definition">¶</a></dt>
+<dd><p>Fake quantization implementation class for simulating quantization.
+This entity makes use of the scale and zero point computed from
+qparam_calculator_cls in order to perform fake quantization (back to back
+quantize/dequantize) to simulate quantization by adding quantization error
+to tensors in the model.
+Users may define their own fake_quantize_cls by inheriting from
+coreai_opt.quantization.fake_quantize.FakeQuantizeImplBase and register
+the class using the decorator
+&#64;FakeQuantizeImplBase.register(“&lt;identifier&gt;”), where &lt;identifier&gt; is a
+string which can be used to refer to the registered class in
+fake_quantize_cls.
+Valid inputs:</p>
+<ul class="simple">
+<li><p>String key: “default” or custom registered class string name</p></li>
+<li><p>Class type:
+coreai_opt.quantization.fake_quantize._DefaultFakeQuantizeImpl
+or custom registered class type</p></li>
+</ul>
+<p>Default: “default”</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str | type[coreai_opt.quantization.fake_quantize.FakeQuantizeImplBase]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.qparam_calculator_cls">
+<span class="sig-name descname"><span class="pre">qparam_calculator_cls</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.qparam_calculator_cls" title="Link to this definition">¶</a></dt>
+<dd><p>(str | type[QParamsCalculatorBase]):
+Algorithm for calculating quantization parameters (scale and zero
+point).
+Users may define their own qparam_calculator_cls by inheriting from
+coreai_opt.quantization.qparams_calculator.QParamsCalculatorBase
+and register the class using the decorator
+&#64;QParamsCalculatorBase.register(“&lt;identifier&gt;”), where
+&lt;identifier&gt; is a string which can be used to refer to the
+registered class in qparam_calculator_cls.
+If float_range is provided, the “default”, “static”, and
+“moving_average” qparam calculators will take it into account when
+computing scale and zero point.
+Valid inputs:</p>
+<ul class="simple">
+<li><p>“default”: Context-aware default:</p>
+<ul>
+<li><p>For weights → StaticQParamsCalculator</p></li>
+<li><p>For activations → MovingAverageQParamsCalculator</p></li>
+</ul>
+</li>
+<li><p>“static”: Direct min/max quantization parameter calculation based on
+most recent calibration sample only</p></li>
+<li><p>“moving_average”: Uses exponential moving average for stability</p></li>
+<li><p>“global_minmax”: Tracks running min/max across all calibration samples</p></li>
+<li><p>Custom registered class string name</p></li>
+<li><p>coreai_opt.quantization.qparams_calculator.QParamsCalculatorBase
+class type: StaticQParamsCalculator,
+MovingAverageQParamsCalculator, or custom registered class type</p></li>
+</ul>
+<p>Default: “default”</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.range_calculator_cls">
+<span class="sig-name descname"><span class="pre">range_calculator_cls</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.range_calculator_cls" title="Link to this definition">¶</a></dt>
+<dd><p>(str | type[RangeCalculatorBase]):
+Algorithm for calculating the min/max range of values to quantize.
+Users may define their own range_calculator_cls by inheriting from
+coreai_opt.quantization.range_calculator.RangeCalculatorBase and
+register the class using the decorator
+&#64;RangeCalculatorBase.register(“identifier”), where &lt;identifier&gt;
+is a string which can be used to refer to the registered class in
+range_calculator_cls.
+Valid inputs:</p>
+<ul class="simple">
+<li><p>“minmax”: Uses actual min/max values from the tensor</p></li>
+<li><p>Custom registered class string name</p></li>
+<li><p>coreai_opt.quantization.range_calculator.RangeCalculatorBase
+class type: MinMaxRangeCalculator or custom registered class type</p></li>
+</ul>
+<p>Default: “minmax”</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.float_range">
+<span class="sig-name descname"><span class="pre">float_range</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.float_range" title="Link to this definition">¶</a></dt>
+<dd><p>Custom floating-point
+range [min, max] to set for quantization.
+This can be used to set ranges for functions with known bounds (ReLU, Tanh,
+Sigmoid, Softmax, etc.) as well as constraining certain tensors in the model
+to be within a specified range if users want to exclude outliers.
+float_range is used by qparams_calculator_cls. Predefined qparam classes
+“default”, “static”, and “moving_average” handle float_range. If the
+user defines a custom qparam_calculator_cls, float_range would need to be
+handled properly within the implementation.
+Default: [None, None] (no constraints, allow qparam_calculator_cls
+to determine range)
+Valid inputs:</p>
+<ul class="simple">
+<li><p>[None, None]: No range constraints (default)</p></li>
+<li><p>[None, float_max]: Fix float max while allowing float min to be
+determined</p></li>
+<li><p>[float_min, None]: Fix float min while allowing float max to be
+determined</p></li>
+<li><p>[float_min, float_max]: Fix both float min and max to a specific
+range</p></li>
+</ul>
+<p>Constraints:</p>
+<ul class="simple">
+<li><p>Must be a list or tuple of length 2</p></li>
+<li><p>float_min must be &lt;= 0</p></li>
+<li><p>float_max must be &gt;= 0</p></li>
+<li><p>float_min &lt; float_max</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[float | int | None]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.scale_dtype">
+<span class="sig-name descname"><span class="pre">scale_dtype</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.scale_dtype" title="Link to this definition">¶</a></dt>
+<dd><p>Data type for quantization scale factors.
+Controls whether scales are constrained to power-of-2 values (e8m0 format)
+or allowed to be arbitrary floating-point values.
+Valid inputs:</p>
+<ul class="simple">
+<li><p>None: Use default scale computation via torchao’s
+choose_qparams_affine_with_min_max (integer and FP8 dtypes).
+For FP4, None is resolved to torch.float8_e8m0fnu automatically.</p></li>
+<li><p>torch.float8_e8m0fnu: Power-of-2 scales following OCP Microscaling (MX)
+spec. Required for FP4 quantization, optional for FP8.</p></li>
+</ul>
+<p>Constraints:</p>
+<ul class="simple">
+<li><p>FP4 (float4_e2m1fn_x2): scale_dtype must be torch.float8_e8m0fnu or None
+(defaults to e8m0)</p></li>
+<li><p>FP8 (float8_e4m3fn, float8_e5m2): scale_dtype must be
+torch.float8_e8m0fnu or None (defaults to None)</p></li>
+<li><p>Integer dtypes: scale_dtype must be None (defaults to None)</p></li>
+</ul>
+<p>Default: None</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.dtype | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="admonition-example admonition">
+<p class="admonition-title">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Minimal config using defaults (int8, symmetric, per-tensor)</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">QuantizationSpec</span><span class="p">()</span>
+</span><span data-line="3"><span class="gp">&gt;&gt;&gt;</span>
+</span><span data-line="4"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Quantization with per-channel granularity</span>
+</span><span data-line="5"><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">QuantizationSpec</span><span class="p">(</span>
+</span><span data-line="6"><span class="gp">... </span>    <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span>
+</span><span data-line="7"><span class="gp">... </span>    <span class="n">qscheme</span><span class="o">=</span><span class="s2">&quot;symmetric&quot;</span><span class="p">,</span>
+</span><span data-line="8"><span class="gp">... </span>    <span class="n">granularity</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;per_channel&quot;</span><span class="p">,</span> <span class="s2">&quot;axis&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+</span><span data-line="9"><span class="gp">... </span>    <span class="n">fake_quantize_cls</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+</span><span data-line="10"><span class="gp">... </span>    <span class="n">qparam_calculator_cls</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+</span><span data-line="11"><span class="gp">... </span>    <span class="n">range_calculator_cls</span><span class="o">=</span><span class="s2">&quot;minmax&quot;</span><span class="p">,</span>
+</span><span data-line="12"><span class="gp">... </span><span class="p">)</span>
+</span><span data-line="13"><span class="gp">&gt;&gt;&gt;</span>
+</span><span data-line="14"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Quantization with per-tensor granularity and specific float range</span>
+</span><span data-line="15"><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">QuantizationSpec</span><span class="p">(</span>
+</span><span data-line="16"><span class="gp">... </span>    <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span>
+</span><span data-line="17"><span class="gp">... </span>    <span class="n">qscheme</span><span class="o">=</span><span class="s2">&quot;symmetric&quot;</span><span class="p">,</span>
+</span><span data-line="18"><span class="gp">... </span>    <span class="n">granularity</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;per_tensor&quot;</span><span class="p">},</span>
+</span><span data-line="19"><span class="gp">... </span>    <span class="n">fake_quantize_cls</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+</span><span data-line="20"><span class="gp">... </span>    <span class="n">qparam_calculator_cls</span><span class="o">=</span><span class="s2">&quot;moving_average&quot;</span><span class="p">,</span>
+</span><span data-line="21"><span class="gp">... </span>    <span class="n">range_calculator_cls</span><span class="o">=</span><span class="s2">&quot;minmax&quot;</span><span class="p">,</span>
+</span><span data-line="22"><span class="gp">... </span>    <span class="n">float_range</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>
+</span><span data-line="23"><span class="gp">... </span><span class="p">)</span>
+</span></pre></div>
+</div>
+</div>
+<div class="admonition-notes admonition">
+<p class="admonition-title">Notes</p>
+<ul class="simple">
+<li><p>All fields have defaults and are optional</p></li>
+<li><p>The qparam_calculator_cls “default” is context-aware and resolved by the
+factory based on whether it’s used for weight or activation quantization</p></li>
+<li><p>String inputs are automatically converted to their corresponding types if
+present in corresponding registries.</p></li>
+<li><p>The spec is immutable (frozen=True) once created</p></li>
+<li><p>Custom implementations can be registered and used via string keys</p></li>
+</ul>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.get_extra_args">
+<span class="sig-name descname"><span class="pre">get_extra_args</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/spec.html#QuantizationSpec.get_extra_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.get_extra_args" title="Link to this definition">¶</a></dt>
+<dd><p>Automatically detect and return fields beyond base QuantizationSpec.</p>
+<p>This method introspects the current instance to find any additional fields
+that have been added in subclasses, allowing the factory to automatically
+pass them to component constructors.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary of extra field names and their values</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dict[str, Any]</p>
+</dd>
+</dl>
+<div class="admonition-example admonition">
+<p class="admonition-title">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span><span class="w"> </span><span class="nc">ExtraArgQuantizationSpec</span><span class="p">(</span><span class="n">QuantizationSpec</span><span class="p">):</span>
+</span><span data-line="2"><span class="gp">... </span>    <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span>
+</span><span data-line="3"><span class="gp">... </span>    <span class="n">temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="4"><span class="gp">&gt;&gt;&gt;</span>
+</span><span data-line="5"><span class="gp">&gt;&gt;&gt; </span><span class="n">spec</span> <span class="o">=</span> <span class="n">ExtraArgQuantizationSpec</span><span class="p">(</span><span class="n">eps</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span><span data-line="6"><span class="gp">&gt;&gt;&gt; </span><span class="n">extra_args</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">get_extra_args</span><span class="p">()</span>
+</span><span data-line="7"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Returns: {&#39;eps&#39;: 0.1, &#39;temperature&#39;: 1.0}</span>
+</span></pre></div>
+</div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.get_n_bits_from_dtype">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_n_bits_from_dtype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/spec.html#QuantizationSpec.get_n_bits_from_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.get_n_bits_from_dtype" title="Link to this definition">¶</a></dt>
+<dd><p>Extract the number of bits from a torch dtype.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dtype</strong> (<em>dtype</em>) – The torch dtype to extract bits from</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Number of bits for the dtype</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>RuntimeError</strong> – If unable to extract bits from the dtype</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.get_quant_range">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_quant_range</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qscheme</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/spec.html#QuantizationSpec.get_quant_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.get_quant_range" title="Link to this definition">¶</a></dt>
+<dd><p>Calculate quantization range (quant_min, quant_max) for the given
+dtype and scheme.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dtype</strong> (<em>dtype</em>) – The quantization dtype</p></li>
+<li><p><strong>qscheme</strong> (<a class="reference internal" href="coreai_opt.quantization.spec.QuantizationScheme.html#coreai_opt.quantization.spec.QuantizationScheme" title="coreai_opt.quantization.spec.qscheme.QuantizationScheme"><em>QuantizationScheme</em></a>) – The quantization scheme (symmetric, asymmetric, etc.)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tuple of (quant_min, quant_max) values. Returns floats for
+floating-point dtypes and ints for integer dtypes.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[int | float, int | float]</p>
+</dd>
+</dl>
+<div class="admonition-examples admonition">
+<p class="admonition-title">Examples</p>
+<ul class="simple">
+<li><p>int8 symmetric: (-128, 127)</p></li>
+<li><p>int8 symmetric_with_clipping: (-127, 127)</p></li>
+<li><p>int4 symmetric: (-8, 7)</p></li>
+<li><p>int4 symmetric_with_clipping: (-7, 7)</p></li>
+<li><p>uint8: (0, 255)</p></li>
+<li><p>uint8 symmetric_with_clipping: (0, 255) (same as symmetric)</p></li>
+<li><p>float4_e2m1fn_x2: (-6.0, 6.0)</p></li>
+<li><p>float8_e4m3fn: (-448.0, 448.0)</p></li>
+<li><p>float8_e5m2: (-57344.0, 57344.0)</p></li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizationSpec.get_target_dtype">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_target_dtype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/spec.html#QuantizationSpec.get_target_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.QuantizationSpec.get_target_dtype" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the target dtype for quantization, mapping custom dtypes
+to concrete ones.</p>
+<p>Custom integer dtypes (int1-int7, uint1-uint7) are mapped to their 8-bit
+equivalents, since PyTorch doesn’t have native support for
+sub-byte integer types.</p>
+<p>FP4 (float4_e2m1fn_x2) is mapped to float8_e4m3fn, since
+PyTorch support is minimal for float4_e2m1fn_x2. All FP4
+representable values are exactly representable in FP8.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dtype</strong> (<em>dtype</em>) – The source dtype</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>int1, int2, …, int7 → int8</p></li>
+<li><p>uint1, uint2, …, uint7 → uint8</p></li>
+<li><p>float4_e2m1fn_x2 → float8_e4m3fn</p></li>
+<li><p>int8, uint8, float16, float32, etc. → unchanged</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The target dtype for quantization</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">w8</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="coreai_opt.quantization.Quantizer.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">coreai_opt.quantization.Quantizer</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../../_static/shibuya.js?v=50760d75"></script>
+      <script src="../../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

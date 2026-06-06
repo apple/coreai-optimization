@@ -1,0 +1,14 @@
+﻿coreai\_opt.pruning.PruningSpec
+===============================
+
+.. currentmodule:: coreai_opt.pruning
+
+.. autopydantic_model:: PruningSpec
+
+   
+   
+   
+
+   
+   
+   

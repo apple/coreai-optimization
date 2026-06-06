@@ -1,0 +1,26 @@
+﻿coreai\_opt.quantization.spec.RangeCalculatorBase
+=================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autoclass:: RangeCalculatorBase
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~RangeCalculatorBase.forward
+      ~RangeCalculatorBase.get_class
+      ~RangeCalculatorBase.list_registry_keys
+      ~RangeCalculatorBase.list_registry_values
+      ~RangeCalculatorBase.register
+   
+   
+
+   
+   
+   

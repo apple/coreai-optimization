@@ -1,0 +1,915 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "cell-00",
+   "metadata": {},
+   "source": [
+    "# Applying palettization to an MNIST model"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-01",
+   "metadata": {},
+   "source": [
+    "In this tutorial, we will be providing a basic introduction to palettizing a model with CoreAI-Opt.\n",
+    "\n",
+    "After the end of this tutorial, you should be familiar with the following:\n",
+    "1. [How to apply CoreAI-Opt's k-means palettization](#K-Means-Palettization)\n",
+    "2. [How to apply CoreAI-Opt's Sensitive K-Means (SKM) palettization](#Sensitive-K-Means-Palettization)\n",
+    "3. [How to export CoreAI-Opt palettized models to Core AI](#Export-to-Core-AI)\n",
+    "\n",
+    "**Table of Contents:**\n",
+    "\n",
+    "- [Setup](#Setup)\n",
+    "  - [MNIST Dataset download](#MNIST-Dataset-download)\n",
+    "  - [Model definition](#Model-definition)\n",
+    "  - [Training and Evaluation](#Training-and-Evaluation)\n",
+    "  - [Train baseline model](#Train-baseline-model)\n",
+    "- [K-Means Palettization](#K-Means-Palettization)\n",
+    "- [Sensitive K-Means Palettization](#Sensitive-K-Means-Palettization)\n",
+    "- [Export to Core AI](#Export-to-Core-AI)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-02",
+   "metadata": {},
+   "source": [
+    "## Setup"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-03",
+   "metadata": {},
+   "source": [
+    "We will be using a basic CNN model and train it on the MNIST dataset and observe its final accuracy.\n",
+    "\n",
+    "Once we train this CNN model, we will apply palettization to it using `coreai-opt` starting with *k-means palettization (data free)*, and then moving to apply calibration data based *Sensitive K-Means (SKM) palettization*."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "id": "cell-04",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:30.304990Z",
+     "iopub.status.busy": "2026-06-03T21:28:30.304731Z",
+     "iopub.status.idle": "2026-06-03T21:28:33.218597Z",
+     "shell.execute_reply": "2026-06-03T21:28:33.151774Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "import random\n",
+    "from pathlib import Path\n",
+    "\n",
+    "import numpy as np\n",
+    "import torch\n",
+    "from torch import nn\n",
+    "from torch.utils.data import DataLoader\n",
+    "from torchinfo import summary\n",
+    "from torchvision import datasets, transforms"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "id": "cell-05",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:33.282142Z",
+     "iopub.status.busy": "2026-06-03T21:28:33.247684Z",
+     "iopub.status.idle": "2026-06-03T21:28:33.300560Z",
+     "shell.execute_reply": "2026-06-03T21:28:33.299642Z"
+    }
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<torch._C.Generator at 0x111d68c50>"
+      ]
+     },
+     "execution_count": 22,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "SEED = 1976\n",
+    "\n",
+    "random.seed(SEED)\n",
+    "np.random.seed(SEED)\n",
+    "torch.manual_seed(SEED)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "id": "cell-06",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:33.304460Z",
+     "iopub.status.busy": "2026-06-03T21:28:33.303944Z",
+     "iopub.status.idle": "2026-06-03T21:28:33.307487Z",
+     "shell.execute_reply": "2026-06-03T21:28:33.306333Z"
+    },
+    "tags": [
+     "parameters"
+    ]
+   },
+   "outputs": [],
+   "source": [
+    "# Used to save intermediate results and datasets\n",
+    "SAVE_DIRECTORY = \".\""
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-07",
+   "metadata": {},
+   "source": [
+    "### MNIST Dataset download\n",
+    "\n",
+    "Helper to download the MNIST dataset with standard normalization applied."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "id": "cell-08",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:33.310731Z",
+     "iopub.status.busy": "2026-06-03T21:28:33.310147Z",
+     "iopub.status.idle": "2026-06-03T21:28:33.316238Z",
+     "shell.execute_reply": "2026-06-03T21:28:33.314644Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "def mnist_transforms() -> transforms.Compose:\n",
+    "    return transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])\n",
+    "\n",
+    "\n",
+    "def download_mnist_dataset(\n",
+    "    download_path: Path, transform: transforms.Compose | None = None\n",
+    ") -> tuple[datasets.MNIST, datasets.MNIST]:\n",
+    "    if transform is None:\n",
+    "        transform = mnist_transforms()\n",
+    "    train = datasets.MNIST(download_path, train=True, download=True, transform=transform)\n",
+    "    test = datasets.MNIST(download_path, train=False, download=True, transform=transform)\n",
+    "    return train, test"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-09",
+   "metadata": {},
+   "source": [
+    "### Model definition\n",
+    "\n",
+    "A simple CNN with a single Conv2d → ReLU → MaxPool block, followed by Flatten and a Linear classifier."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "id": "cell-10",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:33.318629Z",
+     "iopub.status.busy": "2026-06-03T21:28:33.318505Z",
+     "iopub.status.idle": "2026-06-03T21:28:33.322685Z",
+     "shell.execute_reply": "2026-06-03T21:28:33.321417Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "class MnistNetwork(nn.Module):\n",
+    "    def __init__(self, num_classes: int = 10, state_dict: dict | None = None) -> None:\n",
+    "        super().__init__()\n",
+    "        self.model = nn.Sequential(\n",
+    "            nn.Conv2d(1, 12, 3, padding=1),\n",
+    "            nn.ReLU(),\n",
+    "            nn.MaxPool2d(2, stride=2, padding=0),\n",
+    "            nn.Flatten(),\n",
+    "            nn.Linear(2352, num_classes),\n",
+    "        )\n",
+    "        if state_dict is not None:\n",
+    "            self.load_state_dict(state_dict)\n",
+    "\n",
+    "    def forward(self, x: torch.Tensor) -> torch.Tensor:\n",
+    "        return self.model(x)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-11",
+   "metadata": {},
+   "source": [
+    "### Training and Evaluation\n",
+    "\n",
+    "Standard PyTorch training loop and evaluation function that computes accuracy."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "id": "cell-12",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:33.325630Z",
+     "iopub.status.busy": "2026-06-03T21:28:33.325252Z",
+     "iopub.status.idle": "2026-06-03T21:28:33.331294Z",
+     "shell.execute_reply": "2026-06-03T21:28:33.330274Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "def train_step(model, optimizer, loss_fn, inputs, ground_truth) -> float:\n",
+    "    model.train()\n",
+    "    device = next(model.parameters()).device\n",
+    "    inputs = inputs.to(device)\n",
+    "    ground_truth = ground_truth.to(device)\n",
+    "    optimizer.zero_grad()\n",
+    "    predictions = model(inputs)\n",
+    "    loss = loss_fn(predictions, ground_truth)\n",
+    "    loss.backward()\n",
+    "    optimizer.step()\n",
+    "    return loss.item()\n",
+    "\n",
+    "\n",
+    "def train_epoch(model, train_loader, optimizer, loss_fn) -> float:\n",
+    "    total_loss = 0.0\n",
+    "    for inputs, ground_truth in train_loader:\n",
+    "        loss = train_step(model, optimizer, loss_fn, inputs, ground_truth)\n",
+    "        total_loss += loss\n",
+    "    return total_loss / len(train_loader)\n",
+    "\n",
+    "\n",
+    "def create_adam_optimizer(model: nn.Module, lr: float = 1e-3) -> torch.optim.Adam:\n",
+    "    return torch.optim.Adam(model.parameters(), lr=lr)\n",
+    "\n",
+    "\n",
+    "def eval_model(model: nn.Module, test_dataloader: DataLoader) -> float:\n",
+    "    model.eval()\n",
+    "    device = next(model.parameters()).device\n",
+    "    num_correct = 0\n",
+    "    total = 0\n",
+    "    with torch.no_grad():\n",
+    "        for inputs, ground_truth in test_dataloader:\n",
+    "            inputs = inputs.to(device)\n",
+    "            ground_truth = ground_truth.to(device)\n",
+    "            predictions = model(inputs)\n",
+    "            _, predicted = torch.max(predictions.data, 1)\n",
+    "            total += ground_truth.size(0)\n",
+    "            num_correct += (predicted == ground_truth).sum().item()\n",
+    "    return num_correct / total"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "id": "cell-13",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:33.333520Z",
+     "iopub.status.busy": "2026-06-03T21:28:33.333375Z",
+     "iopub.status.idle": "2026-06-03T21:28:33.390118Z",
+     "shell.execute_reply": "2026-06-03T21:28:33.380489Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "# Download and instantiate datasets\n",
+    "DOWNLOAD_PATH = Path(SAVE_DIRECTORY) / \".mnist_dataset\"\n",
+    "\n",
+    "train_dataset, test_dataset = download_mnist_dataset(\n",
+    "    download_path=DOWNLOAD_PATH\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "id": "cell-14",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:33.402439Z",
+     "iopub.status.busy": "2026-06-03T21:28:33.402098Z",
+     "iopub.status.idle": "2026-06-03T21:28:33.420191Z",
+     "shell.execute_reply": "2026-06-03T21:28:33.409678Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "BATCH_SIZE = 128\n",
+    "\n",
+    "# Instantiate dataloaders\n",
+    "train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)\n",
+    "test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-15",
+   "metadata": {},
+   "source": [
+    "The CNN model used for this tutorial contains a single Conv2d, ReLU, MaxPool, Flatten, and Linear layer. Here's the structure:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 29,
+   "id": "cell-16",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:33.423606Z",
+     "iopub.status.busy": "2026-06-03T21:28:33.423237Z",
+     "iopub.status.idle": "2026-06-03T21:28:33.436440Z",
+     "shell.execute_reply": "2026-06-03T21:28:33.434862Z"
+    }
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "==========================================================================================\n",
+       "Layer (type:depth-idx)                   Output Shape              Param #\n",
+       "==========================================================================================\n",
+       "MnistNetwork                             [1, 10]                   --\n",
+       "├─Sequential: 1-1                        [1, 10]                   --\n",
+       "│    └─Conv2d: 2-1                       [1, 12, 28, 28]           120\n",
+       "│    └─ReLU: 2-2                         [1, 12, 28, 28]           --\n",
+       "│    └─MaxPool2d: 2-3                    [1, 12, 14, 14]           --\n",
+       "│    └─Flatten: 2-4                      [1, 2352]                 --\n",
+       "│    └─Linear: 2-5                       [1, 10]                   23,530\n",
+       "==========================================================================================\n",
+       "Total params: 23,650\n",
+       "Trainable params: 23,650\n",
+       "Non-trainable params: 0\n",
+       "Total mult-adds (Units.MEGABYTES): 0.12\n",
+       "==========================================================================================\n",
+       "Input size (MB): 0.00\n",
+       "Forward/backward pass size (MB): 0.08\n",
+       "Params size (MB): 0.09\n",
+       "Estimated Total Size (MB): 0.17\n",
+       "=========================================================================================="
+      ]
+     },
+     "execution_count": 29,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "basic_cnn_model = MnistNetwork(num_classes=10)\n",
+    "\n",
+    "# Print summary of model\n",
+    "summary(basic_cnn_model, input_size=(1, 1, 28, 28))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-17",
+   "metadata": {},
+   "source": [
+    "### Train baseline model"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-18",
+   "metadata": {},
+   "source": [
+    "Let's train this model so we can get a baseline accuracy. We save the trained weights so we can reload them for each palettization experiment."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "id": "cell-19",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:28:33.438796Z",
+     "iopub.status.busy": "2026-06-03T21:28:33.438587Z",
+     "iopub.status.idle": "2026-06-03T21:30:19.644234Z",
+     "shell.execute_reply": "2026-06-03T21:30:19.642496Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "  Epoch 1: loss=0.3126\n",
+      "  Epoch 2: loss=0.1170\n",
+      "  Epoch 3: loss=0.0821\n",
+      "  Epoch 4: loss=0.0669\n",
+      "  Epoch 5: loss=0.0590\n",
+      "  Epoch 6: loss=0.0522\n",
+      "  Epoch 7: loss=0.0481\n",
+      "  Epoch 8: loss=0.0452\n",
+      "  Epoch 9: loss=0.0415\n",
+      "  Epoch 10: loss=0.0379\n"
+     ]
+    }
+   ],
+   "source": [
+    "EPOCHS = 10\n",
+    "\n",
+    "loss_fn = torch.nn.CrossEntropyLoss()\n",
+    "optimizer = create_adam_optimizer(basic_cnn_model)\n",
+    "\n",
+    "basic_cnn_model = basic_cnn_model.to(\"mps\")\n",
+    "\n",
+    "epoch_results = []\n",
+    "for epoch in range(EPOCHS):\n",
+    "    epoch_avg_loss = train_epoch(\n",
+    "        model=basic_cnn_model, train_loader=train_loader, optimizer=optimizer, loss_fn=loss_fn\n",
+    "    )\n",
+    "    epoch_results.append(f\"  Epoch {epoch + 1}: loss={epoch_avg_loss:.4f}\")\n",
+    "\n",
+    "basic_cnn_model = basic_cnn_model.cpu().eval()\n",
+    "print(\"\\n\".join(epoch_results))\n",
+    "\n",
+    "# Save trained weights for reuse in palettization sections\n",
+    "pretrained_state_dict = basic_cnn_model.state_dict()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "id": "cell-20",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:19.652072Z",
+     "iopub.status.busy": "2026-06-03T21:30:19.651862Z",
+     "iopub.status.idle": "2026-06-03T21:30:20.567086Z",
+     "shell.execute_reply": "2026-06-03T21:30:20.564513Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Baseline accuracy: 0.9799\n"
+     ]
+    }
+   ],
+   "source": [
+    "accuracy = eval_model(basic_cnn_model, test_loader)\n",
+    "print(f\"Baseline accuracy: {accuracy:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-21",
+   "metadata": {},
+   "source": [
+    "## K-Means Palettization"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-22",
+   "metadata": {},
+   "source": [
+    "Palettization compresses a model's weights by clustering them into a small look-up table (LUT) of centroids. Each weight is then replaced by an index into this table, so the weights can be stored using only a few bits per value (the *palette*).\n",
+    "\n",
+    "K-means palettization uses standard k-means clustering to compute the LUT. It is data-free — no calibration data is required — and can be applied directly to a trained model, much like weight-only quantization."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "id": "cell-23",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:20.582577Z",
+     "iopub.status.busy": "2026-06-03T21:30:20.582225Z",
+     "iopub.status.idle": "2026-06-03T21:30:23.201738Z",
+     "shell.execute_reply": "2026-06-03T21:30:23.198183Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "from coreai_opt.palettization import (\n",
+    "    KMeansPalettizer,\n",
+    "    KMeansPalettizerConfig,\n",
+    "    ModuleKMeansPalettizerConfig,\n",
+    "    PalettizationSpec,\n",
+    ")\n",
+    "from coreai_opt.palettization.spec import PerGroupedChannelGranularity\n",
+    "\n",
+    "example_inputs = (torch.randn(1, 1, 28, 28),)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-24",
+   "metadata": {},
+   "source": [
+    "For this tutorial, we will use 4-bit **per-grouped-channel** palettization: each group of 2 output channels gets its own look-up table of 2⁴ = 16 centroids. Refer to the [PalettizationSpec](../api/generated/coreai_opt.palettization.PalettizationSpec.html) reference for all options."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 33,
+   "id": "cell-25",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:23.206882Z",
+     "iopub.status.busy": "2026-06-03T21:30:23.206390Z",
+     "iopub.status.idle": "2026-06-03T21:30:23.223301Z",
+     "shell.execute_reply": "2026-06-03T21:30:23.218301Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "N_BITS = 4"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-26",
+   "metadata": {},
+   "source": [
+    "`KMeansPalettizerConfig` describes how to palettize each operation through `op_state_spec`, which maps a state tensor name (such as `\"weight\"`) to a `PalettizationSpec`.\n",
+    "\n",
+    "The `PalettizationSpec` controls the palette: `n_bits` sets the bits per index, and `PerGroupedChannelGranularity(axis=0, group_size=2)` gives each group of 2 output channels its own LUT — a finer-grained alternative to the default single per-tensor LUT."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 34,
+   "id": "cell-27",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:23.231026Z",
+     "iopub.status.busy": "2026-06-03T21:30:23.230832Z",
+     "iopub.status.idle": "2026-06-03T21:30:23.330039Z",
+     "shell.execute_reply": "2026-06-03T21:30:23.326322Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "Palettizing layers (num_workers=1): 100%|██████████| 2/2 [00:00<00:00, 83.27it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Prepared k-means palettization with n_bits=4\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    }
+   ],
+   "source": [
+    "kmeans_model = MnistNetwork(num_classes=10, state_dict=pretrained_state_dict)\n",
+    "kmeans_model.eval()\n",
+    "\n",
+    "weight_spec = PalettizationSpec(\n",
+    "    n_bits=N_BITS, granularity=PerGroupedChannelGranularity(axis=0, group_size=2)\n",
+    ")\n",
+    "\n",
+    "kmeans_config = KMeansPalettizerConfig(\n",
+    "    global_config=ModuleKMeansPalettizerConfig(\n",
+    "        op_state_spec={\"weight\": weight_spec},\n",
+    "    )\n",
+    ")\n",
+    "\n",
+    "kmeans_palettizer = KMeansPalettizer(kmeans_model, kmeans_config)\n",
+    "kmeans_prepared = kmeans_palettizer.prepare(example_inputs)\n",
+    "print(f\"Prepared k-means palettization with n_bits={N_BITS}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-28",
+   "metadata": {},
+   "source": [
+    "> The built-in `KMeansPalettizerConfig.presets.w4()` preset builds a similar 4-bit per-grouped-channel config. Its default `group_size` is 16, which suits larger models; here we use `group_size=2` because this toy model's output-channel counts (12 and 10) aren't divisible by 16. `KMeansPalettizerConfig.presets.w4(group_size=2)` would be an equivalent shortcut for the config above."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-29",
+   "metadata": {},
+   "source": [
+    "After calling `prepare()`, the model now has fake palettization modules inserted for its weight tensors. These simulate the effect of the LUT during the forward pass, so we can measure accuracy before exporting."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 35,
+   "id": "cell-30",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:23.336224Z",
+     "iopub.status.busy": "2026-06-03T21:30:23.335915Z",
+     "iopub.status.idle": "2026-06-03T21:30:24.491373Z",
+     "shell.execute_reply": "2026-06-03T21:30:24.475909Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "K-means palettization accuracy: 0.9787\n"
+     ]
+    }
+   ],
+   "source": [
+    "kmeans_accuracy = eval_model(kmeans_prepared, test_loader)\n",
+    "print(f\"K-means palettization accuracy: {kmeans_accuracy:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-31",
+   "metadata": {},
+   "source": [
+    "## Sensitive K-Means Palettization"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-32",
+   "metadata": {},
+   "source": [
+    "Now, let's try Sensitive K-Means (SKM) palettization through `coreai-opt`.\n",
+    "\n",
+    "SKM uses **calibration data** to compute a per-weight importance score (sensitivity). Following the [SqueezeLLM](https://arxiv.org/pdf/2306.07629) method, it runs a backward pass and collects the squared gradients of each weight as its sensitivity. The k-means clustering is then *weighted* by these sensitivities, moving centroids closer to the weights that matter most for the model's loss."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 36,
+   "id": "cell-33",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:24.497298Z",
+     "iopub.status.busy": "2026-06-03T21:30:24.496769Z",
+     "iopub.status.idle": "2026-06-03T21:30:24.564236Z",
+     "shell.execute_reply": "2026-06-03T21:30:24.562126Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "Palettizing layers (num_workers=1): 100%|██████████| 2/2 [00:00<00:00, 82.94it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Prepared Sensitive K-Means palettization with n_bits=4\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    }
+   ],
+   "source": [
+    "skm_model = MnistNetwork(num_classes=10, state_dict=pretrained_state_dict)\n",
+    "skm_model.eval()\n",
+    "\n",
+    "skm_config = KMeansPalettizerConfig(\n",
+    "    global_config=ModuleKMeansPalettizerConfig(\n",
+    "        op_state_spec={\"weight\": weight_spec},\n",
+    "    )\n",
+    ")\n",
+    "\n",
+    "skm_palettizer = KMeansPalettizer(skm_model, skm_config)\n",
+    "skm_prepared = skm_palettizer.prepare(example_inputs)\n",
+    "print(f\"Prepared Sensitive K-Means palettization with n_bits={N_BITS}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-34",
+   "metadata": {},
+   "source": [
+    "We now enter `calibration_mode()` with a loss function and feed it representative inputs.\n",
+    "\n",
+    "For each batch, `skm.step(output, target)` computes the loss and runs a backward pass so the palettizer can collect squared gradients as sensitivities. When the context manager exits, the LUTs are recomputed using weighted k-means based on those sensitivities."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 37,
+   "id": "cell-35",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:24.566694Z",
+     "iopub.status.busy": "2026-06-03T21:30:24.566576Z",
+     "iopub.status.idle": "2026-06-03T21:30:24.679119Z",
+     "shell.execute_reply": "2026-06-03T21:30:24.674356Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "Palettizing layers (num_workers=1): 100%|██████████| 2/2 [00:00<00:00, 98.55it/s]"
+     ]
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Calibrated with 1 batch(es) (128 samples)\n"
+     ]
+    },
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n"
+     ]
+    }
+   ],
+   "source": [
+    "import torch.nn.functional as F\n",
+    "\n",
+    "NUM_CALIBRATION_BATCHES = 1\n",
+    "\n",
+    "with skm_palettizer.calibration_mode(loss_fn=F.cross_entropy) as skm:\n",
+    "    for i, (data, target) in enumerate(train_loader):\n",
+    "        if i >= NUM_CALIBRATION_BATCHES:\n",
+    "            break\n",
+    "        output = skm_prepared(data)\n",
+    "        skm.step(output, target)\n",
+    "\n",
+    "print(\n",
+    "    f\"Calibrated with {NUM_CALIBRATION_BATCHES} batch(es) ({NUM_CALIBRATION_BATCHES * BATCH_SIZE} samples)\"\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 38,
+   "id": "cell-36",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:24.683473Z",
+     "iopub.status.busy": "2026-06-03T21:30:24.682655Z",
+     "iopub.status.idle": "2026-06-03T21:30:25.567558Z",
+     "shell.execute_reply": "2026-06-03T21:30:25.565942Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Sensitive K-Means palettization accuracy: 0.9783\n"
+     ]
+    }
+   ],
+   "source": [
+    "skm_accuracy = eval_model(skm_prepared, test_loader)\n",
+    "print(f\"Sensitive K-Means palettization accuracy: {skm_accuracy:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-37",
+   "metadata": {},
+   "source": [
+    "## Export to Core AI"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-38",
+   "metadata": {},
+   "source": [
+    "Once the palettized model is ready, call `finalize()` to convert the fake palettization modules into the real LUT-based representation for deployment.\n",
+    "\n",
+    "Pass `ExportBackend.CoreAI` to `finalize(backend=...)` to target the `.aimodel` format produced by `coreai-torch`.\n",
+    "\n",
+    "We'll export the Sensitive K-Means model from the previous section."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 39,
+   "id": "cell-39",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:25.573470Z",
+     "iopub.status.busy": "2026-06-03T21:30:25.572038Z",
+     "iopub.status.idle": "2026-06-03T21:30:25.853933Z",
+     "shell.execute_reply": "2026-06-03T21:30:25.848894Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "from coreai_opt import ExportBackend\n",
+    "\n",
+    "coreai_model = skm_palettizer.finalize(backend=ExportBackend.CoreAI)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "cell-40",
+   "metadata": {},
+   "source": [
+    "The export proceeds in three steps:\n",
+    "\n",
+    "- Trace the model with `torch.export.export()` to obtain a graph representation.\n",
+    "- Apply `cast_to_16_bit_precision()` to cast remaining FP32 parameters to FP16 for optimal on-device performance.\n",
+    "- Convert the exported program to Core AI format using `coreai-torch.TorchConverter`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 40,
+   "id": "cell-41",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-03T21:30:25.870890Z",
+     "iopub.status.busy": "2026-06-03T21:30:25.859465Z",
+     "iopub.status.idle": "2026-06-03T21:30:26.540504Z",
+     "shell.execute_reply": "2026-06-03T21:30:26.534914Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Exported: exported_model.aimodel\n"
+     ]
+    }
+   ],
+   "source": [
+    "import shutil\n",
+    "\n",
+    "from coreai_opt.casting import cast_to_16_bit_precision\n",
+    "from coreai_torch import TorchConverter, get_decomp_table\n",
+    "\n",
+    "exported_program = torch.export.export(coreai_model, example_inputs, strict=False)\n",
+    "exported_program = exported_program.run_decompositions(get_decomp_table())\n",
+    "cast_to_16_bit_precision(exported_program)\n",
+    "\n",
+    "coreai_program = TorchConverter().add_exported_program(exported_program).to_coreai()\n",
+    "coreai_program.optimize()\n",
+    "\n",
+    "output_path = Path(SAVE_DIRECTORY) / \"exported_model.aimodel\"\n",
+    "if output_path.exists():\n",
+    "    shutil.rmtree(output_path)\n",
+    "coreai_program.save_asset(output_path)\n",
+    "print(f\"Exported: {output_path}\")"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": ".venv-tutorial",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.14"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

@@ -1,0 +1,22 @@
+﻿coreai\_opt.coreai\_utils.DType
+===============================
+
+.. currentmodule:: coreai_opt.coreai_utils
+
+.. autoclass:: DType
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DType.is_int
+   
+   
+
+   
+   
+   

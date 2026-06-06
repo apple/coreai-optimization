@@ -1,0 +1,6 @@
+﻿coreai\_opt.coreai\_utils.quantize\_weights
+===========================================
+
+.. currentmodule:: coreai_opt.coreai_utils
+
+.. autofunction:: quantize_weights

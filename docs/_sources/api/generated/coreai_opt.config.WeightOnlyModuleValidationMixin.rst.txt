@@ -1,0 +1,22 @@
+﻿coreai\_opt.config.WeightOnlyModuleValidationMixin
+==================================================
+
+.. currentmodule:: coreai_opt.config
+
+.. autoclass:: WeightOnlyModuleValidationMixin
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~WeightOnlyModuleValidationMixin.validate_weight_only_module_constraint
+   
+   
+
+   
+   
+   

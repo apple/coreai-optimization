@@ -1,0 +1,6 @@
+﻿coreai\_opt.casting.cast\_fp32\_to\_fp16
+========================================
+
+.. currentmodule:: coreai_opt.casting
+
+.. autofunction:: cast_fp32_to_fp16

@@ -1,0 +1,6 @@
+﻿coreai\_opt.quantization.spec.default\_weight\_quantization\_spec
+=================================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autofunction:: default_weight_quantization_spec

@@ -1,0 +1,27 @@
+﻿coreai\_opt.quantization.spec.QuantizationComponentFactory
+==========================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autoclass:: QuantizationComponentFactory
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~QuantizationComponentFactory.construct
+      ~QuantizationComponentFactory.construct_partial
+      ~QuantizationComponentFactory.create_fake_quantizer
+      ~QuantizationComponentFactory.create_fake_quantizer_partial
+      ~QuantizationComponentFactory.create_qparams_calculator
+      ~QuantizationComponentFactory.create_range_calculator
+   
+   
+
+   
+   
+   

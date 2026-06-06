@@ -1,0 +1,16 @@
+﻿coreai\_opt.inspection.ModuleContext
+====================================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autoclass:: ModuleContext
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

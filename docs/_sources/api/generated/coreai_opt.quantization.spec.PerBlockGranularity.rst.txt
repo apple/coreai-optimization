@@ -1,0 +1,14 @@
+﻿coreai\_opt.quantization.spec.PerBlockGranularity
+=================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autopydantic_model:: PerBlockGranularity
+
+   
+   
+   
+
+   
+   
+   

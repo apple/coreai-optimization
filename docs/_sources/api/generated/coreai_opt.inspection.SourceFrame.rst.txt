@@ -1,0 +1,16 @@
+﻿coreai\_opt.inspection.SourceFrame
+==================================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autoclass:: SourceFrame
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

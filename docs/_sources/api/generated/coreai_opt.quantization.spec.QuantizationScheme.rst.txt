@@ -1,0 +1,16 @@
+﻿coreai\_opt.quantization.spec.QuantizationScheme
+================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autoclass:: QuantizationScheme
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

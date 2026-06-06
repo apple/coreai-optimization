@@ -1,0 +1,29 @@
+﻿coreai\_opt.pruning.spec.PruneImplBase
+======================================
+
+.. currentmodule:: coreai_opt.pruning.spec
+
+.. autoclass:: PruneImplBase
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~PruneImplBase.compute_mask
+      ~PruneImplBase.forward
+      ~PruneImplBase.get_class
+      ~PruneImplBase.list_registry_keys
+      ~PruneImplBase.list_registry_values
+      ~PruneImplBase.register
+      ~PruneImplBase.update_sparsity
+      ~PruneImplBase.with_args
+   
+   
+
+   
+   
+   

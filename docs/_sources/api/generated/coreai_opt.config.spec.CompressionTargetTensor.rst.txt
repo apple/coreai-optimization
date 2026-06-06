@@ -1,0 +1,16 @@
+﻿coreai\_opt.config.spec.CompressionTargetTensor
+===============================================
+
+.. currentmodule:: coreai_opt.config.spec
+
+.. autoclass:: CompressionTargetTensor
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

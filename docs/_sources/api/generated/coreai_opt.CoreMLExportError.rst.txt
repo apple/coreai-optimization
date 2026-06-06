@@ -1,0 +1,6 @@
+﻿coreai\_opt.CoreMLExportError
+=============================
+
+.. currentmodule:: coreai_opt
+
+.. autoexception:: CoreMLExportError
