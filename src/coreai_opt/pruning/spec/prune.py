@@ -100,8 +100,8 @@ class PruneImplBase(CompressionSimulatorBase):
         """Compute / re-compute the mask if stale, and then apply it to the weight."""
         if self._dirty:
             new_mask = self.compute_mask(weight, self._sparsity, self._pruning_scheme)
-            if self.mask.device != weight.device:
-                self.mask = self.mask.to(weight.device)
+            if self.mask.device != weight.device or self.mask.dtype != weight.dtype:
+                self.mask = self.mask.to(device=weight.device, dtype=weight.dtype)
             if self.mask.shape != new_mask.shape:
                 self.mask.resize_(new_mask.shape)
             self.mask.copy_(new_mask)

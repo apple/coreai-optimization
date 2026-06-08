@@ -47,15 +47,19 @@ def linear_100x100_unique() -> nn.Linear:
 class TestMagnitudePruner:
     """Tests for MagnitudePruner end-to-end behavior."""
 
-    def test_default_magnitude_pruner(self) -> None:
-        """MagnitudePruner() with no config uses default 50% sparsity."""
-        model = nn.Linear(100, 50, bias=False)
+    @pytest.mark.parametrize(
+        "dtype", [torch.float32, torch.float16, torch.bfloat16], ids=["fp32", "fp16", "bf16"]
+    )
+    def test_default_magnitude_pruner(self, dtype: torch.dtype) -> None:
+        """MagnitudePruner() with no config uses default 50% sparsity and keeps the weight dtype."""
+        model = nn.Linear(100, 50, bias=False).to(dtype)
         with torch.no_grad():
             model.weight.copy_(torch.arange(1, 5001, dtype=torch.float32).reshape(50, 100))
 
         pruner = MagnitudePruner(model)
-        pruner.prepare((torch.randn(1, 100),))
+        pruner.prepare((torch.randn(1, 100, dtype=dtype),))
 
+        assert model.weight.dtype == dtype
         sparsity = (model.weight == 0).float().mean().item()
         assert sparsity == 0.5
 
