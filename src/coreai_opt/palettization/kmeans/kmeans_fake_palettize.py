@@ -417,6 +417,11 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         """
         num_clusters = 2**self.n_bits
 
+        # numpy has no bfloat16 dtype, so cluster bf16 weights as float32. The
+        # centroids are cast back to the weight dtype by the caller.
+        if block_weight.dtype == torch.bfloat16:
+            block_weight = block_weight.float()
+
         block_weight_flatten = block_weight.flatten().numpy()
         if block_sensitivity is not None:
             block_sensitivity_flatten = block_sensitivity.flatten().numpy()

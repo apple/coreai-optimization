@@ -63,13 +63,16 @@ def _valid_lut_dtype_qscheme_combinations():
 class Test_KMeansFakePalettize:
     """Test cases for _KMeansFakePalettize class."""
 
+    @pytest.mark.parametrize(
+        "weight_dtype", [torch.float32, torch.float16, torch.bfloat16], ids=["fp32", "fp16", "bf16"]
+    )
     @pytest.mark.parametrize("lut_dtype", [None, *_SUPPORTED_LUT_DTYPES])
-    def test__calculate_centroids_simple_per_tensor(self, lut_dtype):
+    def test__calculate_centroids_simple_per_tensor(self, lut_dtype, weight_dtype):
         """Test _calculate_centroids with simple random weight matrix
         using per-tensor granularity.
         """
         # Create a simple weight matrix with known values for easy verification
-        weight = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=torch.float32)
+        weight = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=weight_dtype)
 
         # Create palettization spec with 2-bit (4 centroids)
         spec = PalettizationSpec(
