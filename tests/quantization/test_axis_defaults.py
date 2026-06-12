@@ -193,6 +193,26 @@ class TestWeightAxisDefaults:
         assert weight_fqs[0].granularity.axis == expected_axis
 
     @pytest.mark.parametrize("execution_mode", _EXECUTION_MODE_PARAMS)
+    @pytest.mark.parametrize("granularity", _GRANULARITY_NONE_PARAMS)
+    def test_subclass_resolves_to_base_default(self, granularity, execution_mode):
+        """A subclass of a supported module resolves to its base type's default axis."""
+
+        class _CustomLinear(nn.Linear):
+            pass
+
+        config = _make_config(granularity, execution_mode)
+        prepared = Quantizer(_CustomLinear(32, 16), config).prepare((torch.randn(1, 32),))
+
+        if isinstance(granularity, PerChannelGranularity):
+            expected_axis = _PER_CHANNEL_WEIGHT_AXIS_DEFAULTS[nn.Linear]
+        else:
+            expected_axis = _PER_BLOCK_WEIGHT_AXIS_DEFAULTS[nn.Linear]
+
+        weight_fqs = _get_weight_fqs(prepared)
+        assert len(weight_fqs) == 1
+        assert weight_fqs[0].granularity.axis == expected_axis
+
+    @pytest.mark.parametrize("execution_mode", _EXECUTION_MODE_PARAMS)
     @pytest.mark.parametrize("granularity", _GRANULARITY_EXPLICIT_PARAMS)
     def test_explicit_axis_preserved(self, granularity, execution_mode):
         """Explicit axis value is not overridden by the defaults pass."""

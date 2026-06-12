@@ -182,6 +182,27 @@ def _collect_weight_fq_entries_graph(model: GraphModule) -> _WeightFQMap:
     return fq_map
 
 
+def _resolve_eager_owner_type(module: nn.Module) -> type[nn.Module]:
+    """Resolve a parametrized module to the base type that carries axis defaults.
+
+    Parametrization replaces a module's class with a synthetic subclass, so
+    ``type(module).__bases__[0]`` unwraps only one level and misses user subclasses
+    such as ``class MyLinear(nn.Linear)``. Walk the MRO and return the first base in
+    the defaults tables, falling back to the immediate base when none matches.
+
+    Args:
+        module (nn.Module): The parametrized module whose owner type to resolve.
+
+    Returns:
+        type[nn.Module]: The first base class with a defaults-table entry, or
+            ``type(module).__bases__[0]`` if none is found.
+    """
+    for base in type(module).__mro__:
+        if base in _PER_CHANNEL_WEIGHT_AXIS_DEFAULTS or base in _PER_BLOCK_WEIGHT_AXIS_DEFAULTS:
+            return base
+    return type(module).__bases__[0]
+
+
 def _collect_weight_fq_entries_eager(model: nn.Module) -> _WeightFQMap:
     """Collect weight fake-quantize entries from an eager-mode model.
 
@@ -205,7 +226,7 @@ def _collect_weight_fq_entries_eager(model: nn.Module) -> _WeightFQMap:
         if not P.is_parametrized(module, "weight"):
             continue
 
-        owner_type = type(module).__bases__[0]
+        owner_type = _resolve_eager_owner_type(module)
 
         for fq in module.parametrizations["weight"]:
             if not isinstance(fq, FakeQuantizeImplBase):
