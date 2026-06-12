@@ -177,6 +177,8 @@ environments = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
+exclude-newer = "7 days"
+exclude-newer-package = { coreai-core = false, coreai-torch = false }
 # Declare conflicting groups so uv does not error
 conflicts = [
     [
