@@ -457,6 +457,29 @@ def test_float_range(float_range, granularity):
         assert torch.all(torch.abs(qdq_max - float_range[1]) <= scale)
 
 
+@pytest.mark.parametrize("input_dtype", [torch.float16, torch.bfloat16])
+@pytest.mark.parametrize("float_range", [[None, 10.0], [-10.0, None]])
+def test_float_range_one_sided_half_precision(input_dtype, float_range):
+    """Test a one-sided float_range resolves on float16 and bfloat16 inputs."""
+    qparams_calc = StaticQParamsCalculator(
+        dtype=torch.int8,
+        qscheme=QuantizationScheme.ASYMMETRIC,
+        granularity=PerChannelGranularity(axis=0),
+        target_dtype=torch.int8,
+        quant_min=-128,
+        quant_max=127,
+        range_calculator=MinMaxRangeCalculator(PerChannelGranularity(axis=0)),
+        float_range=float_range,
+    )
+
+    x = (torch.randn(4, 8) * 100.0).to(input_dtype)
+    scale, _, _ = qparams_calc(x)
+
+    # The resolved scale must carry the half-precision input dtype.
+    assert scale.dtype == input_dtype
+    assert torch.all(scale > 0)
+
+
 @pytest.mark.parametrize("float_range", [[0.0, 5.0], [-5.0, 0.0]])
 def test_float_range_with_symmetric(float_range):
     """

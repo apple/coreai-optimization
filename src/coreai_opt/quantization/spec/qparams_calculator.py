@@ -152,6 +152,11 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
                 min_val = torch.clamp(computed_min, max=0)
             if max_val is None:
                 max_val = torch.clamp(computed_max, min=0)
+            # A one-sided float_range pairs a float_range bound (built at float32)
+            # with a range-calculator bound at the input dtype. Cast both to the
+            # input dtype so this mixed case has matching dtypes for the qparams op.
+            min_val = min_val.to(tensor.dtype)
+            max_val = max_val.to(tensor.dtype)
         return min_val, max_val
 
     def _compute_e8m0_scale(self, max_abs: torch.Tensor) -> torch.Tensor:
