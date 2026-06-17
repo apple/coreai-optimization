@@ -198,6 +198,10 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         # Reshape sensitivities if available
         if self.sensitivities is not None:
             sensitivities = self.sensitivities.cpu()
+            # numpy has no bfloat16 dtype, so cluster bf16 sensitivities as
+            # float32, matching the block-weight handling in _cluster_weights_1d.
+            if sensitivities.dtype == torch.bfloat16:
+                sensitivities = sensitivities.float()
             sensitivities = self.reshape_strategy.reshape_for_kmeans(
                 sensitivities, axis
             )

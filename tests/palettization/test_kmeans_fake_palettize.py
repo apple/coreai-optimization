@@ -108,6 +108,39 @@ class Test_KMeansFakePalettize:
         print(f"Reconstruction MSE: {mse}")
         assert mse < 0.5
 
+    @pytest.mark.parametrize("cluster_dim", [1, 2])
+    def test__calculate_centroids_bfloat16_sensitivities(self, cluster_dim):
+        """Test _calculate_centroids with bfloat16 sensitivities for the scalar
+        (cluster_dim=1) and vector (cluster_dim > 1) clustering paths.
+        """
+        weight = torch.randn(32, 16, dtype=torch.bfloat16)
+
+        spec = PalettizationSpec(
+            n_bits=2,
+            granularity=PerTensorGranularity(),
+            cluster_dim=cluster_dim,
+        )
+        palettizer = _KMeansFakePalettize(
+            n_bits=spec.n_bits,
+            lut_qspec=spec.lut_qspec,
+            granularity=spec.granularity,
+            cluster_dim=spec.cluster_dim,
+            enable_per_channel_scale=spec.enable_per_channel_scale,
+        )
+        # Positive sensitivities prevent a zero-total-weight cluster from yielding a NaN centroid.
+        palettizer.sensitivities = torch.rand_like(weight) + 1.0
+
+        lut, indices = palettizer._calculate_centroids(weight)
+        assert lut.dtype == weight.dtype
+        assert lut.shape == (1, 1, 2**spec.n_bits, cluster_dim)
+
+        palettized = palettizer._palettize(lut, indices, weight)
+        assert palettized.shape == weight.shape
+        assert palettized.dtype == weight.dtype
+
+        mse = torch.mean((weight.float() - palettized.float()) ** 2)
+        assert mse < 0.5
+
     def test_cluster_weights_1d_with_few_unique_values(self):
         """Test _cluster_weights_1d when there are fewer unique values than clusters."""
         # Create weight with only 2 unique values but request 4 clusters
