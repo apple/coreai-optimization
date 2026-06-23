@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [ "setuptools>=42", "wheel" ]
+requires = [ "setuptools>=42" ]
 
 [project]
 name = "coreai-opt"
