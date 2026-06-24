@@ -1,4 +1,5 @@
-This is a test to check branch protection rules
+This is a test to check branch protection rules.
+Another test
 
 # Core AI Optimization
 
