@@ -1,3 +1,5 @@
+This is a test to check branch protection rules
+
 # Core AI Optimization
 
 `coreai-opt` provides implementations of popular model optimizations such as quantization, palettization (codebook-based compression), and pruning, for PyTorch models, customized for deployment on Apple Silicon via Core AI.
