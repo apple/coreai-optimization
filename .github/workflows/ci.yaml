@@ -1,5 +1,10 @@
 name: CI
 
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+  && format('CI · PR #{0} · {1} · @{2}', github.event.pull_request.number, github.event.pull_request.head.ref, github.actor)
+  || format('CI · push {0} · @{1}', github.ref_name, github.actor) }}
+
 on:
   pull_request:
     branches: [main]
