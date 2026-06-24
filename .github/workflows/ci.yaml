@@ -21,7 +21,7 @@ concurrency:
 jobs:
 
   check:
-    name: make check
+    name: macOS / make check
     if: github.repository == 'apple/coreai-optimization'
     runs-on: [self-hosted, macos, tahoe, ARM64]
     timeout-minutes: 30
@@ -36,7 +36,7 @@ jobs:
       - run: make check
 
   macos-tests:
-    name: macos / torch=highest / fast
+    name: macOS / make test-highest-pytorch / markers=not-slow
     needs: [check]
     if: github.repository == 'apple/coreai-optimization'
     runs-on: [self-hosted, macos, tahoe, ARM64]
