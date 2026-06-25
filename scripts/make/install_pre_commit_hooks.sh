@@ -60,5 +60,5 @@ if ! command -v lychee &>/dev/null; then
 fi
 
 # Configure git hooks. Force-install so the shebang points to the current venv.
-uv run --active pre-commit install -f
+uv run --no-sync --active pre-commit install -f
 echo "✓ Pre-commit hooks configured to use $VIRTUAL_ENV"

@@ -6,6 +6,7 @@
 """General test utilities."""
 
 import importlib.util
+from decimal import ROUND_FLOOR, Decimal
 
 import torch
 
@@ -23,11 +24,35 @@ class SNRBelowThresholdError(AssertionError):
         psnr_thresh: float,
         prefix: str = "",
     ) -> None:
+        # Floor (not round) the displayed values so they match the raw-value
+        # comparison in verify_snr_psnr. Rounding could nudge a sub-threshold
+        # value up past the threshold (e.g. 34.9999 -> "35.00"), producing a
+        # self-contradictory "PSNR 35.00 below threshold 35.0" message.
+        snr_display = floor_to_decimals(str(snr), 2)
+        psnr_display = floor_to_decimals(str(psnr), 2)
         if snr <= snr_thresh:
-            msg = f"{prefix}SNR {snr:.2f} below threshold {snr_thresh} (PSNR: {psnr:.2f})"
+            msg = f"{prefix}SNR {snr_display} below threshold {snr_thresh} (PSNR: {psnr_display})"
         else:
-            msg = f"{prefix}PSNR {psnr:.2f} below threshold {psnr_thresh} (SNR: {snr:.2f})"
+            msg = f"{prefix}PSNR {psnr_display} below threshold {psnr_thresh} (SNR: {snr_display})"
         super().__init__(msg)
+
+
+def floor_to_decimals(value: str, decimals: int) -> Decimal:
+    """Floor a numeric value to a fixed number of decimal places.
+
+    Unlike ``round`` or ``f"{x:.2f}"`` (which round to nearest), this rounds
+    toward negative infinity, so the result never exceeds ``value``.
+
+    Args:
+        value (str): Numeric value to floor, passed as a string for exact
+            decimal parsing (avoids binary float representation error).
+        decimals (int): Number of decimal places to keep.
+
+    Returns:
+        Decimal: ``value`` floored to ``decimals`` decimal places.
+    """
+    step = Decimal("1").scaleb(-decimals)
+    return Decimal(value).quantize(step, rounding=ROUND_FLOOR)
 
 
 def compute_snr_psnr(

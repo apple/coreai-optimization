@@ -34,6 +34,21 @@ class TestRegistryMixins:
         assert MyClassRegistry.list_registry_keys() == {"class_a", "class_b"}
         assert MyClassRegistry.list_registry_values() == {ClassA, ClassB}
 
+        # resolve() returns the registered class for both string keys and class types.
+        assert MyClassRegistry.resolve("class_a") is ClassA
+        assert MyClassRegistry.resolve(ClassB) is ClassB
+
+        # Unknown string key surfaces a ValueError that lists registered keys.
+        with pytest.raises(ValueError, match="class_c"):
+            MyClassRegistry.resolve("class_c")
+
+        # An unregistered class also raises ValueError.
+        class UnregisteredClass:
+            pass
+
+        with pytest.raises(ValueError, match="UnregisteredClass"):
+            MyClassRegistry.resolve(UnregisteredClass)
+
         # Test overwriting registry name
         @MyClassRegistry.register("class_a")
         class NewClassA:

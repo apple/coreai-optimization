@@ -413,7 +413,12 @@ class MLIRConverter(ModelConverter):
                 inputs={input_name: NDArray(input_data.cpu())},
             )
 
-        return tuple(torch.from_numpy(v.numpy()) for v in coreai_outputs.values())
+        # TODO(rdar://180563027): replace this private-attribute DLPack workaround with
+        # coreai's public NDArray torch() conversion once that API is available.
+        return tuple(
+            torch.from_dlpack(v._tensor.to_dlpack())  # noqa: SLF001
+            for v in coreai_outputs.values()
+        )
 
     def _get_op_counts(
         self,

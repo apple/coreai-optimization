@@ -17,6 +17,7 @@ from coreai_opt.quantization.spec.granularity import (
     PerTensorGranularity,
 )
 from coreai_opt.quantization.spec.qparams_calculator import (
+    DynamicQParamsCalculator,
     GlobalMinMaxQParamsCalculator,
     MovingAverageQParamsCalculator,
     QParamsCalculatorBase,
@@ -677,16 +678,24 @@ class TestQParamCalculatorClassResolution:
         # The qparams_calculator should be StaticQParamsCalculator
         assert isinstance(fake_quantizer.qparams_calculator, StaticQParamsCalculator)
 
-    def test_resolution_in_fake_quantizer_activation(self):
+    @pytest.mark.parametrize(
+        "qparam_calculator_string,qparam_calculator_cls",
+        [
+            ("default", MovingAverageQParamsCalculator),
+            ("dynamic", DynamicQParamsCalculator),
+        ],
+    )
+    def test_resolution_in_fake_quantizer_activation(
+        self, qparam_calculator_string, qparam_calculator_cls
+    ):
         """Test marker resolution through full fake quantizer creation for activation"""
-        spec = QuantizationSpec(qparam_calculator_cls="default")
+        spec = QuantizationSpec(qparam_calculator_cls=qparam_calculator_string)
 
         fake_quantizer = QuantizationComponentFactory.create_fake_quantizer(
             spec, CompressionTargetTensor.ACTIVATION
         )
 
-        # The qparams_calculator should be MovingAverageQParamsCalculator
-        assert isinstance(fake_quantizer.qparams_calculator, MovingAverageQParamsCalculator)
+        assert isinstance(fake_quantizer.qparams_calculator, qparam_calculator_cls)
 
     def test_default_class_not_callable(self):
         """Test that the marker class raises an error if forward() is called"""
@@ -740,3 +749,26 @@ class TestQParamCalculatorClassResolution:
 
         assert isinstance(qparams_weight, GlobalMinMaxQParamsCalculator)
         assert isinstance(qparams_activation, GlobalMinMaxQParamsCalculator)
+
+    def test_resolution_for_dynamic_qparams(self):
+        """Test that 'dynamic' string resolves to DynamicQParamsCalculator"""
+        spec = QuantizationSpec(qparam_calculator_cls="dynamic")
+        assert spec.qparam_calculator_cls == DynamicQParamsCalculator
+
+        qparams_calc = QuantizationComponentFactory.create_qparams_calculator(
+            spec, CompressionTargetTensor.ACTIVATION
+        )
+        assert isinstance(qparams_calc, DynamicQParamsCalculator)
+
+    @pytest.mark.parametrize(
+        "target",
+        [CompressionTargetTensor.WEIGHT, CompressionTargetTensor.LUT],
+    )
+    def test_dynamic_rejected_for_non_activation(self, target):
+        """Test that 'dynamic' raises ValueError when used for weight/LUT targets"""
+        spec = QuantizationSpec(qparam_calculator_cls="dynamic")
+        with pytest.raises(
+            ValueError,
+            match="DynamicQParamsCalculator is only supported for activation",
+        ):
+            QuantizationComponentFactory.create_qparams_calculator(spec, target)

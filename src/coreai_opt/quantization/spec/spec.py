@@ -18,7 +18,6 @@ from pydantic import (
     model_validator,
 )
 
-from coreai_opt._utils.registry_utils import ClassRegistryMixin
 from coreai_opt._utils.torch_utils import (
     get_n_bits_from_dtype,
     is_float4_dtype as _is_float4_dtype,
@@ -243,6 +242,9 @@ class QuantizationSpec(CompressionSpec):
               most recent calibration sample only
             - "moving_average": Uses exponential moving average for stability
             - "global_minmax": Tracks running min/max across all calibration samples
+            - "dynamic": Computes scale/zero/minval point on each forward pass from the
+              current tensor — no calibration. Only valid for activation quantization
+              (rejected by the factory for weights/LUT).
             - Custom registered class string name
             - coreai_opt.quantization.qparams_calculator.QParamsCalculatorBase
               class type: StaticQParamsCalculator,
@@ -421,51 +423,10 @@ class QuantizationSpec(CompressionSpec):
             raise ValueError(error_msg)
         return dtype
 
-    @staticmethod
-    def _convert_with_registry(data: str | type, registry_class: type[ClassRegistryMixin]) -> type:
-        """
-        Convert string or type to a registered class from the given registry.
-
-        Args:
-            data: Either a string key or a class type
-            registry_class: The registry class to look up the key/type in
-
-        Returns:
-            The registered class type
-
-        Raises:
-            ValueError: If the key is not found in registry or type is not registered
-            TypeError: If data is neither string nor type
-        """
-        if isinstance(data, str):
-            try:
-                return registry_class.get_class(data)
-            except KeyError as err:
-                available_keys = registry_class.list_registry_keys()
-                raise ValueError(
-                    f"No class is registered with key: '{data}' "
-                    f"in registry {registry_class.__name__}. "
-                    f"Available keys: {sorted(available_keys)}"
-                ) from err
-        elif isinstance(data, type):
-            if data in registry_class.list_registry_values():
-                return data
-            else:
-                available_classes = [cls.__name__ for cls in registry_class.list_registry_values()]
-                raise ValueError(
-                    f"Class {data.__name__} is not registered in "
-                    f"{registry_class.__name__}. "
-                    f"Available classes: {sorted(available_classes)}"
-                )
-        else:
-            raise TypeError(
-                f"Expected str or type for registry lookup, got {type(data).__name__}: {data}"
-            )
-
     @field_validator("range_calculator_cls", mode="before")
     @classmethod
     def convert_range_calculator(cls, data: Any) -> type[RangeCalculatorBase]:
-        return cls._convert_with_registry(data, RangeCalculatorBase)
+        return RangeCalculatorBase.resolve(data)
 
     @field_validator("float_range", mode="before")
     @classmethod
@@ -499,12 +460,12 @@ class QuantizationSpec(CompressionSpec):
     @field_validator("qparam_calculator_cls", mode="before")
     @classmethod
     def convert_qparam_calculator(cls, data: Any) -> type[QParamsCalculatorBase]:
-        return cls._convert_with_registry(data, QParamsCalculatorBase)
+        return QParamsCalculatorBase.resolve(data)
 
     @field_validator("fake_quantize_cls", mode="before")
     @classmethod
     def convert_fake_quantize(cls, data: Any) -> type[FakeQuantizeImplBase]:
-        return cls._convert_with_registry(data, FakeQuantizeImplBase)
+        return FakeQuantizeImplBase.resolve(data)
 
     @model_validator(mode="before")
     @classmethod

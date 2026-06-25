@@ -6,8 +6,20 @@
 from pathlib import Path
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import yaml
+from torch.nn.utils.parametrize import is_parametrized
+
+
+def count_weight_parametrizations(model: nn.Module, parametrization_cls: type) -> int:
+    """Count modules in ``model`` whose ``weight`` is parametrized with ``parametrization_cls``."""
+    return sum(
+        1
+        for module in model.modules()
+        if is_parametrized(module, "weight")
+        and any(isinstance(p, parametrization_cls) for p in module.parametrizations["weight"])
+    )
 
 
 def test_data_path():

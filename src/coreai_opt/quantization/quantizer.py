@@ -35,6 +35,7 @@ from coreai_opt.quantization.config.quantization_config import (
     QuantizerConfig,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
+from coreai_opt.quantization.spec.qparams_calculator import StatelessQParamsCalculatorBase
 
 
 class Quantizer(_BaseQuantizer):
@@ -432,6 +433,31 @@ class Quantizer(_BaseQuantizer):
         model_to_check = model if model is not None else self._model
         _validate_mmap_backend_and_device(model_to_check, backend, mmap_dir)
 
+    def _validate_no_persistent_observer_calculators(
+        self,
+        model: nn.Module | fx.GraphModule | None,
+        backend: ExportBackend,
+    ) -> None:
+        """Reject CoreAI/CoreML export when any qparams calculator is a
+        ``StatelessQParamsCalculatorBase`` (e.g. dynamic quantization).
+        """
+        if backend == ExportBackend._TORCH:
+            return
+        model_to_check = model if model is not None else self._model
+        stateless_fq_names = [
+            name
+            for name, mod in model_to_check.named_modules()
+            if isinstance(mod, FakeQuantizeImplBase)
+            and isinstance(mod.qparams_calculator, StatelessQParamsCalculatorBase)
+        ]
+        if stateless_fq_names:
+            raise NotImplementedError(
+                f"backend={backend} does not yet support qparams calculators that "
+                f"recompute every forward (e.g. dynamic quantization). "
+                f"Affected FakeQuantize modules: {stateless_fq_names}. Use "
+                f"backend=ExportBackend._TORCH for torch-only inference."
+            )
+
     def finalize(
         self,
         model: nn.Module | fx.GraphModule | None = None,
@@ -480,6 +506,7 @@ class Quantizer(_BaseQuantizer):
             finalize frees the original dense weights.
         """
         self._validate_mmap_dir_constraints(model, backend, mmap_dir)
+        self._validate_no_persistent_observer_calculators(model, backend)
         return self._quantizer.finalize(model, backend, mmap_dir=mmap_dir)
 
     @contextmanager

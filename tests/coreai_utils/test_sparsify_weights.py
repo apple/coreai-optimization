@@ -3,7 +3,10 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
+import numpy as np
 import pytest
+import torch
+import torch.nn as nn
 
 from coreai_opt.coreai_utils import DType, sparsify_weights
 from tests.export.export_utils import MLIRConverter
@@ -209,3 +212,112 @@ def test_mlir_weight_sparsification_validation(
     coreai_program, _, _ = _coreai_program
     with pytest.raises(ValueError, match=error_match):
         sparsify_weights(coreai_program=coreai_program, **kwargs)
+
+
+class _MatmulModel(nn.Module):
+    """Model whose fp16 weight buffer lowers to broadcasting_batch_matmul."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        val = np.array(
+            [
+                [1, 3, 4, -3],
+                [-6, -7, 2, 4],
+                [0, 3, 4, 1],
+                [-9, 2, -1, 8],
+            ],
+            dtype=np.float16,
+        )
+        self.register_buffer("weight", torch.from_numpy(val))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.matmul(self.weight, x)
+
+
+def _make_coreai_program() -> object:
+    x = torch.eye(4, dtype=torch.float16)
+    exported = MLIRConverter().trace(_MatmulModel(), x, {})
+    return MLIRConverter._lower_to_coreai(exported)
+
+
+def test_sparsify_weights_n_m_ratio_e2e() -> None:
+    """Compressed model output matches expected 1:2 pruned values.
+
+    The weight is a fp16 (4, 4) matrix consumed by broadcasting_batch_matmul,
+    so the pass prunes along input_channel_axis (dim=1). With n:m=(1,2), the
+    smaller of each consecutive pair of columns is zeroed. Running with an
+    identity input isolates the weight in the output.
+    """
+    compressed = sparsify_weights(
+        coreai_program=_make_coreai_program(),
+        target_sparsity=None,
+        n_m_ratio=(1, 2),
+        weight_num_threshold=0,
+        in_place=False,
+    )
+    assert "coreai.build_sparse_with_bitmask" in str(compressed)
+    (output,) = MLIRConverter()._run_inference(compressed, torch.eye(4, dtype=torch.float16))
+    expected = np.array(
+        [
+            [0, 3, 4, 0],
+            [0, -7, 0, 4],
+            [0, 3, 4, 0],
+            [-9, 0, 0, 8],
+        ],
+        dtype=np.float16,
+    )
+    np.testing.assert_array_equal(output, expected)
+
+
+def test_sparsify_weights_magnitude_e2e() -> None:
+    """Compressed model output matches expected 50%-sparsity pruned values.
+
+    With target_sparsity=0.5, the lowest-magnitude elements are zeroed.
+    Running with an identity input isolates the weight in the output.
+    """
+    compressed = sparsify_weights(
+        coreai_program=_make_coreai_program(),
+        target_sparsity=0.5,
+        weight_num_threshold=0,
+        in_place=False,
+    )
+    assert "coreai.build_sparse_with_bitmask" in str(compressed)
+    (output,) = MLIRConverter()._run_inference(compressed, torch.eye(4, dtype=torch.float16))
+    expected = np.array(
+        [
+            [0, 0, 4, 0],
+            [-6, -7, 0, 4],
+            [0, 0, 4, 0],
+            [-9, 0, 0, 8],
+        ],
+        dtype=np.float16,
+    )
+    np.testing.assert_array_equal(output, expected)
+
+
+def test_sparsify_weights_block_e2e() -> None:
+    """Compressed model output matches expected block-sparsity pruned values.
+
+    The weight is a fp16 (4, 4) matrix. With block_size=2 and target_sparsity=0.5,
+    row pairs are treated as blocks (output_channel_axis=0) and pruned by L2 norm.
+    Running with an identity input isolates the weight in the output.
+    """
+    compressed = sparsify_weights(
+        coreai_program=_make_coreai_program(),
+        target_sparsity=0.5,
+        block_size=2,
+        weight_num_threshold=0,
+        in_place=False,
+    )
+    assert "coreai.build_sparse_with_bitmask" in str(compressed)
+    (output,) = MLIRConverter()._run_inference(compressed, torch.eye(4, dtype=torch.float16))
+    expected = np.array(
+        [
+            [1, 3, 0, 0],
+            [-6, -7, 0, 0],
+            [0, 0, 0, 1],
+            [-9, 0, 0, 8],
+        ],
+        dtype=np.float16,
+    )
+    np.testing.assert_array_equal(output, expected)

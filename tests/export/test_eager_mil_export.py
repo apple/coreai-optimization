@@ -10,7 +10,7 @@ import torch
 
 from coreai_opt import CoreMLExportError, ExportBackend
 from coreai_opt.quantization import Quantizer, QuantizerConfig
-from tests.conftest import (
+from tests.fixtures.quantization import (
     COREML_ACT_REJECT_DTYPES,
     COREML_WEIGHT_REJECT_DTYPES,
     ParametrizedQuantConfigs,

@@ -32,10 +32,9 @@ from sphinx.application import Sphinx
 _docs_dir = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(_docs_dir))
 
-# Find the repo / package root by walking up until we hit ``src/coreai_opt``.
-# In OSS layout this is the directory immediately above docs/; in internal
-# layout it's three levels up from docs/src/conf.py (since src/ is a sibling
-# of external/, not external/docs/).
+# Find the package root by walking up until we hit ``src/coreai_opt``. In both
+# layouts that root is the directory immediately above docs/: the OSS root after
+# export, or ``external/`` in the internal repo.
 _search = _docs_dir
 while _search != _search.parent:
     if (_search / "src" / "coreai_opt").exists():
