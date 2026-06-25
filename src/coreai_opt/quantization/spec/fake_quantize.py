@@ -31,7 +31,7 @@ from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 
 from .granularity import QuantizationGranularity
 from .qformulation import QuantizationFormulation
-from .qparams_calculator import QParamsCalculatorBase
+from .qparams_calculator import QParamsCalculatorBase, StatelessQParamsCalculatorBase
 from .qscheme import QuantizationScheme
 
 __all__ = ["FakeQuantizeImplBase"]
@@ -97,6 +97,30 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
     def is_disabled(self) -> bool:
         """Return True if fake quantization has been disabled."""
         return self._disabled.item()
+
+    def disable_observer(self) -> None:
+        """Disable the observer, unless the qparams calculator is stateless.
+
+        Applies to **any** caller (direct, ``apply(disable_observer)``,
+        ``convert_pt2e``, QAT scheduling). Stateless calculators recompute per
+        forward and need ``observer_enabled=1`` permanently — ``forward`` uses
+        that flag to route between live recompute and the stateful
+        ``get_qparams()`` cache (which stateless doesn't have).
+        """
+        if isinstance(self.qparams_calculator, StatelessQParamsCalculatorBase):
+            return
+        super().disable_observer()
+
+    def enable_observer(self, enabled: bool = True) -> None:
+        """Inverse of ``disable_observer``: ignore ``enabled=False`` when the
+        qparams calculator is stateless. Covers callers that invoke
+        ``enable_observer(False)`` directly (e.g. the QAT scheduler at
+        ``quantizer.py:_maybe_apply_qat_schedule``); ``disable_observer()``
+        itself routes through the override above.
+        """
+        if not enabled and isinstance(self.qparams_calculator, StatelessQParamsCalculatorBase):
+            return
+        super().enable_observer(enabled)
 
     def _warn_and_disable(self, error: _BlockSizeMismatchError) -> None:
         """Log a warning and permanently disable this module."""

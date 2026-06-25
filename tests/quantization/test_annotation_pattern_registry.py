@@ -1544,8 +1544,8 @@ class TestAnnotationPatternRegistry:
     def test_overlapping_quantization_configs_precedence(self, weight_spec, activation_spec):
         """
         Test when both output of preceding node and input of succeeding node
-        are both annotated. Verify only one fake_quant is inserted and output
-        config takes precedence.
+        are both annotated. Verify only one fake_quant is inserted and the
+        later config (linear2) takes precedence over the earlier config (linear1).
         """
 
         class TwoLinearModel(nn.Module):
@@ -1640,9 +1640,9 @@ class TestAnnotationPatternRegistry:
         # Get the actual fake quantize module to inspect its configuration
         fq_module = getattr(prepared_model, activation_fq_node.target)
 
-        # Check that output spec took precedence
+        # Check that later config (linear2) takes precedence
         actual_dtype = fq_module.dtype
-        assert actual_dtype == activation_spec_int8.dtype
+        assert actual_dtype == activation_spec_int4.dtype
 
     def test_nested_module_structure_quantization(self, weight_spec, activation_spec):
         """
@@ -2547,13 +2547,10 @@ class TestAnnotationPatternRegistry:
                 op_name_config={
                     "sub": OpQuantizerConfig(
                         # Since both inputs to sub are weights, this input spec should
-                        # not affect any inputs. Only the "linear_weight" state input
-                        # should be quantized due to op_state_spec below.
-                        op_input_spec={_ALL_TENSORS: default_activation_quantization_spec()},
+                        # not affect any inputs. We will still expect sub op's second input to be
+                        # quantized due to the "linear_weight" setting below.
+                        op_input_spec={_ALL_TENSORS: None},
                         op_output_spec=None,
-                        op_state_spec={
-                            "linear_weight": default_activation_quantization_spec(),
-                        },
                     ),
                 },
             ),
@@ -2561,8 +2558,16 @@ class TestAnnotationPatternRegistry:
                 InnerModel: ModuleQuantizerConfig(
                     op_input_spec=None,
                     op_output_spec=None,
-                    op_state_spec={
-                        "inner_linear_weight": default_activation_quantization_spec(),
+                    op_state_spec=None,
+                    module_state_spec={"linear_weight": default_weight_quantization_spec()},
+                    # Using "*" will allow for MyModel.inner_linear_weight to be quantized when used
+                    # as add's first input.
+                    op_name_config={
+                        "add": OpQuantizerConfig(
+                            op_input_spec={1: default_activation_quantization_spec()},
+                            op_output_spec=None,
+                            op_state_spec={_ALL_TENSORS: default_weight_quantization_spec()},
+                        ),
                     },
                 ),
             },
@@ -2576,12 +2581,27 @@ class TestAnnotationPatternRegistry:
         quantizer = Quantizer(model, config)
         prepared_model = quantizer.prepare(example_inputs)
         node_dict = {node.name: node for node in prepared_model.graph.nodes}
+
         assert "activation_post_process" in node_dict["add"].all_input_nodes[0].name
+        weight_quantizer = getattr(prepared_model, node_dict["add"].all_input_nodes[0].name)
+        act_quantizer = getattr(prepared_model, node_dict["add"].all_input_nodes[1].name)
+        assert isinstance(weight_quantizer.qparams_calculator.granularity, PerChannelGranularity)
+        assert isinstance(act_quantizer.qparams_calculator.granularity, PerTensorGranularity)
+
+        assert "activation_post_process" in node_dict["sub"].all_input_nodes[0].name
         assert "activation_post_process" in node_dict["sub"].all_input_nodes[1].name
         assert "activation_post_process" in node_dict["linear_1"].all_input_nodes[1].name
+
+        # Sub first input should share the same quantizer as linear_1's weight input
+        assert (
+            node_dict["sub"].all_input_nodes[0].name
+            == node_dict["linear_1"].all_input_nodes[1].name
+        )
+
+        # Check that there are no other quantizers in the model
         assert (
             len([node_name for node_name in node_dict if "activation_post_process" in node_name])
-            == 3
+            == 4
         )
 
     @pytest.mark.parametrize(

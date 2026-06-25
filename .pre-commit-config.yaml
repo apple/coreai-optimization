@@ -62,7 +62,7 @@ repos:
         language: system
         entry: end-of-file-fixer
         types: [text]
-        exclude: ^\.codegenius/learnings\.md$
+        exclude: ^\.codegenius/
 
       - id: check-yaml
         name: check yaml
@@ -174,7 +174,7 @@ repos:
         language: system
         entry: mdformat --number
         files: \.(md)$
-        exclude: ^(CHANGELOG\.md|\.codegenius/learnings\.md)$
+        exclude: ^(CHANGELOG\.md$|\.codegenius/)
         args: [
             --number, # Force 1., 2., 3. instead of all 1.
             --wrap=keep, # Preserve existing line breaks
@@ -255,7 +255,7 @@ repos:
         language: system
         entry: pymarkdown --disable-rules MD013,MD024 scan
         files: \.(md)$
-        exclude: ^\.codegenius/learnings\.md$
+        exclude: ^\.codegenius/
 
   # ----------------------------------------------------------------------------
   # 3.5 Lint Shell Script (bashate)

@@ -551,7 +551,7 @@ class TestModelInspectorValidation:
         with pytest.raises(TypeError, match="Expected a torch.fx.GraphModule or torch.nn.Module"):
             ModelInspector("not a module", (torch.randn(1),), execution_mode="graph")
 
-    @execution_modes
+    @pytest.mark.parametrize("execution_mode", [ExecutionMode.GRAPH, ExecutionMode.EAGER])
     def test_example_input_none(self, execution_mode: ExecutionMode) -> None:
         """Verify ValueError for example_inputs of None when model not a GraphModule and
         execution_mode is not ExecutionMode.GRAPH."""

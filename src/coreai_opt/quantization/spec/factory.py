@@ -13,6 +13,7 @@ from coreai_opt.config.spec import (
 
 from .fake_quantize import FakeQuantizeImplBase
 from .qparams_calculator import (
+    DynamicQParamsCalculator,
     MovingAverageQParamsCalculator,
     QParamsCalculatorBase,
     StaticQParamsCalculator,
@@ -82,6 +83,15 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
                     f"Unsupported quantization target: {quantization_target}. "
                     f"Expected WEIGHT, ACTIVATION, or LUT."
                 )
+
+        if (
+            qparam_calculator_cls is DynamicQParamsCalculator
+            and quantization_target != CompressionTargetTensor.ACTIVATION
+        ):
+            raise ValueError(
+                f"DynamicQParamsCalculator is only supported for activation "
+                f"quantization, got quantization_target={quantization_target}."
+            )
 
         # Create range calculator first
         range_calculator = cls.create_range_calculator(spec)

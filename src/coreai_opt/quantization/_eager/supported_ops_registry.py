@@ -58,10 +58,12 @@ class ConvTranspose3dQuantizationSupport:
 class LinearQuantizationSupport:
     ops = [F.linear]
 
+
 # Register embedding operations
 @EagerQuantizerSupportedOpsRegistry.register("embedding")
 class EmbeddingQuantizationSupport:
     ops = [F.embedding]
+
 
 # Register pooling operations (no weight parameter)
 @EagerQuantizerSupportedOpsRegistry.register("max_pool2d")

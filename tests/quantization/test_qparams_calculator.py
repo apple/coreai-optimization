@@ -16,8 +16,10 @@ from coreai_opt.quantization.spec import (
 )
 from coreai_opt.quantization.spec.factory import QuantizationComponentFactory
 from coreai_opt.quantization.spec.qparams_calculator import (
+    DynamicQParamsCalculator,
     GlobalMinMaxQParamsCalculator,
     MovingAverageQParamsCalculator,
+    StatelessQParamsCalculatorBase,
     StaticQParamsCalculator,
 )
 from coreai_opt.quantization.spec.range_calculator import MinMaxRangeCalculator
@@ -831,6 +833,167 @@ class TestGlobalMinMaxQParamsCalculator:
             scale, _, _ = calc(x)
             assert scale >= prev_scale
             prev_scale = scale.clone()
+
+
+class TestDynamicQParamsCalculator:
+    """Tests specific to DynamicQParamsCalculator runtime-recompute behavior."""
+
+    def _make_calculator(self, granularity=None, float_range=None):
+        if granularity is None:
+            granularity = PerTensorGranularity()
+        if float_range is None:
+            float_range = [None, None]
+        return DynamicQParamsCalculator(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=granularity,
+            target_dtype=torch.int8,
+            quant_min=-128,
+            quant_max=127,
+            range_calculator=MinMaxRangeCalculator(granularity),
+            float_range=float_range,
+        )
+
+    def test_inherits_stateless_base(self):
+        """DynamicQParamsCalculator must inherit from StatelessQParamsCalculatorBase"""
+        assert issubclass(DynamicQParamsCalculator, StatelessQParamsCalculatorBase)
+
+    def test_set_export_mode_true_raises(self):
+        """Export mode is unsupported for stateless calculators — qparams are input-dependent."""
+        calc = self._make_calculator()
+        with pytest.raises(
+            NotImplementedError,
+            match="Stateless quantization .* does not support export mode",
+        ):
+            calc.set_export_mode(enabled=True)
+
+    @pytest.mark.parametrize(
+        "float_range",
+        [[-1.0, 1.0], [-1.0, None], [None, 1.0]],
+    )
+    def test_rejects_non_none_float_range(self, float_range):
+        """Dynamic requires float_range=[None, None]."""
+        with pytest.raises(ValueError, match=r"requires float_range=\[None, None\]"):
+            self._make_calculator(float_range=float_range)
+
+    def test_get_qparams_not_defined(self):
+        """get_qparams is structurally absent on stateless calculators — there
+        is no cached value to return. Attribute access raises AttributeError."""
+        calc = self._make_calculator()
+        calc(torch.randn(4, 8))  # populate debug attributes
+        with pytest.raises(AttributeError):
+            calc.get_qparams()
+
+    def test_qparams_recompute_per_forward(self):
+        """Different inputs must yield recomputed qparams matching each input's range
+        directly — locks both per-forward recompute (no caching) AND correct math on
+        each forward."""
+        calc = self._make_calculator()
+
+        x1 = torch.tensor([-1.0, 0.0, 1.0])
+        scale1, zp1, minval1 = calc(x1)
+        torch.testing.assert_close(scale1, torch.tensor([1.0 / 127.5]))
+        assert zp1 == 0
+        torch.testing.assert_close(minval1, torch.tensor([-1.0]))
+
+        x2 = torch.tensor([-10.0, 0.0, 10.0])
+        scale2, zp2, minval2 = calc(x2)
+        torch.testing.assert_close(scale2, torch.tensor([10.0 / 127.5]))
+        assert zp2 == 0
+        torch.testing.assert_close(minval2, torch.tensor([-10.0]))
+
+    @pytest.mark.parametrize(
+        "qscheme,dtype,x",
+        [
+            pytest.param(QuantizationScheme.SYMMETRIC, torch.int8, [-1.0, 0.0, 3.0], id="int8_sym"),
+            pytest.param(
+                QuantizationScheme.ASYMMETRIC, torch.int8, [-1.0, 0.0, 7.0], id="int8_asym"
+            ),
+            pytest.param(
+                QuantizationScheme.SYMMETRIC_WITH_CLIPPING,
+                torch.int8,
+                [-3.0, 0.0, 3.0],
+                id="int8_sym_clip",
+            ),
+            pytest.param(
+                QuantizationScheme.SYMMETRIC, torch.uint8, [-3.0, 0.0, 1.0], id="uint8_sym"
+            ),
+            pytest.param(
+                QuantizationScheme.ASYMMETRIC, torch.uint8, [-1.0, 0.0, 5.0], id="uint8_asym"
+            ),
+            pytest.param(
+                QuantizationScheme.SYMMETRIC_WITH_CLIPPING,
+                torch.int4,
+                [-1.5, 0.0, 1.5],
+                id="int4_sym_clip",
+            ),
+            pytest.param(
+                QuantizationScheme.SYMMETRIC,
+                torch.float8_e4m3fn,
+                [-3.0, 0.0, 3.0],
+                id="fp8_e4m3",
+            ),
+            pytest.param(
+                QuantizationScheme.SYMMETRIC, torch.float8_e5m2, [-3.0, 0.0, 3.0], id="fp8_e5m2"
+            ),
+            pytest.param(
+                QuantizationScheme.SYMMETRIC,
+                torch.float4_e2m1fn_x2,
+                [-3.0, 0.0, 3.0],
+                id="fp4",
+            ),
+        ],
+    )
+    def test_matches_static_for_single_input(self, qscheme, dtype, x):
+        """For a single forward, dynamic must match static across the
+        dtype/qscheme matrix — equivalence with static's known-good math is
+        the strongest correctness check for dynamic."""
+        granularity = PerTensorGranularity()
+        spec = QuantizationSpec(dtype=dtype, qscheme=qscheme, granularity=granularity)
+        common_kwargs = dict(
+            dtype=dtype,
+            qscheme=qscheme,
+            granularity=granularity,
+            target_dtype=spec.target_dtype,
+            quant_min=spec.quant_min,
+            quant_max=spec.quant_max,
+            range_calculator=MinMaxRangeCalculator(granularity),
+            float_range=[None, None],
+            scale_dtype=spec.scale_dtype,
+        )
+        static_calc = StaticQParamsCalculator(**common_kwargs)
+        dynamic_calc = DynamicQParamsCalculator(**common_kwargs)
+        x_tensor = torch.tensor(x, dtype=torch.float32)
+
+        scale_s, zp_s, minval_s = static_calc(x_tensor)
+        scale_d, zp_d, minval_d = dynamic_calc(x_tensor)
+
+        assert torch.equal(scale_s, scale_d)
+        # FP4/FP8 return None for zero_point and minval.
+        if zp_s is None:
+            assert zp_d is None
+        else:
+            assert torch.equal(zp_s, zp_d)
+        if minval_s is None:
+            assert minval_d is None
+        else:
+            assert torch.equal(minval_s, minval_d)
+
+    def test_variable_shape_scale_supported(self):
+        """LLM use case: per-token (per-channel along seq axis) dynamic
+        quantization where seq_len varies across forwards. Scale shape must
+        change correspondingly
+        """
+        granularity = PerChannelGranularity(axis=1)  # per-token on (B, seq, H)
+        calc = self._make_calculator(granularity=granularity)
+
+        x_short = torch.randn(2, 8, 16)  # seq_len = 8
+        scale_short, _, _ = calc(x_short)
+        assert scale_short.shape == (1, 8, 1)
+
+        x_long = torch.randn(2, 32, 16)  # seq_len = 32
+        scale_long, _, _ = calc(x_long)
+        assert scale_long.shape == (1, 32, 1)
 
 
 @pytest.mark.parametrize(

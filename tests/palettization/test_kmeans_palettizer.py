@@ -617,18 +617,7 @@ class TestKMeansPalettizerOpAndModuleConfigs:
         "spec_field",
         [
             "module_state_spec",
-            pytest.param(
-                "op_state_spec",
-                # TODO: support op_state_spec on shared-weight aliases so config
-                # precedence (MODULE_NAME > MODULE_TYPE) wins over forward-pass order.
-                marks=pytest.mark.xfail(
-                    reason=(
-                        "op_state_spec on shared weights currently uses forward-pass "
-                        "order instead of config precedence (MODULE_NAME > MODULE_TYPE)."
-                    ),
-                    strict=True,
-                ),
-            ),
+            "op_state_spec",
         ],
     )
     def test_shared_weight_uses_priority(
@@ -648,9 +637,8 @@ class TestKMeansPalettizerOpAndModuleConfigs:
           properly built priority dict, insertion order
           [shared_linear, layer1, layer2] would win and pick n_bits=4. This case
           guards that regression.
-        - ``op_state_spec`` (xfail): currently uses forward-pass order — layer1's
-          op runs first and registers n_bits=4 for the shared tensor before
-          layer2's op gets a chance.
+        - ``op_state_spec``: layer2's spec with n_bits=2 gets picked as the
+          higher priority spec in accordance with config priority rules.
         """
         type_kwargs = {"op_state_spec": None, "module_state_spec": None}
         type_kwargs[spec_field] = {"weight": PalettizationSpec(n_bits=4)}

@@ -24,6 +24,7 @@ class RegisteredOptimizersTracker:
     This is used during the optimization phase to validate that the same
     optimizers are applied in the same order as during registration.
     """
+
     def __init__(self) -> None:
         """Initialize an empty registered optimizers tracker."""
         self._registered: RegisteredOptimizersDict = {}

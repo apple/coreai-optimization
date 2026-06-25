@@ -85,6 +85,20 @@ if [[ -z "$AVAILABLE_GROUPS" ]]; then
     exit 1
 fi
 
+group_torch_pin() {
+    local group="$1"
+    awk -v group="$group" '
+        $0 ~ "^" group "[[:space:]]*=[[:space:]]*\\[" { in_group = 1; next }
+        in_group && /^\]/ { exit }
+        in_group && match($0, /"torch[[:space:]]*==[[:space:]]*[0-9][0-9.]*/) {
+            version = substr($0, RSTART, RLENGTH)
+            sub(/"torch[[:space:]]*==[[:space:]]*/, "", version)
+            print version
+            exit
+        }
+    ' "$PYPROJECT_TOML"
+}
+
 # Parse command line arguments
 VENV=".venv"
 PYTHON_VERSION=""
@@ -94,10 +108,8 @@ ALL_GROUPS=false
 ENSURE_MODE=false
 
 # Groups excluded from --all-groups due to mutual conflicts in pyproject.toml.
-# stable-coreai is omitted because it's in default-groups; use --without-stable-coreai
-# explicitly when a conflicting group (e.g. lowest_tested_torch) is requested.
 # tamm-export is omitted because it's opt-in only (never in default-groups or --all-groups).
-CONFLICTING_GROUPS=("highest_tested_torch" "latest-coreai" "lowest_tested_torch")
+CONFLICTING_GROUPS=("highest_tested_torch" "lowest_tested_torch")
 
 show_help() {
     echo "Usage: $0 [OPTIONS]"
@@ -108,7 +120,7 @@ show_help() {
     echo "  --venv <name>          Virtual environment name (default: .venv)"
     echo "  --python-version <ver> Python version (required)"
     echo "  --with-<group>         Install additional dependency group (e.g., --with-docs, --with-turi)"
-    echo "  --without-<group>      Exclude a default dependency group (e.g., --without-stable-coreai)"
+    echo "  --without-<group>      Exclude a default dependency group (e.g., --without-coreai)"
     echo "  --all-groups           Install all non-conflicting dependency groups"
     echo "  --ensure               Quick check mode: skip setup if venv exists and deps are present"
     echo "  --help                 Show this help message"
@@ -244,13 +256,23 @@ fi
 # --ensure mode: skip setup if venv exists and required deps are already installed.
 # This is the fast path called by Make targets to avoid re-running full setup.
 if [[ "$ENSURE_MODE" == "true" ]] && [ -f "$VENV/bin/python" ]; then
-    # Build a single Python command that checks all sentinel imports at once
     IMPORT_STMTS="import pytest"
     if [[ ${#EXTRA_GROUPS[@]} -gt 0 ]]; then
         for GROUP in "${EXTRA_GROUPS[@]}"; do
             case "$GROUP" in
             docs) IMPORT_STMTS+="; import sphinx" ;;
-            highest_tested_torch | lowest_tested_torch) IMPORT_STMTS+="; import torchao" ;;
+            highest_tested_torch | lowest_tested_torch)
+                IMPORT_STMTS+="; import torchao"
+                EXPECTED_TORCH="$(group_torch_pin "$GROUP")"
+                # These groups always pin torch, so an empty result means the
+                # pyproject parse regressed — fail loudly instead of silently
+                # skipping the version check (which would reintroduce the bug).
+                if [[ -z "$EXPECTED_TORCH" ]]; then
+                    echo "Error: could not parse a torch pin for group '$GROUP' in $PYPROJECT_TOML" >&2
+                    exit 1
+                fi
+                IMPORT_STMTS+="; import torch; assert torch.__version__.split('+')[0] == '$EXPECTED_TORCH'"
+                ;;
             rio) IMPORT_STMTS+="; import turi_lightning" ;;
             tamm-export) IMPORT_STMTS+="; import tamm_export" ;;
             esac
@@ -261,7 +283,16 @@ if [[ "$ENSURE_MODE" == "true" ]] && [ -f "$VENV/bin/python" ]; then
         exit 0
     fi
 
-    # Deps missing — fall through to full setup
+    # Deps missing or pinned torch mismatch — fall through to full setup.
+    # If a pinned-torch group expected a specific version, surface the mismatch
+    # so the rebuild isn't silent.
+    if [[ -n "${EXPECTED_TORCH:-}" ]]; then
+        ACTUAL_TORCH="$("$VENV/bin/python" -c \
+            "import torch; print(torch.__version__.split('+')[0])" 2>/dev/null || true)"
+        if [[ -n "$ACTUAL_TORCH" && "$ACTUAL_TORCH" != "$EXPECTED_TORCH" ]]; then
+            echo "Note: $VENV has torch $ACTUAL_TORCH, expected $EXPECTED_TORCH; rebuilding." >&2
+        fi
+    fi
 fi
 
 echo "=========================================="
@@ -298,7 +329,7 @@ elif [[ ${#EXTRA_GROUPS[@]} -gt 0 ]]; then
         SYNC_CMD+=(--group "$GROUP")
     done
 fi
-# Apply explicit group exclusions (e.g., --without-stable-coreai)
+# Apply explicit group exclusions (e.g., --without-coreai)
 if [[ ${#EXCLUDE_GROUPS[@]} -gt 0 ]]; then
     for GROUP in "${EXCLUDE_GROUPS[@]}"; do
         SYNC_CMD+=(--no-group "$GROUP")

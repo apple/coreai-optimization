@@ -9,6 +9,7 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 - [3. Surgical Changes](#3-surgical-changes)
 - [4. Goal-Driven Execution](#4-goal-driven-execution)
 - [Success Indicators](#success-indicators)
+- [References](#references)
 
 ## 1. Think Before Coding
 
@@ -78,3 +79,7 @@ These principles are working when:
 - Diffs contain fewer unrelated changes.
 - Fewer rewrites stem from overcomplication.
 - Clarifying questions arrive before mistakes, not after.
+
+## References
+
+The principles above are adapted from Andrej Karpathy's coding guidance, via the [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) project (MIT License).

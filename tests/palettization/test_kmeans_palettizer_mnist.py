@@ -17,6 +17,7 @@ from coreai_opt.palettization.spec import (
     PalettizationSpec,
     PerGroupedChannelGranularity,
 )
+from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 
 image_size = 28
 batch_size = 128
@@ -27,23 +28,34 @@ num_epochs = 1
 @pytest.mark.seed
 @pytest.mark.slow
 @pytest.mark.parametrize(
-    "spec",
+    "spec,expected_palettized_layers",
     [
-        PalettizationSpec(n_bits=2),
-        PalettizationSpec(n_bits=4, cluster_dim=2),
-        PalettizationSpec(
-            n_bits=4,
-            cluster_dim=2,
-            granularity=PerGroupedChannelGranularity(axis=0, group_size=2),
+        # MNIST model has 6 weight-bearing layers (conv1, conv2, conv_transpose1,
+        # conv_transpose2, dense1, dense2). For axis=1 with group_size=2, conv1's
+        # axis-1 (in_channels=1) is not divisible, so palettization is skipped there.
+        (PalettizationSpec(n_bits=2), 6),
+        (PalettizationSpec(n_bits=4, cluster_dim=2), 6),
+        (
+            PalettizationSpec(
+                n_bits=4,
+                cluster_dim=2,
+                granularity=PerGroupedChannelGranularity(axis=0, group_size=2),
+            ),
+            6,
         ),
-        PalettizationSpec(
-            n_bits=4,
-            cluster_dim=2,
-            granularity=PerGroupedChannelGranularity(axis=1, group_size=2),
+        (
+            PalettizationSpec(
+                n_bits=4,
+                cluster_dim=2,
+                granularity=PerGroupedChannelGranularity(axis=1, group_size=2),
+            ),
+            5,
         ),
     ],
 )
-def test_weight_only_ptq_mnist(mnist_pretrained_model, mnist_dataset, spec):
+def test_weight_only_ptq_mnist(
+    mnist_pretrained_model, mnist_dataset, spec, expected_palettized_layers
+):
     """
     Train a simple convnet on the MNIST dataset for different deployment targets
     and verify its accuracy.
@@ -72,6 +84,11 @@ def test_weight_only_ptq_mnist(mnist_pretrained_model, mnist_dataset, spec):
     prepared_model = palettizer.prepare(
         example_inputs=(torch.ones(1, 1, 28, 28, dtype=torch.float),),
         num_workers=1,
+    )
+
+    palettized_count = utils.count_weight_parametrizations(prepared_model, _FakePalettizeImplBase)
+    assert palettized_count == expected_palettized_layers, (
+        f"Expected {expected_palettized_layers} palettized layers, got {palettized_count}"
     )
 
     post_vanilla_kmeans_accuracy = utils.eval_model(prepared_model, test_loader)

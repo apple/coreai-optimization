@@ -30,6 +30,7 @@ from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 from coreai_opt._utils.config_utils import (
     ALL_TENSORS as _ALL_TENSORS,
     ConfigLevel as _ConfigLevel,
+    get_last_matching_spec,
 )
 from coreai_opt._utils.python_utils import get_fn_arg_names
 from coreai_opt._utils.version_utils import version_ge as _version_ge
@@ -42,7 +43,7 @@ from coreai_opt.quantization.config.quantization_config import (
 )
 from coreai_opt.quantization.spec import QuantizationSpec
 
-from ._annotation_config import AnnotationConfig
+from ._annotation_config import AnnotationConfig, AnnotationContext
 
 logger = logging.getLogger(__name__)
 
@@ -705,6 +706,24 @@ def _get_local_state_name(state_node: torch.fx.Node) -> str | None:
     return state_node.target.rsplit(".", 1)[-1]
 
 
+def _get_state_aliases(
+    state_node: torch.fx.Node,
+    module_name_to_state_names_map: Mapping[str, Mapping[str, list[str]]],
+) -> set[str]:
+    """Return all local names any module uses for the state tensor at ``state_node.target``.
+
+    A single state tensor may be aliased under different attribute names by different
+    modules. This collects every such name across all modules so that spec lookups and
+    warning checks are not limited to a single module's perspective.
+    """
+    return {
+        name
+        for module_states in module_name_to_state_names_map.values()
+        if state_node.target in module_states
+        for name in module_states[state_node.target]
+    }
+
+
 def _warn_non_quantizable_tensor_setting(
     node: torch.fx.Node,
     spec_type: Literal["input", "output", "state"],
@@ -758,7 +777,9 @@ def _validate_state_referenced_as_input(
 
 
 def _get_input_qspec_map(
-    input_and_state_nodes: list[torch.fx.Node], quantization_config: AnnotationConfig
+    input_and_state_nodes: list[torch.fx.Node],
+    quantization_config: AnnotationConfig,
+    context: AnnotationContext,
 ) -> dict[torch.fx.Node, TorchAOQuantizationSpec | None]:
     """
     Get input_qspec_map for a node according to the settings in quantization_config.
@@ -773,40 +794,34 @@ def _get_input_qspec_map(
             # warning (settings using "*" will not be flagged)
             if idx in op_input_spec:
                 _warn_non_quantizable_tensor_setting(node, "input", idx, op_input_spec)
-            state_name = _get_local_state_name(node) if _is_state_node(node) else None
-            if state_name is not None and state_name in op_state_spec:
-                _warn_non_quantizable_tensor_setting(node, "state", state_name, op_state_spec)
+            if _is_state_node(node):
+                state_names = _get_state_aliases(node, context.module_name_to_state_names_map)
+                matching_keys = [key for key in op_state_spec if key in state_names]
+                if matching_keys:
+                    _warn_non_quantizable_tensor_setting(
+                        node, "state", matching_keys[-1], op_state_spec
+                    )
             input_qspec_map[node] = None
             continue
 
         _validate_state_referenced_as_input(node, idx, op_input_spec)
         if _is_state_node(node):
-            _fill_input_qspec_map_for_state(input_qspec_map, node, op_state_spec)
+            _fill_input_qspec_map_for_state(
+                input_qspec_map,
+                node,
+                op_state_spec,
+                context,
+            )
         else:
             _fill_input_qspec_map_for_input(input_qspec_map, node, idx, op_input_spec)
     return input_qspec_map
-
-
-def _get_spec_for_tensor(
-    idx_or_name: int | str, op_spec: dict[int | str, TorchAOQuantizationSpec | None]
-) -> TorchAOQuantizationSpec | None:
-    """
-    Get the spec for a tensor from op_spec.
-
-    First check for an exact identifier match (index or state name). If there is not
-    one, use the spec for "*" if possible. Return None if no applicable match is found.
-    """
-    if idx_or_name in op_spec:
-        return op_spec[idx_or_name]
-    if _ALL_TENSORS in op_spec:
-        return op_spec[_ALL_TENSORS]
-    return None
 
 
 def _fill_input_qspec_map_for_state(
     input_qspec_map: dict[torch.fx.Node, TorchAOQuantizationSpec | None],
     state_node: torch.fx.Node,
     op_state_spec: dict[str, TorchAOQuantizationSpec | None],
+    context: AnnotationContext,
 ) -> None:
     """
     Fill input_qspec_map with state_node as the key.
@@ -822,7 +837,8 @@ def _fill_input_qspec_map_for_state(
             # Already compressed state (e.g., lut_to_dense from palettization) - don't quantize
             spec = None
         else:
-            spec = _get_spec_for_tensor(state_name, op_state_spec)
+            state_names = _get_state_aliases(state_node, context.module_name_to_state_names_map)
+            spec, _ = get_last_matching_spec(state_names, op_state_spec)
     input_qspec_map[state_node] = spec
 
 
@@ -862,7 +878,8 @@ def _fill_input_qspec_map_for_input(
     # Check if any qspec is already set from a parent node output. If so, simply
     # use that spec.
     if not is_node_annotated(input_node) or input_node.meta[Q_ANNOTATION_KEY].output_qspec is None:
-        input_qspec_map[input_node] = _get_spec_for_tensor(idx, op_input_spec)
+        spec, _ = get_last_matching_spec([idx], op_input_spec)
+        input_qspec_map[input_node] = spec
     else:
         input_qspec_map[input_node] = input_node.meta[Q_ANNOTATION_KEY].output_qspec
 
@@ -890,7 +907,7 @@ def _get_output_qspec(
         return None
 
     # First read qspec from config without applying it yet.
-    qspec_from_config = _get_spec_for_tensor(0, op_output_spec)
+    qspec_from_config, _ = get_last_matching_spec([0], op_output_spec)
 
     # Don't set output qspec if it is specified to be None. If the op has multiple child
     # ops where a subset of child ops don't have input quantization, we should not
@@ -1039,7 +1056,7 @@ def match_pattern_with_subgraph_matcher(
 def annotate_weighted_mod_match(
     annotator_match: InternalMatch,
     quantization_config: AnnotationConfig,
-    shared_observer_nodes: set[torch.fx.Node],
+    context: AnnotationContext,
 ) -> None:
     """
     Try to annotate specific nodes in the model designated by ``annotator_match`` using
@@ -1070,7 +1087,12 @@ def annotate_weighted_mod_match(
     if is_any_annotated(partition):
         return
 
-    input_qspec_map = _get_input_qspec_map(mod_node.all_input_nodes, quantization_config)
+    shared_observer_nodes = context.shared_observer_nodes
+    input_qspec_map = _get_input_qspec_map(
+        mod_node.all_input_nodes,
+        quantization_config,
+        context,
+    )
     output_qspec = _get_output_qspec(
         output_node or mod_node, quantization_config, shared_observer_nodes
     )
@@ -1093,7 +1115,7 @@ def annotate_weighted_mod_match(
 def annotate_n_ary_act_match(
     annotator_match: tuple[SourcePartition],
     quantization_config: AnnotationConfig,
-    shared_observer_nodes: set[torch.fx.Node],
+    context: AnnotationContext,
 ) -> None:
     """
     Try to annotate specific nodes in the model designated by ``annotator_match`` using
@@ -1116,7 +1138,12 @@ def annotate_n_ary_act_match(
 
     # TODO: skip partition if any intermediate node output is used by an op outside the pattern.
 
-    input_qspec_map = _get_input_qspec_map(first_op_node.all_input_nodes, quantization_config)
+    shared_observer_nodes = context.shared_observer_nodes
+    input_qspec_map = _get_input_qspec_map(
+        first_op_node.all_input_nodes,
+        quantization_config,
+        context,
+    )
     output_qspec = _get_output_qspec(last_op_node, quantization_config, shared_observer_nodes)
     if len(nodes_to_annotate) == 1:
         first_op_node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
@@ -1161,7 +1188,7 @@ def _adjust_input_qspec_map_for_shared_observers(
 def annotate_shared_observer_match(
     annotator_match: tuple[SourcePartition],
     quantization_config: AnnotationConfig,
-    shared_observer_nodes: set[torch.fx.Node],
+    context: AnnotationContext,
 ) -> None:
     """
     Try to annotate specific nodes in the model designated by ``annotator_match`` using
@@ -1178,7 +1205,12 @@ def annotate_shared_observer_match(
     if is_node_annotated(op_node):
         return
 
-    input_qspec_map = _get_input_qspec_map(op_node.all_input_nodes, quantization_config)
+    shared_observer_nodes = context.shared_observer_nodes
+    input_qspec_map = _get_input_qspec_map(
+        op_node.all_input_nodes,
+        quantization_config,
+        context,
+    )
     output_qspec = _adjust_input_qspec_map_for_shared_observers(op_node, input_qspec_map)
 
     if output_qspec is None:

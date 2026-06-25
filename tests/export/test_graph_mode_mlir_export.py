@@ -24,12 +24,10 @@ from coreai_opt.quantization.spec import (
     QuantizationFormulation,
     QuantizationScheme,
 )
-from tests.conftest import (
-    ParametrizedFP4Configs,
-    ParametrizedFP8Configs,
-    ParametrizedP4A8CompressionConfigs,
-    ParametrizedQuantConfigs,
-)
+from tests.fixtures.compression import ParametrizedP4A8CompressionConfigs
+from tests.fixtures.fp4 import ParametrizedFP4Configs
+from tests.fixtures.fp8 import ParametrizedFP8Configs
+from tests.fixtures.quantization import ParametrizedQuantConfigs
 
 from . import export_utils
 
@@ -350,8 +348,8 @@ def test_mnist_p4a8_compression_export(
         input_data=mnist_example_input,
         config=parametrized_p4a8_compression_config,
         expected_ops={
-            "lut_to_dense": 4,
-            "constexpr_blockwise_shift_scale": 4 if has_lut else 0,
+            "lut_to_dense": 6,
+            "constexpr_blockwise_shift_scale": 6 if has_lut else 0,
             "quantize": 12,
             "dequantize": 12,
         },

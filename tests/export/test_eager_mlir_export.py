@@ -22,11 +22,9 @@ from coreai_opt.quantization.spec import (
     QuantizationFormulation,
     QuantizationScheme,
 )
-from tests.conftest import (
-    ParametrizedFP4Configs,
-    ParametrizedFP8Configs,
-    ParametrizedQuantConfigs,
-)
+from tests.fixtures.fp4 import ParametrizedFP4Configs
+from tests.fixtures.fp8 import ParametrizedFP8Configs
+from tests.fixtures.quantization import ParametrizedQuantConfigs
 
 from . import export_utils
 
