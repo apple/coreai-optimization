@@ -3,7 +3,9 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-.PHONY: _maybe_patch_pyproject all api-list build check clean distclean distclean-all docs docs-clean docs-open env env-all env-docs env-highest-torch env-latest-coreai env-tutorial set-auto-venv test test-coreai-compression test-cov test-export test-fast test-highest-pytorch test-lowest-pytorch test-slow version
+.PHONY: _maybe_patch_pyproject all api-list build check clean distclean distclean-all docs docs-clean docs-open env env-all env-docs env-highest-torch env-tutorial set-auto-venv test test-cov test-fast test-highest-pytorch test-lowest-pytorch test-slow test-smoke test-tutorials version
+
+SHELL := /bin/bash
 
 # Directory holding this Makefile, derived from its own location so the same
 # recipes work in both contexts:
@@ -161,7 +163,7 @@ endif
 # =============================================================================
 
 # Default target - run full workflow
-all: clean distclean-all env-all check test-export test-lowest-pytorch test-highest-pytorch build
+all: clean distclean-all env-all check test-lowest-pytorch test-highest-pytorch build
 
 # =============================================================================
 # Environment Setup
@@ -176,10 +178,6 @@ env: _maybe_patch_pyproject
 env-highest-torch: _maybe_patch_pyproject
 	@$(SETUP_ENV) --venv $(VENV_HIGHEST_TORCH) --python-version $(PYTHON_VERSION) --with-highest_tested_torch
 	@$(call write_active_venv,$(VENV_HIGHEST_TORCH))
-
-# Set up development environment with latest CoreAI for export testing
-env-latest-coreai: _maybe_patch_pyproject
-	@$(SETUP_ENV) --venv .venv_latest_coreai --python-version $(PYTHON_VERSION) --with-latest-coreai --without-stable-coreai
 
 # Set up environment for running tutorials (quantization notebook)
 env-tutorial: _maybe_patch_pyproject
@@ -198,7 +196,7 @@ env-all: _maybe_patch_pyproject
 
 # Build package
 build:
-	@$(call use_env,VENV) && uv run --active python $(SCRIPTS)/make/build.py
+	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/build.py
 
 # =============================================================================
 # Code Quality
@@ -207,13 +205,13 @@ build:
 # Print public API surface (symbols declared in __all__ across all public packages).
 # Pass MODULE= to inspect a single module: make api-list MODULE=coreai_opt.quantization.spec.spec
 api-list:
-	@$(call use_env,VENV) && uv run --active python $(SCRIPTS)/make/print_api_list.py $(MODULE)
+	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/print_api_list.py $(MODULE)
 
 # Run linting and type checking.
 check:
 	@$(call use_env,VENV) && \
 	echo "Running linting and formatting checks..." && \
-	uv run --active pre-commit run --all-files && \
+	uv run --no-sync --active pre-commit run --all-files && \
 	echo "All checks passed!"
 
 # =============================================================================
@@ -236,20 +234,19 @@ test-fast:
 test-slow:
 	@$(MAKE) test PYTEST_ARGS="--marker slow"
 
-# Run export tests with latest CoreAI (pass PYTEST_ARGS for custom flags)
-test-export: env-latest-coreai
-	@$(SCRIPTS)/make/run_tests_on_latest_coreai.sh --path tests/export/ $(PYTEST_ARGS)
-
-# Run coreai compression tests with latest CoreAI (pass PYTEST_ARGS for custom flags)
-test-coreai-compression: env-latest-coreai
-	@$(SCRIPTS)/make/run_tests_on_latest_coreai.sh --path tests/coreai_utils/ $(PYTEST_ARGS)
+# Run smoke tests only (pass PYTEST_ARGS for custom flags, e.g., make test-smoke PYTEST_ARGS="--junitxml=results.xml").
+test-smoke:
+	@$(call use_env,VENV) && \
+	echo "Running smoke tests..." && \
+	uv run --no-sync --active nox -f $(MAKEFILE_DIR)ci/nox/noxfile.py -s smoke_tests -- $(PYTEST_ARGS) && \
+	echo "All smoke tests passed!"
 
 # Run tests on lowest supported PyTorch version (pass PYTEST_ARGS for custom flags)
 test-lowest-pytorch:
 	@echo "Running tests on lowest PyTorch version supported..."
-	@$(call use_env,VENV_LOWEST_TORCH,--with-lowest_tested_torch --without-stable-coreai) && \
+	@$(call use_env,VENV_LOWEST_TORCH,--with-lowest_tested_torch) && \
 		echo "Testing with lowest supported PyTorch versions" && \
-		uv run --active python $(SCRIPTS)/make/log_versions.py && \
+		uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
 		$(RUN_TESTS) $(PYTEST_ARGS) && \
 		echo "All tests passed!"
 
@@ -258,9 +255,16 @@ test-highest-pytorch:
 	@echo "Running tests on highest PyTorch version supported..."
 	@$(call use_env,VENV_HIGHEST_TORCH,--with-highest_tested_torch) && \
 		echo "Testing with latest supported PyTorch versions" && \
-		uv run --active python $(SCRIPTS)/make/log_versions.py && \
+		uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
 		$(RUN_TESTS) $(PYTEST_ARGS) && \
 		echo "All tests passed!"
+
+# Run tutorial notebook tests
+test-tutorials:
+	@$(call use_env,VENV_TUTORIAL,--with-tutorial --with-test) && \
+	echo "Running tutorial notebook tests..." && \
+	$(RUN_TESTS) --path $(DOCS_DIR)/tests/test_tutorials.py $(PYTEST_ARGS) && \
+	echo "All tutorial tests passed!"
 
 # =============================================================================
 # Maintenance
@@ -288,7 +292,7 @@ set-auto-venv:
 
 # Show current version
 version:
-	@python -c "exec(open('./src/coreai_opt/_about.py').read()); print(__version__)"
+	@python -c "exec(open('$(MAKEFILE_DIR)src/coreai_opt/_about.py').read()); print(__version__)"
 
 # =============================================================================
 # Documentation
@@ -316,7 +320,7 @@ endif
 	@echo "==> [4/5] Setting up docs environment" && \
 		$(call use_env,VENV_DOCS,--with-docs) && \
 		echo "==> [5/5] Building documentation" && \
-		cd $(DOCS_DIR) && uv run --active sphinx-build -E -b html src build/html
+		cd $(DOCS_DIR) && uv run --no-sync --active sphinx-build -E -b html src build/html
 ifndef _DOCS_ALL
 	@echo ""
 	@echo "════════════════════════════════════════════════════════════════════"

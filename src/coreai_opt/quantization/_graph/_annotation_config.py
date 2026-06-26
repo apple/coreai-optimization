@@ -5,6 +5,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Set
+from dataclasses import dataclass
+
+import torch.fx
 from torchao.quantization.pt2e.quantizer import (
     QuantizationSpec as TorchAOQuantizationSpec,
 )
@@ -12,6 +16,31 @@ from torchao.quantization.pt2e.quantizer import (
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization.config import OpQuantizerConfig
 from coreai_opt.quantization.spec import QuantizationComponentFactory, QuantizationSpec
+
+
+@dataclass(frozen=True)
+class AnnotationContext:
+    """Pass-invariant inputs an annotator may need.
+
+    Held constant across all matches in a single annotation pass. Constructed
+    once when ``_AnnotationHandler.annotate`` begins and shared by every
+    annotator invocation during that pass.
+
+    Distinct from :class:`AnnotationConfig`, which carries per-op specs that
+    vary per match.
+
+    Attributes:
+        module_name_to_state_names_map (Mapping[str, Mapping[str, list[str]]]):
+            For each module name, a mapping from each state target (FQN) to the
+            list of local names the module uses for that state. Used during
+            state-input annotation to translate a state node's target into the
+            consumer module's local name(s).
+        shared_observer_nodes (Set[torch.fx.Node]): Nodes whose output annotations
+            are shared with their input annotations if any.
+    """
+
+    module_name_to_state_names_map: Mapping[str, Mapping[str, list[str]]]
+    shared_observer_nodes: Set[torch.fx.Node]
 
 
 class AnnotationConfig:

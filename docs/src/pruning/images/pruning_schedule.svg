@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+<rect width="800" height="500" fill="#F5F6F8"/>
+
+<!-- Plot area -->
+<rect x="80" y="80" width="700" height="360" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<!-- Axes -->
+<line x1="80" y1="80" x2="80" y2="440" stroke="#5F6368" stroke-width="1.5"/>
+<line x1="80" y1="440" x2="780" y2="440" stroke="#5F6368" stroke-width="1.5"/>
+
+<!-- Y ticks and labels -->
+<g font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12" fill="#5F6368">
+  <line x1="76" y1="440" x2="80" y2="440" stroke="#5F6368"/>
+  <text x="70" y="444" text-anchor="end">0.0</text>
+  <line x1="76" y1="368" x2="80" y2="368" stroke="#5F6368"/>
+  <text x="70" y="372" text-anchor="end">0.2</text>
+  <line x1="76" y1="296" x2="80" y2="296" stroke="#5F6368"/>
+  <text x="70" y="300" text-anchor="end">0.4</text>
+  <line x1="76" y1="224" x2="80" y2="224" stroke="#5F6368"/>
+  <text x="70" y="228" text-anchor="end">0.6</text>
+  <line x1="76" y1="152" x2="80" y2="152" stroke="#5F6368"/>
+  <text x="70" y="156" text-anchor="end">0.8</text>
+  <line x1="76" y1="80" x2="80" y2="80" stroke="#5F6368"/>
+  <text x="70" y="84" text-anchor="end">1.0</text>
+</g>
+
+<!-- X ticks and labels -->
+<g font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12" fill="#5F6368">
+  <line x1="80" y1="440" x2="80" y2="444" stroke="#5F6368"/>
+  <text x="80" y="460" text-anchor="middle">0</text>
+  <line x1="220" y1="440" x2="220" y2="444" stroke="#5F6368"/>
+  <text x="220" y="460" text-anchor="middle">20</text>
+  <line x1="360" y1="440" x2="360" y2="444" stroke="#5F6368"/>
+  <text x="360" y="460" text-anchor="middle">40</text>
+  <line x1="500" y1="440" x2="500" y2="444" stroke="#5F6368"/>
+  <text x="500" y="460" text-anchor="middle">60</text>
+  <line x1="640" y1="440" x2="640" y2="444" stroke="#5F6368"/>
+  <text x="640" y="460" text-anchor="middle">80</text>
+  <line x1="780" y1="440" x2="780" y2="444" stroke="#5F6368"/>
+  <text x="780" y="460" text-anchor="middle">100</text>
+</g>
+
+<!-- Axis labels -->
+<text x="430" y="488" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#202124" text-anchor="middle">Training step</text>
+<text x="30" y="260" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#202124" text-anchor="middle" transform="rotate(-90, 30, 260)">Sparsity</text>
+
+<!-- Constant schedule curve (red) -->
+<polyline points="80,440 87,440 94,440 101,440 108,440 115,440 122,440 129,440 136,440 143,440 150,440 157,440 164,440 171,440 178,440 185,440 192,440 199,440 206,440 213,440 220,440 227,440 234,440 241,440 248,440 255,440 262,440 269,440 276,440 283,440 290,188 297,188 304,188 311,188 318,188 325,188 332,188 339,188 346,188 353,188 360,188 367,188 374,188 381,188 388,188 395,188 402,188 409,188 416,188 423,188 430,188 437,188 444,188 451,188 458,188 465,188 472,188 479,188 486,188 493,188 500,188 507,188 514,188 521,188 528,188 535,188 542,188 549,188 556,188 563,188 570,188 577,188 584,188 591,188 598,188 605,188 612,188 619,188 626,188 633,188 640,188 647,188 654,188 661,188 668,188 675,188 682,188 689,188 696,188 703,188 710,188 717,188 724,188 731,188 738,188 745,188 752,188 759,188 766,188 773,188 780,188" stroke="#EA4335" stroke-width="2.5" fill="none" stroke-linejoin="miter"/>
+
+<!-- Polynomial schedule curve (purple) -->
+<polyline points="80,440 87,440 94,440 101,440 108,440 115,440 122,440 129,440 136,440 143,440 150,440 157,430.6 164,421.3 171,412.4 178,403.6 185,395.1 192,386.8 199,378.8 206,370.9 213,363.3 220,355.9 227,348.7 234,341.7 241,334.9 248,328.4 255,322 262,315.8 269,309.8 276,304 283,298.4 290,293 297,287.7 304,282.7 311,277.8 318,273 325,268.5 332,264.1 339,259.9 346,255.8 353,251.9 360,248.1 367,244.5 374,241.1 381,237.7 388,234.6 395,231.5 402,228.6 409,225.9 416,223.2 423,220.7 430,218.3 437,216 444,213.9 451,211.8 458,209.9 465,208.1 472,206.4 479,204.7 486,203.2 493,201.8 500,200.5 507,199.2 514,198.1 521,197 528,196 535,195.1 542,194.2 549,193.4 556,192.7 563,192.1 570,191.5 577,191 584,190.5 591,190.1 598,189.7 605,189.4 612,189.1 619,188.9 626,188.7 633,188.5 640,188.4 647,188.3 654,188.2 661,188.1 668,188.1 675,188 682,188 689,188 696,188 703,188 710,188 717,188 724,188 731,188 738,188 745,188 752,188 759,188 766,188 773,188 780,188" stroke="#4F46E5" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+
+<!-- Legend box -->
+<rect x="110" y="92" width="440" height="86" rx="8" ry="8" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1.2"/>
+<text x="120" y="112" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#202124">Schedules (target_sparsity = 0.7)</text>
+
+<rect x="120" y="124" width="14" height="14" fill="#EA4335"/>
+<text x="142" y="135" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="500" fill="#202124">ConstantSparsitySchedule(begin_step=30)</text>
+
+<rect x="120" y="148" width="14" height="14" fill="#4F46E5"/>
+<text x="142" y="159" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="500" fill="#202124">PolynomialDecaySchedule(begin_step=10, total_iters=80, power=3.0)</text>
+</svg>

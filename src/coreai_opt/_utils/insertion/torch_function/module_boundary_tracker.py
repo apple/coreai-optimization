@@ -154,9 +154,7 @@ class ModuleBoundaryTracker:
                     )
 
     def get_module_boundaries_for_tensor(
-        self,
-        tensor_counter: int,
-        boundary_type: Literal["input", "output"]
+        self, tensor_counter: int, boundary_type: Literal["input", "output"]
     ) -> list[ModuleBoundaryInfo]:
         """
         For a given tensor identified by its counter, return a list of

@@ -16,7 +16,6 @@ from typing import Any, Final, NamedTuple
 
 import torch
 import torch.nn.utils.parametrize as P
-from torch.fx import Node
 
 from coreai_opt._utils.version_utils import version_ge as _version_ge
 
@@ -420,55 +419,6 @@ def export_model(
         raise RuntimeError(
             f"Failed to trace the model with torch.export.export(), received error: {e}"
         ) from e
-
-
-def get_node_type(node: Node, warn_on_failure: bool = True) -> str | None:
-    """Extract the op type string from an FX node's ``torch_fn`` metadata.
-
-    The ``torch_fn`` metadata entry is a two-element tuple where the second
-    element encodes the ATen operator in *namespace.op_name* form.  This
-    function returns the *op_name* part (after the dot).
-
-    Args:
-        node (Node): An FX graph node.
-        warn_on_failure (bool): If True, log a warning if node type could not be found.
-
-    Returns:
-        str | None: The op type string, or ``None`` if unavailable.
-    """
-    try:
-        _, torch_fn = node.meta.get("torch_fn")
-        return torch_fn.split(".")[1]
-    except (AttributeError, IndexError, TypeError, ValueError):
-        if warn_on_failure:
-            warning_msg = f"Unable to determine node type for node {node.name}. Skipping the node."
-            logger.warning(warning_msg)
-    return None
-
-
-def normalize_module_fqn(path: str) -> str:
-    """Normalize module path from nn_module_stack to match named_modules format.
-
-    Handles various torch.export contexts including decorators (@torch.no_grad,
-    @wraps), array indexing, and nested _modules['X'] patterns.
-
-    Examples:
-        "model.layers.0.norm" -> "model.layers.0.norm"
-        "L['self'].model" -> "model"
-        "L['fn'].model" -> "model"
-        "L['args'][0].model.layers[0]" -> "model.layers.0"
-        "_modules['model']._modules['layers']._modules['0']" -> "model.layers.0"
-    """
-    # Remove torch.export prefixes (self, fn, args[N])
-    path = re.sub(r"^(?:L\['(?:self|fn)'\]\.|L\['args'\]\[\d+\]\.)", "", path)
-
-    # Convert _modules['X'] and array indexing [N] to dot notation in one pass
-    path = re.sub(
-        r"_modules\['([^']+)'\]|\[(\d+)\]", lambda m: "." + (m.group(1) or m.group(2)), path
-    )
-
-    # Collapse multiple dots and strip leading/trailing dots
-    return re.sub(r"\.+", ".", path).strip(".")
 
 
 def mmap_module_state_dict(module: torch.nn.Module, path: str | PathLike[str]) -> None:

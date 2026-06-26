@@ -143,6 +143,11 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
         self._num_workers = 1
 
+    @classmethod
+    def get_op_type_resolver(cls) -> Callable[[Callable], str | None]:
+        """Return a function that maps a torch function to its palettizable op type."""
+        return _KMeansPalettizerSupportedOpsRegistry.get_func_type
+
     def prepare(
         self,
         example_inputs: tuple[torch.Tensor],

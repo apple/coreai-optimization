@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from contextlib import contextmanager
 from enum import Enum, auto
 from os import PathLike
-from typing import Any, TypeAlias
+from typing import Any, NamedTuple, TypeAlias
 
 import torch
 import torchao
@@ -40,12 +40,14 @@ from coreai_opt._utils.config_utils import (
     ALL_TENSORS as _ALL_TENSORS,
     ConfigLevel as _ConfigLevel,
 )
+from coreai_opt._utils.fx_utils import (
+    get_node_type as _get_node_type,
+    normalize_module_fqn,
+)
 from coreai_opt._utils.torch_utils import (
     export_model as _export_model,
-    get_node_type as _get_node_type,
     move_model_to_eval,
     move_model_to_train,
-    normalize_module_fqn,
 )
 from coreai_opt._utils.version_utils import version_ge as _version_ge
 from coreai_opt.common import ExportBackend
@@ -65,7 +67,7 @@ from coreai_opt.quantization.spec.fake_quantize import (
     FakeQuantizeImplBase,
 )
 
-from ._annotation_config import AnnotationConfig
+from ._annotation_config import AnnotationConfig, AnnotationContext
 from ._annotation_pattern_registry import (
     AnnotatorMatchInfo as _AnnotatorMatchInfo,
     SharedObserverModulePattern as _SharedObserverModulePattern,
@@ -116,7 +118,41 @@ class _OpConfigLevel(Enum):
         return list(cls)
 
 
-NodeConfigDict: TypeAlias = dict[_OpConfigLevel, dict[torch.fx.Node, OpQuantizerConfig]]
+class _NodePriorityConfig(NamedTuple):
+    """Config attached to a node, paired with its priority within a config level.
+
+    Attributes:
+        config (OpQuantizerConfig): The op-level config to apply at this node.
+        priority (int): Position of the matching module in
+            ``module_config_dict[level]``. Lower = higher precedence within
+            the level (matches eager-mode ``module_priority_dict`` semantics:
+            ``build_module_config_dict`` processes user configs in reverse, so
+            the last-listed user config claims modules first and gets the
+            smallest index).
+    """
+
+    config: OpQuantizerConfig
+    priority: int
+
+
+class _RankedAnnotation(NamedTuple):
+    """One annotator match ranked for the priority sort.
+
+    Attributes:
+        node (torch.fx.Node): The node being annotated.
+        config (OpQuantizerConfig): The op-level config to apply.
+        match (_AnnotatorMatchInfo): The annotator match info for ``node``.
+        priority (int): Within-level priority carried over from
+            :class:`_NodePriorityConfig`.
+    """
+
+    node: torch.fx.Node
+    config: OpQuantizerConfig
+    match: _AnnotatorMatchInfo
+    priority: int
+
+
+NodeConfigDict: TypeAlias = dict[_OpConfigLevel, dict[torch.fx.Node, _NodePriorityConfig]]
 
 
 class _AnnotationHandler(TorchPT2EQuantizer):
@@ -208,12 +244,19 @@ class _AnnotationHandler(TorchPT2EQuantizer):
 
         # Annotation phase - go through sorted nodes with matches list to annotate
         shared_observer_nodes = self._get_shared_observer_nodes(model)
+        # Build pass-invariant context once; shared by all annotator invocations.
+        context = AnnotationContext(
+            module_name_to_state_names_map=self._module_name_to_state_names_map,
+            shared_observer_nodes=shared_observer_nodes,
+        )
         for node, config, annotator_match_info in sorted_nodes_with_annotation_match_info:
             if is_node_annotated(node):
                 continue
             annotation_config = AnnotationConfig.from_quantizer_config(config)
             annotator_match_info.annotator_func(
-                annotator_match_info.annotator_match, annotation_config, shared_observer_nodes
+                annotator_match_info.annotator_match,
+                annotation_config,
+                context,
             )
 
         _annotate_module_level_specs(
@@ -266,6 +309,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         The list is sorted with the following criteria, in decreasing priority:
         - Config type (module_name > module_type > global)
         - Pattern length (Longer pattern > shorter pattern)
+        - Config index within a config level (Later config > earlier config)
         - Topological ordering in the model (Earlier in the graph > later in the graph)
         """
         config_level_node_dicts = self._get_config_level_node_dicts(
@@ -306,6 +350,13 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         module_type_node_config_dict: NodeConfigDict = {level: {} for level in _OpConfigLevel}
         module_name_node_config_dict: NodeConfigDict = {level: {} for level in _OpConfigLevel}
 
+        # Precompute {canonical_key: insertion_index} once per config level so that
+        # _set_config_to_use_for_node can look up a key's priority in O(1)
+        config_key_index: dict[_ConfigLevel, dict[object, int]] = {
+            level: {key: idx for idx, key in enumerate(self._module_configs[level].keys())}
+            for level in (_ConfigLevel.MODULE_NAME, _ConfigLevel.MODULE_TYPE)
+        }
+
         # Iterating through the nodes in topological ordering guarantees that when
         # sorting nodes later, any nodes with identical config priority and pattern
         # lengths will remain ordered by topological ordering (essentially the last
@@ -314,13 +365,19 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             if node in node_to_annotator_match_info_dict:
                 # Try to find a config to set for the node for module_name config level
                 if self._set_config_to_use_for_node(
-                    node, module_name_node_config_dict, _ConfigLevel.MODULE_NAME
+                    node,
+                    module_name_node_config_dict,
+                    _ConfigLevel.MODULE_NAME,
+                    config_key_index[_ConfigLevel.MODULE_NAME],
                 ):
                     continue
 
                 # Try to find a config to set for the node for module_type config level
                 if self._set_config_to_use_for_node(
-                    node, module_type_node_config_dict, _ConfigLevel.MODULE_TYPE
+                    node,
+                    module_type_node_config_dict,
+                    _ConfigLevel.MODULE_TYPE,
+                    config_key_index[_ConfigLevel.MODULE_TYPE],
                 ):
                     continue
 
@@ -329,16 +386,28 @@ class _AnnotationHandler(TorchPT2EQuantizer):
                 global_config = list(self._module_configs[_ConfigLevel.GLOBAL].values())[0]
 
                 config, op_config_level = self._get_config_for_node(node, global_config)
-                global_node_config_dict[op_config_level][node] = config
+                # GLOBAL level has a single config, so priority is trivially 0.
+                global_node_config_dict[op_config_level][node] = _NodePriorityConfig(
+                    config, priority=0
+                )
 
         return (module_name_node_config_dict, module_type_node_config_dict, global_node_config_dict)
 
     def _set_config_to_use_for_node(
-        self, node: torch.fx.Node, node_config_dict: NodeConfigDict, config_level: _ConfigLevel
+        self,
+        node: torch.fx.Node,
+        node_config_dict: NodeConfigDict,
+        config_level: _ConfigLevel,
+        config_key_index: dict[object, int],
     ) -> bool:
         """
         Add a node to config entry for node_config_dict for the given config_level if
         applicable. Returns True if a config was set, False otherwise.
+
+        The stored entry pairs the matched config with its position in
+        ``self._module_configs[config_level]``. That position is used as a
+        within-level priority during the sort phase: lower index = higher
+        precedence.
         """
         qualified_name = _get_source_module_name(node)
         if qualified_name is None:
@@ -352,8 +421,9 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             return False
 
         config_to_use = self._module_configs[config_level][canonical]
+        config_idx = config_key_index[canonical]
         config_to_use, op_config_level = self._get_config_for_node(node, config_to_use)
-        node_config_dict[op_config_level][node] = config_to_use
+        node_config_dict[op_config_level][node] = _NodePriorityConfig(config_to_use, config_idx)
         return True
 
     @staticmethod
@@ -391,7 +461,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
 
     def _expand_and_sort_nodes_for_pattern_length(
         self,
-        node_to_config_dict: dict[torch.fx.Node, OpQuantizerConfig],
+        node_to_config_dict: dict[torch.fx.Node, _NodePriorityConfig],
         node_to_annotator_match_info_dict: dict[torch.fx.Node, list[_AnnotatorMatchInfo]],
     ) -> list[tuple[torch.fx.Node, OpQuantizerConfig, _AnnotatorMatchInfo]]:
         """
@@ -444,19 +514,18 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             A list of lists of (node, config, annotation match info) ordered by
             priority.
         """
-        nodes_with_annotation_info: list[
-            tuple[torch.fx.Node, OpQuantizerConfig, _AnnotatorMatchInfo]
-        ] = [
-            (node, config, annotator_match_info)
-            for node, config in node_to_config_dict.items()
-            for annotator_match_info in node_to_annotator_match_info_dict[node]
+        nodes_with_annotation_info: list[_RankedAnnotation] = [
+            _RankedAnnotation(node, entry.config, match, entry.priority)
+            for node, entry in node_to_config_dict.items()
+            for match in node_to_annotator_match_info_dict[node]
         ]
-        # Sort node
-        nodes_with_annotation_info = sorted(
-            nodes_with_annotation_info, key=lambda item: item[-1].pattern_length, reverse=True
-        )
+        # Higher pattern_length wins; within equal length, lower priority wins
+        # (later-listed user configs claim modules first, so they get the
+        # smaller index in module_config_dict). Stable sort preserves
+        # topological order as the final tiebreaker.
+        nodes_with_annotation_info.sort(key=lambda r: (-r.match.pattern_length, r.priority))
 
-        return nodes_with_annotation_info
+        return [(r.node, r.config, r.match) for r in nodes_with_annotation_info]
 
     def validate(self, model: torch.fx.GraphModule) -> None:
         """
@@ -645,24 +714,24 @@ class GraphQuantizer(_BaseQuantizer):
         # inner_model_1.c = inner_model_2.a
 
         # Then we would have:
-        # module_name_to_state_names[inner_model_1]["inner_model_1.a"] = ["a", "b"]
-        # module_name_to_state_names[inner_model_1]["inner_model_1.b"] = ["a", "b"]
-        # module_name_to_state_names[inner_model_1]["inner_model_2.b"] = ["a", "b"]
-        # module_name_to_state_names[inner_model_1]["inner_model_1.c"] = ["c"]
-        # module_name_to_state_names[inner_model_1]["inner_model_2.a"] = ["c"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_1.a"] = ["a", "b"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_1.b"] = ["a", "b"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_2.b"] = ["a", "b"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_1.c"] = ["c"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_2.a"] = ["c"]
 
-        # module_name_to_state_names[inner_model_2]["inner_model_2.b"] = ["b"]
-        # module_name_to_state_names[inner_model_2]["inner_model_1.a"] = ["b"]
-        # module_name_to_state_names[inner_model_2]["inner_model_1.b"] = ["b"]
-        # module_name_to_state_names[inner_model_2]["inner_model_1.c"] = ["a"]
-        # module_name_to_state_names[inner_model_2]["inner_model_2.a"] = ["a"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_2.b"] = ["b"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_1.a"] = ["b"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_1.b"] = ["b"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_1.c"] = ["a"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_2.a"] = ["a"]
 
         # Observe that since "inner_model_1.a", "inner_model_1.b", and "inner_model_2.a"
         # all refer to the same parameter object, both inner_model_1 and inner_model_2
         # contain all 3 of these full names as keys. However, from the perspective of
         # inner_model_1, there are only two local names which would point to this param:
         # "a" and "b". Thus all 3 full names are associated with ["a", "b"] in
-        # module_name_to_state_names[inner_model_1].
+        # module_name_to_state_names["inner_model_1"].
         # From inner_model_2's perspective, the same parameter would be referenced by
         # local name "b" only, so all 3 full names map to ["b"].
 

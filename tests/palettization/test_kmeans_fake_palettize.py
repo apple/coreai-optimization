@@ -498,10 +498,22 @@ class TestPerGroupedChannelAxisDefault:
 
     @pytest.mark.parametrize(
         "op_to_optimize",
-        [F.linear, F.conv1d, F.conv2d, F.conv3d, F.multi_head_attention_forward, None],
+        [
+            F.linear,
+            F.conv1d,
+            F.conv2d,
+            F.conv3d,
+            F.conv_transpose1d,
+            F.conv_transpose2d,
+            F.conv_transpose3d,
+            F.multi_head_attention_forward,
+        ],
     )
     def test_axis_resolved_from_op_when_unset(self, op_to_optimize):
-        """When axis is None, _KMeansFakePalettize resolves it from the op's mixin."""
+        """
+        When axis is None, _KMeansFakePalettize resolves it to the registry-declared
+        default for the op.
+        """
         palettizer = _KMeansFakePalettize(
             n_bits=2,
             lut_qspec=None,
@@ -510,7 +522,11 @@ class TestPerGroupedChannelAxisDefault:
             enable_per_channel_scale=False,
             op_to_optimize=op_to_optimize,
         )
-        assert palettizer.granularity.axis == palettizer.reshape_strategy.default_axis
+
+        registry_entry = _KMeansPalettizerSupportedOpsRegistry.get_registry_entry_for_func(
+            op_to_optimize
+        )
+        assert palettizer.granularity.axis == registry_entry.default_axis
 
     @pytest.mark.parametrize("axis", [0, 1])
     def test_explicit_axis_preserved(self, axis):

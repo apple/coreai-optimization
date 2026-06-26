@@ -42,10 +42,8 @@ class RangeCalculatorBase(ClassRegistryMixin, nn.Module):
         # 2 to get [1, 5, 1, 1].
         # In the end, each dimension in scale should have size equal to the number of
         # blocks for that dimension.
-        range_tensor_shape = \
-            [input_shape[i] // block_size_list[i] for i in range(len(input_shape))]
+        range_tensor_shape = [input_shape[i] // block_size_list[i] for i in range(len(input_shape))]
         return range_tensor.reshape(range_tensor_shape)
-
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute range statistics on an input and return the min/max bounds.
@@ -60,7 +58,6 @@ class RangeCalculatorBase(ClassRegistryMixin, nn.Module):
         min_tensor = self._reshape_min_max(min_tensor, x.shape)
         max_tensor = self._reshape_min_max(max_tensor, x.shape)
         return min_tensor, max_tensor
-
 
     @abstractmethod
     def _generate_min_max(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -79,12 +76,9 @@ class MinMaxRangeCalculator(RangeCalculatorBase):
     values of the tensor.
     """
 
-    def _generate_min_max(self, tensor: torch.Tensor) -> \
-            tuple[torch.Tensor, torch.Tensor]:
+    def _generate_min_max(self, tensor: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         block_size_list = self.granularity.get_block_size(tensor.shape)
-        shape_for_reduction, reduction_dims = _get_reduction_params(
-            block_size_list, tensor.size()
-        )
+        shape_for_reduction, reduction_dims = _get_reduction_params(block_size_list, tensor.size())
 
         # If tensor is already the shape required, no minmaxing is needed.
         if len(reduction_dims) == 0:

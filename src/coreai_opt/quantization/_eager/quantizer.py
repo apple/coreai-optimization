@@ -6,7 +6,7 @@
 import itertools
 import warnings
 from collections import defaultdict
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from os import PathLike
 
@@ -89,21 +89,6 @@ class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
         >>> final_model = quantizer.finalize()
     """
 
-    @classmethod
-    def get_compressible_op_names(
-        cls,
-        model: nn.Module,
-    ) -> set[str]:
-        """Return op names in *model* that this quantizer can target.
-
-        Args:
-            model (nn.Module): The model to inspect.
-
-        Returns:
-            set[str]: Op names that can be compressed via quantization.
-        """
-        return set()  # TODO: Implement eager mode op discovery.
-
     def __init__(
         self,
         model: nn.Module,
@@ -124,6 +109,11 @@ class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
             supported_ops_registry=EagerQuantizerSupportedOpsRegistry,
             optimization_type_name="quantize",
         )
+
+    @classmethod
+    def get_op_type_resolver(cls) -> Callable[[Callable], str | None]:
+        """Return a function that maps a torch function to its quantizable op type."""
+        return EagerQuantizerSupportedOpsRegistry.get_func_type
 
     @staticmethod
     def _fill_op_input_output_specs_to_check_for_module_config(

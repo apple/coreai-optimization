@@ -8,7 +8,7 @@ import torch
 
 from coreai_opt import ExportBackend
 from coreai_opt.palettization import KMeansPalettizer, KMeansPalettizerConfig
-from tests.conftest import ParametrizedPalettConfigs
+from tests.fixtures.palettization import ParametrizedPalettConfigs
 
 from . import export_utils
 
@@ -181,8 +181,10 @@ def test_mnist_export(
 
     _skip_unsupported_mil_configs(backend, parametrized_palett_config)
 
-    # For axis = 1, group_size is not divisible for conv1 layer
-    expected_count = 3 if granularity.axis == 1 else 4
+    # The MNIST model has 6 weight-bearing layers (conv1, conv2, conv_transpose1,
+    # conv_transpose2, dense1, dense2). For axis=1 with group_size=2, conv1's
+    # axis-1 (in_channels=1) is not divisible, so palettization is skipped there.
+    expected_count = 5 if granularity.axis == 1 else 6
 
     _run_kmeans_export_test(
         model=custom_test_mnist_model,

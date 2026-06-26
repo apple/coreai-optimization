@@ -23,7 +23,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     StaticQParamsCalculator,
 )
 from coreai_opt.quantization.spec.range_calculator import MinMaxRangeCalculator
-from tests.conftest import (
+from tests.fixtures.quantization import (
     COREML_ACT_REJECT_DTYPES,
     COREML_WEIGHT_REJECT_DTYPES,
     make_quant_config,

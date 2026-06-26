@@ -16,14 +16,13 @@ import torch
 from coreai_opt._utils.python_utils import fqn as _fqn
 from coreai_opt._utils.torch_utils import export_model as _export_model
 from coreai_opt.base_model_compressor import _BaseModelCompressor
-from coreai_opt.quantization import Quantizer as _Quantizer
+from coreai_opt.palettization import KMeansPalettizer
+from coreai_opt.quantization import Quantizer
 from coreai_opt.quantization.config.quantization_config import ExecutionMode
 
+from ._eager_mode import parse_ops_for_eager as _parse_ops_for_eager
 from ._formatting import format_model_summary as _format_model_summary
-from ._graph_mode import (
-    filter_by_compressor as _filter_by_compressor_graph_mode,
-    parse_ops_in_graph as _parse_ops_in_graph,
-)
+from ._graph_mode import parse_ops_for_graph as _parse_ops_for_graph
 from .types import ModelSummary, OpInfo
 
 
@@ -51,8 +50,8 @@ class ModelInspector:
             torch.no_grad() context. Defaults to True.
 
     Raises:
-        TypeError: If *model* is not an ``nn.Module``.
-        NotImplementedError: If *execution_mode* is ``"eager"``.
+        TypeError: If *model* is not an ``nn.Module``, or if *model* is a
+            ``GraphModule`` and *execution_mode* is ``"eager"``.
         RuntimeError: If model export fails (graph mode).
         ValueError: If example_inputs is None without the right model/execution_mode combination, or
             if execution_mode is not either "eager" or "graph".
@@ -112,39 +111,60 @@ class ModelInspector:
         dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None = None,
         export_with_no_grad: bool = True,
     ) -> None:
-
-        # Check that model is an accepted type
-        if not isinstance(model, (torch.fx.GraphModule, torch.nn.Module)):
-            msg = f"Expected a torch.fx.GraphModule or torch.nn.Module, got {type(model).__name__}"
-            raise TypeError(msg)
-
-        # Check that model and execution_mode are GraphModule and ExecutionMode.GRAPH respectively
-        # when example_inputs is None
-        if example_inputs is None:
-            if not (
-                isinstance(model, torch.fx.GraphModule) and execution_mode == ExecutionMode.GRAPH
-            ):
-                msg = (
-                    "example_inputs can only be None when model is a GraphModule and "
-                    "execution_mode is ExecutionMode.GRAPH"
-                )
-                raise ValueError(msg)
-
-        if compressor is not None and not issubclass(compressor, _Quantizer):
-            msg = (
-                f"Unsupported compressor class {compressor.__name__}. "
-                "Currently only Quantizer is supported."
-            )
-            raise ValueError(msg)
+        self._validate_args(
+            model, example_inputs, execution_mode, compressor, dynamic_shapes, export_with_no_grad
+        )
 
         if execution_mode == ExecutionMode.GRAPH:
             gm = model
             if not isinstance(gm, torch.fx.GraphModule):
                 gm = _export_model(model, example_inputs, dynamic_shapes, export_with_no_grad)
-            self._summary = _parse_ops_in_graph(gm)
-            self._summary = _filter_by_compressor_graph_mode(self._summary, compressor, gm)
+            self._summary = _parse_ops_for_graph(gm, compressor)
+        else:
+            self._summary = _parse_ops_for_eager(model, example_inputs, compressor)
 
-        elif execution_mode == ExecutionMode.EAGER:
+    @staticmethod
+    def _validate_args(
+        model: torch.fx.GraphModule | torch.nn.Module,
+        example_inputs: tuple[Any, ...] | None,
+        execution_mode: ExecutionMode,
+        compressor: type[_BaseModelCompressor] | None,
+        dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None,
+        export_with_no_grad: bool,
+    ) -> None:
+        """Validate constructor arguments."""
+        if not isinstance(model, (torch.fx.GraphModule, torch.nn.Module)):
+            msg = f"Expected a torch.fx.GraphModule or torch.nn.Module, got {type(model).__name__}"
+            raise TypeError(msg)
+
+        if execution_mode not in (ExecutionMode.GRAPH, ExecutionMode.EAGER):
+            msg = f"Unknown execution_mode {execution_mode}. Expected 'graph' or 'eager'."
+            raise ValueError(msg)
+
+        if example_inputs is None and not (
+            isinstance(model, torch.fx.GraphModule) and execution_mode == ExecutionMode.GRAPH
+        ):
+            msg = (
+                "example_inputs can only be None when model is a GraphModule and "
+                "execution_mode is ExecutionMode.GRAPH"
+            )
+            raise ValueError(msg)
+
+        if compressor is not None and not issubclass(compressor, (Quantizer, KMeansPalettizer)):
+            msg = (
+                f"Unsupported compressor class {compressor.__name__}. "
+                "Supported compressors: Quantizer, KMeansPalettizer."
+            )
+            raise ValueError(msg)
+
+        if execution_mode == ExecutionMode.GRAPH:
+            if compressor is not None and not issubclass(compressor, Quantizer):
+                msg = (
+                    f"Compressor {compressor.__name__} is not supported in graph mode. "
+                    "Only Quantizer is supported for graph mode inspection."
+                )
+                raise ValueError(msg)
+        else:
             if isinstance(model, torch.fx.GraphModule):
                 msg = (
                     "Expected a torch.nn.Module for Eager execution_mode, got torch.fx.GraphModule"
@@ -154,18 +174,14 @@ class ModelInspector:
                 warnings.warn(
                     "dynamic_shapes is only supported in graph mode and will be ignored.",
                     UserWarning,
-                    stacklevel=2,
+                    stacklevel=3,
                 )
             if not export_with_no_grad:
                 warnings.warn(
                     "export_with_no_grad is only supported in graph mode and will be ignored.",
                     UserWarning,
-                    stacklevel=2,
+                    stacklevel=3,
                 )
-            raise NotImplementedError("Eager mode op discovery is not yet implemented.")
-        else:
-            msg = f"Unknown execution_mode {execution_mode}. Expected 'graph' or 'eager'."
-            raise ValueError(msg)
 
     @property
     def summary(self) -> ModelSummary:
