@@ -42,6 +42,8 @@ jobs:
     name: Linux / make test-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      INSTALL_PRECOMMIT: "false"
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -56,6 +58,8 @@ jobs:
     name: Linux / make test-tutorials
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      INSTALL_PRECOMMIT: "false"
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -73,6 +77,8 @@ jobs:
     if: github.repository == 'apple/coreai-optimization'
     runs-on: [self-hosted, macos, tahoe, ARM64]
     timeout-minutes: 60
+    env:
+      INSTALL_PRECOMMIT: "false"
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -94,6 +100,8 @@ jobs:
     needs: [check, test-smoke, test-tutorials]
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      INSTALL_PRECOMMIT: "false"
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -115,6 +123,8 @@ jobs:
     needs: [check, test-smoke, test-tutorials]
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      INSTALL_PRECOMMIT: "false"
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -136,6 +146,8 @@ jobs:
     needs: [check, test-smoke, test-tutorials]
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      INSTALL_PRECOMMIT: "false"
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -157,6 +169,8 @@ jobs:
     needs: [check, test-smoke, test-tutorials]
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      INSTALL_PRECOMMIT: "false"
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
