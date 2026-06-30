@@ -21,7 +21,6 @@ concurrency:
 jobs:
 
   # ── Stage 1: cheap correctness gate (ubuntu-latest, ungated). ──
-  # Stage 2 runs only if all three of these pass.
   check:
     name: Linux / make check
     runs-on: ubuntu-latest
@@ -95,13 +94,18 @@ jobs:
           name: test-results-macos-highest-fast
           path: test-results/
 
-  linux-highest-slow:
-    name: Linux / make test-highest-pytorch / markers=slow
+  linux-tests:
+    name: Linux / make test-${{ matrix.torch }}-pytorch / markers=${{ matrix.speed == 'slow' && 'slow' || 'not-slow' }}
     needs: [check, test-smoke, test-tutorials]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
       INSTALL_PRECOMMIT: "false"
+    strategy:
+      fail-fast: false
+      matrix:
+        torch: [highest, lowest]
+        speed: [slow, fast]
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -109,80 +113,11 @@ jobs:
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: false
-      - name: Run `make test-highest-pytorch`
-        run: make test-highest-pytorch PYTEST_ARGS="--marker slow --junit"
+      - name: Run `make test-${{ matrix.torch }}-pytorch`
+        run: make test-${{ matrix.torch }}-pytorch PYTEST_ARGS="--marker '${{ matrix.speed == 'slow' && 'slow' || 'not slow' }}' --junit"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-results-linux-highest-slow
-          path: test-results/
-
-  linux-highest-fast:
-    name: Linux / make test-highest-pytorch / markers=not-slow
-    needs: [check, test-smoke, test-tutorials]
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    env:
-      INSTALL_PRECOMMIT: "false"
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-        with:
-          enable-cache: false
-      - name: Run `make test-highest-pytorch`
-        run: make test-highest-pytorch PYTEST_ARGS="--marker 'not slow' --junit"
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: test-results-linux-highest-fast
-          path: test-results/
-
-  linux-lowest-slow:
-    name: Linux / make test-lowest-pytorch / markers=slow
-    needs: [check, test-smoke, test-tutorials]
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    env:
-      INSTALL_PRECOMMIT: "false"
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-        with:
-          enable-cache: false
-      - name: Run `make test-lowest-pytorch`
-        run: make test-lowest-pytorch PYTEST_ARGS="--marker slow --junit"
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: test-results-linux-lowest-slow
-          path: test-results/
-
-  linux-lowest-fast:
-    name: Linux / make test-lowest-pytorch / markers=not-slow
-    needs: [check, test-smoke, test-tutorials]
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    env:
-      INSTALL_PRECOMMIT: "false"
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Install uv
-        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-        with:
-          enable-cache: false
-      - name: Run `make test-lowest-pytorch`
-        run: make test-lowest-pytorch PYTEST_ARGS="--marker 'not slow' --junit"
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: test-results-linux-lowest-fast
+          name: test-results-linux-${{ matrix.torch }}-${{ matrix.speed }}
           path: test-results/
