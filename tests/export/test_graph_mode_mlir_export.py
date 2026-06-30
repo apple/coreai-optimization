@@ -211,6 +211,7 @@ def test_mnist_export(
         "[Export Tests] ResNet50 graph-mode int8 quantization"
         " SNR falls below threshold on Linux (19.44 < 20.0)"
     ),
+    strict=False,
 )
 def test_resnet_export(
     resnet50_model: torch.nn.Module,
