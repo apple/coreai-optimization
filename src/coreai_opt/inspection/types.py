@@ -147,7 +147,7 @@ class OpInfo:
         dotted component is returned because state-matching configs are
         currently keyed on that suffix (e.g., a parameter with name ``"conv.weight"``
         can only be matched with ``"weight"`` in the config). Remove this property
-        once full-FQN state matching lands (rdar://177076777).
+        once full-FQN state matching lands.
         """
         if self.is_state:
             return _get_local_state_name(self.op_name) or self.op_name

@@ -208,8 +208,8 @@ def test_mnist_export(
 @pytest.mark.xfail(
     sys.platform == "linux",
     reason=(
-        "rdar://180563388 ([Export Tests] ResNet50 graph-mode int8 quantization"
-        " SNR falls below threshold on Linux (19.44 < 20.0))"
+        "[Export Tests] ResNet50 graph-mode int8 quantization"
+        " SNR falls below threshold on Linux (19.44 < 20.0)"
     ),
 )
 def test_resnet_export(
