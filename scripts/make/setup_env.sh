@@ -195,6 +195,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ "$ENSURE_MODE" == true ]]; then
+    INSTALL_PRECOMMIT="${INSTALL_PRECOMMIT:-false}"
+else
+    INSTALL_PRECOMMIT="${INSTALL_PRECOMMIT:-true}"
+fi
+
 # Validate required arguments
 if [[ -z "$PYTHON_VERSION" ]]; then
     echo "Error: --python-version is required"
@@ -339,11 +345,11 @@ echo "Running: ${SYNC_CMD[*]}"
 "${SYNC_CMD[@]}"
 
 echo ""
-echo "[3/3] Configuring pre-commit hooks..."
+echo "[3/3] Installing hook dependencies and configuring pre-commit hooks..."
 if [[ "$VENV_PREEXISTED" == "true" ]]; then
     echo "Skipped (venv already exists, hooks already configured)"
 else
-    "$SCRIPTS_DIR/make/install_pre_commit_hooks.sh" "$COREAI_OPT_HOME"
+    INSTALL_PRECOMMIT="$INSTALL_PRECOMMIT" "$SCRIPTS_DIR/make/install_pre_commit_hooks.sh" "$COREAI_OPT_HOME"
 fi
 
 echo ""
