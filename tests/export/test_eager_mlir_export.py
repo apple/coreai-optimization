@@ -22,11 +22,9 @@ from coreai_opt.quantization.spec import (
     QuantizationFormulation,
     QuantizationScheme,
 )
-from tests.conftest import (
-    ParametrizedFP4Configs,
-    ParametrizedFP8Configs,
-    ParametrizedQuantConfigs,
-)
+from tests.fixtures.fp4 import ParametrizedFP4Configs
+from tests.fixtures.fp8 import ParametrizedFP8Configs
+from tests.fixtures.quantization import ParametrizedQuantConfigs
 
 from . import export_utils
 
@@ -105,11 +103,31 @@ def test_simple_model_export(
     """Test eager Core AI export with various quantization configurations."""
     has_act_quant = parametrized_quant_config_mlir.has_activation_quantization
 
+    # 4-bit-weight and int8 weight+activation per-tensor bfloat16 configs abort the
+    # CoreAI interpreter (SIGABRT); xfail them without running so the native crash
+    # cannot abort the session.
+    parametrized_quant_config_mlir.xfail_if_unsupported(
+        "eager",
+        ExportBackend.CoreAI,
+        unsupported_config=[
+            {"model_dtype": torch.bfloat16, "weight_dtype": torch.int4},
+            {"model_dtype": torch.bfloat16, "weight_dtype": torch.uint4},
+            {
+                "model_dtype": torch.bfloat16,
+                "weight_dtype": torch.int8,
+                "act_dtype": torch.int8,
+                "granularity_type": "PerTensorGranularity",
+            },
+        ],
+        reason="CoreAI interpreter aborts on this bfloat16 config.",
+    )
+
     if parametrized_quant_config_mlir.model_dtype == torch.bfloat16:
         request.applymarker(
-            # TODO: add coreai conv2d kernel for bfloat16.
-            # TODO: add coreai round kernel for bfloat16.
-            pytest.mark.xfail(reason="coreai interpreter has missing kernels for bfloat16.")
+            pytest.mark.xfail(
+                reason="bfloat16 CoreAI export not yet reliable (flaky SNR).",
+                strict=False,
+            )
         )
 
     _run_eager_mlir_export_test(

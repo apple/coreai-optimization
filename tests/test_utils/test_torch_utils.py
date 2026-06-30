@@ -9,10 +9,10 @@ import pytest
 import torch
 from torchao.quantization.pt2e import allow_exported_model_train_eval
 
+from coreai_opt._utils.fx_utils import normalize_module_fqn
 from coreai_opt._utils.torch_utils import (
     move_model_to_eval,
     move_model_to_train,
-    normalize_module_fqn,
 )
 
 

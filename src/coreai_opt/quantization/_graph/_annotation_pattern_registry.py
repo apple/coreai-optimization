@@ -18,6 +18,7 @@ from coreai_opt._utils.registry_utils import ClassRegistryMixin
 from . import _annotation_utils
 from ._annotation_config import (
     AnnotationConfig as _AnnotationConfig,
+    AnnotationContext as _AnnotationContext,
 )
 from ._annotation_utils import (
     OpsListPattern as _OpsListPattern,
@@ -26,18 +27,18 @@ from ._annotation_utils import (
 # Generic type variable for match results
 MatchType = TypeVar("MatchType")
 
-# Generic annotator function type
+# Generic annotator function type.
 # The function is expected to take exactly 3 inputs:
 # 1. Matched nodes to annotate. The type of this entity is flexible depending
-#     on the implementation of the AnnotationPattern subclass. Whatever entity
-#     is returned in the subclass's match_single_pattern dictionary values will
-#     be passed into this function as the first input.
-# 2. Quantization Config to use when annotating the matched nodes.
-# 3. Typically when annotating matched nodes, if any immediate child nodes
-#     are shared observer nodes, the annotation will propagate through the
-#     child nodes. This argument allows the annotator function to know which
-#     nodes are shared observer nodes.
-AnnotatorFunc: TypeAlias = Callable[[MatchType, _AnnotationConfig, set[torch.fx.Node]], Any]
+#    on the implementation of the AnnotationPattern subclass. Whatever entity
+#    is returned in the subclass's match_single_pattern dictionary values will
+#    be passed into this function as the first input.
+# 2. Quantization Config to use when annotating the matched nodes (per-match,
+#    derived from OpQuantizerConfig).
+# 3. Annotation pass context. Holds pass-invariant inputs the annotator may
+#    need (the model's module-name-to-state-names map and the set of shared
+#    observer nodes computed at the start of this annotation pass).
+AnnotatorFunc: TypeAlias = Callable[[MatchType, _AnnotationConfig, _AnnotationContext], Any]
 
 
 @dataclass(frozen=True)
@@ -754,6 +755,24 @@ class SubPattern(NAryActPattern):
         # Multiple types of sub need to be listed since torchao doesn't include sub in
         # pt2e.graph_utils._EQUIVALENT_TYPES dict
         return _get_all_patterns_from_base_ops({"sub", "sub_", "isub"})
+
+
+def _make_kv_cache_update_pattern(op_name: str) -> type[NAryActPattern]:
+    """Build a pattern class that annotates the named KV-cache update op.
+
+    Returns a fresh class on every call so per-run state stays scoped to a
+    single ``Quantizer`` instance instead of leaking into the process-global
+    ``_AnnotationPatternRegistry``.
+    """
+
+    class KVCacheUpdatePattern(NAryActPattern):
+        """input -> kv-cache-update op -> output"""
+
+        @classmethod
+        def generate_patterns(cls) -> list[_OpsListPattern]:
+            return _get_all_patterns_from_base_ops({op_name}, use_act=False)
+
+    return KVCacheUpdatePattern
 
 
 # Shared observer patterns

@@ -75,7 +75,7 @@ dev = [
 ]
 test = [
     "junitparser>=4.0.2",
-    "pytest>=7.0.0",
+    "pytest>=9.0.0",
     "pytest-cov>=4.0.0",
     "pytest-xdist>=3.0.0",
 ]
@@ -89,20 +89,19 @@ docs = [
     "sphinx-copybutton==0.5.2",
     "sphinx-llm==0.3.0",
     "sphinxcontrib-mermaid==1.0.0",
-    { include-group = "stable-coreai" },
+    { include-group = "coreai" },
 ]
+# `coreai` group mirrors the `coreai` optional-dependency (extra) so `uv sync`
+# installs CoreAI by default (see tool.uv.default-groups). The extra is the
+# single source of truth; this group self-references it to avoid duplicating the
+# package list.
+coreai = [ "coreai-opt[coreai]" ]
 # Used in CI to force latest mimimum supported torch version
 # These torch versions must be in bounds of torch versions listed in project dependencies
 highest_tested_torch = [
     "torch==2.11.0",
     "torchao==0.17.0",
     "torchvision==0.26.0",
-]
-# Latest CoreAI nightly
-latest-coreai = [
-    "coreai-core",
-    "coreai-torch",
-    "scikit-learn>=1.7.2",
 ]
 # Used in CI to force lowest mimimum supported torch version
 # These torch versions must be in bounds of torch versions listed in project dependencies
@@ -133,12 +132,6 @@ pre-commit = [
     "toml-sort>=0.24.3",
     "tomli-w>=1.0.0",
 ]
-# TODO: deduplicate coreai dependencies across groups
-stable-coreai = [
-    "coreai-core==1.0.0b1",
-    "coreai-torch==0.4.0",
-    "scikit-learn>=1.7.2",
-]
 tamm-export = []
 # Since torch and torchao are project dependencies, we need to include torchvision in dev
 # This allows standard `make test` to find torchvision
@@ -151,7 +144,7 @@ tutorial = [
     "nbconvert>=7.17.1",
     "papermill>=2.7.0",
     "torchinfo>=1.8.0",
-    { include-group = "stable-coreai" },
+    { include-group = "coreai" },
     { include-group = "torchvision" },
 ]
 
@@ -167,7 +160,7 @@ find.where = [ "src" ]
 
 # make env group installed by default with uv sync
 [tool.uv]
-default-groups = [ "dev", "stable-coreai" ]
+default-groups = [ "dev", "coreai" ]
 index = [
     { explicit = true, name = "pytorch-cpu", url = "https://download.pytorch.org/whl/cpu" },
     { explicit = true, name = "pytorch-cu128", url = "https://download.pytorch.org/whl/cu128" },
@@ -187,14 +180,6 @@ conflicts = [
     [
         { group = "highest_tested_torch" },
         { group = "lowest_tested_torch" },
-    ],
-    [
-        { group = "stable-coreai" },
-        { group = "latest-coreai" },
-    ],
-    [
-        { extra = "coreai" },
-        { group = "latest-coreai" },
     ],
 ]
 [tool.uv.sources]
@@ -281,6 +266,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 norecursedirs = [ ".oss-export" ]
+strict = true
 testpaths = [ "tests" ]
 
 [tool.towncrier]

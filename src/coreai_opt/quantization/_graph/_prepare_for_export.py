@@ -11,6 +11,7 @@ backend-specific representations.
 """
 
 import logging
+import operator
 from collections.abc import Mapping
 
 import torch
@@ -20,6 +21,7 @@ from coreai_opt._utils.export_utils import (
     COREML_SUPPORTED_ACTIVATION_DTYPES,
     COREML_SUPPORTED_WEIGHT_DTYPES,
 )
+from coreai_opt._utils.fx_utils import get_node_type as _get_node_type
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
 from coreai_opt._utils.torch_utils import (
@@ -688,4 +690,138 @@ def prepare_for_mlir_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule
     model.graph.eliminate_dead_code()
     model.recompile()
 
+    return model
+
+
+def _move_cache_dequant_to_output(
+    model: torch.fx.GraphModule,
+    op_type: str,
+    quant_input_idx: int,
+) -> torch.fx.GraphModule:
+    """Relocate the dequantize on a cache-update op's input edge to its output edge.
+
+    Run after :func:`prepare_for_mlir_export`. The fake-quant graph
+
+        update -> coreai.quantize -> coreai.dequantize -> cache_op(x, dq, ...) -> consumer
+
+    is rewritten in-place to
+
+        update -> coreai.quantize -> cache_op(x, q, ...) -> coreai.dequantize -> consumer
+
+    The cache state's dtype (placeholder ``meta['val']`` and op ``meta['val']``) is
+    also retyped to the quantized dtype.
+
+    Precondition: the cache op must commute with quantize/dequantize — i.e.
+    a pure data-movement op (slicing, narrowing, copy). Arithmetic on cached
+    values would silently produce a numerically wrong model.
+
+    Args:
+        model: GraphModule already processed by :func:`prepare_for_mlir_export`.
+        op_type: Short op-type name as returned by ``get_node_type``
+        quant_input_idx: Index of the op input that the prepare-side spec annotated.
+
+    Returns:
+        The mutated GraphModule.
+
+    Raises:
+        NotImplementedError: If the op has ``getitem`` consumers (multi-output ops
+            are not supported), or the cache state cannot be located as a single
+            placeholder among the op's args.
+        RuntimeError: If the expected ``coreai.quantize`` -> ``coreai.dequantize``
+            chain is not present on the op's input edge.
+    """
+
+    def _import_coreai_custom_ops():
+        import coreai_torch._compression.custom_layers  # noqa: PLC0415, F401
+        from torch.ops import coreai  # noqa: PLC0415
+
+        return coreai
+
+    coreai = lazy_import_coreai_torch(_import_coreai_custom_ops)
+
+    rewrites = 0
+    for op_node in model.graph.nodes:
+        if op_node.op != "call_function":
+            continue
+        if _get_node_type(op_node, warn_on_failure=False) != op_type:
+            continue
+
+        if len(op_node.all_input_nodes) <= quant_input_idx:
+            raise RuntimeError(
+                f"Op {op_node.name} has {len(op_node.all_input_nodes)} input nodes; "
+                f"quant_input_idx={quant_input_idx} is out of range."
+            )
+        dq_node = op_node.all_input_nodes[quant_input_idx]
+        if not (isinstance(dq_node, Node) and dq_node.target is coreai.dequantize):
+            raise RuntimeError(
+                f"Expected coreai.dequantize on input {quant_input_idx} of "
+                f"{op_node.name}, found {dq_node!r} "
+                f"(target={getattr(dq_node, 'target', None)!r})."
+            )
+        q_node = dq_node.args[0]
+        if not (isinstance(q_node, Node) and q_node.target is coreai.quantize):
+            raise RuntimeError(
+                f"Expected coreai.quantize feeding {dq_node.name}, found {q_node!r}."
+            )
+
+        getitem_users = [
+            u for u in op_node.users if u.op == "call_function" and u.target is operator.getitem
+        ]
+        if getitem_users:
+            raise NotImplementedError(
+                f"Op {op_node.name} has getitem consumers "
+                f"({[u.name for u in getitem_users]}), indicating a multi-output op. "
+                "Relocation for multi-output cache ops is not implemented yet."
+            )
+
+        original_consumers = list(op_node.users)
+        quantized_dtype = q_node.args[2]
+        if not isinstance(quantized_dtype, torch.dtype):
+            raise RuntimeError(
+                f"Expected coreai.quantize's dtype arg (args[2]) to be a torch.dtype; "
+                f"got {type(quantized_dtype).__name__}: {quantized_dtype!r}."
+            )
+
+        # Find the cache placeholder among the op's args.
+        cache_placeholders = [
+            a for a in op_node.args if isinstance(a, Node) and a.op == "placeholder"
+        ]
+        if len(cache_placeholders) != 1:
+            raise NotImplementedError(
+                f"Expected exactly one placeholder among {op_node.name}'s args; "
+                f"found {len(cache_placeholders)}. Cannot determine which input "
+                "is the cache state."
+            )
+        cache_placeholder = cache_placeholders[0]
+
+        op_node.replace_input_with(dq_node, q_node)
+        with model.graph.inserting_after(op_node):
+            new_dq = model.graph.call_function(
+                coreai.dequantize, (op_node, *dq_node.args[1:]), dict(dq_node.kwargs)
+            )
+        # new_dq outputs the original compute dtype — which is what
+        # op_node.meta["val"] still holds at this point. Clone so any later
+        # in-place mutation of one meta["val"] doesn't bleed into the other.
+        if "val" in op_node.meta:
+            new_dq.meta["val"] = op_node.meta["val"].clone()
+            op_node.meta["val"] = op_node.meta["val"].to(quantized_dtype)
+        for consumer in original_consumers:
+            consumer.replace_input_with(op_node, new_dq)
+
+        if "val" in cache_placeholder.meta:
+            cache_placeholder.meta["val"] = cache_placeholder.meta["val"].to(quantized_dtype)
+
+        rewrites += 1
+
+    if rewrites == 0:
+        raise RuntimeError(
+            f"_move_cache_dequant_to_output found no nodes matching {op_type!r}; "
+            "the dequantize was not relocated to the cache-op output and the "
+            "cache buffer was not retyped — the deployed model will not have "
+            "stored cache quantization. The op was present at prepare time, so "
+            "this likely indicates a graph mutation between prepare and finalize."
+        )
+
+    model.graph.eliminate_dead_code()
+    model.recompile()
     return model

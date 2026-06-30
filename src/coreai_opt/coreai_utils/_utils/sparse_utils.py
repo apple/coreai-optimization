@@ -5,7 +5,6 @@
 
 """Sparsification utilities for Core AI Optimization passes."""
 
-# TODO: add test enhancements for sparse utils.
 from __future__ import annotations
 
 import logging

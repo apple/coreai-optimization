@@ -15,6 +15,7 @@ from coreai_opt._utils.insertion.torch_function import (
 )
 from coreai_opt.palettization.kmeans.kmeans_support_mixins import (
     _ConvPalettizationMixin,
+    _ConvTransposePalettizationMixin,
     _LinearPalettizationMixin,
     _PalettizationSupportMixin,
 )
@@ -73,6 +74,21 @@ class _Conv2dSupport(_ConvPalettizationMixin):
 @_KMeansPalettizerSupportedOpsRegistry.register("conv3d")
 class _Conv3dSupport(_ConvPalettizationMixin):
     ops = [F.conv3d]
+
+
+@_KMeansPalettizerSupportedOpsRegistry.register("conv_transpose1d")
+class _ConvTranspose1dSupport(_ConvTransposePalettizationMixin):
+    ops = [F.conv_transpose1d]
+
+
+@_KMeansPalettizerSupportedOpsRegistry.register("conv_transpose2d")
+class _ConvTranspose2dSupport(_ConvTransposePalettizationMixin):
+    ops = [F.conv_transpose2d]
+
+
+@_KMeansPalettizerSupportedOpsRegistry.register("conv_transpose3d")
+class _ConvTranspose3dSupport(_ConvTransposePalettizationMixin):
+    ops = [F.conv_transpose3d]
 
 
 @_KMeansPalettizerSupportedOpsRegistry.register("linear")

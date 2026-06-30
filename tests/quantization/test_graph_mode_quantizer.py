@@ -515,7 +515,6 @@ class TestGraphModeQuantizer:
         output_false = prepared_model_false(example_input)
         assert output_false.shape == (1, 10)
 
-    @pytest.mark.xfail(reason="fails on torch 2.8.0, passes on torch 2.11.0")
     def test_prepare_with_symint_mul_partition_collision(self):
         """Verify prepare() handles a SourcePartition with multiple call_function nodes.
 
@@ -525,6 +524,9 @@ class TestGraphModeQuantizer:
         first node and the downstream ``_is_fx_node_floating_point`` filter no-ops
         on SymInt inputs.
         """
+
+        H, W, B, embed_dim = 4, 4, 1, 8
+        num_iters = 2  # >=2 to force the synthesized muls to collide.
 
         class SymIntMulModel(nn.Module):
             def __init__(self, num_iters: int, embed_dim: int) -> None:
@@ -536,18 +538,19 @@ class TestGraphModeQuantizer:
                 for i in range(self.num_iters):
                     h = spatial_shapes[i, 0].item()
                     w = spatial_shapes[i, 1].item()
-                    # Mark h, w as non-negative so torch.export's reshape helper can
-                    # handle the unbacked SymInts in `view`. The runtime assertion
-                    # h * w == x.size(1) is still synthesized as a SymInt mul node.
+                    # The h * w == x.size(1) runtime assertion is synthesized as a
+                    # SymInt mul node by ``insert_deferred_runtime_asserts``; one per
+                    # iteration, all sharing one ``torch_fn`` tag — the partition
+                    # collision this test guards against. The view itself uses static
+                    # H, W instead of the SymInts to avoid the data-dependent reshape
+                    # guards that fail to discharge on torch 2.8.
                     torch._check(h >= 0)
                     torch._check(w >= 0)
-                    x_view = x.view(x.size(0), h, w, x.size(-1))
+                    torch._check(h * w == x.size(1))
+                    x_view = x.view(x.size(0), H, W, x.size(-1))
                     x_view = x_view.flatten(1, 2)
                     x = self.linear(x_view)
                 return x
-
-        H, W, B, embed_dim = 4, 4, 1, 8
-        num_iters = 2  # >=2 to force the synthesized muls to collide.
 
         model = SymIntMulModel(num_iters=num_iters, embed_dim=embed_dim).eval()
         example_inputs = (

@@ -13,7 +13,6 @@ from .spec import PalettizationSpec
 
 
 class _PalettizationComponentFactory(CompressionComponentFactoryBase):
-
     @classmethod
     def construct(
         cls,

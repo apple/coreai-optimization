@@ -27,6 +27,7 @@ from coreai_opt.quantization.spec import QuantizationSpec
 
 logger = logging.getLogger(__name__)
 
+
 class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
     """Base class for fake palettization implementations with clustering and
     reconstruction methods.
@@ -57,9 +58,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         self.cluster_dim = cluster_dim
         self.enable_per_channel_scale = enable_per_channel_scale
 
-        self.register_buffer(
-            "fake_palett_enabled", torch.tensor([1], dtype=torch.uint8)
-        )
+        self.register_buffer("fake_palett_enabled", torch.tensor([1], dtype=torch.uint8))
         self.register_buffer("observer_enabled", torch.tensor([1], dtype=torch.uint8))
         self._disabled = False
 
@@ -111,9 +110,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
                 return tensor
 
         if self.fake_palett_enabled[0] == 1:
-            return self._palettize(
-                lut=self.lut, indices=self.indices, original_weights=tensor
-            )
+            return self._palettize(lut=self.lut, indices=self.indices, original_weights=tensor)
 
         return tensor
 
@@ -125,9 +122,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         raise NotImplementedError()
 
     @abstractmethod
-    def _calculate_centroids(
-        self, weight: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def _calculate_centroids(self, weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Cluster weights and return lookup table (LUT) and corresponding indices.
 
         If tensor is incompatible with the specified granularity, this method
@@ -167,14 +162,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         return fake_palett_constructor
 
     def _load_from_state_dict(
-        self,
-        state_dict,
-        prefix,
-        local_metadata,
-        strict,
-        missing_keys,
-        unexpected_keys,
-        error_msgs
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
     ):
         """Custom state dict loading for palettization-specific buffers.
 
@@ -205,8 +193,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
                     unexpected_keys.remove(prefixed_key)
 
         super()._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys,
-            unexpected_keys, error_msgs
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
         )
 
     def enable_fake_palett(self, enabled: bool = True) -> None:

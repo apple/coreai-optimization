@@ -7,13 +7,17 @@
 
 import itertools
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import torch
 from torch._ops import OpOverload
 from torch.fx.node import map_aggregate
 from torch.fx.operator_schemas import create_type_hint, normalize_function
+
+from coreai_opt._utils.config_utils import get_last_matching_spec
+from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
+from coreai_opt.config.spec import CompressionSimulatorBase
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +77,7 @@ def normalize_args_kwargs(
                 kwargs["self"] = kwargs.pop("input")
     return args, kwargs
 
+
 def get_func_base_name(func: Callable) -> str:
     """
     Return the function base name
@@ -85,6 +90,7 @@ def get_func_base_name(func: Callable) -> str:
         return func.__name__
     return func_name.rsplit(".", maxsplit=1)[-1]
 
+
 def get_func_name(func: Callable, func_count: int) -> str:
     """Return the function name using the base name and func_count.
 
@@ -95,6 +101,7 @@ def get_func_name(func: Callable, func_count: int) -> str:
     if func_count == 0:
         return get_func_base_name(func)
     return f"{get_func_base_name(func)}_{func_count}"
+
 
 def is_optimizable_tensor(tensor: Any) -> bool:
     """
@@ -118,3 +125,23 @@ def any_tensor_optimizable(args: list[Any], kwargs: dict[str, Any]) -> bool:
     Return True if any of the tensors in args and kwargs are optimizable, False otherwise.
     """
     return any(is_optimizable_tensor(tensor) for tensor in itertools.chain(args, kwargs.values()))
+
+
+def get_optimizer_from_components_dict(
+    func: Callable,
+    tensor_identifiers: int | str | list[int | str],
+    components_dict: Mapping[int | str, _PartialConstructor | None],
+) -> tuple[CompressionSimulatorBase | None, bool]:
+    """Return the appropriate optimizer from ``components_dict``.
+
+    Delegates matching to :func:`~coreai_opt._utils.config_utils.get_last_matching_spec`.
+    Returns ``(optimizer, True)`` on match (optimizer may be ``None`` if the
+    components-dict entry was explicit-None to disable). Returns
+    ``(None, False)`` if no identifier matched.
+    """
+    if not isinstance(tensor_identifiers, list):
+        tensor_identifiers = [tensor_identifiers]
+    constructor, found = get_last_matching_spec(tensor_identifiers, components_dict)
+    if found:
+        return (constructor(op_to_optimize=func), True) if constructor else (None, True)
+    return None, False

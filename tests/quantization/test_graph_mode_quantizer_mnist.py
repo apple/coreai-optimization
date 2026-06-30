@@ -3,6 +3,8 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
+import sys
+
 import pytest
 import torch
 
@@ -39,10 +41,11 @@ num_epochs = 1
             "zp",
             # TODO: fix Conv+BN fusion numerical mismatch during quantizer finalize for FP8.
             marks=pytest.mark.xfail(
+                sys.platform == "darwin",
                 reason=(
                     "FP8 weight quantization produces a numerical mismatch "
                     "after Conv+BN fusion runs during quantizer finalize."
-                )
+                ),
             ),
         ),
         (

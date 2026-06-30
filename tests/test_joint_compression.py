@@ -13,8 +13,9 @@ import torch
 import tests.utils as utils
 from coreai_opt import ExportBackend
 from coreai_opt.palettization.kmeans import KMeansPalettizer
+from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 from coreai_opt.quantization import Quantizer
-from tests.conftest import ParametrizedP4A8CompressionConfigs
+from tests.fixtures.compression import ParametrizedP4A8CompressionConfigs
 from tests.test_utils.general import COREAI_AVAILABLE
 
 batch_size = 128
@@ -46,7 +47,16 @@ def test_p4a8_compression_mnist_accuracy(
 
     # Palettize weights
     palettizer = KMeansPalettizer(model, config.palett_config)
-    palettizer.prepare((example_input,))
+    prepared_palettized = palettizer.prepare((example_input,))
+
+    # MNIST model has 6 weight-bearing layers (conv1, conv2, conv_transpose1,
+    # conv_transpose2, dense1, dense2). With 4-bit per-tensor palettization, all
+    # 6 layers are palettized.
+    palettized_count = utils.count_weight_parametrizations(
+        prepared_palettized, _FakePalettizeImplBase
+    )
+    assert palettized_count == 6, f"Expected 6 palettized layers, got {palettized_count}"
+
     palettized = palettizer.finalize(backend=ExportBackend.CoreAI)
 
     # Quantize activations on the palettized model

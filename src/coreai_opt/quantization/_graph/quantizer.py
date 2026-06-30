@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from contextlib import contextmanager
 from enum import Enum, auto
 from os import PathLike
-from typing import Any, TypeAlias
+from typing import Any, NamedTuple, TypeAlias
 
 import torch
 import torchao
@@ -34,18 +34,24 @@ from torchao.quantization.pt2e import (
     enable_observer,
 )
 from torchao.quantization.pt2e.quantize_pt2e import convert_pt2e, prepare_qat_pt2e
-from torchao.quantization.pt2e.quantizer import Quantizer as TorchPT2EQuantizer
+from torchao.quantization.pt2e.quantizer import (
+    QuantizationAnnotation,
+    Quantizer as TorchPT2EQuantizer,
+)
+from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 
 from coreai_opt._utils.config_utils import (
     ALL_TENSORS as _ALL_TENSORS,
     ConfigLevel as _ConfigLevel,
 )
+from coreai_opt._utils.fx_utils import (
+    get_node_type as _get_node_type,
+    normalize_module_fqn,
+)
 from coreai_opt._utils.torch_utils import (
     export_model as _export_model,
-    get_node_type as _get_node_type,
     move_model_to_eval,
     move_model_to_train,
-    normalize_module_fqn,
 )
 from coreai_opt._utils.version_utils import version_ge as _version_ge
 from coreai_opt.common import ExportBackend
@@ -56,6 +62,7 @@ from coreai_opt.quantization._axis_defaults import (
 )
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
+    KVCacheQuantConfig,
     ModuleQuantizerConfig,
     OpQuantizerConfig,
     QuantizerConfig,
@@ -65,13 +72,15 @@ from coreai_opt.quantization.spec.fake_quantize import (
     FakeQuantizeImplBase,
 )
 
-from ._annotation_config import AnnotationConfig
+from ._annotation_config import AnnotationConfig, AnnotationContext
 from ._annotation_pattern_registry import (
     AnnotatorMatchInfo as _AnnotatorMatchInfo,
     SharedObserverModulePattern as _SharedObserverModulePattern,
     _AnnotationPatternRegistry,
+    _make_kv_cache_update_pattern,
 )
 from ._annotation_utils import (
+    _get_input_qspec_map,
     adjust_output_qspec_for_qscheme_and_propagate,
     annotate_module_level_specs as _annotate_module_level_specs,
     is_node_annotated,
@@ -81,6 +90,7 @@ from ._conv_bn_utils import (
     remove_conv_bn_zeros_like_dtype as _remove_conv_bn_zeros_like_dtype,
 )
 from ._prepare_for_export import (
+    _move_cache_dequant_to_output,
     prepare_for_mil_export,
     prepare_for_mlir_export,
 )
@@ -116,7 +126,41 @@ class _OpConfigLevel(Enum):
         return list(cls)
 
 
-NodeConfigDict: TypeAlias = dict[_OpConfigLevel, dict[torch.fx.Node, OpQuantizerConfig]]
+class _NodePriorityConfig(NamedTuple):
+    """Config attached to a node, paired with its priority within a config level.
+
+    Attributes:
+        config (OpQuantizerConfig): The op-level config to apply at this node.
+        priority (int): Position of the matching module in
+            ``module_config_dict[level]``. Lower = higher precedence within
+            the level (matches eager-mode ``module_priority_dict`` semantics:
+            ``build_module_config_dict`` processes user configs in reverse, so
+            the last-listed user config claims modules first and gets the
+            smallest index).
+    """
+
+    config: OpQuantizerConfig
+    priority: int
+
+
+class _RankedAnnotation(NamedTuple):
+    """One annotator match ranked for the priority sort.
+
+    Attributes:
+        node (torch.fx.Node): The node being annotated.
+        config (OpQuantizerConfig): The op-level config to apply.
+        match (_AnnotatorMatchInfo): The annotator match info for ``node``.
+        priority (int): Within-level priority carried over from
+            :class:`_NodePriorityConfig`.
+    """
+
+    node: torch.fx.Node
+    config: OpQuantizerConfig
+    match: _AnnotatorMatchInfo
+    priority: int
+
+
+NodeConfigDict: TypeAlias = dict[_OpConfigLevel, dict[torch.fx.Node, _NodePriorityConfig]]
 
 
 class _AnnotationHandler(TorchPT2EQuantizer):
@@ -132,6 +176,8 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         module_configs: ModuleConfigDict,
         module_name_to_state_names_map: Mapping[str, Mapping[str, list[str]]],
         canonical_to_aliases: dict[str, list[str]],
+        extra_patterns: list[type] | None = None,
+        kv_cache_quant_configs: dict[str, KVCacheQuantConfig] | None = None,
     ):
         """
         Initialize the annotation handler.
@@ -149,11 +195,20 @@ class _AnnotationHandler(TorchPT2EQuantizer):
                 known names (aliases) for the same module object.  Used during node
                 matching so that a node whose nn_module_stack carries an alias path is
                 still matched to the correct canonical config entry.
+            extra_patterns: Per-instance annotation pattern classes. Used alongside
+                the global ``_AnnotationPatternRegistry`` for matching during this
+                handler's lifetime; not registered globally.
+            kv_cache_quant_configs: When set, a post-annotation override forcibly
+                applies each cache spec to every matched cache-update op, even if a
+                module-scope config would otherwise have claimed the op. Makes each
+                cache spec a global-only knob that wins over module-scope shadowing.
         """
         if module_configs is None:
             raise ValueError("Module configurations cannot be None")
         self._module_configs = module_configs
         self._module_name_to_state_names_map = module_name_to_state_names_map
+        self._extra_patterns: list[type] = list(extra_patterns or [])
+        self._kv_cache_quant_configs = kv_cache_quant_configs or {}
 
         # Build reverse map: alias → canonical for O(1) lookup during node matching.
         self._alias_to_canonical: dict[str, str] = {
@@ -162,14 +217,17 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             for alias in aliases
         }
 
-    @staticmethod
-    def _get_shared_observer_nodes(model: torch.fx.GraphModule) -> set[torch.fx.Node]:
+    def _all_patterns(self) -> list[type]:
+        """Globally-registered patterns plus per-instance ``extra_patterns``."""
+        return list(_AnnotationPatternRegistry.list_registry_values()) + self._extra_patterns
+
+    def _get_shared_observer_nodes(self, model: torch.fx.GraphModule) -> set[torch.fx.Node]:
         """
         Return a set of all shared observer nodes in the model.
         """
         shared_observer_annotators = [
             a_class
-            for a_class in _AnnotationPatternRegistry.list_registry_values()
+            for a_class in self._all_patterns()
             if issubclass(a_class, _SharedObserverModulePattern)
         ]
         shared_observer_nodes = set()
@@ -208,12 +266,19 @@ class _AnnotationHandler(TorchPT2EQuantizer):
 
         # Annotation phase - go through sorted nodes with matches list to annotate
         shared_observer_nodes = self._get_shared_observer_nodes(model)
+        # Build pass-invariant context once; shared by all annotator invocations.
+        context = AnnotationContext(
+            module_name_to_state_names_map=self._module_name_to_state_names_map,
+            shared_observer_nodes=shared_observer_nodes,
+        )
         for node, config, annotator_match_info in sorted_nodes_with_annotation_match_info:
             if is_node_annotated(node):
                 continue
             annotation_config = AnnotationConfig.from_quantizer_config(config)
             annotator_match_info.annotator_func(
-                annotator_match_info.annotator_match, annotation_config, shared_observer_nodes
+                annotator_match_info.annotator_match,
+                annotation_config,
+                context,
             )
 
         _annotate_module_level_specs(
@@ -224,10 +289,43 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         # are following always affine or fixed range nodes.
         for node in model.graph.nodes:
             adjust_output_qspec_for_qscheme_and_propagate(node, shared_observer_nodes)
+
+        # Force-apply each cache spec last so it wins over any module-scope
+        # annotation that may have claimed the cache op via a wildcard. Cache
+        # specs are global-only knobs (see KVCacheQuantConfig docstring).
+        if self._kv_cache_quant_configs:
+            self._override_cache_op_annotations(model, context)
         return model
 
-    @staticmethod
+    def _override_cache_op_annotations(
+        self,
+        model: torch.fx.GraphModule,
+        context: AnnotationContext,
+    ) -> None:
+        """Overwrite each cache-op node's annotation with its cache spec.
+
+        Mirrors what the standard annotator would produce for a cache-op match
+        (``annotate_n_ary_act_match`` → ``_get_input_qspec_map``), but applied
+        last so it wins over any prior annotation a module-scope config may
+        have produced via a wildcard ``op_input_spec``/``op_output_spec``.
+        """
+        for node in model.graph.nodes:
+            if node.op != "call_function":
+                continue
+            op_type = _get_node_type(node, warn_on_failure=False)
+            kc = self._kv_cache_quant_configs.get(op_type)
+            if kc is None:
+                continue
+            ann_config = AnnotationConfig.from_quantizer_config(kc.op_quantizer_config)
+            input_qspec_map = _get_input_qspec_map(node.all_input_nodes, ann_config, context)
+            node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
+                input_qspec_map=input_qspec_map,
+                output_qspec=None,
+                _annotated=True,
+            )
+
     def _match_all_annotators(
+        self,
         model: torch.fx.GraphModule,
     ) -> dict[torch.fx.Node, list[_AnnotatorMatchInfo]]:
         """
@@ -236,7 +334,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         containing information about matched patterns.
         """
         node_to_annotator_match_info_dict: dict[torch.fx.Node, list[_AnnotatorMatchInfo]] = {}
-        for annotator_class in _AnnotationPatternRegistry.list_registry_values():
+        for annotator_class in self._all_patterns():
             # Match patterns for this annotator across entire model
             annotator_node_match_dict = annotator_class._match_all_patterns(model)
             for node, annotator_match_info in annotator_node_match_dict.items():
@@ -266,6 +364,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         The list is sorted with the following criteria, in decreasing priority:
         - Config type (module_name > module_type > global)
         - Pattern length (Longer pattern > shorter pattern)
+        - Config index within a config level (Later config > earlier config)
         - Topological ordering in the model (Earlier in the graph > later in the graph)
         """
         config_level_node_dicts = self._get_config_level_node_dicts(
@@ -306,6 +405,13 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         module_type_node_config_dict: NodeConfigDict = {level: {} for level in _OpConfigLevel}
         module_name_node_config_dict: NodeConfigDict = {level: {} for level in _OpConfigLevel}
 
+        # Precompute {canonical_key: insertion_index} once per config level so that
+        # _set_config_to_use_for_node can look up a key's priority in O(1)
+        config_key_index: dict[_ConfigLevel, dict[object, int]] = {
+            level: {key: idx for idx, key in enumerate(self._module_configs[level].keys())}
+            for level in (_ConfigLevel.MODULE_NAME, _ConfigLevel.MODULE_TYPE)
+        }
+
         # Iterating through the nodes in topological ordering guarantees that when
         # sorting nodes later, any nodes with identical config priority and pattern
         # lengths will remain ordered by topological ordering (essentially the last
@@ -314,13 +420,19 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             if node in node_to_annotator_match_info_dict:
                 # Try to find a config to set for the node for module_name config level
                 if self._set_config_to_use_for_node(
-                    node, module_name_node_config_dict, _ConfigLevel.MODULE_NAME
+                    node,
+                    module_name_node_config_dict,
+                    _ConfigLevel.MODULE_NAME,
+                    config_key_index[_ConfigLevel.MODULE_NAME],
                 ):
                     continue
 
                 # Try to find a config to set for the node for module_type config level
                 if self._set_config_to_use_for_node(
-                    node, module_type_node_config_dict, _ConfigLevel.MODULE_TYPE
+                    node,
+                    module_type_node_config_dict,
+                    _ConfigLevel.MODULE_TYPE,
+                    config_key_index[_ConfigLevel.MODULE_TYPE],
                 ):
                     continue
 
@@ -329,16 +441,28 @@ class _AnnotationHandler(TorchPT2EQuantizer):
                 global_config = list(self._module_configs[_ConfigLevel.GLOBAL].values())[0]
 
                 config, op_config_level = self._get_config_for_node(node, global_config)
-                global_node_config_dict[op_config_level][node] = config
+                # GLOBAL level has a single config, so priority is trivially 0.
+                global_node_config_dict[op_config_level][node] = _NodePriorityConfig(
+                    config, priority=0
+                )
 
         return (module_name_node_config_dict, module_type_node_config_dict, global_node_config_dict)
 
     def _set_config_to_use_for_node(
-        self, node: torch.fx.Node, node_config_dict: NodeConfigDict, config_level: _ConfigLevel
+        self,
+        node: torch.fx.Node,
+        node_config_dict: NodeConfigDict,
+        config_level: _ConfigLevel,
+        config_key_index: dict[object, int],
     ) -> bool:
         """
         Add a node to config entry for node_config_dict for the given config_level if
         applicable. Returns True if a config was set, False otherwise.
+
+        The stored entry pairs the matched config with its position in
+        ``self._module_configs[config_level]``. That position is used as a
+        within-level priority during the sort phase: lower index = higher
+        precedence.
         """
         qualified_name = _get_source_module_name(node)
         if qualified_name is None:
@@ -352,8 +476,9 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             return False
 
         config_to_use = self._module_configs[config_level][canonical]
+        config_idx = config_key_index[canonical]
         config_to_use, op_config_level = self._get_config_for_node(node, config_to_use)
-        node_config_dict[op_config_level][node] = config_to_use
+        node_config_dict[op_config_level][node] = _NodePriorityConfig(config_to_use, config_idx)
         return True
 
     @staticmethod
@@ -391,7 +516,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
 
     def _expand_and_sort_nodes_for_pattern_length(
         self,
-        node_to_config_dict: dict[torch.fx.Node, OpQuantizerConfig],
+        node_to_config_dict: dict[torch.fx.Node, _NodePriorityConfig],
         node_to_annotator_match_info_dict: dict[torch.fx.Node, list[_AnnotatorMatchInfo]],
     ) -> list[tuple[torch.fx.Node, OpQuantizerConfig, _AnnotatorMatchInfo]]:
         """
@@ -444,19 +569,18 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             A list of lists of (node, config, annotation match info) ordered by
             priority.
         """
-        nodes_with_annotation_info: list[
-            tuple[torch.fx.Node, OpQuantizerConfig, _AnnotatorMatchInfo]
-        ] = [
-            (node, config, annotator_match_info)
-            for node, config in node_to_config_dict.items()
-            for annotator_match_info in node_to_annotator_match_info_dict[node]
+        nodes_with_annotation_info: list[_RankedAnnotation] = [
+            _RankedAnnotation(node, entry.config, match, entry.priority)
+            for node, entry in node_to_config_dict.items()
+            for match in node_to_annotator_match_info_dict[node]
         ]
-        # Sort node
-        nodes_with_annotation_info = sorted(
-            nodes_with_annotation_info, key=lambda item: item[-1].pattern_length, reverse=True
-        )
+        # Higher pattern_length wins; within equal length, lower priority wins
+        # (later-listed user configs claim modules first, so they get the
+        # smaller index in module_config_dict). Stable sort preserves
+        # topological order as the final tiebreaker.
+        nodes_with_annotation_info.sort(key=lambda r: (-r.match.pattern_length, r.priority))
 
-        return nodes_with_annotation_info
+        return [(r.node, r.config, r.match) for r in nodes_with_annotation_info]
 
     def validate(self, model: torch.fx.GraphModule) -> None:
         """
@@ -645,24 +769,24 @@ class GraphQuantizer(_BaseQuantizer):
         # inner_model_1.c = inner_model_2.a
 
         # Then we would have:
-        # module_name_to_state_names[inner_model_1]["inner_model_1.a"] = ["a", "b"]
-        # module_name_to_state_names[inner_model_1]["inner_model_1.b"] = ["a", "b"]
-        # module_name_to_state_names[inner_model_1]["inner_model_2.b"] = ["a", "b"]
-        # module_name_to_state_names[inner_model_1]["inner_model_1.c"] = ["c"]
-        # module_name_to_state_names[inner_model_1]["inner_model_2.a"] = ["c"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_1.a"] = ["a", "b"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_1.b"] = ["a", "b"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_2.b"] = ["a", "b"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_1.c"] = ["c"]
+        # module_name_to_state_names["inner_model_1"]["inner_model_2.a"] = ["c"]
 
-        # module_name_to_state_names[inner_model_2]["inner_model_2.b"] = ["b"]
-        # module_name_to_state_names[inner_model_2]["inner_model_1.a"] = ["b"]
-        # module_name_to_state_names[inner_model_2]["inner_model_1.b"] = ["b"]
-        # module_name_to_state_names[inner_model_2]["inner_model_1.c"] = ["a"]
-        # module_name_to_state_names[inner_model_2]["inner_model_2.a"] = ["a"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_2.b"] = ["b"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_1.a"] = ["b"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_1.b"] = ["b"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_1.c"] = ["a"]
+        # module_name_to_state_names["inner_model_2"]["inner_model_2.a"] = ["a"]
 
         # Observe that since "inner_model_1.a", "inner_model_1.b", and "inner_model_2.a"
         # all refer to the same parameter object, both inner_model_1 and inner_model_2
         # contain all 3 of these full names as keys. However, from the perspective of
         # inner_model_1, there are only two local names which would point to this param:
         # "a" and "b". Thus all 3 full names are associated with ["a", "b"] in
-        # module_name_to_state_names[inner_model_1].
+        # module_name_to_state_names["inner_model_1"].
         # From inner_model_2's perspective, the same parameter would be referenced by
         # local name "b" only, so all 3 full names map to ["b"].
 
@@ -686,6 +810,60 @@ class GraphQuantizer(_BaseQuantizer):
                     module_name_to_state_names[module_name][full_name].append(local_name)
 
         return module_name_to_state_names
+
+    def _kv_cache_extra_patterns(self) -> list[type]:
+        """Build per-run annotation patterns for the configured cache ops.
+
+        Returns the list of patterns to pass as ``extra_patterns`` to
+        ``_AnnotationHandler``. Empty when ``kv_cache_quant_configs`` is unset.
+
+        The final cache-op annotation is written by
+        ``_AnnotationHandler._override_cache_op_annotations``; these patterns
+        only ensure the cache op is visited during standard annotation. Scoped
+        to the handler instance rather than the process-global
+        ``_AnnotationPatternRegistry``.
+        """
+        configs = self._config.kv_cache_quant_configs or {}
+        return [_make_kv_cache_update_pattern(op) for op in configs]
+
+    def _validate_kv_cache_quant_ops(
+        self,
+        exported_model: torch.fx.GraphModule,
+    ) -> None:
+        """Validate ``kv_cache_quant_configs`` entries against the prepared graph.
+
+        Runs after ``torch.export``. Catches two classes of misconfiguration
+        that the annotator would otherwise let through silently:
+
+        - A ``kv_cache_quant_configs`` key matches no node (e.g. a typo). The
+          pattern would simply match nothing and the finalize-side rewrite
+          would have nothing to relocate.
+        - A ``kc.op_quantizer_config.op_input_spec`` keys an input index that's
+          out of range for the matched op. The annotator would silently skip
+          the index (``_get_input_qspec_map`` only enumerates the op's actual
+          inputs), so no observer is inserted on the cache op's input edge and
+          the failure would surface much later in the finalize-side rewrite.
+        """
+        configs = self._config.kv_cache_quant_configs
+        if not configs:
+            return
+        for op, kc in configs.items():
+            matched = [
+                n
+                for n in exported_model.graph.nodes
+                if n.op == "call_function" and _get_node_type(n, warn_on_failure=False) == op
+            ]
+            if not matched:
+                raise ValueError(
+                    f"kv_cache_quant_configs key {op!r} matches no ops in the prepared graph."
+                )
+            for node in matched:
+                if kc.quant_input_idx >= len(node.all_input_nodes):
+                    raise ValueError(
+                        f"kv_cache_quant_configs[{op!r}].op_quantizer_config.op_input_spec "
+                        f"key {kc.quant_input_idx} is out of range for op {node.target!r}, "
+                        f"which has {len(node.all_input_nodes)} inputs."
+                    )
 
     @classmethod
     def get_compressible_op_names(
@@ -766,8 +944,17 @@ class GraphQuantizer(_BaseQuantizer):
         module_config_dict = self._config.build_module_config_dict(self._model)
         module_name_to_state_names_map = self._get_module_name_to_state_names_map(self._model)
         canonical_to_aliases, _ = _build_module_alias_map(self._model)
+
+        # Per-instance annotation patterns for the cache ops (see
+        # _kv_cache_extra_patterns for details).
+        extra_patterns = self._kv_cache_extra_patterns()
+
         quantizer = _AnnotationHandler(
-            module_config_dict, module_name_to_state_names_map, canonical_to_aliases
+            module_config_dict,
+            module_name_to_state_names_map,
+            canonical_to_aliases,
+            extra_patterns=extra_patterns,
+            kv_cache_quant_configs=self._config.kv_cache_quant_configs,
         )
 
         # Collect user specified attributes that should be preserved
@@ -787,6 +974,9 @@ class GraphQuantizer(_BaseQuantizer):
         exported_model = _export_model(
             self._model, example_inputs, dynamic_shapes, export_with_no_grad
         )
+
+        # Catch KV cache misconfiguration (missing op type, out-of-range op_input_spec int key).
+        self._validate_kv_cache_quant_ops(exported_model)
 
         # Prepare the model for quantization-aware training.
         # torchao < 0.16.0 asserts annotated nodes have empty kwargs,
@@ -896,13 +1086,30 @@ class GraphQuantizer(_BaseQuantizer):
         # Backend-specific processing
         match backend:
             case ExportBackend._TORCH:
+                # KV-cache quantization is a no-op for the torch backend: the
+                # fake-quant observers on the cache op input stay in the graph.
+                # Cache-buffer retyping only happens on the CoreAI backend.
                 pass
 
             case ExportBackend.CoreML:
+                if self._config.kv_cache_quant_configs:
+                    raise NotImplementedError(
+                        "kv_cache_quant_configs is not supported with the CoreML "
+                        "backend; the finalize-side cache-buffer retyping only "
+                        "applies to the CoreAI backend."
+                    )
                 finalized_model = prepare_for_mil_export(finalized_model)
 
             case ExportBackend.CoreAI:
                 finalized_model = prepare_for_mlir_export(finalized_model)
+                # Relocate each cache-update op's input dq to its output edge so
+                # the cache state stays in the quantized dtype.
+                for op, kc in (self._config.kv_cache_quant_configs or {}).items():
+                    finalized_model = _move_cache_dequant_to_output(
+                        finalized_model,
+                        op_type=op,
+                        quant_input_idx=kc.quant_input_idx,
+                    )
 
             case _:
                 msg = f"Unsupported backend: {backend}"

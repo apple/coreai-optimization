@@ -19,7 +19,7 @@ import coremltools as ct
 import pytest
 import torch
 from coreai.authoring import AIProgram
-from coreai.runtime import AIModel, NDArray
+from coreai.runtime import NDArray
 from coremltools import ComputeUnit
 
 from coreai_opt import CoreMLExportError, ExportBackend
@@ -309,9 +309,10 @@ class MILConverter(ModelConverter):
         input_data: torch.Tensor,
     ) -> tuple[torch.Tensor, ...]:
         # CoreML runtime only available on Apple platforms
-        assert sys.platform != "linux", (
-            "CoreML runtime not available on Linux - MIL export verification requires macOS"
-        )
+        if sys.platform == "linux":
+            pytest.skip(
+                "CoreML runtime not available on Linux - CoreML export verification requires macOS"
+            )
 
         # Validate MIL program exists
         assert converted_model._mil_program is not None, "MIL model is not available"  # noqa: SLF001
@@ -401,19 +402,26 @@ class MLIRConverter(ModelConverter):
             prefix="mlir_converter_inference",
             suffix=".aimodel",
         ) as tmpdir:
-            converted_model.save_asset(Path(tmpdir))
-            ai_model = await AIModel.load(Path(tmpdir))
-            rt_func = ai_model.load_function("main")
+            asset = converted_model.save_asset(Path(tmpdir))
+            async with asset.executable() as ai_model:
+                rt_func = ai_model.load_function("main")
 
-            input_names = rt_func.desc.input_names
-            assert len(input_names) == 1, f"Expected 1 input, got {len(input_names)}: {input_names}"
-            input_name = input_names[0]
+                input_names = rt_func.desc.input_names
+                assert len(input_names) == 1, (
+                    f"Expected 1 input, got {len(input_names)}: {input_names}"
+                )
+                input_name = input_names[0]
 
-            coreai_outputs = await rt_func(
-                inputs={input_name: NDArray(input_data.cpu())},
-            )
+                coreai_outputs = await rt_func(
+                    inputs={input_name: NDArray(input_data.cpu())},
+                )
 
-        return tuple(torch.from_numpy(v.numpy()) for v in coreai_outputs.values())
+                # TODO: replace with coreai's public NDArray torch() conversion
+                # once that API is available.
+                return tuple(
+                    torch.from_dlpack(v._tensor.to_dlpack())  # noqa: SLF001
+                    for v in coreai_outputs.values()
+                )
 
     def _get_op_counts(
         self,

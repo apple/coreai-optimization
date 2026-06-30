@@ -7,6 +7,7 @@
 
 from .quantization_config import (
     ExecutionMode,
+    KVCacheQuantConfig,
     ModuleQuantizerConfig,
     OpQuantizerConfig,
     QATSchedule,
@@ -16,6 +17,7 @@ from .quantization_config import (
 __all__ = [
     "ExecutionMode",
     # Configuration classes
+    "KVCacheQuantConfig",
     "ModuleQuantizerConfig",
     "OpQuantizerConfig",
     "QATSchedule",

@@ -4,6 +4,7 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 """Configuration and specification modules for coreai_opt."""
+
 from .compression_config import (
     CompressionConfig,
     ModuleCompressionConfig,

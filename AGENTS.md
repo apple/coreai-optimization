@@ -17,6 +17,12 @@
 - `pytest -n auto path/to/test.py` — run a test file
 - `pytest path/to/test.py::test_name` — run a single test
 
+## uv usage
+
+Always pass `--no-sync` to `uv run`: `uv run --no-sync --active …`.
+
+`uv run` implicitly syncs the active project to its default-groups before running, which re-resolves dependencies and can clobber a venv's group-pinned packages — e.g. the torch pin in `.venv-lowest-torch`/`.venv-highest-torch` gets re-anchored back to the default torch. Our Make targets always prepare the environment first via `use_env`/`setup_env.sh`, so by the time `uv run` executes the deps are already correct. A `uv run` invocation should be a read-only run of a command in that prepared env, never a dependency mutation — `--no-sync` enforces that.
+
 ## Editing Guidelines
 
 - Use `@path` to reference small files (loaded into every session automatically).

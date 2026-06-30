@@ -1982,7 +1982,7 @@ def test_warn_on_nonquantizable_tensor(caplog, config, warning_msg):
                 execution_mode="eager",
             ),
             "Only integer indices or '*'",
-            id="op_input_check",
+            id="op_input_check-global_config",
         ),
         pytest.param(
             QuantizerConfig(
@@ -1994,7 +1994,7 @@ def test_warn_on_nonquantizable_tensor(caplog, config, warning_msg):
                 execution_mode="eager",
             ),
             "Only integer indices or '*'",
-            id="op_input_check",
+            id="op_input_check-module_type_configs",
         ),
         pytest.param(
             QuantizerConfig(
@@ -2006,7 +2006,7 @@ def test_warn_on_nonquantizable_tensor(caplog, config, warning_msg):
                 execution_mode="eager",
             ),
             "Only integer indices or '*'",
-            id="op_input_check",
+            id="op_input_check-module_type_configs-2",
         ),
         pytest.param(
             QuantizerConfig(
@@ -2018,7 +2018,7 @@ def test_warn_on_nonquantizable_tensor(caplog, config, warning_msg):
                 execution_mode="eager",
             ),
             "Only integer indices or '*'",
-            id="op_input_check",
+            id="op_input_check-module_name_configs",
         ),
     ],
 )
@@ -2246,13 +2246,6 @@ def test_interleaved_modules_and_functions():
                     ),
                 },
                 execution_mode="eager",
-            ),
-            # TODO: support distinct module-name configs for aliased reused modules in eager mode.
-            marks=pytest.mark.xfail(
-                reason=(
-                    "Eager mode does not yet apply distinct module-name "
-                    "configs to two attributes that alias the same module."
-                )
             ),
         ),
     ],
@@ -2876,7 +2869,6 @@ def test_exit_torch_function_mode_on_error():
     assert _get_current_function_mode() is None
 
 
-@pytest.mark.serial
 @pytest.mark.parametrize(
     "config, expected_quantizers",
     [

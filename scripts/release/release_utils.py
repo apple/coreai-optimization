@@ -18,7 +18,23 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-VERSION_FILE_PATH = Path("src") / "coreai_opt" / "_about.py"
+# coreai_opt's _about.py lives under `external/src` in the internal repo but at
+# the top-level `src` in the exported OSS tree, so resolve against both layouts.
+_VERSION_FILE_CANDIDATES = (
+    Path("src") / "coreai_opt" / "_about.py",
+    Path("external") / "src" / "coreai_opt" / "_about.py",
+)
+
+
+def _resolve_version_file(repo_root: Path) -> Path:
+    """Return the path to coreai_opt's ``_about.py`` for either repo layout."""
+    for rel in _VERSION_FILE_CANDIDATES:
+        candidate = repo_root / rel
+        if candidate.is_file():
+            return candidate
+    checked = ", ".join(str(c) for c in _VERSION_FILE_CANDIDATES)
+    msg = f"Could not locate coreai_opt/_about.py under {repo_root} (checked {checked})"
+    raise FileNotFoundError(msg)
 
 
 def get_short_sha() -> str:
@@ -55,7 +71,7 @@ def get_dev_release_version(base_version: str) -> str:
 
 def get_package_version(repo_root: Path) -> str:
     """Read package version from _about.py."""
-    about_file = repo_root / VERSION_FILE_PATH
+    about_file = _resolve_version_file(repo_root)
     spec = importlib.util.spec_from_file_location("_about", about_file)
     if spec is None or spec.loader is None:
         msg = f"Could not load module spec from {about_file}"
@@ -75,7 +91,7 @@ def write_version(repo_root: Path, version: str) -> None:
     Raises:
         RuntimeError: If ``_about.py`` does not contain a ``__version__`` assignment.
     """
-    about = repo_root / VERSION_FILE_PATH
+    about = _resolve_version_file(repo_root)
     content = about.read_text(encoding="utf-8")
     updated = re.sub(
         r'(__version__\s*=\s*)["\'].*?["\']',

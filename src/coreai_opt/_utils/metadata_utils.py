@@ -95,7 +95,8 @@ class MILCompressionMetadata(BaseModel):
 
         # Get dict representation, excluding None values
         metadata_dict: dict[str, Any] = self.model_dump(
-            exclude_none=True, exclude={"param_name"},
+            exclude_none=True,
+            exclude={"param_name"},
         )
 
         for metadata_key, value in metadata_dict.items():
@@ -129,5 +130,6 @@ class MILCompressionMetadata(BaseModel):
 
         """
         model.register_buffer(
-            METADATA_VERSION_BUFFER, torch.tensor(METADATA_VERSION_VALUE),
+            METADATA_VERSION_BUFFER,
+            torch.tensor(METADATA_VERSION_VALUE),
         )

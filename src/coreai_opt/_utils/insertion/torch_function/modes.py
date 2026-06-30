@@ -11,7 +11,6 @@ import itertools
 import logging
 import re
 import types
-from collections import defaultdict
 from collections.abc import Callable, Generator, Mapping
 from typing import Any, Literal, NamedTuple
 
@@ -30,6 +29,7 @@ from .base_supported_ops_registry import BaseSupportedOpsRegistry
 from .module_boundary_tracker import ModuleBoundaryInfo, ModuleBoundaryTracker
 from .preregistration_tracker import PreregistrationTracker
 from .registered_optimizers_tracker import RegisteredOptimizersTracker
+from .state_spec_resolver import StateSpecResolver
 from .types import (
     ModuleCompressionComponents,
     OpCompressionComponents,
@@ -39,6 +39,7 @@ from .utils import (
     any_tensor_optimizable,
     get_func_base_name,
     get_func_name,
+    get_optimizer_from_components_dict,
     is_optimizable_tensor,
     normalize_args_kwargs,
 )
@@ -185,12 +186,11 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
             optimization_type_name=optimization_type_name,
         )
         self.traversed_modules: set[nn.Module] = set()
-        self.states_to_register: dict[
-            torch.nn.Parameter | torch.Tensor, CompressionSimulatorBase | None
-        ] = {}
-        self.states_to_names = self._get_states_to_names()
-        self.states_to_modules = self._get_states_to_modules()
-        self.module_priority_dict = module_priority_dict
+        self.state_resolver = StateSpecResolver(
+            model=model,
+            module_components_dict=module_components_dict,
+            module_priority_dict=module_priority_dict,
+        )
         self.module_boundary_tracker = ModuleBoundaryTracker()
         self.preregistration_tracker = PreregistrationTracker()
         # Set default value to True for
@@ -245,52 +245,6 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
                 module_components_dict,
                 module_has_module_spec_dict,
             )
-
-    def _get_states_to_names(self) -> Mapping[torch.nn.Parameter | torch.Tensor, list[str]]:
-        """
-        Get a dictionary mapping states to all aliases of the state. A state can have
-        multiple aliases if it is shared by multiple modules in the model.
-        """
-        states_to_names: defaultdict[
-            torch.nn.Parameter | torch.Tensor, list[str]
-        ] = defaultdict(list)
-        for n, s in itertools.chain(
-            self.model.named_parameters(remove_duplicate=False),
-            self.model.named_buffers(remove_duplicate=False)
-        ):
-            states_to_names[s].append(n)
-        return states_to_names
-
-    def _in_states_to_names(self, tensor_or_value: Any) -> bool:
-        """
-        Helper function to check whether tensor_or_value is in states_to_names by first checking
-        whether tensor_or_value is a tensor.
-        """
-        if not isinstance(tensor_or_value, torch.Tensor):
-            return False
-        return tensor_or_value in self.states_to_names
-
-    def _get_states_to_modules(
-        self,
-    ) -> Mapping[torch.nn.Parameter | torch.Tensor, list[NamedModule]]:
-        """
-        Get a dictionary mapping state tensors to the modules they are defined in.
-
-        Returns a Mapping where each state tensor maps to a list of (module_name, module)
-        tuples. A state can belong to multiple modules if it is shared.
-        """
-        states_to_modules: dict[torch.nn.Parameter | torch.Tensor, list[NamedModule]] = {}
-
-        for module_name, module in self.named_modules.items():
-            # Check parameters and buffers defined directly in this module (recurse=False)
-            for state in itertools.chain(
-                module.parameters(recurse=False), module.buffers(recurse=False)
-            ):
-                if state not in states_to_modules:
-                    states_to_modules[state] = []
-                states_to_modules[state].append(NamedModule(module_name, module))
-
-        return states_to_modules
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Any:
         self.remove_hooks()
@@ -513,7 +467,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
 
             # Check for module-level spec override for the corresponding input/output
             # components dict
-            override_optimizer, found = self._get_optimizer_from_components_dict(
+            override_optimizer, found = get_optimizer_from_components_dict(
                 func,
                 [module_boundary.index for module_boundary in module_boundaries],
                 components_dict
@@ -575,7 +529,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
 
     def register_all_states(self) -> None:
         """
-        Parametrize all states which appear in self.state_to_register.
+        Parametrize every state for which self.state_resolver has a cached optimizer.
         """
         states_to_parametrize: list[StateParametrizationInfo] = []
         # Go through all modules to identify modules to parametrize. We cannot
@@ -586,7 +540,8 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
                 module.named_parameters(recurse=False, remove_duplicate=False),
                 module.named_buffers(recurse=False, remove_duplicate=False)
             ):
-                if optimizer := self.states_to_register.get(state):
+                optimizer = self.state_resolver.get_optimizer(state)
+                if optimizer:
                     states_to_parametrize.append(StateParametrizationInfo(
                         module,
                         state_name,
@@ -623,7 +578,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         ):
             components_dict = (
                 op_compression_components.op_state_components
-                if self._in_states_to_names(tensor)
+                if self.state_resolver.is_state_tensor(tensor)
                 else op_compression_components.op_input_components
             )
             if not is_optimizable_tensor(tensor):
@@ -632,8 +587,13 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
                 )
                 continue
 
-            if self._in_states_to_names(tensor):
-                self._create_state_optimizer(func, tensor, components_dict)
+            if self.state_resolver.is_state_tensor(tensor):
+                self.state_resolver.resolve(
+                    func,
+                    tensor,
+                    NamedModule(self.current_module_name, self.current_module),
+                    components_dict,
+                )
             else:
                 pending_registration = self._create_pending_activation_registration(
                     func=func,
@@ -663,9 +623,9 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         Only specific matches will raise a warning. If the user has set "*" to quantize
         all inputs/outputs/states, no warning will be raised.
         """
-        if self._in_states_to_names(tensor):
+        if self.state_resolver.is_state_tensor(tensor):
             setting_type = "state"
-            tensor_identifiers = self._get_local_state_tensor_names(tensor)
+            tensor_identifiers = self.state_resolver.get_all_local_names(tensor)
         elif is_output:
             setting_type = "output"
             tensor_identifiers = [idx]
@@ -691,105 +651,6 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
                 # Just return if any tensor identifiers for a tensor was found, skip
                 # looking for other identifiers for the same tensor.
                 return
-
-    def _get_local_state_tensor_names(
-        self,
-        state_tensor: torch.nn.Parameter | torch.Tensor
-    ) -> list[str]:
-        """
-        Get the local names associated with a state tensor.
-        """
-        fqns = self.states_to_names[state_tensor]
-        return [fqn.rsplit(".")[-1] for fqn in fqns]
-
-    def _create_state_optimizer(
-        self,
-        func: Callable,
-        state_tensor: torch.Tensor,
-        components_dict: Mapping[int | str, _PartialConstructor | None],
-    ) -> None:
-        """
-        Create optimizer for a state of a function and store it in
-        self.states_to_register for future registration.
-
-        Check module_state_spec before op_state_spec by looking up which module
-        defines this state tensor and seeing if it has module_state_components configured.
-        """
-        state_names = self._get_local_state_tensor_names(state_tensor)
-
-        # If state_tensor is already processed (can occur if state_tensor is shared), skip further
-        # processing. This guarantees the same state tensor to be quantized consistently across the
-        # entire model.
-        if state_tensor in self.states_to_register:
-            return
-
-        # Check for module-level state spec override
-        modules_for_state = self.states_to_modules.get(state_tensor, [])
-        # Sort the list of modules to check by priority based on how the original config was
-        # defined.
-        sorted_modules_for_state = sorted(
-            modules_for_state,
-            key=lambda module_name_and_module: self.module_priority_dict.get(
-                module_name_and_module.name, float("inf")
-            ),
-        )
-
-        final_optimizer = None
-        found_component = False
-
-        # Go through each of the sorted modules and check if there is an applicable
-        # module_state_component matching the current state tensor. Use the first match as the final
-        # optimizer and stop further processing (the optimizer may be None if the component is None)
-        for module_name_and_module in sorted_modules_for_state:
-            module_components = self.module_components_dict.get(module_name_and_module)
-
-            if module_components and module_components.module_state_components:
-                override_optimizer, found_component = self._get_optimizer_from_components_dict(
-                    func, state_names, module_components.module_state_components
-                )
-
-                if found_component:
-                    final_optimizer = override_optimizer
-                    break
-
-        # If no module_state_component was found, fall back to op_state_component
-        if not found_component:
-            final_optimizer, _ = self._get_optimizer_from_components_dict(
-                func, state_names, components_dict
-            )
-
-        self.states_to_register[state_tensor] = final_optimizer
-
-    @staticmethod
-    def _get_optimizer_from_components_dict(
-        func: Callable,
-        tensor_identifiers: int | str | list[int | str],
-        components_dict: Mapping[int | str, _PartialConstructor | None],
-    ) -> tuple[CompressionSimulatorBase | None, bool]:
-        """
-        Return the appropriate optimizer from components dict.
-
-        The tensor identifier(s) will either be an integer index or a string kwarg
-        obtained from parsing the args and kwargs of the function. We attempt to match
-        the identifier with a config entry in components_dict. A match could
-        either be a direct match with the index or string name, or if the config
-        was configured with "*" to match all tensors.
-
-        If no direct match or "*" was found, this means the tensor is not meant to be
-        optimized in which case None is returned.
-
-        Return None if no optimizer was found, or if the components entry is None
-        to begin with.
-        """
-        if not isinstance(tensor_identifiers, list):
-            tensor_identifiers = [tensor_identifiers]
-
-        # Try direct matches first, then fall back to wildcard
-        for identifier in (*tensor_identifiers, "*"):
-            if identifier in components_dict:
-                constructor = components_dict[identifier]
-                return (constructor(op_to_optimize=func), True) if constructor else (None, True)
-        return (None, False)
 
     def _get_op_compression_components(
         self, func_name: str, func_type: str, module_component: ModuleCompressionComponents
@@ -864,9 +725,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
             PendingOptimizerRegistration
         """
         # Get optimizer from components
-        act_optimizer, _ = self._get_optimizer_from_components_dict(
-            func, tensor_idx, components_dict
-        )
+        act_optimizer, _ = get_optimizer_from_components_dict(func, tensor_idx, components_dict)
 
         # Build optimizer name based on activation type
         func_name = get_func_name(func, func_counter)

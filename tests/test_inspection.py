@@ -11,6 +11,9 @@ import pytest
 import torch
 import torch.nn as nn
 
+from coreai_opt._utils.insertion.torch_function.module_boundary_tracker import (
+    TensorIdVersion,
+)
 from coreai_opt._utils.torch_utils import export_model as _export_model
 from coreai_opt.base_model_compressor import _BaseModelCompressor
 from coreai_opt.inspection import (
@@ -18,18 +21,15 @@ from coreai_opt.inspection import (
     ModelSummary,
     ModuleInfo,
 )
+from coreai_opt.inspection._eager_mode import _EagerOpDiscoveryMode
+from coreai_opt.inspection.types import BoundaryEdge, InputEdge, OpInfo
+from coreai_opt.palettization import KMeansPalettizer
 from coreai_opt.quantization import Quantizer
 from coreai_opt.quantization.config.quantization_config import ExecutionMode
 
 execution_modes = pytest.mark.parametrize(
     "execution_mode",
-    [
-        ExecutionMode.GRAPH,
-        pytest.param(
-            ExecutionMode.EAGER,
-            marks=pytest.mark.xfail(reason="Eager inspection not yet implemented"),
-        ),
-    ],
+    [ExecutionMode.GRAPH, ExecutionMode.EAGER],
 )
 
 
@@ -142,16 +142,24 @@ class TestModelInspector:
         # Root is a ModuleSummary
         assert isinstance(inspector.summary.model, ModuleInfo)
 
-        # Op discovery
+        # Op discovery — names differ by mode
         ops = inspector.summary.model.all_ops()
         op_names = [op.op_name for op in ops]
-        assert "conv2d" in op_names
-        assert "linear" in op_names
+        if execution_mode == ExecutionMode.GRAPH:
+            assert "conv2d" in op_names
+            assert "linear" in op_names
+            conv_op_name = "conv2d"
+            linear_op_name = "linear"
+        else:
+            assert "conv.conv2d" in op_names
+            assert "fc.linear" in op_names
+            conv_op_name = "conv.conv2d"
+            linear_op_name = "fc.linear"
 
         # Op types
-        conv_op = next(op for op in ops if op.op_name == "conv2d")
+        conv_op = next(op for op in ops if op.op_name == conv_op_name)
         assert conv_op.op_type == "conv2d"
-        linear_op = next(op for op in ops if op.op_name == "linear")
+        linear_op = next(op for op in ops if op.op_name == linear_op_name)
         assert linear_op.op_type == "linear"
 
         # Module stack
@@ -168,9 +176,9 @@ class TestModelInspector:
         assert inspector.get_matched_ops_for_module_type("NonexistentModule") == ()
 
         # Query: by name (exact)
-        conv_by_name = inspector.get_matched_ops_for_op_name("conv2d")
+        conv_by_name = inspector.get_matched_ops_for_op_name(conv_op_name)
         assert len(conv_by_name) == 1
-        assert conv_by_name[0].op_name == "conv2d"
+        assert conv_by_name[0].op_name == conv_op_name
 
         # Query: by name (regex)
         all_by_regex = inspector.get_matched_ops_for_op_name(".*")
@@ -226,18 +234,24 @@ class TestModelInspector:
             compressor=Quantizer,
         )
 
-        # Op discovery and hierarchy
+        # Op discovery and hierarchy — names differ by mode
         op_names = [op.op_name for op in inspector.summary.model.all_ops()]
-        assert "conv2d" in op_names
-        assert "conv2d_1" in op_names
-        assert "linear" in op_names
-        assert "linear_1" in op_names
+        if execution_mode == ExecutionMode.GRAPH:
+            conv_first, conv_second = "conv2d", "conv2d_1"
+            linear_first, linear_second = "linear", "linear_1"
+        else:
+            conv_first, conv_second = "encoder.conv1.conv2d", "encoder.conv2.conv2d"
+            linear_first, linear_second = "decoder.fc1.linear", "decoder.fc2.linear"
+        assert conv_first in op_names
+        assert conv_second in op_names
+        assert linear_first in op_names
+        assert linear_second in op_names
 
-        # Graph order
-        assert op_names.index("conv2d") < op_names.index("linear")
+        # Execution order: convs before linears
+        assert op_names.index(conv_first) < op_names.index(linear_first)
 
         # Nested module FQNs
-        conv_op = next(op for op in inspector.summary.model.all_ops() if op.op_name == "conv2d")
+        conv_op = next(op for op in inspector.summary.model.all_ops() if op.op_name == conv_first)
         fqns = [m.module_name for m in conv_op.module_stack]
         assert "encoder" in fqns
         assert "encoder.conv1" in fqns
@@ -250,24 +264,24 @@ class TestModelInspector:
         # Query: by module name
         encoder_ops = inspector.get_matched_ops_for_module_name("encoder")
         encoder_op_names = [op.op_name for op in encoder_ops]
-        assert "conv2d" in encoder_op_names
-        assert "conv2d_1" in encoder_op_names
+        assert conv_first in encoder_op_names
+        assert conv_second in encoder_op_names
 
         # Query: by module name (leaf)
         leaf_ops = inspector.get_matched_ops_for_module_name("encoder.conv1")
         assert len(leaf_ops) == 1
-        assert leaf_ops[0].op_name == "conv2d"
+        assert leaf_ops[0].op_name == conv_first
 
         # Query: by module name (regex)
         encoder_regex_ops = inspector.get_matched_ops_for_module_name(r"encoder\..*")
         encoder_regex_op_names = [op.op_name for op in encoder_regex_ops]
-        assert "conv2d" in encoder_regex_op_names
-        assert "conv2d_1" in encoder_regex_op_names
+        assert conv_first in encoder_regex_op_names
+        assert conv_second in encoder_regex_op_names
 
         # Query: by name (regex matching multiple ops)
-        conv_ops_by_name = inspector.get_matched_ops_for_op_name(r"conv2d.*")
+        conv_ops_by_name = inspector.get_matched_ops_for_op_name(r".*conv2d.*")
         assert len(conv_ops_by_name) == 2
-        linear_ops_by_name = inspector.get_matched_ops_for_op_name(r"linear.*")
+        linear_ops_by_name = inspector.get_matched_ops_for_op_name(r".*linear.*")
         assert len(linear_ops_by_name) == 2
 
         # Formatting
@@ -287,7 +301,11 @@ class TestModelInspector:
             compressor=Quantizer,
         )
         op_names = [op.op_name for op in inspector.summary.model.all_ops()]
-        assert "linear" in op_names
+        # Linear should be present (module-qualified in eager)
+        if execution_mode == ExecutionMode.GRAPH:
+            assert "linear" in op_names
+        else:
+            assert "linear.linear" in op_names
         add_ops = [n for n in op_names if "add" in n]
         mul_ops = [n for n in op_names if "mul" in n]
         assert len(add_ops) >= 2, f"Expected at least 2 add ops, got {add_ops}"
@@ -339,20 +357,22 @@ class TestModelInspector:
         ops = inspector.summary.model.all_ops()
         ops_by_name = {op.op_name: op for op in ops}
 
-        # linear has a placeholder in inputs
-        linear_op = ops_by_name["linear"]
-        assert any(inp.op_name not in ops_by_name for inp in linear_op.inputs), (
-            "linear should have a placeholder/parameter input"
-        )
+        linear_name = "linear" if execution_mode == ExecutionMode.GRAPH else "linear.linear"
+        linear_op = ops_by_name[linear_name]
+
         # linear's outputs should include an add op
-        assert any("add" in out.op_name for out in linear_op.outputs)
+        assert any(
+            "add" in out.op_name for consumers in linear_op.outputs.values() for out in consumers
+        )
 
         # add ops have correct inputs
-        add_op = ops_by_name["add"]
-        assert len(add_op.inputs) >= 2
+        add_name = "add"
+        add_op = ops_by_name[add_name]
+        assert len(add_op.inputs) == 2
 
-        # mul has two inputs (both add-related ops)
-        mul_op = ops_by_name["mul"]
+        # mul has inputs (both add-related ops)
+        mul_name = "mul"
+        mul_op = ops_by_name[mul_name]
         assert len(mul_op.inputs) == 2
 
     def test_module_io_nested_model(self, execution_mode: ExecutionMode) -> None:
@@ -366,13 +386,13 @@ class TestModelInspector:
         encoder = root.child_modules["encoder"]
         decoder = root.child_modules["decoder"]
 
-        # Encoder: first conv is an input, last conv is an output
+        # Encoder: has input and output ops
         assert len(encoder.input_ops) >= 1
-        encoder_input_names = {op.op_name for op in encoder.input_ops}
-        assert "conv2d" in encoder_input_names or any("conv" in n for n in encoder_input_names)
+        encoder_input_names = {e.op.op_name for edges in encoder.input_ops.values() for e in edges}
+        assert any("conv" in n for n in encoder_input_names)
         assert len(encoder.output_ops) >= 1
 
-        # Decoder: first linear is an input, last linear is an output
+        # Decoder: has input and output ops
         assert len(decoder.input_ops) >= 1
         assert len(decoder.output_ops) >= 1
 
@@ -402,7 +422,10 @@ class TestModelInspector:
         # Ops should be nested inside leaf modules, not at root
         conv1 = encoder.child_modules["encoder.conv1"]
         conv1_op_names = [op.op_name for op in conv1.ops]
-        assert "conv2d" in conv1_op_names
+        if execution_mode == ExecutionMode.GRAPH:
+            assert "conv2d" in conv1_op_names
+        else:
+            assert "encoder.conv1.conv2d" in conv1_op_names
 
         # Decoder should have children for fc1 and fc2
         decoder = root.child_modules["decoder"]
@@ -523,8 +546,12 @@ class TestModelInspector:
         encoder = root.get_submodule("encoder")
         encoder_ops = encoder.all_ops()
         encoder_op_names = [op.op_name for op in encoder_ops]
-        assert "conv2d" in encoder_op_names
-        assert "conv2d_1" in encoder_op_names
+        if execution_mode == ExecutionMode.GRAPH:
+            assert "conv2d" in encoder_op_names
+            assert "conv2d_1" in encoder_op_names
+        else:
+            assert "encoder.conv1.conv2d" in encoder_op_names
+            assert "encoder.conv2.conv2d" in encoder_op_names
         assert not any("linear" in n for n in encoder_op_names)
 
         # Leaf module all_ops should equal its direct ops
@@ -542,6 +569,548 @@ class TestModelInspector:
         # The root should be non-empty for a real model with quantizable ops
         assert inspector.summary.model.child_modules or inspector.summary.model.ops
 
+    def test_source_frames(self, execution_mode: ExecutionMode) -> None:
+        """Verify source frames are captured from forward() methods in both modes."""
+        inspector = ModelInspector(
+            _SimpleConvModel(),
+            (torch.randn(1, 3, 8, 8),),
+            execution_mode=execution_mode,
+            compressor=Quantizer,
+        )
+        conv_op = next(op for op in inspector.summary.model.all_ops() if op.op_type == "conv2d")
+        assert len(conv_op.source_frames) >= 1
+        assert all(f.function_name == "forward" for f in conv_op.source_frames)
+        assert all(f.filename != "" for f in conv_op.source_frames)
+
+    def test_connectivity_through_non_captured_ops(self, execution_mode: ExecutionMode) -> None:
+        """Verify filtered ops still provide connectivity edges between tree ops."""
+
+        class _ReluBetweenLinears(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear1 = nn.Linear(10, 10)
+                self.linear2 = nn.Linear(10, 10)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                x = self.linear1(x)
+                x = torch.relu(x)
+                x = self.linear2(x)
+                return x
+
+        inspector = ModelInspector(
+            _ReluBetweenLinears(),
+            (torch.randn(1, 10),),
+            execution_mode=execution_mode,
+            compressor=Quantizer,
+        )
+
+        # Only linear ops should appear in the tree; relu is filtered out
+        tree_ops = inspector.summary.model.all_ops()
+        tree_op_types = {op.op_type for op in tree_ops if op.op_type}
+        assert "linear" in tree_op_types
+        assert "relu" not in tree_op_types
+
+        # Identify linear2 by its module_stack (names mirror named_modules in both modes)
+        linear_ops = [op for op in tree_ops if op.op_type == "linear"]
+        linear2_op = next(
+            op
+            for op in linear_ops
+            if any(ctx.module_name.endswith("linear2") for ctx in op.module_stack)
+        )
+
+        # linear2's input should chain through relu back to a linear op
+        relu_input = next(
+            (inp for inp in linear2_op.inputs if inp.op_type == "relu"),
+            None,
+        )
+        assert relu_input is not None, (
+            f"Expected relu in linear2.inputs, got {[i.op_name for i in linear2_op.inputs]}"
+        )
+        linear1_upstream = next(
+            (inp for inp in relu_input.inputs if inp.op_type == "linear"),
+            None,
+        )
+        assert linear1_upstream is not None
+
+    def test_boundary_ops_with_non_tree_ops(self, execution_mode: ExecutionMode) -> None:
+        """Verify module boundary ops are correct when non-tree ops sit between tree ops."""
+
+        class _Inner(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear1 = nn.Linear(10, 10)
+                self.linear2 = nn.Linear(10, 10)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                x = self.linear1(x)
+                x = torch.relu(x)
+                x = self.linear2(x)
+                return x
+
+        class _Outer(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.inner = _Inner()
+                self.final = nn.Linear(10, 10)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                x = self.inner(x)
+                x = self.final(x)
+                return x
+
+        inspector = ModelInspector(
+            _Outer(),
+            (torch.randn(1, 10),),
+            execution_mode=execution_mode,
+            compressor=Quantizer,
+        )
+        root = inspector.summary.model
+        inner = root.child_modules["inner"]
+
+        inner_tree_ops = inner.all_ops()
+        inner_op_types = {op.op_type for op in inner_tree_ops if op.op_type}
+        assert "linear" in inner_op_types
+        assert "relu" not in inner_op_types
+        assert len(inner_tree_ops) == 2  # linear1 and linear2, relu filtered out
+
+        linears_by_module = {}
+        for op in inner_tree_ops:
+            if op.op_type != "linear":
+                continue
+            for ctx in op.module_stack:
+                if ctx.module_name == "inner.linear1":
+                    linears_by_module["linear1"] = op
+                elif ctx.module_name == "inner.linear2":
+                    linears_by_module["linear2"] = op
+
+        assert set(linears_by_module) == {"linear1", "linear2"}
+
+        # linear1 is an input boundary (data comes from outside inner).
+        assert any(
+            e.op == linears_by_module["linear1"]
+            for edges in inner.input_ops.values()
+            for e in edges
+        )
+        # linear2 is an output boundary (data goes to outside inner).
+        assert any(e.op == linears_by_module["linear2"] for e in inner.output_ops.values())
+        # linear2 is NOT an input boundary (its data flows from within inner via relu).
+        assert all(
+            e.op != linears_by_module["linear2"]
+            for edges in inner.input_ops.values()
+            for e in edges
+        )
+
+    def test_module_level_input_ops(self, execution_mode: ExecutionMode) -> None:
+        """Verify model-level inputs appear as placeholder-like OpInfos at the root boundary.
+
+        Graph mode emits ``placeholder`` nodes; eager mode emits synthetic ``input_i``
+        ops. Both should behave identically: empty module_stack, not is_state, no
+        further inputs, present in the consuming op's ``inputs`` tuple, but absent
+        from any module's tree ops or boundary lists.
+        """
+        inspector = ModelInspector(
+            _SimpleConvModel(),
+            (torch.randn(1, 3, 8, 8),),
+            execution_mode=execution_mode,
+        )
+        root = inspector.summary.model
+
+        # The first real op (conv) consumes the user input, so it must be in root.input_ops.
+        conv_op = next(op for op in root.all_ops() if op.op_type == "conv2d")
+        assert any(e.op == conv_op for edges in root.input_ops.values() for e in edges)
+
+        # conv's inputs should include at least one placeholder-like OpInfo.
+        placeholders = [inp for inp in conv_op.inputs if not inp.module_stack and not inp.is_state]
+        assert len(placeholders) >= 1
+        for ph in placeholders:
+            assert ph.inputs == ()
+
+        # Placeholder OpInfos must not appear in any module's tree or boundary lists.
+        all_tree_ops = root.all_ops()
+        for module in root.modules():
+            for ph in placeholders:
+                assert ph not in all_tree_ops
+                assert all(e.op != ph for edges in module.input_ops.values() for e in edges)
+                assert all(e.op != ph for e in module.output_ops.values())
+
+    def test_module_level_output_ops(self, execution_mode: ExecutionMode) -> None:
+        """Verify model-level outputs appear as output-like OpInfos at the root boundary.
+
+        Graph mode emits a single ``output`` node; eager mode emits one ``output_i``
+        per output tensor. Both should behave identically: empty module_stack, not
+        is_state, no further outputs, present in the producing op's ``outputs`` tuple,
+        but absent from any module's tree ops or boundary lists.
+        """
+        inspector = ModelInspector(
+            _SimpleConvModel(),
+            (torch.randn(1, 3, 8, 8),),
+            execution_mode=execution_mode,
+        )
+        root = inspector.summary.model
+
+        # The last real op (fc linear) produces the model output, so it's in root.output_ops.
+        linear_op = next(op for op in root.all_ops() if op.op_type == "linear")
+        assert any(e.op == linear_op for e in root.output_ops.values())
+
+        output_consumers = [
+            out
+            for consumers in linear_op.outputs.values()
+            for out in consumers
+            if not out.module_stack and not out.is_state
+        ]
+        assert len(output_consumers) >= 1
+        for out in output_consumers:
+            assert not any(out.outputs.values())
+
+        all_tree_ops = root.all_ops()
+        for module in root.modules():
+            for out in output_consumers:
+                assert out not in all_tree_ops
+                assert all(e.op != out for edges in module.input_ops.values() for e in edges)
+                assert all(e.op != out for e in module.output_ops.values())
+
+    def test_state_ops_for_parameters(self, execution_mode: ExecutionMode) -> None:
+        """Verify parameters consumed by ops appear as is_state=True OpInfos.
+
+        Graph mode emits ``get_attr`` nodes; eager mode emits synthetic state
+        OpInfos on first reference. Both should share identical semantic
+        behavior: is_state=True, empty module_stack, no inputs, and excluded
+        from tree/boundary lists.
+        """
+        inspector = ModelInspector(
+            _SimpleConvModel(),
+            (torch.randn(1, 3, 8, 8),),
+            execution_mode=execution_mode,
+        )
+        root = inspector.summary.model
+        linear_op = next(op for op in root.all_ops() if op.op_type == "linear")
+
+        state_inputs = [inp for inp in linear_op.inputs if inp.is_state]
+        state_names = {inp.op_name for inp in state_inputs}
+        assert any("weight" in n for n in state_names), state_names
+        assert any("bias" in n for n in state_names), state_names
+
+        for s in state_inputs:
+            assert s.module_stack == ()
+            assert s.inputs == ()
+
+        all_tree_ops = root.all_ops()
+        for module in root.modules():
+            for s in state_inputs:
+                assert s not in all_tree_ops
+                assert all(e.op != s for edges in module.input_ops.values() for e in edges)
+                assert all(e.op != s for e in module.output_ops.values())
+
+        # State ops: _display_name drops any dotted prefix (e.g., "fc.weight" → "weight")
+        # to match the suffix-only matching supported by state configs today.
+        for s in state_inputs:
+            assert s._display_name == s.op_name.rsplit(".", 1)[-1]
+            assert "." not in s._display_name
+            assert s._display_name != s.op_name
+
+        # Non-state ops: _display_name equals op_name.
+        assert linear_op._display_name == linear_op.op_name
+
+    def test_state_ops_for_buffers(self, execution_mode: ExecutionMode) -> None:
+        """Verify registered buffers consumed by ops appear as is_state=True OpInfos."""
+
+        class _WithBuffer(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.register_buffer("scale", torch.tensor(2.0))
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                return x * self.scale
+
+        inspector = ModelInspector(
+            _WithBuffer(),
+            (torch.randn(1, 10),),
+            execution_mode=execution_mode,
+        )
+        mul_op = next(op for op in inspector.summary.model.all_ops() if op.op_type == "mul")
+        state_inputs = [inp for inp in mul_op.inputs if inp.is_state]
+        assert len(state_inputs) == 1
+        assert "scale" in state_inputs[0].op_name
+
+    def test_shared_state_is_not_duplicated(self, execution_mode: ExecutionMode) -> None:
+        """Verify a parameter referenced by multiple ops yields a single shared state OpInfo.
+
+        A parameter used more than once in ``forward`` should resolve to the same
+        ``_OpInfo`` instance each time, not distinct duplicates that merely compare
+        equal via ``op_name``.
+        """
+
+        class _SharedWeightModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.weight = nn.Parameter(torch.randn(10, 10))
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                y = torch.matmul(x, self.weight)
+                return torch.matmul(y, self.weight)
+
+        inspector = ModelInspector(
+            _SharedWeightModel(),
+            (torch.randn(1, 10),),
+            execution_mode=execution_mode,
+        )
+
+        state_inputs = [
+            next(inp for inp in op.inputs if inp.is_state)
+            for op in inspector.summary.model.all_ops()
+            if any(inp.is_state for inp in op.inputs)
+        ]
+        assert len(state_inputs) == 2, "expected two ops to reference the weight"
+        assert state_inputs[0].op is state_inputs[1].op, (
+            "both references should resolve to the same state OpInfo instance"
+        )
+
+    def test_boundary_ops_topological_order(self, execution_mode: ExecutionMode) -> None:
+        """Verify input_ops and output_ops of a module are in topological order.
+
+        Uses a model where the root has two parallel child modules feeding into a
+        combine op, so naive DFS ordering would differ from topological order.
+        """
+
+        class _ParallelModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.branch_a = nn.Linear(4, 4)
+                self.branch_b = nn.Linear(4, 4)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                u = self.branch_a(x)
+                v = self.branch_b(x)
+                return u + v
+
+        inspector = ModelInspector(
+            _ParallelModel(),
+            (torch.randn(1, 4),),
+            execution_mode=execution_mode,
+        )
+        root = inspector.summary.model
+        branch_a = root.child_modules["branch_a"]
+        branch_b = root.child_modules["branch_b"]
+
+        # Each branch has exactly one input spec index (key) with one edge (the linear).
+        assert len(branch_a.input_ops) == 1
+        assert len(branch_a.output_ops) == 1
+        assert len(branch_b.input_ops) == 1
+        assert len(branch_b.output_ops) == 1
+
+        # Both branches consume x from outside root. In graph mode each branch gets its
+        # own spec_idx in root.input_ops; in eager mode both share spec_idx 0 (x appears
+        # once in root's forward args and fans out to both branches).
+        all_root_edges = [e for edges in root.input_ops.values() for e in edges]
+        root_op_names = [e.op.op_name for e in all_root_edges]
+        assert any(
+            "branch_a" in n or "branch_a" in str(e.op.module_stack)
+            for e, n in zip(all_root_edges, root_op_names, strict=True)
+        )
+        assert any(
+            "branch_b" in n or "branch_b" in str(e.op.module_stack)
+            for e, n in zip(all_root_edges, root_op_names, strict=True)
+        )
+
+        # branch_a's ops appear before branch_b's ops in the all_ops list (execution order).
+        all_ops = inspector.summary.model.all_ops()
+        all_op_names = [op.op_name for op in all_ops]
+        branch_a_edge = branch_a.input_ops[0][0]
+        branch_b_edge = branch_b.input_ops[0][0]
+        assert all_op_names.index(branch_a_edge.op.op_name) < all_op_names.index(
+            branch_b_edge.op.op_name
+        )
+
+        # Root input_ops preserves topological order. Find each edge's position as
+        # (spec_idx, list_idx) and compare — works whether branches share a spec_idx
+        # (eager: both at 0) or each has its own (graph: 0 and 1).
+        def _edge_pos(ops: dict, edge: BoundaryEdge) -> tuple[int, int]:
+            for spec_idx, edges in sorted(ops.items()):
+                for list_idx, e in enumerate(edges):
+                    if e == edge:
+                        return (spec_idx, list_idx)
+            raise AssertionError(f"edge not found: {edge}")
+
+        assert _edge_pos(root.input_ops, branch_a_edge) < _edge_pos(root.input_ops, branch_b_edge)
+
+    def test_op_inputs_index_with_state_before_activation(
+        self, execution_mode: ExecutionMode
+    ) -> None:
+        """Verify op input dict key reflects full arg position when a state precedes an activation.
+
+        In both graph and eager mode, when a model parameter appears at an earlier argument
+        position than an activation (e.g., torch.mm(self.weight, x)), the state occupies
+        arg index 0 and the activation occupies arg index 1. The op inputs dict must show
+        key 1 for the activation, not key 0, because the key is the full arg position
+        (= op_input_spec index), not the position within non-state inputs only.
+        """
+
+        class _WeightFirstModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.weight = nn.Parameter(torch.randn(4, 4))
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                return torch.mm(self.weight, x)
+
+        inspector = ModelInspector(
+            _WeightFirstModel(),
+            (torch.randn(4, 4),),
+            execution_mode=execution_mode,
+        )
+        # Find the op: state at arg 0, activation at arg 1.
+        mm_op = next(
+            op
+            for op in inspector.summary.model.all_ops()
+            if len(op.inputs) >= 2 and op.inputs[0].is_state and not op.inputs[1].is_state
+        )
+
+        assert mm_op.inputs[0].is_state
+        assert not mm_op.inputs[1].is_state
+
+        # Formatted output must show the activation at dict key 1, not 0.
+        formatted = inspector.format_summary(colorize=False)
+        assert "op inputs:  {1:" in formatted
+
+    def test_raw_attribute_untracked_in_eager_state_in_graph(
+        self, execution_mode: ExecutionMode
+    ) -> None:
+        """Verify a raw tensor attribute appears as untracked in eager, as a state in graph.
+
+        ``self.mask = torch.ones(8)`` is not registered as a parameter or buffer.
+        In eager mode the inspector cannot trace its origin, so it appears as
+        ``untracked_N`` at arg index 1 of the consuming op.  In graph mode
+        ``torch.export`` captures it as a ``get_attr`` node, so it shows up as a
+        state input.
+        """
+
+        class _ModelWithRawAttribute(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+                self.mask = torch.ones(8)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                return self.linear(x) * self.mask
+
+        inspector = ModelInspector(
+            _ModelWithRawAttribute(),
+            (torch.randn(2, 8),),
+            execution_mode=execution_mode,
+        )
+        ops = inspector.summary.model.all_ops()
+        mul_op = next(op for op in ops if op.op_type == "mul")
+        mul_non_state_inputs = [inp for inp in mul_op.inputs if not inp.is_state]
+        mul_state_inputs = [inp for inp in mul_op.inputs if inp.is_state]
+
+        if execution_mode == ExecutionMode.EAGER:
+            # mask is not registered — shows as untracked at arg index 1
+            assert len(mul_non_state_inputs) == 2
+            assert any(inp.op_name.startswith("untracked_") for inp in mul_non_state_inputs)
+            assert not any("mask" in inp.op_name for inp in mul_state_inputs)
+        else:
+            # graph mode: FX captures self.mask as get_attr → state
+            assert len(mul_non_state_inputs) == 1
+            assert any("mask" in inp.op_name for inp in mul_state_inputs)
+
+    def test_global_tensor_untracked_in_eager_state_in_graph(
+        self, execution_mode: ExecutionMode
+    ) -> None:
+        """Verify a global tensor appears as untracked in eager, as a lifted state in graph.
+
+        A module-level Python global (``_BIAS = torch.zeros(8)``) has no registered
+        name in the model.  Eager mode cannot trace it and marks it ``untracked_N``
+        at arg index 1.  Graph mode lifts it as a ``lifted_tensor_N`` placeholder
+        which the inspector treats as a state.
+        """
+        _bias = torch.zeros(8)
+
+        class _ModelWithGlobalTensor(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                return self.linear(x) + _bias
+
+        inspector = ModelInspector(
+            _ModelWithGlobalTensor(),
+            (torch.randn(2, 8),),
+            execution_mode=execution_mode,
+        )
+        ops = inspector.summary.model.all_ops()
+        add_op = next(op for op in ops if op.op_type == "add")
+        add_non_state_inputs = [inp for inp in add_op.inputs if not inp.is_state]
+        add_state_inputs = [inp for inp in add_op.inputs if inp.is_state]
+
+        if execution_mode == ExecutionMode.EAGER:
+            # global tensor is untracked — appears at arg index 1
+            assert len(add_non_state_inputs) == 2
+            assert any(inp.op_name.startswith("untracked_") for inp in add_non_state_inputs)
+        else:
+            # graph mode: torch.export lifts the global as a lifted_tensor placeholder
+            assert len(add_non_state_inputs) == 1
+            assert len(add_state_inputs) >= 1
+
+    def test_shared_module_op_count_and_boundaries(self, execution_mode: ExecutionMode) -> None:
+        """Verify shared module handling for eager and graph modes.
+
+        Eager mode only captures ops from the *first* traversal of a shared module
+        (subsequent calls are blocked by ``traversed_modules``), but re-registers
+        the second traversal's output tensor so downstream modules resolve it.
+        Graph mode sees both calls as separate nodes.
+        """
+
+        class _ModelWithSharedModule(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.shared = nn.Linear(8, 8)
+                self.tail = nn.Linear(8, 8)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                x = self.shared(x)
+                x = self.shared(x)
+                return self.tail(x)
+
+        inspector = ModelInspector(
+            _ModelWithSharedModule(),
+            (torch.randn(2, 8),),
+            execution_mode=execution_mode,
+        )
+        root = inspector.summary.model
+        shared = root.child_modules.get("shared")
+        tail = root.child_modules.get("tail")
+        assert shared is not None
+        assert tail is not None
+
+        if execution_mode == ExecutionMode.EAGER:
+            # Only the first traversal is recorded; second is skipped.
+            assert len(shared.ops) == 1
+            shared_linear = shared.ops[0]
+            assert shared_linear.op_name == "shared.linear"
+
+            # shared.linear's output goes to tail.linear (via the re-registered
+            # second-traversal output tensor pointing back to the first traversal).
+            assert shared_linear.outputs[0] == (
+                next(op for op in tail.ops if op.op_name == "tail.linear"),
+            )
+
+            # tail.linear's first input comes from shared.linear.
+            tail_linear = next(op for op in tail.ops if op.op_name == "tail.linear")
+            assert tail_linear.inputs[0].op.op_name == "shared.linear"
+        else:
+            # graph mode unfolds both calls as distinct nodes.
+            # Graph mode unfolds both calls as distinct nodes named linear and linear_1.
+            assert len(shared.ops) == 2
+            linear_1 = next(op for op in shared.ops if op.op_name == "linear_1")
+
+            # linear feeds into linear_1 (second call reuses the shared weights).
+            assert linear_1.inputs[0].op.op_name == "linear"
+
+            # linear_1's output goes to tail's linear_2.
+            tail_linear = next(op for op in tail.ops if op.op_name == "linear_2")
+            assert tail_linear.inputs[0].op.op_name == "linear_1"
+
 
 class TestModelInspectorValidation:
     """Tests for ModelInspector input validation."""
@@ -551,7 +1120,7 @@ class TestModelInspectorValidation:
         with pytest.raises(TypeError, match="Expected a torch.fx.GraphModule or torch.nn.Module"):
             ModelInspector("not a module", (torch.randn(1),), execution_mode="graph")
 
-    @execution_modes
+    @pytest.mark.parametrize("execution_mode", [ExecutionMode.GRAPH, ExecutionMode.EAGER])
     def test_example_input_none(self, execution_mode: ExecutionMode) -> None:
         """Verify ValueError for example_inputs of None when model not a GraphModule and
         execution_mode is not ExecutionMode.GRAPH."""
@@ -567,12 +1136,6 @@ class TestModelInspectorValidation:
         )
         with pytest.raises(TypeError, match="Expected a torch.nn.Module for Eager execution_mode"):
             ModelInspector(gm, (torch.randn(1, 10),), execution_mode="eager")
-
-    def test_eager_raises_not_implemented(self) -> None:
-        """Verify NotImplementedError for eager mode (not yet supported)."""
-        model = nn.Linear(10, 5)
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            ModelInspector(model, (torch.randn(1, 10),), execution_mode="eager")
 
     def test_invalid_execution_mode_raises(self) -> None:
         """Verify ValueError for unrecognized execution mode."""
@@ -594,3 +1157,325 @@ class TestModelInspectorValidation:
                 execution_mode="graph",
                 compressor=_FakeCompressor,
             )
+
+    def test_palettizer_in_graph_mode_raises(self) -> None:
+        """Verify ValueError when using KMeansPalettizer with graph mode."""
+        model = nn.Linear(10, 5)
+        with pytest.raises(ValueError, match="not supported in graph mode"):
+            ModelInspector(
+                model,
+                (torch.randn(1, 10),),
+                execution_mode="graph",
+                compressor=KMeansPalettizer,
+            )
+
+
+class TestEagerModeSpecific:
+    """Tests specific to eager mode behavior."""
+
+    def test_dynamic_control_flow(self) -> None:
+        """Verify eager mode handles dynamic control flow (if/else)."""
+
+        class _DynamicModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.branch_a = nn.Linear(10, 10)
+                self.branch_b = nn.Linear(10, 10)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                if x.sum() > 0:
+                    return self.branch_a(x)
+                else:
+                    return self.branch_b(x)
+
+        model = _DynamicModel()
+        # Positive input takes branch_a
+        inspector = ModelInspector(
+            model, (torch.ones(1, 10),), execution_mode="eager", compressor=Quantizer
+        )
+        op_names = [op.op_name for op in inspector.summary.model.all_ops()]
+        assert "branch_a.linear" in op_names
+        assert "branch_b.linear" not in op_names
+
+        # Negative input takes branch_b
+        inspector = ModelInspector(
+            model, (-1.0 * torch.ones(1, 10),), execution_mode="eager", compressor=Quantizer
+        )
+        op_names = [op.op_name for op in inspector.summary.model.all_ops()]
+        assert "branch_b.linear" in op_names
+        assert "branch_a.linear" not in op_names
+
+    def test_shared_module_only_captured_once(self) -> None:
+        """Verify shared module instances only produce ops on first traversal."""
+
+        class _SharedModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.shared = nn.Linear(10, 10)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                x = self.shared(x)
+                x = self.shared(x)
+                return x
+
+        inspector = ModelInspector(
+            _SharedModel(),
+            (torch.randn(1, 10),),
+            execution_mode="eager",
+            compressor=Quantizer,
+        )
+        ops = inspector.summary.model.all_ops()
+        linear_ops = [op for op in ops if op.op_type == "linear"]
+        assert len(linear_ops) == 1
+
+    def test_passthrough_submodule_has_empty_boundary(self) -> None:
+        """Verify a submodule that returns its input unchanged has empty output_ops.
+
+        When a module's output tensor is the same as its input (not produced by any
+        op in the subtree), the corresponding ``_module_output_producers`` entry has
+        ``output_idx=None``. The guard in ``_populate_boundary_ops_eager`` should
+        skip it, leaving ``output_ops`` empty.
+        """
+
+        class _SideEffectModule(nn.Module):
+            """Has an internal op but returns its input unchanged."""
+
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear = nn.Linear(4, 4)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                _ = self.linear(x)  # runs an op internally, but output is discarded
+                return x  # returns the original input — not produced by any subtree op
+
+        class _Wrapper(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.inner = _SideEffectModule()
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                return self.inner(x)
+
+        inspector = ModelInspector(
+            _Wrapper(),
+            (torch.randn(1, 4),),
+            execution_mode="eager",
+        )
+        inner = inspector.summary.model.child_modules.get("inner")
+        assert inner is not None
+        assert inner.output_ops == {}
+
+    def test_palettizer_compressor(self) -> None:
+        """Verify KMeansPalettizer filters to only palettization-supported ops."""
+        inspector = ModelInspector(
+            _SimpleConvModel(),
+            (torch.randn(1, 3, 8, 8),),
+            execution_mode="eager",
+            compressor=KMeansPalettizer,
+        )
+        ops = inspector.summary.model.all_ops()
+        op_types = {op.op_type for op in ops}
+        # KMeansPalettizer supports conv and linear but not add/mul/relu
+        assert "conv2d" in op_types
+        assert "linear" in op_types
+
+    def test_input_output_op_names(self) -> None:
+        """Verify eager mode names module-level input/output ops as ``input_i``/``output_i``."""
+        inspector = ModelInspector(
+            _SimpleConvModel(),
+            (torch.randn(1, 3, 8, 8),),
+            execution_mode="eager",
+        )
+        root = inspector.summary.model
+        conv_op = next(op for op in root.all_ops() if op.op_type == "conv2d")
+        linear_op = next(op for op in root.all_ops() if op.op_type == "linear")
+
+        placeholder_names = {
+            inp.op_name for inp in conv_op.inputs if not inp.module_stack and not inp.is_state
+        }
+        assert "input_0" in placeholder_names
+
+        output_names = {
+            out.op_name
+            for consumers in linear_op.outputs.values()
+            for out in consumers
+            if not out.module_stack and not out.is_state
+        }
+        assert "output_0" in output_names
+
+    def test_input_ops_one_per_input_tensor(self) -> None:
+        """Verify each forward-argument tensor gets its own ``input_i`` OpInfo."""
+
+        class _TwoInputs(nn.Module):
+            def forward(self, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+                return a + b
+
+        inspector = ModelInspector(
+            _TwoInputs(),
+            (torch.randn(1, 10), torch.randn(1, 10)),
+            execution_mode="eager",
+        )
+        add_op = next(op for op in inspector.summary.model.all_ops() if op.op_type == "add")
+        placeholder_names = {
+            inp.op_name for inp in add_op.inputs if not inp.module_stack and not inp.is_state
+        }
+        assert placeholder_names == {"input_0", "input_1"}
+
+    def test_source_frames_include_nested_forward_calls(self) -> None:
+        """Verify eager mode captures source frames from all forward() methods on the call stack.
+
+        Graph mode exercises source-frame extraction in
+        :py:meth:`TestModelInspector.test_source_frames`; this test is eager-specific
+        because it asserts the multi-frame stack ordering unique to runtime interception.
+        """
+        inspector = ModelInspector(
+            _NestedModel(),
+            (torch.randn(1, 3, 8, 8),),
+            execution_mode="eager",
+        )
+        # conv1 lives inside _Encoder.forward() which is called by _NestedModel.forward():
+        # the source stack should contain at least two forward frames, outermost first.
+        conv_op = next(
+            op for op in inspector.summary.model.all_ops() if op.op_name == "encoder.conv1.conv2d"
+        )
+        assert len(conv_op.source_frames) >= 2
+        assert all(f.function_name == "forward" for f in conv_op.source_frames)
+
+    def test_inplace_op_connectivity(self) -> None:
+        """Verify connectivity is correct when in-place ops mutate tensors."""
+
+        class _InPlaceModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear = nn.Linear(10, 10)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                x = self.linear(x)
+                x.relu_()
+                x = x + 1
+                return x
+
+        inspector = ModelInspector(
+            _InPlaceModel(),
+            (torch.randn(1, 10),),
+            execution_mode="eager",
+        )
+        ops = inspector.summary.model.all_ops()
+        ops_by_name = {op.op_name: op for op in ops}
+
+        # relu_ is in-place: it consumes linear's output tensor (same id, different version)
+        relu_op = ops_by_name["relu_"]
+        assert len(relu_op.inputs) >= 1
+        assert any("linear" in inp.op_name for inp in relu_op.inputs)
+
+        # add consumes relu_'s output (the mutated tensor)
+        add_op = ops_by_name["add"]
+        assert len(add_op.inputs) >= 1
+        assert any("relu_" in inp.op_name for inp in add_op.inputs)
+
+    def test_weakref_removes_producer_on_dealloc(self) -> None:
+        """Verify ``_tensor_producers`` entries are cleaned up when tensors die.
+
+        ``_record_outputs`` registers a ``weakref.finalize`` callback that
+        removes the producer entry when the tensor is deallocated. In CPython
+        this fires deterministically when the tensor's refcount hits zero
+        (no cyclic references involved here), so we can assert directly
+        without relying on ``gc.collect`` heuristics.
+        """
+        mode = _EagerOpDiscoveryMode(nn.Linear(3, 3))
+        tensor = torch.randn(3)
+        op = OpInfo(
+            op_name="fake",
+            op_type="fake",
+            module_stack=(),
+            source_frames=(),
+            inputs=(),
+            outputs={},
+            is_state=False,
+        )
+        mode._record_outputs(tensor, op)
+        key = TensorIdVersion(id(tensor), tensor._version)
+        assert mode._tensor_producers[key] == InputEdge(op=op, output_idx=0)
+        del tensor
+        assert key not in mode._tensor_producers
+
+    def test_input_ops_disambiguates_multi_output_external_producer(self) -> None:
+        """Verify input_ops correctly separates consumers of distinct outputs from the same op.
+
+        When a multi-output external producer (e.g. chunk) feeds two of its outputs into
+        a module as separate forward args, input_ops[0] should only list ops that consume
+        output slot 0 and input_ops[1] should only list ops that consume output slot 1.
+        The bug: keying external_to_consumers by op_name alone merges both consumer sets
+        under the same key, so both spec positions get the wrong combined list.
+        """
+
+        class _Inner(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear_a = nn.Linear(4, 4)
+                self.linear_b = nn.Linear(4, 4)
+
+            def forward(self, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+                return self.linear_a(a) + self.linear_b(b)
+
+        class _ChunkModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.inner = _Inner()
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                a, b = torch.chunk(x, 2, dim=-1)
+                return self.inner(a, b)
+
+        inspector = ModelInspector(
+            _ChunkModel(),
+            (torch.randn(1, 8),),
+            execution_mode="eager",
+        )
+        inner = inspector.summary.model.child_modules["inner"]
+
+        assert set(inner.input_ops.keys()) == {0, 1}
+        ops_at_0 = {e.op.op_name for e in inner.input_ops[0]}
+        ops_at_1 = {e.op.op_name for e in inner.input_ops[1]}
+        assert ops_at_0 == {"inner.linear_a.linear"}
+        assert ops_at_1 == {"inner.linear_b.linear"}
+
+    def test_state_detection_after_inplace_mutation_via_view(self) -> None:
+        """Verify state ops are still detected after their _version advances through a view.
+
+        When a buffer is mutated in-place via a view (e.g., ``self.counter.view(-1).add_(1.0)``),
+        the mutation increments ``self.counter._version`` without changing ``id(self.counter)``.
+        The inspector must still recognise ``counter`` as a state input to any op that later
+        consumes it.
+
+        Before the fix, ``_states_to_names`` was keyed by
+        ``TensorIdVersion(id(state), state._version)`` captured at ``__init__``. After the
+        in-place mutation the version had advanced, so the lookup missed and counter was silently
+        dropped from the consuming op's ``inputs``. Graph mode was unaffected because it identifies
+        states via ``node.op == "get_attr"`` rather than tensor identity. The fix keys
+        ``_states_to_names`` by ``id(state)`` only, which is stable for the model's lifetime.
+        """
+
+        class _CounterModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear = nn.Linear(4, 4)
+                self.register_buffer("counter", torch.zeros(1))
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                # Mutate counter through a view — advances counter._version without
+                # changing id(counter).
+                self.counter.view(-1).add_(1.0)
+                x = self.linear(x)
+                return x + self.counter
+
+        inspector = ModelInspector(
+            _CounterModel(),
+            (torch.randn(1, 4),),
+            execution_mode="eager",
+        )
+        add_op = next(op for op in inspector.summary.model.all_ops() if op.op_type == "add")
+        state_names = {inp.op_name for inp in add_op.inputs if inp.is_state}
+        assert any("counter" in name for name in state_names), (
+            f"counter not found in state inputs of add op; states found: {state_names}"
+        )

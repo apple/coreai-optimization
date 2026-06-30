@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 from enum import auto
 from typing import TYPE_CHECKING, ClassVar, NamedTuple, Self, TypeAlias, final
 
@@ -33,6 +34,9 @@ if TYPE_CHECKING:
         _ModuleQuantizerConfigPresets,
         _QuantizerConfigPresets,
     )
+
+
+logger = logging.getLogger(__name__)
 
 
 class QATSchedule(BaseModel):
@@ -443,6 +447,111 @@ class ModuleQuantizerConfig(ModuleCompressionConfig[OpQuantizerConfig, Quantizat
     presets: ClassVar[_ModuleQuantizerConfigPresets]
 
 
+class KVCacheQuantConfig(BaseModel):
+    """Enables KV-cache buffer storage in a quantized dtype for one cache-update op type.
+
+    Carries the cache-update op's quantization spec inline (via ``op_quantizer_config``)
+    and is the finalize-side switch that promotes the resulting fake-quant to stored
+    quantization: the dequantize is relocated from the op's input to its output and
+    the cache buffer is retyped to the quantized dtype.
+
+    Used as a value in :attr:`QuantizerConfig.kv_cache_quant_configs`, which maps the
+    short op-type name to a config.
+
+    Precondition on the cache op: it must commute with quantize/dequantize —
+    i.e. a pure data-movement op (slicing, narrowing, copy). Arithmetic on
+    cached values would silently produce a numerically wrong model.
+
+    During ``prepare``, the cache spec is applied as a global-only knob with
+    highest priority: any prior annotation on the cache op — from any scope, by
+    any mechanism (including module-scope ``op_input_spec={"*": ...}``
+    wildcards) — is **hard-overridden**, not merged. A warning is emitted at
+    config-construction time when explicit ``op_type_config[op]`` collisions
+    are detected. See :meth:`QuantizerConfig._validate_kv_cache_quant_configs`.
+
+    Attributes:
+        op_quantizer_config: ``OpQuantizerConfig`` whose ``op_input_spec`` selects the
+            input edge to quantize. The int key indexes the op's tensor-valued,
+            deduplicated inputs (``node.all_input_nodes``). ``op_input_spec`` must
+            contain exactly one key (no ``"*"``, no multi-key dicts) because the
+            finalize-side relocation needs a single, unambiguous input edge to act on.
+            ``op_output_spec`` and ``op_state_spec`` must be explicitly set to None
+            (or empty); ``OpQuantizerConfig`` otherwise applies non-None defaults
+            which the validator rejects.
+
+    Example:
+        >>> QuantizerConfig(
+        ...     execution_mode="graph",
+        ...     global_config=ModuleQuantizerConfig(...),
+        ...     kv_cache_quant_configs={
+        ...         "mutable_cache_update_and_fetch": KVCacheQuantConfig(
+        ...             op_quantizer_config=OpQuantizerConfig(
+        ...                 op_input_spec={1: default_activation_quantization_spec()},
+        ...                 op_output_spec=None,
+        ...                 op_state_spec=None,
+        ...             ),
+        ...         ),
+        ...     },
+        ... )
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    op_quantizer_config: OpQuantizerConfig
+
+    @model_validator(mode="after")
+    def _validate_op_quantizer_config(self) -> Self:
+        oqc = self.op_quantizer_config
+
+        # op_input_spec: exactly one non-negative int key (the input index of
+        # the new K/V) mapped to a non-None QuantizationSpec. "*" and multi-key
+        # forms break the finalize pass's single-edge contract; a None value
+        # would disable quantization on that edge, leaving the finalize pass
+        # with no dtype to retype the cache buffer to.
+        spec = oqc.op_input_spec or {}
+        nonneg_int_keys = [
+            k for k in spec.keys() if isinstance(k, int) and not isinstance(k, bool) and k >= 0
+        ]
+        if len(nonneg_int_keys) != 1 or len(spec) != 1:
+            raise ValueError(
+                "KVCacheQuantConfig.op_quantizer_config.op_input_spec must "
+                "contain exactly one key, which must be a non-negative int "
+                f"(the input index of the new K/V); got keys {list(spec.keys())!r}."
+            )
+        if next(iter(spec.values())) is None:
+            raise ValueError(
+                "KVCacheQuantConfig.op_quantizer_config.op_input_spec must map "
+                "its int key to a non-None QuantizationSpec."
+            )
+
+        # op_output_spec must be empty/None: the finalize pass synthesizes the
+        # output dequantize itself; a user-supplied output spec would either
+        # double-quantize or conflict with the relocated dq.
+        if oqc.op_output_spec:
+            raise ValueError(
+                "KVCacheQuantConfig.op_quantizer_config.op_output_spec must be "
+                "empty or None; the finalize pass inserts the output dequantize."
+            )
+
+        # op_state_spec must be empty/None: cache-update ops have no learnable
+        # state (the cache buffer is an input, not a parameter).
+        if oqc.op_state_spec:
+            raise ValueError(
+                "KVCacheQuantConfig.op_quantizer_config.op_state_spec must be "
+                "empty or None; cache-update ops have no learnable state."
+            )
+        return self
+
+    @property
+    def quant_input_idx(self) -> int:
+        """The single int key in ``op_quantizer_config.op_input_spec``.
+
+        Indexes the cache op's ``all_input_nodes`` (tensor-valued, deduplicated
+        inputs) — see ``op_quantizer_config`` for details.
+        """
+        return next(iter(self.op_quantizer_config.op_input_spec))
+
+
 @final
 class QuantizerConfig(CompressionConfig[ModuleQuantizerConfig]):
     """Top-level configuration class for quantization.
@@ -501,6 +610,17 @@ class QuantizerConfig(CompressionConfig[ModuleQuantizerConfig]):
                 Supports dynamic control flow (if/else, loops) and doesn't require ``torch.export``.
 
             Default: ExecutionMode.GRAPH
+
+        kv_cache_quant_configs (dict[str, KVCacheQuantConfig] | None): Optional
+            mapping from short op-type name (as returned by ``get_node_type``,
+            to the cache-update op's ``KVCacheQuantConfig``. Each entry enables
+            storing the corresponding KV-cache buffer in a quantized dtype: it
+            carries the op's ``OpQuantizerConfig`` inline and triggers a finalize-side
+            rewrite that relocates the dequantize from the op's input to its
+            output. Graph mode only; rejected for eager mode by
+            :meth:`_validate_kv_cache_quant_configs`. See
+            :class:`KVCacheQuantConfig` for details.
+            Default: None (no KV-cache buffer quantization)
 
     Example:
         >>> # Create default quantizer config (auto-creates int8 global
@@ -566,6 +686,49 @@ class QuantizerConfig(CompressionConfig[ModuleQuantizerConfig]):
 
     preserved_attributes: list[str] | None = None
     execution_mode: ExecutionMode = ExecutionMode.GRAPH
+    kv_cache_quant_configs: dict[str, KVCacheQuantConfig] | None = None
+
+    @model_validator(mode="after")
+    def _validate_kv_cache_quant_configs(self) -> Self:
+        """Enforce graph-mode-only and warn on duplicate ``op_type_config[op]`` entries.
+
+        Each cache op's spec is carried inline by ``kv_cache_quant_configs[op]``. If the
+        same op key also appears under any ``op_type_config`` (in ``global_config``,
+        ``module_type_configs``, or ``module_name_configs``), warns that the
+        ``kv_cache_quant_configs`` entry will override it — the override is applied at
+        prepare time by ``_AnnotationHandler._override_cache_op_annotations`` and does
+        not mutate the user's ``QuantizerConfig``.
+        """
+        if not self.kv_cache_quant_configs:
+            return self
+
+        if self.execution_mode != ExecutionMode.GRAPH:
+            raise ValueError(
+                f"kv_cache_quant_configs is only supported with "
+                f"ExecutionMode.GRAPH (got {self.execution_mode!r})."
+            )
+
+        for op in self.kv_cache_quant_configs:
+            warnings_list: list[str] = []
+            if self.global_config is not None and op in (self.global_config.op_type_config or {}):
+                warnings_list.append("global_config.op_type_config")
+            for scope_name, scope_dict in (
+                ("module_type_configs", self.module_type_configs),
+                ("module_name_configs", self.module_name_configs),
+            ):
+                for module_key, module_cfg in (scope_dict or {}).items():
+                    if module_cfg is not None and op in (module_cfg.op_type_config or {}):
+                        warnings_list.append(f"{scope_name}[{module_key!r}].op_type_config")
+
+            if warnings_list:
+                logger.warning(
+                    "kv_cache_quant_configs[%r] is also present in %s; the "
+                    "kv_cache_quant_configs entry will win at prepare time and the "
+                    "duplicate entries will be ignored.",
+                    op,
+                    ", ".join(warnings_list),
+                )
+        return self
 
     def set_execution_mode(self, mode: ExecutionMode | str) -> Self:
         """Set the quantization execution mode.

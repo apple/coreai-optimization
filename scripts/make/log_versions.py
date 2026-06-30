@@ -8,12 +8,11 @@
 """Log package versions and Python executable information."""
 
 import sys
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import PackageNotFoundError, distributions, version
 
-PACKAGES: dict[str, list[str]] = {
-    "Torch": ["torch", "torchvision", "torchao"],
-    "CoreAI": ["coreai-core", "coreai-torch"],
-}
+TORCH_PACKAGES: list[str] = ["torch", "torchvision", "torchao"]
+
+COREAI_NAME_SUBSTRING = "coreai"
 
 
 def _get_version(pkg: str) -> str:
@@ -23,14 +22,32 @@ def _get_version(pkg: str) -> str:
         return "not installed"
 
 
+def _find_coreai_versions() -> dict[str, str]:
+    """Return {name: version} for every installed distribution whose name contains 'coreai'."""
+    found: dict[str, str] = {}
+    for dist in distributions():
+        name = dist.name
+        if name and COREAI_NAME_SUBSTRING in name.lower():
+            found[name] = dist.version
+    return dict(sorted(found.items()))
+
+
 def main() -> None:
     print("=== Python ===")
     print(f"Python version: {sys.version}")
     print(f"Python executable: {sys.executable}")
-    for section, packages in PACKAGES.items():
-        print(f"=== {section} ===")
-        for pkg in packages:
-            print(f"{pkg}: {_get_version(pkg)}")
+
+    print("=== Torch ===")
+    for pkg in TORCH_PACKAGES:
+        print(f"{pkg}: {_get_version(pkg)}")
+
+    print("=== CoreAI ===")
+    coreai_versions = _find_coreai_versions()
+    if coreai_versions:
+        for name, pkg_version in coreai_versions.items():
+            print(f"{name}: {pkg_version}")
+    else:
+        print("no coreai packages installed")
 
 
 if __name__ == "__main__":

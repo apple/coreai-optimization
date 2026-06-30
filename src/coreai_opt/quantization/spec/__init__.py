@@ -14,10 +14,13 @@ from .granularity import (
 )
 from .qformulation import QuantizationFormulation
 from .qparams_calculator import (
+    DynamicQParamsCalculator,
     GlobalMinMaxQParamsCalculator,
     MovingAverageQParamsCalculator,
     QParamsCalculatorBase,
     RunningRangeMixin,
+    StatefulQParamsCalculatorBase,
+    StatelessQParamsCalculatorBase,
     StaticQParamsCalculator,
 )
 from .qscheme import QuantizationScheme
@@ -29,6 +32,7 @@ from .spec import (
 )
 
 __all__ = [
+    "DynamicQParamsCalculator",
     "GlobalMinMaxQParamsCalculator",
     "MinMaxRangeCalculator",
     "MovingAverageQParamsCalculator",
@@ -43,6 +47,8 @@ __all__ = [
     "QuantizationSpec",
     "RangeCalculatorBase",
     "RunningRangeMixin",
+    "StatefulQParamsCalculatorBase",
+    "StatelessQParamsCalculatorBase",
     "StaticQParamsCalculator",
     "default_activation_quantization_spec",
     "default_weight_quantization_spec",

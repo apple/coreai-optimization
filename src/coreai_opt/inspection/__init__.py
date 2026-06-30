@@ -21,9 +21,19 @@ Example::
 """
 
 from .model_inspector import ModelInspector
-from .types import ModelSummary, ModuleContext, ModuleInfo, OpInfo, SourceFrame
+from .types import (
+    BoundaryEdge,
+    InputEdge,
+    ModelSummary,
+    ModuleContext,
+    ModuleInfo,
+    OpInfo,
+    SourceFrame,
+)
 
 __all__ = [
+    "BoundaryEdge",
+    "InputEdge",
     "ModelInspector",
     "ModelSummary",
     "ModuleContext",

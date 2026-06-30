@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
+from coreai_opt._utils.fx_utils import get_local_state_name as _get_local_state_name
 from coreai_opt.quantization.config.quantization_config import ExecutionMode
 
 
@@ -53,6 +54,54 @@ class ModuleContext:
     module_type: str
 
 
+@dataclass(frozen=True)
+class InputEdge:
+    """One input edge into an op, pairing the producing op with its output slot.
+
+    Used as the element type of :attr:`OpInfo.inputs`. Delegation properties
+    forward the most-accessed :class:`OpInfo` attributes so that code iterating
+    ``op.inputs`` does not need to go through ``.op`` for routine checks.
+
+    Attributes:
+        op (OpInfo): The op that produced this input tensor.
+        output_idx (int | None): Which output slot of ``op`` this tensor came from,
+            or ``None`` for synthetic ops (registered states, ephemeral/untracked
+            tensors) that have no meaningful output slot.
+    """
+
+    op: OpInfo
+    output_idx: int | None
+
+    # --- delegation properties -------------------------------------------------
+    @property
+    def op_name(self) -> str:
+        return self.op.op_name
+
+    @property
+    def op_type(self) -> str | None:
+        return self.op.op_type
+
+    @property
+    def is_state(self) -> bool:
+        return self.op.is_state
+
+    @property
+    def module_stack(self) -> tuple[ModuleContext, ...]:
+        return self.op.module_stack
+
+    @property
+    def inputs(self) -> tuple[InputEdge, ...]:
+        return self.op.inputs
+
+    @property
+    def outputs(self) -> dict[int, tuple[OpInfo, ...]]:
+        return self.op.outputs
+
+    @property
+    def _display_name(self) -> str:
+        return self.op._display_name
+
+
 @dataclass(eq=False)
 class OpInfo:
     """Information about a single operation discovered in a model.
@@ -71,20 +120,38 @@ class OpInfo:
         source_frames (tuple[SourceFrame, ...]): Source code locations from outermost
             ``forward()`` to innermost, showing the call chain that produced this op.
             May be empty if source information is unavailable.
-        inputs (tuple[OpInfo, ...]): Ordered input ops (ops, placeholders,
-            parameters) that feed into this op.
-        outputs (tuple[OpInfo, ...]): Consumer ops that receive the output
-            of this op, in graph order.
+        inputs (tuple[InputEdge, ...]): Ordered input edges. Each :class:`InputEdge`
+            carries the producing op and the output slot of that op the tensor came from.
+        outputs (dict[int, tuple[OpInfo, ...]]): Dictionary mapping op outputs to a tuple of ops
+            consuming the output.
+        is_state (bool): ``True`` if this op represents a model parameter or
+            buffer rather than a computation. State ops have an empty
+            ``module_stack`` and do not appear in module tree or boundary lists.
     """
 
     op_name: str
     op_type: str | None
     module_stack: tuple[ModuleContext, ...]
     source_frames: tuple[SourceFrame, ...]
-    inputs: tuple[OpInfo, ...]
-    outputs: tuple[OpInfo, ...]
+    inputs: tuple[InputEdge, ...]
+    outputs: dict[int, tuple[OpInfo, ...]]
+    is_state: bool
 
     _IMMUTABLE_FIELDS: ClassVar[frozenset[str]] = frozenset({"op_name"})
+
+    @property
+    def _display_name(self) -> str:
+        """Name for user-facing output such as ``format_summary``.
+
+        Equal to :attr:`op_name` except for state ops, where only the last
+        dotted component is returned because state-matching configs are
+        currently keyed on that suffix (e.g., a parameter with name ``"conv.weight"``
+        can only be matched with ``"weight"`` in the config). Remove this property
+        once full-FQN state matching lands (rdar://177076777).
+        """
+        if self.is_state:
+            return _get_local_state_name(self.op_name) or self.op_name
+        return self.op_name
 
     def __repr__(self) -> str:
         return f"OpInfo(op_name={self.op_name!r}, op_type={self.op_type!r})"
@@ -116,6 +183,26 @@ class OpInfo:
         super().__delattr__(name)
 
 
+@dataclass(frozen=True)
+class BoundaryEdge:
+    """A single data-flow edge crossing a module boundary.
+
+    Each entry in :attr:`ModuleInfo.input_ops` or :attr:`ModuleInfo.output_ops`
+    corresponds to one quantizer configuration point at the boundary.
+
+    Attributes:
+        op (OpInfo): The op inside the module at the boundary.
+        index (int): For input boundaries: the input slot of ``op`` that
+            receives external data, matching the index used in
+            ``module_input_spec``. For output boundaries: the output slot of
+            ``op`` whose tensor leaves the module, matching the index used in
+            ``module_output_spec``.
+    """
+
+    op: OpInfo
+    index: int
+
+
 @dataclass
 class ModuleInfo:
     """A node in the ``nn.Module`` hierarchy with its directly-owned ops.
@@ -133,18 +220,27 @@ class ModuleInfo:
             ``module_name``, in insertion order.
         ops (list[OpInfo]): Ops directly owned by this module, in
             graph order.
-        input_ops (list[OpInfo]): Ops owned by this module, that receive data from
-            outside this module.
-        output_ops (list[OpInfo]): Ops owned by this module, that send data outside
-            this module.
+        input_ops (dict[int, list[BoundaryEdge]]): Boundary edges where data enters this
+            module from outside. Keys are module input spec indices (positions in the
+            flattened module forward arguments). Values are lists of all
+            ``(op, input_slot)`` pairs that the tensor at that position feeds into inside
+            the module — a single module input tensor can fan out to multiple ops. Keys
+            are absent for positions occupied by state tensors, untracked tensors, or
+            unused arguments. The key is what the user passes to ``module_input_spec``.
+        output_ops (dict[int, BoundaryEdge]): Boundary edges where data leaves this
+            module. Keys are module output spec indices (positions in the flattened
+            module return value). Each key maps to the ``(op, output_slot)`` pair that
+            produces the tensor at that position. Keys are absent for positions occupied
+            by state tensors or untracked tensors. The key is what the user passes to
+            ``module_output_spec``.
     """
 
     module_name: str
     module_type: str
     child_modules: dict[str, ModuleInfo]
     ops: list[OpInfo]
-    input_ops: list[OpInfo]
-    output_ops: list[OpInfo]
+    input_ops: dict[int, list[BoundaryEdge]]
+    output_ops: dict[int, BoundaryEdge]
 
     def children(self) -> Iterator[ModuleInfo]:
         """Yield direct child modules in insertion order."""
