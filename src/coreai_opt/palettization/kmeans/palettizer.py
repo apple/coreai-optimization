@@ -204,7 +204,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 f"Loading precomputed sensitivities from {sensitivity_path} "
                 "for weighted k-means clustering"
             )
-            sensitivities = torch.load(sensitivity_path)
+            sensitivities = torch.load(sensitivity_path, weights_only=True)
             self._set_sensitivities_in_fake_palettize_modules(sensitivities)
 
         self._model.apply(_enable_observer)
