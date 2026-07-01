@@ -20,10 +20,10 @@ concurrency:
 
 jobs:
 
+  # ── Stage 1: cheap correctness gate (ubuntu-latest, ungated). ──
   check:
-    name: macOS / make check
-    if: github.repository == 'apple/coreai-optimization'
-    runs-on: [self-hosted, macos, tahoe, ARM64]
+    name: Linux / make check
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Check out repository
@@ -37,12 +37,47 @@ jobs:
       - name: Run `make check`
         run: make check
 
+  test-smoke:
+    name: Linux / make test-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      INSTALL_PRECOMMIT: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+      - name: Run `make test-smoke`
+        run: make test-smoke
+
+  test-tutorials:
+    name: Linux / make test-tutorials
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      INSTALL_PRECOMMIT: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+      - name: Run `make test-tutorials`
+        run: make test-tutorials
+
+  # ── Stage 2: full test matrix, gated on Stage 1. ──
   macos-tests:
     name: macOS / make test-highest-pytorch / markers=not-slow
-    needs: [check]
+    needs: [check, test-smoke, test-tutorials]
     if: github.repository == 'apple/coreai-optimization'
     runs-on: [self-hosted, macos, tahoe, ARM64]
     timeout-minutes: 60
+    env:
+      INSTALL_PRECOMMIT: "false"
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -57,4 +92,32 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results-macos-highest-fast
+          path: test-results/
+
+  linux-tests:
+    name: Linux / make test-${{ matrix.torch }}-pytorch / markers=${{ matrix.speed == 'slow' && 'slow' || 'not-slow' }}
+    needs: [check, test-smoke, test-tutorials]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      INSTALL_PRECOMMIT: "false"
+    strategy:
+      fail-fast: false
+      matrix:
+        torch: [highest, lowest]
+        speed: [slow, fast]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+      - name: Run `make test-${{ matrix.torch }}-pytorch`
+        run: make test-${{ matrix.torch }}-pytorch PYTEST_ARGS="--marker '${{ matrix.speed == 'slow' && 'slow' || 'not slow' }}' --junit"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-linux-${{ matrix.torch }}-${{ matrix.speed }}
           path: test-results/
