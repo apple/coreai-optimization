@@ -6,6 +6,7 @@
 """Utilities for converting and verifying PyTorch models for export testing."""
 
 import asyncio
+import platform
 import sys
 import tempfile
 from abc import ABC, abstractmethod
@@ -25,9 +26,65 @@ from coremltools import ComputeUnit
 from coreai_opt import CoreMLExportError, ExportBackend
 from tests.test_utils.general import verify_snr_psnr as _verify_snr_psnr
 
+if platform.system() == "Darwin":
+    from coreai.runtime import ComputeUnitKind, SpecializationOptions
+
 # Substring of the dtype guard message raised by the CoreML export validation. Shared so
 # test files asserting the rejection don't drift from one another.
 COREML_DTYPE_REJECTION_MATCH = "CoreML export does not support"
+
+# Compute unit selection driven by the --compute-unit-kind pytest option (see
+# tests/conftest.py). Default is "interpreter" so a plain `pytest` run uses the
+# bundled runtime.
+_COMPUTE_UNIT_KIND: str = "interpreter"
+
+
+def set_test_compute_unit_kind(name: str) -> None:
+    """Set the compute unit used by ``MLIRConverter`` inference.
+
+    Called from tests/conftest.py::pytest_configure based on --compute-unit-kind.
+
+    Args:
+        name (str): One of "interpreter", "cpu", "gpu", or "neural_engine".
+    """
+    global _COMPUTE_UNIT_KIND
+    _COMPUTE_UNIT_KIND = name
+
+
+def _get_test_specialization_options() -> "SpecializationOptions | None":
+    """Translate the configured compute unit into ``SpecializationOptions`` (or None).
+
+    On non-macOS platforms only ``interpreter`` is supported — the runtime does
+    not expose ``SpecializationOptions`` outside Darwin.
+
+    Returns:
+        SpecializationOptions | None: ``None`` for the interpreter (bundled
+            runtime); otherwise the options selecting the requested delegate.
+
+    Raises:
+        RuntimeError: If a real compute unit is requested off macOS.
+        ValueError: If the configured compute unit kind is unknown.
+    """
+    if _COMPUTE_UNIT_KIND == "interpreter":
+        return None
+    if platform.system() != "Darwin":
+        msg = (
+            f"--compute-unit-kind={_COMPUTE_UNIT_KIND} is only supported on macOS; "
+            "use --compute-unit-kind=interpreter on this platform."
+        )
+        raise RuntimeError(msg)
+    if _COMPUTE_UNIT_KIND == "cpu":
+        return SpecializationOptions.cpu_only()
+    if _COMPUTE_UNIT_KIND == "gpu":
+        return SpecializationOptions.from_preferred_compute_unit_kind(
+            compute_unit_kind=ComputeUnitKind.gpu(),
+        )
+    if _COMPUTE_UNIT_KIND == "neural_engine":
+        return SpecializationOptions.from_preferred_compute_unit_kind(
+            compute_unit_kind=ComputeUnitKind.neural_engine(),
+        )
+    msg = f"Unknown compute unit kind: {_COMPUTE_UNIT_KIND!r}"
+    raise ValueError(msg)
 
 
 def assert_coreml_finalize_rejects_unsupported_dtype(finalizer: Any) -> None:
@@ -403,7 +460,9 @@ class MLIRConverter(ModelConverter):
             suffix=".aimodel",
         ) as tmpdir:
             asset = converted_model.save_asset(Path(tmpdir))
-            async with asset.executable() as ai_model:
+            async with asset.executable(
+                specialization_options=_get_test_specialization_options(),
+            ) as ai_model:
                 rt_func = ai_model.load_function("main")
 
                 input_names = rt_func.desc.input_names
