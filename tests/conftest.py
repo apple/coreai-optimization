@@ -36,6 +36,49 @@ pytest_plugins = [
 
 _DEFAULT_SEED: int = 42
 
+_COMPUTE_UNIT_KIND_CHOICES = ("interpreter", "cpu", "gpu", "neural_engine")
+_COMPUTE_UNIT_KIND_DEFAULT = "interpreter"
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register CLI options."""
+    parser.addoption(
+        "--compute-unit-kind",
+        choices=list(_COMPUTE_UNIT_KIND_CHOICES),
+        default=_COMPUTE_UNIT_KIND_DEFAULT,
+        help=(
+            "Compute unit used by MLIRConverter inference:\n"
+            "  interpreter (default) - bundled runtime (USE_LOCAL_COREAI=1)\n"
+            "  cpu                   - SpecializationOptions.cpu_only() (BNNS)\n"
+            "  gpu                   - preferred ComputeUnitKind.gpu() (MPSGraph)\n"
+            "  neural_engine         - preferred ComputeUnitKind.neural_engine()\n"
+            "Anything other than 'interpreter' unsets USE_LOCAL_COREAI so the OS\n"
+            "runtime is used."
+        ),
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Publish the selected compute unit to the export test utils.
+
+    For ``--compute-unit-kind=interpreter`` we pin ``USE_LOCAL_COREAI=1`` so the
+    bundled runtime is used. For any real compute unit (cpu/gpu/neural_engine)
+    we drop the env var so the OS runtime — which actually exposes those compute
+    units — gets picked up.
+    """
+    compute_unit_kind = config.getoption("--compute-unit-kind")
+    if compute_unit_kind == "interpreter":
+        os.environ.setdefault("USE_LOCAL_COREAI", "1")
+    else:
+        os.environ.pop("USE_LOCAL_COREAI", None)
+
+    # Imported here — after the env var is adjusted — because export_utils imports
+    # coreai_torch at module load, and coreai_torch reads USE_LOCAL_COREAI at
+    # dlopen time. Importing earlier would lock in the wrong runtime.
+    from tests.export.export_utils import set_test_compute_unit_kind  # noqa: PLC0415
+
+    set_test_compute_unit_kind(compute_unit_kind)
+
 
 @pytest.fixture(autouse=True)
 def seed_every_test(request: pytest.FixtureRequest) -> None:
