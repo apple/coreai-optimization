@@ -111,9 +111,10 @@ Right after `prepare()`, the activation scales come only from `example_inputs`, 
 This is what the context manager handles:
 
 - Inside the context:
-  - fake-quantization is turned **off**: forward pass gives the same output as the unquantized model. Hence without distorting the outputs, the quantization params can be computed.
-  - range observers are turned **on**: this means that each forward pass updates the observed activation ranges, and hence the activation quantization scales.
-- After exiting the context manager, observers are turned back off and fake-quantization back on, leaving the model ready for evaluation.
+  - activation fake-quantization is turned **off**: activation observers see undistorted activation values, so the observed ranges (and resulting scales) reflect the true distribution rather than already-quantized values.
+  - weight fake-quantization stays **on**: activations flowing into each observer are produced with quantized weights upstream, matching what the deployed model will actually see.
+  - range observers are turned **on**: each forward pass updates the observed activation ranges, and hence the activation quantization scales.
+- After exiting the context manager, observers are turned back off and activation fake-quantization back on, leaving the model ready for evaluation.
 
 A small amount of representative data is typically enough.
 

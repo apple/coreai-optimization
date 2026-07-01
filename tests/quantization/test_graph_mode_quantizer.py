@@ -21,6 +21,7 @@ from coreai_opt import ExportBackend
 from coreai_opt._utils.metadata_utils import (
     STATE_DICT_METADATA_BUFFER_PREFIX as _COREML_BUFFER_PREFIX,
 )
+from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization import (
     ModuleQuantizerConfig,
     QuantizationSpec,
@@ -374,11 +375,16 @@ class TestGraphModeQuantizer:
 
         # Test entering calibration mode
         with quantizer.calibration_mode():
-            # Verify that observers are enabled and fake quant is disabled
+            # Verify that observers are enabled. Weight FQ stays on so
+            # activation observers see the effect of quantized weights;
+            # activation FQ is disabled so observers collect raw stats.
             for _name, module in prepared_model.named_modules():
                 if isinstance(module, FakeQuantizeImplBase):
                     assert module.observer_enabled.item() == 1
-                    assert module.fake_quant_enabled.item() == 0
+                    expected_fq = (
+                        1 if module.quantization_target == CompressionTargetTensor.WEIGHT else 0
+                    )
+                    assert module.fake_quant_enabled.item() == expected_fq
 
         # # Verify that observers are disabled and fake quant is enabled on exit
         for _name, module in prepared_model.named_modules():
@@ -424,12 +430,15 @@ class TestGraphModeQuantizer:
 
         # Test calibration_mode with external prepared model
         with quantizer.calibration_mode(other_prepared_model):
-            # Verify that observers are enabled and fake quant is disabled
-            # on the external model
+            # Verify that observers are enabled on the external model. Weight FQ
+            # stays on; activation FQ is off.
             for _name, module in other_prepared_model.named_modules():
                 if isinstance(module, FakeQuantizeImplBase):
                     assert module.observer_enabled.item() == 1
-                    assert module.fake_quant_enabled.item() == 0
+                    expected_fq = (
+                        1 if module.quantization_target == CompressionTargetTensor.WEIGHT else 0
+                    )
+                    assert module.fake_quant_enabled.item() == expected_fq
 
             # The quantizer's internal model should be updated to the provided model
             assert quantizer._model is other_prepared_model
@@ -460,8 +469,10 @@ class TestGraphModeQuantizer:
         with quantizer.calibration_mode():
             prepared_out = prepared_model(simple_model_input_2)
             original_out = simple_conv_linear_model(simple_model_input_2)
-            # prepare model output should match base model, since fake quant is disabled
-            assert torch.equal(prepared_out, original_out)
+            # prepared model output should NOT match base model: weight fake
+            # quant stays on during calibration so activation observers see the
+            # effect of quantized weights. Only activation FQ is disabled.
+            assert not torch.equal(prepared_out, original_out)
 
         pre_finalize_out = prepared_model(simple_model_input_3)
 

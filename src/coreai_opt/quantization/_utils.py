@@ -46,3 +46,51 @@ def get_quantization_shapes(
         reduced_shape[i] = 1
 
     return original_shape, blockwise_shape, reduced_shape
+
+
+def disable_activation_fake_quant(module: torch.nn.Module) -> None:
+    """Disable fake quantization on activation FakeQuantize modules only.
+
+    Mirrors ``torchao.quantization.pt2e.fake_quantize.disable_fake_quant`` but
+    skips weight FQ modules. Used by ``calibration_mode`` so activation
+    observers see the effect of quantized weights when collecting statistics.
+
+    Args:
+        module (torch.nn.Module): Module to (possibly) toggle. No-op for any
+            module that is not a ``FakeQuantizeImplBase`` whose
+            ``quantization_target`` is ``ACTIVATION``.
+    """
+    # Lazy imports break a cycle: spec.fake_quantize imports get_quantization_shapes
+    # from this module.
+    from coreai_opt.config.spec import CompressionTargetTensor  # noqa: PLC0415
+    from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase  # noqa: PLC0415
+
+    if (
+        isinstance(module, FakeQuantizeImplBase)
+        and module.quantization_target == CompressionTargetTensor.ACTIVATION
+    ):
+        module.disable_fake_quant()
+
+
+def enable_weight_fake_quant(module: torch.nn.Module) -> None:
+    """Enable fake quantization on weight FakeQuantize modules only.
+
+    Mirrors ``torchao.quantization.pt2e.fake_quantize.enable_fake_quant`` but
+    skips activation FQ modules. Companion to
+    :func:`disable_activation_fake_quant` used by ``calibration_mode``.
+
+    Args:
+        module (torch.nn.Module): Module to (possibly) toggle. No-op for any
+            module that is not a ``FakeQuantizeImplBase`` whose
+            ``quantization_target`` is ``WEIGHT``.
+    """
+    # Lazy imports break a cycle: spec.fake_quantize imports get_quantization_shapes
+    # from this module.
+    from coreai_opt.config.spec import CompressionTargetTensor  # noqa: PLC0415
+    from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase  # noqa: PLC0415
+
+    if (
+        isinstance(module, FakeQuantizeImplBase)
+        and module.quantization_target == CompressionTargetTensor.WEIGHT
+    ):
+        module.enable_fake_quant()

@@ -20,6 +20,7 @@ from coreai_opt._utils.insertion.torch_function.registered_optimizers_tracker im
     FunctionRegisteredOptimizers,
     RegisteredOptimizersTracker,
 )
+from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization import (
     ModuleQuantizerConfig,
     QuantizationSpec,
@@ -554,7 +555,13 @@ class TestEagerQuantizer:
 
             for module in fake_quant_modules:
                 assert module.observer_enabled.item() == 1
-                assert module.fake_quant_enabled.item() == 0
+                # Weight FQ stays on so activation observers see quantized weights;
+                # activation FQ is off so observers collect statistics on the raw
+                # (post-weight-quant) activations.
+                expected_fq = (
+                    1 if module.quantization_target == CompressionTargetTensor.WEIGHT else 0
+                )
+                assert module.fake_quant_enabled.item() == expected_fq
 
         post_calibration_scales = [mod.calculate_qparams()[0].clone() for mod in fake_quant_modules]
 
@@ -1732,8 +1739,10 @@ class TestEagerQuantizer:
         with quantizer.calibration_mode():
             prepared_out = prepared_model(example_input_2)
             original_out = base_model(example_input_2)
-            # prepare model output should match base model, since fake quant is disabled
-            assert torch.equal(prepared_out, original_out)
+            # prepared model output should NOT match base model: weight fake
+            # quant stays on during calibration so activation observers see the
+            # effect of quantized weights. Only activation FQ is disabled.
+            assert not torch.equal(prepared_out, original_out)
 
         pre_finalize_out = prepared_model(example_input_3)
 
