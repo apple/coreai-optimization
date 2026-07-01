@@ -130,13 +130,17 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         taken from float_range setting.
         """
         min_val = (
-            self._get_tensor_with_granularity_from_scalar(self.float_range[0], tensor)
+            torch.clamp(
+                self._get_tensor_with_granularity_from_scalar(self.float_range[0], tensor), max=0
+            )
             if self.float_range[0] is not None
             else None
         )
 
         max_val = (
-            self._get_tensor_with_granularity_from_scalar(self.float_range[1], tensor)
+            torch.clamp(
+                self._get_tensor_with_granularity_from_scalar(self.float_range[1], tensor), min=0
+            )
             if self.float_range[1] is not None
             else None
         )

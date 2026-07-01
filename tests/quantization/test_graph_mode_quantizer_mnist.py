@@ -296,8 +296,8 @@ def test_weight_and_activation_qat_mnist(mnist_pretrained_model, mnist_dataset, 
         example_inputs=(torch.ones(1, 1, 28, 28, dtype=torch.float),)
     )
     post_prepare_accuracy = utils.eval_model(prepared_model, test_loader)
-    assert post_prepare_accuracy < 88, (
-        "Expect accuracy to drop below 88% after preparation with an all ones data sample"
+    assert post_prepare_accuracy < 94, (
+        "Expect accuracy to drop below 94% after preparation with an all ones data sample"
     )
 
     # Fine tune the model

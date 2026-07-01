@@ -24,6 +24,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     StaticQParamsCalculator,
     _DefaultQParamsCalculator,
 )
+from coreai_opt.quantization.spec.qscheme import QuantizationScheme
 from coreai_opt.quantization.spec.range_calculator import (
     MinMaxRangeCalculator,
     RangeCalculatorBase,
@@ -286,7 +287,6 @@ class TestExtraArgsSupport:
             def __init__(
                 self,
                 dtype,
-                qscheme,
                 qformulation,
                 granularity,
                 target_dtype,
@@ -299,7 +299,6 @@ class TestExtraArgsSupport:
             ):
                 super().__init__(
                     dtype,
-                    qscheme,
                     qformulation,
                     granularity,
                     target_dtype,
@@ -604,6 +603,97 @@ class TestPartialQuantizerSharing:
         assert fq_direct_out.shape == x.shape
         assert fq_partial_out.dtype == x.dtype
         assert fq_direct_out.dtype == x.dtype
+
+    def test_update_partial_qparams_calculator_single_attr(self):
+        """
+        update_partial_qparams_calculator overrides one attribute on each constructed calculator.
+        """
+        spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme="symmetric",
+            granularity=PerTensorGranularity(),
+            qparam_calculator_cls=StaticQParamsCalculator,
+            range_calculator_cls=MinMaxRangeCalculator,
+        )
+        partial = QuantizationComponentFactory.create_fake_quantizer_partial(
+            spec, quantization_target=CompressionTargetTensor.WEIGHT
+        )
+
+        updated = QuantizationComponentFactory.update_partial_qparams_calculator(
+            partial, qscheme=QuantizationScheme.ASYMMETRIC
+        )
+
+        fq = updated()
+        assert fq.qparams_calculator.qscheme == QuantizationScheme.ASYMMETRIC
+        # qscheme property on the fake quantizer delegates to the calculator
+        assert fq.qscheme == QuantizationScheme.ASYMMETRIC
+
+    def test_update_partial_qparams_calculator_multiple_attrs(self):
+        """update_partial_qparams_calculator overrides multiple attributes in one call."""
+        spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme="symmetric",
+            granularity=PerTensorGranularity(),
+            qparam_calculator_cls=StaticQParamsCalculator,
+            range_calculator_cls=MinMaxRangeCalculator,
+        )
+        partial = QuantizationComponentFactory.create_fake_quantizer_partial(
+            spec, quantization_target=CompressionTargetTensor.WEIGHT
+        )
+
+        updated = QuantizationComponentFactory.update_partial_qparams_calculator(
+            partial,
+            qscheme=QuantizationScheme.ASYMMETRIC,
+            float_range=(0.0, 1.0),
+        )
+
+        fq = updated()
+        assert fq.qparams_calculator.qscheme == QuantizationScheme.ASYMMETRIC
+        assert fq.qparams_calculator.float_range == (0.0, 1.0)
+
+    def test_update_partial_qparams_calculator_does_not_mutate_original(self):
+        """update_partial_qparams_calculator returns a new partial; the original is unchanged."""
+        spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme="symmetric",
+            granularity=PerTensorGranularity(),
+            qparam_calculator_cls=StaticQParamsCalculator,
+            range_calculator_cls=MinMaxRangeCalculator,
+        )
+        partial = QuantizationComponentFactory.create_fake_quantizer_partial(
+            spec, quantization_target=CompressionTargetTensor.WEIGHT
+        )
+
+        _ = QuantizationComponentFactory.update_partial_qparams_calculator(
+            partial, qscheme=QuantizationScheme.ASYMMETRIC
+        )
+
+        # Original partial still produces calculators with the original qscheme.
+        fq_original = partial()
+        assert fq_original.qparams_calculator.qscheme == QuantizationScheme.SYMMETRIC
+
+    def test_update_partial_qparams_calculator_independent_instances(self):
+        """Each call to an updated partial creates an independent calculator with the override."""
+        spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme="symmetric",
+            granularity=PerTensorGranularity(),
+            qparam_calculator_cls=MovingAverageQParamsCalculator,
+            range_calculator_cls=MinMaxRangeCalculator,
+        )
+        partial = QuantizationComponentFactory.create_fake_quantizer_partial(
+            spec, quantization_target=CompressionTargetTensor.ACTIVATION
+        )
+        updated = QuantizationComponentFactory.update_partial_qparams_calculator(
+            partial, float_range=(0.0, 1.0)
+        )
+
+        fq1 = updated()
+        fq2 = updated()
+
+        assert id(fq1.qparams_calculator) != id(fq2.qparams_calculator)
+        assert fq1.qparams_calculator.float_range == (0.0, 1.0)
+        assert fq2.qparams_calculator.float_range == (0.0, 1.0)
 
 
 class TestCompressionTargetTensorAttribute:
