@@ -31,7 +31,7 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 dependencies = [
-    "coremltools>=8.3",
+    "numba>=0.62.0",
     "numpy>=2,<2.4",              # TODO: Remove once coremltools has released a version > 9.0
     "pydantic>=2.0.0",
     "rich>=13.0.0",
@@ -74,6 +74,7 @@ dev = [
     { include-group = "torchvision" },
 ]
 test = [
+    "coremltools>=8.3",    # Needed for the Numba kmeans1d equivalence tests.
     "junitparser>=4.0.2",
     "pytest>=9.0.0",
     "pytest-cov>=4.0.0",
