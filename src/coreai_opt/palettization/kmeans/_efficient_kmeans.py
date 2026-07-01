@@ -5,10 +5,6 @@
 
 import numpy as _np
 import torch as _torch
-import torch.distributed as _dist
-from coremltools._deps import _kmeans1d
-
-from coreai_opt._utils.import_utils import lazy_import_module
 
 
 class _EfficientKMeans:
@@ -19,21 +15,18 @@ class _EfficientKMeans:
     def __init__(
         self,
         n_clusters: int,
-        init: str | _torch.Tensor,
+        init: str,
         n_init: int = 0,
-        labels=None,
         max_iter: int = 100,
         tol: float = 0.0001,
-        error_bnd: float = 0.0,
     ):
         self.n_clusters = n_clusters
         self.n_init = n_init
         self.max_iter = max_iter
         self.tol = tol
-        self.labels_ = labels
+        self.labels_ = None
         self.inertia_ = None
         self.cluster_centers_ = init
-        self.error_bnd = error_bnd
 
         assert self.max_iter > 0
         assert self.n_clusters > 0
@@ -69,21 +62,9 @@ class _EfficientKMeans:
 
         return v_avg.to(vals.dtype)
 
-    @staticmethod
-    def x_c_dist(params: _torch.Tensor, clusters: _torch.Tensor) -> _torch.Tensor:
-        """
-        Calculate the distance between weights and clusters.
-        """
-        clusters = clusters.contiguous()
-
-        if _torch.finfo(params.dtype).bits > _torch.finfo(clusters.dtype).bits:
-            return _torch.cdist(params.to(clusters.dtype), clusters).square()
-        else:
-            return _torch.cdist(params, clusters.to(params.dtype)).square()
-
     def _kmeans_pp(
         self, parameters: _torch.Tensor, sample_weight: _torch.Tensor | None = None
-    ) -> "_EfficientKMeans":
+    ) -> None:
         assert len(parameters) >= self.n_clusters
 
         num_update_list = []
@@ -166,8 +147,6 @@ class _EfficientKMeans:
             if len(num_update_list) >= INIT_EXIT and sum(num_update_list[-INIT_EXIT:]) == 0:
                 break
 
-        return self
-
     def fit(
         self, X: _torch.Tensor, sample_weight: _torch.Tensor | None = None
     ) -> "_EfficientKMeans":
@@ -178,106 +157,13 @@ class _EfficientKMeans:
 
         assert N >= self.n_clusters, f"too many clusters {self.n_clusters} for {N} samples"
 
-        if isinstance(self.cluster_centers_, str):
-            if "kmeans++" in self.cluster_centers_:
-                if _dist.is_available() and _dist.is_initialized():
-                    rank = _dist.get_rank()
-                else:
-                    rank = 0
+        if self.cluster_centers_ != "kmeans++":
+            raise ValueError(f"init must be 'kmeans++'; got {self.cluster_centers_!r}")
 
-                if "cpu" in self.cluster_centers_:
+        self._kmeans_pp(X.float(), sample_weight=sample_weight)
 
-                    def _import_sklearn():
-                        import sklearn as sk  # noqa: PLC0415
-
-                        return sk
-
-                    sk = lazy_import_module(
-                        _import_sklearn,
-                        "sklearn is required. Install it with: pip install scikit-learn",
-                    )
-
-                    if "minibatch" in self.cluster_centers_:
-                        clustering_method = sk.cluster.MiniBatchKMeans
-                    else:
-                        clustering_method = sk.cluster.KMeans
-
-                    kmeans = clustering_method(
-                        n_init=self.n_init,
-                        n_clusters=self.n_clusters,
-                        max_iter=self.max_iter,
-                        random_state=rank + 1,
-                        tol=self.tol,
-                    ).fit(X.float().cpu().numpy(), sample_weight=sample_weight)
-                    self.inertia_ = _torch.Tensor([kmeans.inertia_]).to(X.device)
-                    self.labels_ = _torch.from_numpy(kmeans.labels_).int().to(X.device)
-                    self.cluster_centers_ = None
-                else:
-                    self._kmeans_pp(X.float(), sample_weight=sample_weight)
-
-                self.cluster_centers_ = _EfficientKMeans._get_cluster_avg(
-                    self.n_clusters, self.labels_, X, sample_weight=sample_weight
-                )
-
-            elif self.cluster_centers_ == "opt1d":
-                self.labels_, self.cluster_centers_ = _kmeans1d.cluster(
-                    X, self.n_clusters, weights=sample_weight
-                )
-
-                self.n_clusters = len(self.cluster_centers_)
-                self.cluster_centers_ = (
-                    _torch.Tensor(self.cluster_centers_)
-                    .to(device=X.device, dtype=X.dtype)
-                    .view(-1, 1)
-                )
-                self.labels_ = _torch.Tensor(self.labels_).int().to(X.device)
-
-                min_error, _ = _EfficientKMeans.x_c_dist(X, self.cluster_centers_).min(dim=-1)
-                self.inertia_ = min_error.sum()
-        else:
-            self.inertia_ = None
-
-            for _ in range(self.max_iter):
-                self.cluster_centers_ = _EfficientKMeans._get_cluster_avg(
-                    self.n_clusters, self.labels_, X, sample_weight=sample_weight
-                )
-
-                # remove empty clusters perhaps due to pruning
-                nan_centers = self.cluster_centers_.isnan()
-                if nan_centers.any():
-                    self._kmeans_pp(X, sample_weight=sample_weight)
-                    continue
-
-                x_c_dist = _EfficientKMeans.x_c_dist(X, self.cluster_centers_)
-                min_error, self.labels_ = x_c_dist.min(dim=-1)
-                cur_inertia = min_error.sum()
-
-                if self.error_bnd and _torch.sqrt(cur_inertia / N) < self.error_bnd:
-                    unique, counts = _torch.unique(self.labels_, return_counts=True)
-                    idx = unique[counts.argmin()]
-
-                    reduce_cluster_centers_ = self.cluster_centers_.clone()
-                    reduce_cluster_centers_[idx] = _np.nan
-
-                    reduce_cluster_centers_ = reduce_cluster_centers_[
-                        ~_torch.isnan(reduce_cluster_centers_)
-                    ].view(-1, 1)
-                    reduce_min_error, reduce_labels_ = _EfficientKMeans.x_c_dist(
-                        X, reduce_cluster_centers_
-                    ).min(dim=-1)
-                    reduce_inertia = reduce_min_error.sum()
-                    rmse_error = _torch.sqrt(reduce_inertia / N)
-
-                    if rmse_error < self.error_bnd:
-                        self.cluster_centers_ = reduce_cluster_centers_
-                        self.labels_ = reduce_labels_
-                        self.n_clusters = len(self.cluster_centers_)
-                        continue
-
-                if self.inertia_ is None or abs(self.inertia_ - cur_inertia) > self.tol:
-                    self.inertia_ = cur_inertia
-                else:
-                    self.inertia_ = cur_inertia
-                    break
+        self.cluster_centers_ = _EfficientKMeans._get_cluster_avg(
+            self.n_clusters, self.labels_, X, sample_weight=sample_weight
+        )
 
         return self
