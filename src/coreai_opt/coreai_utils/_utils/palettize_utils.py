@@ -18,6 +18,7 @@ from typing import cast
 
 import numpy as np
 
+from coreai_opt._utils import _kmeans1d
 from coreai_opt.coreai_utils._coreai_imports import (
     Operation,
     _get_constant_value_as_np_array,
@@ -28,14 +29,6 @@ from coreai_opt.coreai_utils.common import CompressionGranularity as _Compressio
 logger = logging.getLogger(__name__)
 
 _CONV2D_OP = "coreai.conv2d"
-
-try:
-    import kmeans1d as _kmeans1d
-
-    _HAS_KMEANS1D = True
-except ImportError:
-    _kmeans1d = None  # type: ignore[assignment]
-    _HAS_KMEANS1D = False
 
 LutParams = namedtuple("LutParams", "indices lut vector_axis")
 
@@ -99,8 +92,7 @@ def _get_kmeans_lookup_table_and_weight(
         weight.shape[1] == 1 and num_weights >= 10_000 and weight.dtype == np.float16
     )
 
-    if (is_better_to_use_kmeans1d and _HAS_KMEANS1D) or force_kmeans1d:
-        assert _HAS_KMEANS1D, "Unable to import kmeans1d, please make sure it's installed."
+    if is_better_to_use_kmeans1d or force_kmeans1d:
         values, indices, counts = np.unique(weight, return_inverse=True, return_counts=True)
         indices = indices.flatten()
         n_clusters = min(len(values), lut_len)
@@ -116,11 +108,6 @@ def _get_kmeans_lookup_table_and_weight(
                 "scikit-learn is required for k-means quantization."
                 ' To install, run: "pip install scikit-learn".'
             ) from err
-        if is_better_to_use_kmeans1d:
-            logger.warning(
-                "It would be better to use kmeans1d but that is not available. "
-                "Using scikit-learn for K-means."
-            )
         n_clusters = min(num_weights, lut_len)
         kmeans = KMeans(n_clusters, init="k-means++", tol=1e-2, n_init=1, random_state=0).fit(
             weight
