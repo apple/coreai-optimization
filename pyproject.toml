@@ -32,7 +32,6 @@ classifiers = [
 dynamic = [ "version" ]
 dependencies = [
     "numba>=0.62.0",
-    "numpy>=2,<2.4",              # TODO: Remove once coremltools has released a version > 9.0
     "pydantic>=2.0.0",
     "rich>=13.0.0",
     "safetensors>=0.5.3,<=0.7.0",
@@ -54,6 +53,10 @@ coreai = [
     "coreai-torch==0.4.1",
     "scikit-learn>=1.7.2",
 ]
+coreml = [
+    "coremltools>=8.3",
+    "numpy>=2,<2.4",    # TODO: Remove once coremltools has released a version > 9.0
+]
 [project.urls]
 Changelog = "https://github.com/apple/coreai-optimization/blob/main/CHANGELOG.md"
 Repository = "https://github.com/apple/coreai-optimization"
@@ -74,7 +77,6 @@ dev = [
     { include-group = "torchvision" },
 ]
 test = [
-    "coremltools>=8.3",    # Needed for the Numba kmeans1d equivalence tests.
     "junitparser>=4.0.2",
     "pytest>=9.0.0",
     "pytest-cov>=4.0.0",
@@ -91,12 +93,15 @@ docs = [
     "sphinx-llm==0.3.0",
     "sphinxcontrib-mermaid==1.0.0",
     { include-group = "coreai" },
+    { include-group = "coreml" },
 ]
 # `coreai` group mirrors the `coreai` optional-dependency (extra) so `uv sync`
 # installs CoreAI by default (see tool.uv.default-groups). The extra is the
 # single source of truth; this group self-references it to avoid duplicating the
 # package list.
+# This applies to the `coreml` group as well.
 coreai = [ "coreai-opt[coreai]" ]
+coreml = [ "coreai-opt[coreml]" ]
 # Used in CI to force latest mimimum supported torch version
 # These torch versions must be in bounds of torch versions listed in project dependencies
 highest_tested_torch = [
@@ -146,6 +151,7 @@ tutorial = [
     "papermill>=2.7.0",
     "torchinfo>=1.8.0",
     { include-group = "coreai" },
+    { include-group = "coreml" },
     { include-group = "torchvision" },
 ]
 
@@ -161,7 +167,7 @@ find.where = [ "src" ]
 
 # make env group installed by default with uv sync
 [tool.uv]
-default-groups = [ "dev", "coreai" ]
+default-groups = [ "dev", "coreai", "coreml" ]
 index = [
     { explicit = true, name = "pytorch-cpu", url = "https://download.pytorch.org/whl/cpu" },
     { explicit = true, name = "pytorch-cu128", url = "https://download.pytorch.org/whl/cu128" },
