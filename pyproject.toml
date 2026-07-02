@@ -50,8 +50,8 @@ dependencies = [
 name = "Apple Core AI Optimization Team"
 [project.optional-dependencies]
 coreai = [
-    "coreai-core==1.0.0b1",
-    "coreai-torch==0.4.0",
+    "coreai-core==1.0.0b2",
+    "coreai-torch==0.4.1",
     "scikit-learn>=1.7.2",
 ]
 [project.urls]
