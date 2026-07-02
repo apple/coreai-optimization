@@ -33,6 +33,7 @@ dynamic = [ "version" ]
 dependencies = [
     "numba>=0.62.0",
     "pydantic>=2.0.0",
+    "pyyaml>=6.0",
     "rich>=13.0.0",
     "safetensors>=0.5.3,<=0.7.0",
     # PyTorch >= 2.9.0 requires torchao >= 0.15.0
