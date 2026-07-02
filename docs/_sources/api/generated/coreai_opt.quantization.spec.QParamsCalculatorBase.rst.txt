@@ -14,14 +14,12 @@
    .. autosummary::
    
       ~QParamsCalculatorBase.compute_qparams
-      ~QParamsCalculatorBase.extra_repr
       ~QParamsCalculatorBase.forward
       ~QParamsCalculatorBase.get_class
-      ~QParamsCalculatorBase.get_qparams
       ~QParamsCalculatorBase.list_registry_keys
       ~QParamsCalculatorBase.list_registry_values
       ~QParamsCalculatorBase.register
-      ~QParamsCalculatorBase.set_export_mode
+      ~QParamsCalculatorBase.resolve
    
    
 

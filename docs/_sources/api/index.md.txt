@@ -89,6 +89,8 @@ Utilities for inspecting model operations and compression configuration.
 .. autosummary::
    :toctree: generated
 
+   coreai_opt.inspection.BoundaryEdge
+   coreai_opt.inspection.InputEdge
    coreai_opt.inspection.ModelInspector
    coreai_opt.inspection.ModelSummary
    coreai_opt.inspection.ModuleContext
@@ -202,6 +204,7 @@ Quantization configuration classes and execution mode.
 .. autosummary::
    :toctree: generated
 
+   coreai_opt.quantization.config.KVCacheQuantConfig
    coreai_opt.quantization.config.OpQuantizerConfig
    coreai_opt.quantization.config.QATSchedule
 ```
@@ -214,6 +217,7 @@ Quantization specs, schemes, granularity classes, and parameter calculators.
 .. autosummary::
    :toctree: generated
 
+   coreai_opt.quantization.spec.DynamicQParamsCalculator
    coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator
    coreai_opt.quantization.spec.MinMaxRangeCalculator
    coreai_opt.quantization.spec.MovingAverageQParamsCalculator
@@ -227,6 +231,8 @@ Quantization specs, schemes, granularity classes, and parameter calculators.
    coreai_opt.quantization.spec.QuantizationScheme
    coreai_opt.quantization.spec.RangeCalculatorBase
    coreai_opt.quantization.spec.RunningRangeMixin
+   coreai_opt.quantization.spec.StatefulQParamsCalculatorBase
+   coreai_opt.quantization.spec.StatelessQParamsCalculatorBase
    coreai_opt.quantization.spec.StaticQParamsCalculator
    coreai_opt.quantization.spec.default_activation_quantization_spec
    coreai_opt.quantization.spec.default_weight_quantization_spec

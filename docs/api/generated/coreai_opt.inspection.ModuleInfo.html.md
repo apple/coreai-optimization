@@ -15,8 +15,8 @@ child modules as nested `ModuleInfo` instances.
   * **module_type** (*str*)
   * **child_modules** (*dict* *[**str* *,* [*ModuleInfo*](#coreai_opt.inspection.ModuleInfo) *]*)
   * **ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
-  * **input_ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
-  * **output_ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
+  * **input_ops** (*dict* *[**int* *,* *list* *[*[*BoundaryEdge*](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge) *]* *]*)
+  * **output_ops** (*dict* *[**int* *,* [*BoundaryEdge*](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge) *]*)
 
 #### module_name
 
@@ -52,19 +52,28 @@ graph order.
 
 #### input_ops
 
-Ops owned by this module, that receive data from
-outside this module.
+Boundary edges where data enters this
+module from outside. Keys are module input spec indices (positions in the
+flattened module forward arguments). Values are lists of all
+`(op, input_slot)` pairs that the tensor at that position feeds into inside
+the module — a single module input tensor can fan out to multiple ops. Keys
+are absent for positions occupied by state tensors, untracked tensors, or
+unused arguments. The key is what the user passes to `module_input_spec`.
 
 * **Type:**
-  list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]
+  dict[int, list[[BoundaryEdge](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)]]
 
 #### output_ops
 
-Ops owned by this module, that send data outside
-this module.
+Boundary edges where data leaves this
+module. Keys are module output spec indices (positions in the flattened
+module return value). Each key maps to the `(op, output_slot)` pair that
+produces the tensor at that position. Keys are absent for positions occupied
+by state tensors or untracked tensors. The key is what the user passes to
+`module_output_spec`.
 
 * **Type:**
-  list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]
+  dict[int, [BoundaryEdge](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)]
 
 #### \_\_init_\_(module_name, module_type, child_modules, ops, input_ops, output_ops)
 
@@ -73,8 +82,8 @@ this module.
   * **module_type** (*str*)
   * **child_modules** (*dict* *[**str* *,* [*ModuleInfo*](#coreai_opt.inspection.ModuleInfo) *]*)
   * **ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
-  * **input_ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
-  * **output_ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
+  * **input_ops** (*dict* *[**int* *,* *list* *[*[*BoundaryEdge*](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge) *]* *]*)
+  * **output_ops** (*dict* *[**int* *,* [*BoundaryEdge*](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge) *]*)
 * **Return type:**
   None
 
@@ -137,7 +146,7 @@ Yield `(module_name, ModuleInfo)` for this module and all descendants.
 
 #### child_modules *: dict[str, [ModuleInfo](#coreai_opt.inspection.ModuleInfo)]*
 
-#### input_ops *: list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]*
+#### input_ops *: dict[int, list[[BoundaryEdge](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)]]*
 
 #### module_name *: str*
 
@@ -145,4 +154,4 @@ Yield `(module_name, ModuleInfo)` for this module and all descendants.
 
 #### ops *: list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]*
 
-#### output_ops *: list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]*
+#### output_ops *: dict[int, [BoundaryEdge](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)]*

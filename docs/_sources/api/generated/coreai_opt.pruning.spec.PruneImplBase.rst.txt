@@ -19,6 +19,7 @@
       ~PruneImplBase.list_registry_keys
       ~PruneImplBase.list_registry_values
       ~PruneImplBase.register
+      ~PruneImplBase.resolve
       ~PruneImplBase.update_sparsity
       ~PruneImplBase.with_args
    

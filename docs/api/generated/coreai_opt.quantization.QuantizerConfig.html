@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=86898c54" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
@@ -103,6 +103,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
 </ul>
@@ -130,6 +131,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
@@ -195,8 +198,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.KVCacheQuantConfig.html">coreai_opt.quantization.config.KVCacheQuantConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.DynamicQParamsCalculator.html">coreai_opt.quantization.spec.DynamicQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
@@ -210,6 +215,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatefulQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatelessQParamsCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
@@ -238,6 +245,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#coreai_opt.quantization.QuantizerConfig.module_name_configs"><code class="docutils literal notranslate">module_name_configs</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.QuantizerConfig.preserved_attributes"><code class="docutils literal notranslate">preserved_attributes</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.QuantizerConfig.execution_mode"><code class="docutils literal notranslate">execution_mode</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.QuantizerConfig.kv_cache_quant_configs"><code class="docutils literal notranslate">kv_cache_quant_configs</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.QuantizerConfig.set_execution_mode"><code class="docutils literal notranslate">set_execution_mode()</span></code></a></li>
 </ul>
 </li>
@@ -413,6 +421,26 @@ Supports dynamic control flow (if/else, loops) and doesn’t require <code class
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="coreai_opt.quantization.ExecutionMode.html#coreai_opt.quantization.ExecutionMode" title="coreai_opt.quantization.ExecutionMode">ExecutionMode</a> | str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.quantization.QuantizerConfig.kv_cache_quant_configs">
+<span class="sig-name descname"><span class="pre">kv_cache_quant_configs</span></span><a class="headerlink" href="#coreai_opt.quantization.QuantizerConfig.kv_cache_quant_configs" title="Link to this definition">¶</a></dt>
+<dd><p>Optional
+mapping from short op-type name (as returned by <code class="docutils literal notranslate"><span class="pre">get_node_type</span></code>,
+to the cache-update op’s <code class="docutils literal notranslate"><span class="pre">KVCacheQuantConfig</span></code>. Each entry enables
+storing the corresponding KV-cache buffer in a quantized dtype: it
+carries the op’s <code class="docutils literal notranslate"><span class="pre">OpQuantizerConfig</span></code> inline and triggers a finalize-side
+rewrite that relocates the dequantize from the op’s input to its
+output. Graph mode only; rejected for eager mode by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">_validate_kv_cache_quant_configs()</span></code>. See
+<code class="xref py py-class docutils literal notranslate"><span class="pre">KVCacheQuantConfig</span></code> for details.
+Default: None (no KV-cache buffer quantization)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict[str, <a class="reference internal" href="coreai_opt.quantization.config.KVCacheQuantConfig.html#coreai_opt.quantization.config.KVCacheQuantConfig" title="coreai_opt.quantization.config.KVCacheQuantConfig">KVCacheQuantConfig</a>] | None</p>
 </dd>
 </dl>
 </dd></dl>

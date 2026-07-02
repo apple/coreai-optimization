@@ -85,6 +85,22 @@ Default: ExecutionMode.GRAPH
 * **Type:**
   [ExecutionMode](coreai_opt.quantization.ExecutionMode.md#coreai_opt.quantization.ExecutionMode) | str
 
+#### kv_cache_quant_configs
+
+Optional
+mapping from short op-type name (as returned by `get_node_type`,
+to the cache-update op’s `KVCacheQuantConfig`. Each entry enables
+storing the corresponding KV-cache buffer in a quantized dtype: it
+carries the op’s `OpQuantizerConfig` inline and triggers a finalize-side
+rewrite that relocates the dequantize from the op’s input to its
+output. Graph mode only; rejected for eager mode by
+`_validate_kv_cache_quant_configs()`. See
+`KVCacheQuantConfig` for details.
+Default: None (no KV-cache buffer quantization)
+
+* **Type:**
+  dict[str, [KVCacheQuantConfig](coreai_opt.quantization.config.KVCacheQuantConfig.md#coreai_opt.quantization.config.KVCacheQuantConfig)] | None
+
 #### set_execution_mode(mode)
 
 Set the quantization execution mode.

@@ -18,6 +18,7 @@
       ~RangeCalculatorBase.list_registry_keys
       ~RangeCalculatorBase.list_registry_values
       ~RangeCalculatorBase.register
+      ~RangeCalculatorBase.resolve
    
    
 

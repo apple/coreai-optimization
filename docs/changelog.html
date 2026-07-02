@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/custom.css?v=86898c54" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
@@ -103,6 +103,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils/mixed_precision.html">Mixed-Precision Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils/coreai_compression.html">Compressing Core AI Models</a></li>
 </ul>
@@ -130,6 +131,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
@@ -195,8 +198,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.config.KVCacheQuantConfig.html">coreai_opt.quantization.config.KVCacheQuantConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.DynamicQParamsCalculator.html">coreai_opt.quantization.spec.DynamicQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
@@ -210,6 +215,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatefulQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatelessQParamsCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
@@ -232,8 +239,13 @@ data-aria-dark="Switch to auto color mode">
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#id1">0.2.0 - 2026-06-08</a><ul>
+<li><a class="reference internal" href="#id1">0.2.1 - 2026-07-02</a><ul>
 <li><a class="reference internal" href="#added">Added</a></li>
+<li><a class="reference internal" href="#fixed">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id2">0.2.0 - 2026-06-08</a><ul>
+<li><a class="reference internal" href="#id3">Added</a></li>
 </ul>
 </li>
 </ul>
@@ -305,9 +317,26 @@ data-aria-dark="Switch to auto color mode">
 and this project adheres to <a class="reference external" href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <!-- towncrier release notes start -->
 <section id="id1">
-<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/releases/tag/v0.2.0">0.2.0</a> - 2026-06-08<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/releases/tag/v0.2.1">0.2.1</a> - 2026-07-02<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
 <section id="added">
 <h3>Added<a class="headerlink" href="#added" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Support palettization of <code class="docutils literal notranslate"><span class="pre">ConvTranspose1d</span></code>/<code class="docutils literal notranslate"><span class="pre">ConvTranspose2d</span></code>/<code class="docutils literal notranslate"><span class="pre">ConvTranspose3d</span></code> layers via <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code></p></li>
+<li><p>Support for <code class="docutils literal notranslate"><span class="pre">EAGER</span></code> execution mode in model inspection utility</p></li>
+</ul>
+</section>
+<section id="fixed">
+<h3>Fixed<a class="headerlink" href="#fixed" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fixed pruning mask <code class="docutils literal notranslate"><span class="pre">dtype</span></code> to match that of the weight being pruned</p></li>
+<li><p>Fixes to allow better support for <code class="docutils literal notranslate"><span class="pre">bfloat16</span></code> <code class="docutils literal notranslate"><span class="pre">dtype</span></code> in palettization and quantization</p></li>
+</ul>
+</section>
+</section>
+<section id="id2">
+<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/releases/tag/v0.2.0">0.2.0</a> - 2026-06-08<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<section id="id3">
+<h3>Added<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Initial release of <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code>. See the <a class="reference external" href="https://github.com/apple/coreai-optimization/releases/">GitHub Releases</a> page for release notes.</p></li>
 </ul>

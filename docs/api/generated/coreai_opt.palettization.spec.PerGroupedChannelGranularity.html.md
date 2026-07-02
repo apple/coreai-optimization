@@ -8,7 +8,8 @@ Per-grouped-channel palettization granularity.
 
 This applies palettization to a specific channel which is selected through the
 `axis` argument. `axis` defaults to `None`, in which case the default
-axis for the consuming op is used (e.g. 0 for `Linear`/`Conv`).
+axis for the consuming op is used (e.g. 0 for `Linear`/`Conv`, 1 for
+`ConvTranspose`).
 
 #### get_blocks_to_cluster(weight)
 

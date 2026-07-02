@@ -103,6 +103,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
 </ul>
@@ -130,6 +131,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
@@ -195,8 +198,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.KVCacheQuantConfig.html">coreai_opt.quantization.config.KVCacheQuantConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.DynamicQParamsCalculator.html">coreai_opt.quantization.spec.DynamicQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
@@ -210,6 +215,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatefulQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatelessQParamsCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
@@ -309,108 +316,68 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="11">
 </span><span data-line="12"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BeforeValidator</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">PrivateAttr</span><span class="p">,</span> <span class="n">field_validator</span><span class="p">,</span> <span class="n">model_validator</span>
 </span><span data-line="13">
-</span><span data-line="14"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.registry_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassRegistryMixin</span>
-</span><span data-line="15"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionType</span>
-</span><span data-line="16"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSpec</span>
-</span><span data-line="17">
-</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">.prune</span><span class="w"> </span><span class="kn">import</span> <span class="n">PruneImplBase</span>
-</span><span data-line="19"><span class="kn">from</span><span class="w"> </span><span class="nn">.scheme</span><span class="w"> </span><span class="kn">import</span> <span class="n">PruningScheme</span><span class="p">,</span> <span class="n">Unstructured</span>
+</span><span data-line="14"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionType</span>
+</span><span data-line="15"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSpec</span>
+</span><span data-line="16">
+</span><span data-line="17"><span class="kn">from</span><span class="w"> </span><span class="nn">.prune</span><span class="w"> </span><span class="kn">import</span> <span class="n">PruneImplBase</span>
+</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">.scheme</span><span class="w"> </span><span class="kn">import</span> <span class="n">PruningScheme</span><span class="p">,</span> <span class="n">Unstructured</span>
+</span><span data-line="19">
 </span><span data-line="20">
-</span><span data-line="21">
 <div class="viewcode-block" id="PruningSpec">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.pruning.PruningSpec.html#coreai_opt.pruning.PruningSpec">[docs]</a>
-</span><span data-line="22"><span class="k">class</span><span class="w"> </span><span class="nc">PruningSpec</span><span class="p">(</span><span class="n">CompressionSpec</span><span class="p">):</span>
-</span><span data-line="23"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Specification for pruning tensors.</span>
-</span><span data-line="24">
-</span><span data-line="25"><span class="sd">    Attributes:</span>
-</span><span data-line="26"><span class="sd">        target_sparsity (float): Fraction of elements to prune, in ``[0, 1]``.</span>
-</span><span data-line="27"><span class="sd">            Default: 0.5.</span>
-</span><span data-line="28"><span class="sd">        pruning_scheme (PruningScheme): Structural pattern of sparsity.</span>
-</span><span data-line="29"><span class="sd">            Default: ``Unstructured()``.</span>
-</span><span data-line="30"><span class="sd">        pruning_algo (type[PruneImplBase]): Pruning implementation class.</span>
-</span><span data-line="31"><span class="sd">            Default: ``&quot;default&quot;`` (magnitude-based pruning).</span>
-</span><span data-line="32">
-</span><span data-line="33"><span class="sd">    Example:</span>
-</span><span data-line="34"><span class="sd">        &gt;&gt;&gt; spec = PruningSpec()</span>
-</span><span data-line="35"><span class="sd">        &gt;&gt;&gt; spec.target_sparsity</span>
-</span><span data-line="36"><span class="sd">        0.5</span>
-</span><span data-line="37"><span class="sd">        &gt;&gt;&gt; spec = PruningSpec(target_sparsity=0.75)</span>
-</span><span data-line="38"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="39">
-</span><span data-line="40">    <span class="n">_compression_type</span><span class="p">:</span> <span class="n">CompressionType</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">CompressionType</span><span class="o">.</span><span class="n">PRUNING</span><span class="p">)</span>
-</span><span data-line="41">
-</span><span data-line="42">    <span class="n">target_sparsity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="43">    <span class="n">pruning_scheme</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
-</span><span data-line="44">        <span class="n">PruningScheme</span><span class="p">,</span>
-</span><span data-line="45">        <span class="n">BeforeValidator</span><span class="p">(</span><span class="n">PruningScheme</span><span class="o">.</span><span class="n">maybe_build_from_dict</span><span class="p">),</span>
-</span><span data-line="46">    <span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">Unstructured</span><span class="p">)</span>
-</span><span data-line="47">    <span class="n">pruning_algo</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">PruneImplBase</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="48">
-</span><span data-line="49">    <span class="nd">@staticmethod</span>
-</span><span data-line="50">    <span class="k">def</span><span class="w"> </span><span class="nf">_convert_with_registry</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">type</span><span class="p">,</span> <span class="n">registry_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">ClassRegistryMixin</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">:</span>
-</span><span data-line="51"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert string or type to a registered class from the given registry.</span>
-</span><span data-line="52">
-</span><span data-line="53"><span class="sd">        Args:</span>
-</span><span data-line="54"><span class="sd">            data (str | type): Either a string key or a class type.</span>
-</span><span data-line="55"><span class="sd">            registry_class (type[ClassRegistryMixin]): The registry class to look up.</span>
-</span><span data-line="56">
-</span><span data-line="57"><span class="sd">        Returns:</span>
-</span><span data-line="58"><span class="sd">            type: The registered class type.</span>
-</span><span data-line="59">
-</span><span data-line="60"><span class="sd">        Raises:</span>
-</span><span data-line="61"><span class="sd">            ValueError: If the key is not found in registry or type is not registered.</span>
-</span><span data-line="62"><span class="sd">            TypeError: If *data* is neither string nor type.</span>
-</span><span data-line="63"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="64">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-</span><span data-line="65">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="66">                <span class="k">return</span> <span class="n">registry_class</span><span class="o">.</span><span class="n">get_class</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>  <span class="c1"># type: ignore[no-any-return]</span>
-</span><span data-line="67">            <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-</span><span data-line="68">                <span class="n">available_keys</span> <span class="o">=</span> <span class="n">registry_class</span><span class="o">.</span><span class="n">list_registry_keys</span><span class="p">()</span>
-</span><span data-line="69">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="70">                    <span class="sa">f</span><span class="s2">&quot;No class is registered with key: &#39;</span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s2">&#39; &quot;</span>
-</span><span data-line="71">                    <span class="sa">f</span><span class="s2">&quot;in registry </span><span class="si">{</span><span class="n">registry_class</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">. &quot;</span>
-</span><span data-line="72">                    <span class="sa">f</span><span class="s2">&quot;Available keys: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">available_keys</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span data-line="73">                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
-</span><span data-line="74">        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
-</span><span data-line="75">            <span class="k">if</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">registry_class</span><span class="o">.</span><span class="n">list_registry_values</span><span class="p">():</span>
-</span><span data-line="76">                <span class="k">return</span> <span class="n">data</span>
-</span><span data-line="77">            <span class="n">available_classes</span> <span class="o">=</span> <span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">registry_class</span><span class="o">.</span><span class="n">list_registry_values</span><span class="p">()]</span>
-</span><span data-line="78">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="79">                <span class="sa">f</span><span class="s2">&quot;Class </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> is not registered in &quot;</span>
-</span><span data-line="80">                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">registry_class</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">. &quot;</span>
-</span><span data-line="81">                <span class="sa">f</span><span class="s2">&quot;Available classes: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">available_classes</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span data-line="82">            <span class="p">)</span>
-</span><span data-line="83">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="84">            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-</span><span data-line="85">                <span class="sa">f</span><span class="s2">&quot;Expected str or type for registry lookup, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span data-line="86">            <span class="p">)</span>
-</span><span data-line="87">
-</span><span data-line="88">    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;pruning_algo&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
-</span><span data-line="89">    <span class="nd">@classmethod</span>
-</span><span data-line="90">    <span class="k">def</span><span class="w"> </span><span class="nf">convert_pruning_algo</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">PruneImplBase</span><span class="p">]:</span>
-</span><span data-line="91"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve string keys to registered pruning implementation classes.&quot;&quot;&quot;</span>
-</span><span data-line="92">        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_convert_with_registry</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">PruneImplBase</span><span class="p">)</span>
-</span><span data-line="93">
-</span><span data-line="94">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
-</span><span data-line="95">    <span class="nd">@classmethod</span>
-</span><span data-line="96">    <span class="k">def</span><span class="w"> </span><span class="nf">_strip_computed_fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span><span data-line="97"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Strip computed fields when deserializing from dict for round-trip support.&quot;&quot;&quot;</span>
-</span><span data-line="98">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span data-line="99">            <span class="n">declared</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">model_fields</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-</span><span data-line="100">            <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">declared</span><span class="p">}</span>
-</span><span data-line="101">        <span class="k">return</span> <span class="n">data</span></div>
+</span><span data-line="21"><span class="k">class</span><span class="w"> </span><span class="nc">PruningSpec</span><span class="p">(</span><span class="n">CompressionSpec</span><span class="p">):</span>
+</span><span data-line="22"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Specification for pruning tensors.</span>
+</span><span data-line="23">
+</span><span data-line="24"><span class="sd">    Attributes:</span>
+</span><span data-line="25"><span class="sd">        target_sparsity (float): Fraction of elements to prune, in ``[0, 1]``.</span>
+</span><span data-line="26"><span class="sd">            Default: 0.5.</span>
+</span><span data-line="27"><span class="sd">        pruning_scheme (PruningScheme): Structural pattern of sparsity.</span>
+</span><span data-line="28"><span class="sd">            Default: ``Unstructured()``.</span>
+</span><span data-line="29"><span class="sd">        pruning_algo (type[PruneImplBase]): Pruning implementation class.</span>
+</span><span data-line="30"><span class="sd">            Default: ``&quot;default&quot;`` (magnitude-based pruning).</span>
+</span><span data-line="31">
+</span><span data-line="32"><span class="sd">    Example:</span>
+</span><span data-line="33"><span class="sd">        &gt;&gt;&gt; spec = PruningSpec()</span>
+</span><span data-line="34"><span class="sd">        &gt;&gt;&gt; spec.target_sparsity</span>
+</span><span data-line="35"><span class="sd">        0.5</span>
+</span><span data-line="36"><span class="sd">        &gt;&gt;&gt; spec = PruningSpec(target_sparsity=0.75)</span>
+</span><span data-line="37"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="38">
+</span><span data-line="39">    <span class="n">_compression_type</span><span class="p">:</span> <span class="n">CompressionType</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">CompressionType</span><span class="o">.</span><span class="n">PRUNING</span><span class="p">)</span>
+</span><span data-line="40">
+</span><span data-line="41">    <span class="n">target_sparsity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="42">    <span class="n">pruning_scheme</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+</span><span data-line="43">        <span class="n">PruningScheme</span><span class="p">,</span>
+</span><span data-line="44">        <span class="n">BeforeValidator</span><span class="p">(</span><span class="n">PruningScheme</span><span class="o">.</span><span class="n">maybe_build_from_dict</span><span class="p">),</span>
+</span><span data-line="45">    <span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">Unstructured</span><span class="p">)</span>
+</span><span data-line="46">    <span class="n">pruning_algo</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">PruneImplBase</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="n">validate_default</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="47">
+</span><span data-line="48">    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;pruning_algo&quot;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span data-line="49">    <span class="nd">@classmethod</span>
+</span><span data-line="50">    <span class="k">def</span><span class="w"> </span><span class="nf">convert_pruning_algo</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">PruneImplBase</span><span class="p">]:</span>
+</span><span data-line="51"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve string keys to registered pruning implementation classes.&quot;&quot;&quot;</span>
+</span><span data-line="52">        <span class="k">return</span> <span class="n">PruneImplBase</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span><span data-line="53">
+</span><span data-line="54">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;before&quot;</span><span class="p">)</span>
+</span><span data-line="55">    <span class="nd">@classmethod</span>
+</span><span data-line="56">    <span class="k">def</span><span class="w"> </span><span class="nf">_strip_computed_fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="57"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Strip computed fields when deserializing from dict for round-trip support.&quot;&quot;&quot;</span>
+</span><span data-line="58">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+</span><span data-line="59">            <span class="n">declared</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">model_fields</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</span><span data-line="60">            <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">declared</span><span class="p">}</span>
+</span><span data-line="61">        <span class="k">return</span> <span class="n">data</span></div>
 
-</span><span data-line="102">
-</span><span data-line="103">
+</span><span data-line="62">
+</span><span data-line="63">
 <div class="viewcode-block" id="default_weight_pruning_spec">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html#coreai_opt.pruning.default_weight_pruning_spec">[docs]</a>
-</span><span data-line="104"><span class="k">def</span><span class="w"> </span><span class="nf">default_weight_pruning_spec</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">PruningSpec</span><span class="p">:</span>
-</span><span data-line="105"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the default pruning spec for weight tensors.&quot;&quot;&quot;</span>
-</span><span data-line="106">    <span class="k">return</span> <span class="n">PruningSpec</span><span class="p">(</span>
-</span><span data-line="107">        <span class="n">target_sparsity</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-</span><span data-line="108">        <span class="n">pruning_scheme</span><span class="o">=</span><span class="n">Unstructured</span><span class="p">(),</span>
-</span><span data-line="109">        <span class="n">pruning_algo</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
-</span><span data-line="110">    <span class="p">)</span></div>
+</span><span data-line="64"><span class="k">def</span><span class="w"> </span><span class="nf">default_weight_pruning_spec</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">PruningSpec</span><span class="p">:</span>
+</span><span data-line="65"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the default pruning spec for weight tensors.&quot;&quot;&quot;</span>
+</span><span data-line="66">    <span class="k">return</span> <span class="n">PruningSpec</span><span class="p">(</span>
+</span><span data-line="67">        <span class="n">target_sparsity</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+</span><span data-line="68">        <span class="n">pruning_scheme</span><span class="o">=</span><span class="n">Unstructured</span><span class="p">(),</span>
+</span><span data-line="69">        <span class="n">pruning_algo</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+</span><span data-line="70">    <span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

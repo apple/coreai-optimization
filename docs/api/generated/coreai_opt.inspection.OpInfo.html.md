@@ -1,6 +1,6 @@
 # coreai_opt.inspection.OpInfo
 
-### *class* coreai_opt.inspection.OpInfo(op_name, op_type, module_stack, source_frames, inputs, outputs)
+### *class* coreai_opt.inspection.OpInfo(op_name, op_type, module_stack, source_frames, inputs, outputs, is_state)
 
 Bases: `object`
 
@@ -11,8 +11,9 @@ Information about a single operation discovered in a model.
   * **op_type** (*str* *|* *None*)
   * **module_stack** (*tuple* *[*[*ModuleContext*](coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext) *,*  *...* *]*)
   * **source_frames** (*tuple* *[*[*SourceFrame*](coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame) *,*  *...* *]*)
-  * **inputs** (*tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]*)
-  * **outputs** (*tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]*)
+  * **inputs** (*tuple* *[*[*InputEdge*](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge) *,*  *...* *]*)
+  * **outputs** (*dict* *[**int* *,* *tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]* *]*)
+  * **is_state** (*bool*)
 
 #### op_name
 
@@ -53,33 +54,45 @@ May be empty if source information is unavailable.
 
 #### inputs
 
-Ordered input ops (ops, placeholders,
-parameters) that feed into this op.
+Ordered input edges. Each [`InputEdge`](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge)
+carries the producing op and the output slot of that op the tensor came from.
 
 * **Type:**
-  tuple[[OpInfo](#coreai_opt.inspection.OpInfo), …]
+  tuple[[InputEdge](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge), …]
 
 #### outputs
 
-Consumer ops that receive the output
-of this op, in graph order.
+Dictionary mapping op outputs to a tuple of ops
+consuming the output.
 
 * **Type:**
-  tuple[[OpInfo](#coreai_opt.inspection.OpInfo), …]
+  dict[int, tuple[[OpInfo](#coreai_opt.inspection.OpInfo), …]]
 
-#### \_\_init_\_(op_name, op_type, module_stack, source_frames, inputs, outputs)
+#### is_state
+
+`True` if this op represents a model parameter or
+buffer rather than a computation. State ops have an empty
+`module_stack` and do not appear in module tree or boundary lists.
+
+* **Type:**
+  bool
+
+#### \_\_init_\_(op_name, op_type, module_stack, source_frames, inputs, outputs, is_state)
 
 * **Parameters:**
   * **op_name** (*str*)
   * **op_type** (*str* *|* *None*)
   * **module_stack** (*tuple* *[*[*ModuleContext*](coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext) *,*  *...* *]*)
   * **source_frames** (*tuple* *[*[*SourceFrame*](coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame) *,*  *...* *]*)
-  * **inputs** (*tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]*)
-  * **outputs** (*tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]*)
+  * **inputs** (*tuple* *[*[*InputEdge*](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge) *,*  *...* *]*)
+  * **outputs** (*dict* *[**int* *,* *tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]* *]*)
+  * **is_state** (*bool*)
 * **Return type:**
   None
 
-#### inputs *: tuple[[OpInfo](#coreai_opt.inspection.OpInfo), ...]*
+#### inputs *: tuple[[InputEdge](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge), ...]*
+
+#### is_state *: bool*
 
 #### module_stack *: tuple[[ModuleContext](coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext), ...]*
 
@@ -87,6 +100,6 @@ of this op, in graph order.
 
 #### op_type *: str | None*
 
-#### outputs *: tuple[[OpInfo](#coreai_opt.inspection.OpInfo), ...]*
+#### outputs *: dict[int, tuple[[OpInfo](#coreai_opt.inspection.OpInfo), ...]]*
 
 #### source_frames *: tuple[[SourceFrame](coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame), ...]*

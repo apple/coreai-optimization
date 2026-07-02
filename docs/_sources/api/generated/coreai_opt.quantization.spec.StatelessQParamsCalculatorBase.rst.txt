@@ -1,0 +1,29 @@
+﻿coreai\_opt.quantization.spec.StatelessQParamsCalculatorBase
+============================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autoclass:: StatelessQParamsCalculatorBase
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~StatelessQParamsCalculatorBase.compute_qparams
+      ~StatelessQParamsCalculatorBase.forward
+      ~StatelessQParamsCalculatorBase.get_class
+      ~StatelessQParamsCalculatorBase.list_registry_keys
+      ~StatelessQParamsCalculatorBase.list_registry_values
+      ~StatelessQParamsCalculatorBase.register
+      ~StatelessQParamsCalculatorBase.resolve
+      ~StatelessQParamsCalculatorBase.set_export_mode
+   
+   
+
+   
+   
+   

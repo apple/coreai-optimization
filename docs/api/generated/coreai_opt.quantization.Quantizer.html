@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=86898c54" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
@@ -103,6 +103,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
 </ul>
@@ -130,6 +131,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
@@ -195,8 +198,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.KVCacheQuantConfig.html">coreai_opt.quantization.config.KVCacheQuantConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.DynamicQParamsCalculator.html">coreai_opt.quantization.spec.DynamicQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
@@ -210,6 +215,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatefulQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatelessQParamsCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
@@ -240,7 +247,6 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#coreai_opt.quantization.Quantizer.enable_fake_quant"><code class="docutils literal notranslate">enable_fake_quant()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.Quantizer.enable_observer"><code class="docutils literal notranslate">enable_observer()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.Quantizer.finalize"><code class="docutils literal notranslate">finalize()</span></code></a></li>
-<li><a class="reference internal" href="#coreai_opt.quantization.Quantizer.get_compressible_op_names"><code class="docutils literal notranslate">get_compressible_op_names()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.Quantizer.prepare"><code class="docutils literal notranslate">prepare()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.Quantizer.step"><code class="docutils literal notranslate">step()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.Quantizer.training_mode"><code class="docutils literal notranslate">training_mode()</span></code></a></li>
@@ -484,19 +490,16 @@ during the compression process.</p></li>
 <tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.Quantizer.finalize" title="coreai_opt.quantization.Quantizer.finalize"><code class="xref py py-obj docutils literal notranslate"><span class="pre">finalize</span></code></a>([model, backend, mmap_dir])</p></td>
 <td><p>Convert quantized model to backend-specific representations.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.Quantizer.get_compressible_op_names" title="coreai_opt.quantization.Quantizer.get_compressible_op_names"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_compressible_op_names</span></code></a>(model, execution_mode)</p></td>
-<td><p>Return op names in <em>model</em> that this quantizer can target.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.Quantizer.prepare" title="coreai_opt.quantization.Quantizer.prepare"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prepare</span></code></a>(example_inputs[, dynamic_shapes, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.Quantizer.prepare" title="coreai_opt.quantization.Quantizer.prepare"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prepare</span></code></a>(example_inputs[, dynamic_shapes, ...])</p></td>
 <td><p>Prepare the model for quantization by inserting fake quantization modules.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.Quantizer.step" title="coreai_opt.quantization.Quantizer.step"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.Quantizer.step" title="coreai_opt.quantization.Quantizer.step"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code></a>()</p></td>
 <td><p>Advance the QAT schedule by one step and apply observer/fake_quant transitions after the step has been incremented.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">supported_modules</span></code>()</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">supported_modules</span></code>()</p></td>
 <td><p>Returns types of modules that are supported for compression with for a particular model optimization technique.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.Quantizer.training_mode" title="coreai_opt.quantization.Quantizer.training_mode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">training_mode</span></code></a>([model])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.Quantizer.training_mode" title="coreai_opt.quantization.Quantizer.training_mode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">training_mode</span></code></a>([model])</p></td>
 <td><p>Context manager for quantization-aware training (QAT) workflow.</p></td>
 </tr>
 </tbody>
@@ -651,28 +654,6 @@ mode-dependent behavior are not affected.</p>
 <p>When <code class="docutils literal notranslate"><span class="pre">backend=ExportBackend.CoreAI</span></code> in execution_mode=ExecutionMode.EAGER,
 finalize frees the original dense weights.</p>
 </div>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="coreai_opt.quantization.Quantizer.get_compressible_op_names">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_compressible_op_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">execution_mode</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/quantizer.html#Quantizer.get_compressible_op_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.Quantizer.get_compressible_op_names" title="Link to this definition">¶</a></dt>
-<dd><p>Return op names in <em>model</em> that this quantizer can target.</p>
-<p>Dispatches to the appropriate underlying quantizer based on
-<em>execution_mode</em>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>model</strong> (<em>nn.Module</em>) – The model to get compressible op names for.</p></li>
-<li><p><strong>execution_mode</strong> (<a class="reference internal" href="coreai_opt.quantization.ExecutionMode.html#coreai_opt.quantization.ExecutionMode" title="coreai_opt.quantization.ExecutionMode"><em>ExecutionMode</em></a>) – The execution mode.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Op names that can be compressed via quantization.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>set[str]</p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py method">

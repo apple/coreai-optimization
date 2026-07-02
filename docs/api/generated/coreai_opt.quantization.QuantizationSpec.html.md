@@ -212,6 +212,9 @@ Valid inputs:
   most recent calibration sample only
 - “moving_average”: Uses exponential moving average for stability
 - “global_minmax”: Tracks running min/max across all calibration samples
+- “dynamic”: Computes scale/zero/minval point on each forward pass from the
+  current tensor — no calibration. Only valid for activation quantization
+  (rejected by the factory for weights/LUT).
 - Custom registered class string name
 - coreai_opt.quantization.qparams_calculator.QParamsCalculatorBase
   class type: StaticQParamsCalculator,

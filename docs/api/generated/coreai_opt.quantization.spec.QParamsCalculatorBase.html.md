@@ -4,8 +4,18 @@
 
 Bases: `ClassRegistryMixin`, `Module`
 
-Base class for implementing logic to calculate quantization parameters
-(scale, zero_point, minval) given min/max values.
+Abstract base for qparams calculators — common configuration and helpers.
+
+Concrete subclasses inherit from either:
+
+- `StatefulQParamsCalculatorBase` — has scale/zp/minval buffers; used by
+  Static, MovingAverage, GlobalMinMax.
+- `StatelessQParamsCalculatorBase` — no buffers, qparams recomputed per
+  forward; used by Dynamic. `FakeQuantizeImplBase` and `Quantizer`
+  detect this subclass to keep the observer always on and to reject
+  export.
+
+Subclasses must implement `forward(tensor) -> (scale, zero_point, minval)`.
 
 * **Parameters:**
   * **dtype** (*torch.dtype*)
@@ -35,25 +45,20 @@ Base class for implementing logic to calculate quantization parameters
 
 | [`compute_qparams`](#coreai_opt.quantization.spec.QParamsCalculatorBase.compute_qparams)(tensor, min_val, max_val)   | Given the observed min/max range, return `(scale, zero_point, minval)`.   |
 |----------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| [`extra_repr`](#coreai_opt.quantization.spec.QParamsCalculatorBase.extra_repr)()                                     | Return the extra representation of the module.                            |
-| [`forward`](#coreai_opt.quantization.spec.QParamsCalculatorBase.forward)(tensor)                                     | Compute scale, zero point, and minval from the input tensor.              |
+| [`forward`](#coreai_opt.quantization.spec.QParamsCalculatorBase.forward)(tensor)                                     | Compute and return `(scale, zero_point, minval)` for `tensor`.            |
 | `get_class`(key)                                                                                                     |                                                                           |
-| [`get_qparams`](#coreai_opt.quantization.spec.QParamsCalculatorBase.get_qparams)()                                   | Return the computed scale, zero point and minval.                         |
 | `list_registry_keys`()                                                                                               |                                                                           |
 | `list_registry_values`()                                                                                             |                                                                           |
 | `register`(key)                                                                                                      | Register a virtual subclass of an ABC.                                    |
-| [`set_export_mode`](#coreai_opt.quantization.spec.QParamsCalculatorBase.set_export_mode)([enabled])                  |                                                                           |
+| `resolve`(data)                                                                                                      | Resolve a string key or class type against this registry.                 |
 
 #### compute_qparams(tensor, min_val, max_val)
 
 Given the observed min/max range, return `(scale, zero_point, minval)`.
 
-The default implementation directly computes qparams from the given
-range via `_compute_scale_zero_point_minval`.  This is the correct behavior
-for stateless calculators (e.g. `StaticQParamsCalculator`).
-
-Stateful calculators override this via `RunningRangeMixin` to update
-running-range buffers before computing qparams from the smoothed range.
+Default implementation: pure function of the supplied range, no running state.
+`RunningRangeMixin` overrides this to apply a running-range smoothing rule
+before computing qparams.
 
 * **Parameters:**
   * **tensor** (*Tensor*)
@@ -62,51 +67,15 @@ running-range buffers before computing qparams from the smoothed range.
 * **Return type:**
   tuple[*Tensor*, *Tensor* | None, *Tensor* | None]
 
-#### extra_repr()
+#### *abstract* forward(tensor)
 
-Return the extra representation of the module.
-
-To print customized extra information, you should re-implement
-this method in your own modules. Both single-line and multi-line
-strings are acceptable.
-
-* **Return type:**
-  str
-
-#### forward(tensor)
-
-Compute scale, zero point, and minval from the input tensor.
-
-On the first forward pass, initializes internal buffers using the
-observed tensor shape and device. Delegates the actual qparams
-calculation to `compute_qparams`.
+Compute and return `(scale, zero_point, minval)` for `tensor`.
 
 * **Parameters:**
   **tensor** (*Tensor*)
 * **Return type:**
   tuple[*Tensor*, *Tensor* | None, *Tensor* | None]
 
-#### get_qparams()
-
-Return the computed scale, zero point and minval.
-For FP4/FP8/floating-point quantization, zero_point and minval are None.
-
-* **Return type:**
-  tuple[*Tensor*, *Tensor* | None, *Tensor* | None]
-
-#### set_export_mode(enabled=True)
-
-* **Parameters:**
-  **enabled** (*bool*)
-* **Return type:**
-  None
-
 #### *property* granularity *: [QuantizationGranularity](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity)*
 
 Getter for granularity.
-
-#### minval *: torch.Tensor | None*
-
-#### scale *: torch.Tensor*
-
-#### zero_point *: torch.Tensor | None*

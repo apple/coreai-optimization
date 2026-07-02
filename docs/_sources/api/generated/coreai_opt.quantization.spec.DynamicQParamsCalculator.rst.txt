@@ -1,0 +1,29 @@
+﻿coreai\_opt.quantization.spec.DynamicQParamsCalculator
+======================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autoclass:: DynamicQParamsCalculator
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DynamicQParamsCalculator.compute_qparams
+      ~DynamicQParamsCalculator.forward
+      ~DynamicQParamsCalculator.get_class
+      ~DynamicQParamsCalculator.list_registry_keys
+      ~DynamicQParamsCalculator.list_registry_values
+      ~DynamicQParamsCalculator.register
+      ~DynamicQParamsCalculator.resolve
+      ~DynamicQParamsCalculator.set_export_mode
+   
+   
+
+   
+   
+   

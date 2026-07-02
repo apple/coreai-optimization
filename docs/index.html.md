@@ -20,7 +20,7 @@ Available APIs cover the following categories of compression:
 
 - **[Quantization](quantization/index.md)** approximates weights and/or activations using a quantization function. Weight precisions include INT2, INT4, INT8 and FP4, FP8; activation precisions include INT8 and FP8.
 - **[Palettization](palettization/index.md)**, also known as codebook-style compression, clusters weights into a look-up table of centroids and stores indices in their place. Weights can be palettized to N ∈ {1, 2, 3, 4, 6, 8} bits.
-- **Pruning** zeros out weights with the smallest magnitudes and stores the remaining weights using sparse representations.
+- **[Pruning](pruning/index.md)** zeros out weights with the smallest magnitudes and stores the remaining weights using sparse representations.
 
 These techniques can also be combined and applied in a hybrid fashion — for example, applying different palettization bit widths to different weights, or combining weight palettization with activation quantization — to build customized optimization recipes.
 

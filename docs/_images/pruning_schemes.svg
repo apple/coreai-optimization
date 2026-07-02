@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="380" viewBox="0 0 900 380">
+<defs>
+  <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="150%">
+    <feDropShadow dx="0" dy="4" stdDeviation="9" flood-color="#1A1A2E" flood-opacity="0.10"/>
+  </filter>
+</defs>
+<rect width="900" height="380" fill="#F5F6F8"/>
+
+<!-- Panel: Card 1 -->
+<text x="230" y="62" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="600" fill="#5F6368" text-anchor="middle">Unstructured</text>
+<rect x="40" y="90" width="380" height="240" rx="18" ry="18" fill="#FFFFFF" filter="url(#cardShadow)"/>
+
+<!-- Card 1 row 0 -->
+<rect x="68" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="101" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="134" y="130" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="167" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="200" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="233" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="266" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="299" y="130" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="332" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="365" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<!-- Card 1 row 1 -->
+<rect x="68" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="101" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="134" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="167" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="200" y="163" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="233" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="266" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="299" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="332" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="365" y="163" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+
+<!-- Card 1 row 2 -->
+<rect x="68" y="196" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="101" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="134" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="167" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="200" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="233" y="196" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="266" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="299" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="332" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="365" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<!-- Card 1 row 3 -->
+<rect x="68" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="101" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="134" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="167" y="229" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="200" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="233" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="266" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="299" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="332" y="229" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="365" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<!-- Card 1 row 4 -->
+<rect x="68" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="101" y="262" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="134" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="167" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="200" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="233" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="266" y="262" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="299" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="332" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="365" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<text x="230" y="358" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="500" fill="#5F6368" text-anchor="middle">Individual cells zeroed (target_sparsity = 0.2)</text>
+
+<!-- Panel: Card 2 -->
+<text x="670" y="62" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="600" fill="#5F6368" text-anchor="middle">Channel-structured</text>
+<rect x="480" y="90" width="380" height="240" rx="18" ry="18" fill="#FFFFFF" filter="url(#cardShadow)"/>
+
+<!-- Card 2 row 0 -->
+<rect x="508" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="541" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="574" y="130" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="607" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="640" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="673" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="706" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="739" y="130" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="772" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="805" y="130" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<!-- Card 2 row 1 -->
+<rect x="508" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="541" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="574" y="163" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="607" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="640" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="673" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="706" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="739" y="163" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="772" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="805" y="163" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<!-- Card 2 row 2 -->
+<rect x="508" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="541" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="574" y="196" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="607" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="640" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="673" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="706" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="739" y="196" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="772" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="805" y="196" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<!-- Card 2 row 3 -->
+<rect x="508" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="541" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="574" y="229" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="607" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="640" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="673" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="706" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="739" y="229" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="772" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="805" y="229" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<!-- Card 2 row 4 -->
+<rect x="508" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="541" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="574" y="262" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="607" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="640" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="673" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="706" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="739" y="262" width="28" height="28" rx="4" ry="4" fill="#9AA0A6"/>
+<rect x="772" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+<rect x="805" y="262" width="28" height="28" rx="4" ry="4" fill="#FFFFFF" stroke="#DADCE0" stroke-width="1"/>
+
+<text x="670" y="358" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="500" fill="#5F6368" text-anchor="middle">Whole channels zeroed along axis=1 (target_sparsity = 0.2)</text>
+
+</svg>

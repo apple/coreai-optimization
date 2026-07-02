@@ -1,0 +1,16 @@
+﻿coreai\_opt.inspection.InputEdge
+================================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autoclass:: InputEdge
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   
