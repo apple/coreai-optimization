@@ -60,7 +60,7 @@ from coreai_opt.quantization._axis_defaults import (
     apply_weight_axis_defaults_graph as _apply_weight_axis_defaults,
     validate_activation_axes as _validate_activation_axes,
 )
-from coreai_opt.quantization._utils import (
+from coreai_opt.quantization._fake_quant_utils import (
     disable_activation_fake_quant as _disable_activation_fake_quant,
     enable_weight_fake_quant as _enable_weight_fake_quant,
 )

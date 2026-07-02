@@ -530,23 +530,30 @@ class TestEagerQuantizer:
 
         assert torch.equal(out_before_roundtrip, out_after_roundtrip)
 
-    def test_calibration_mode(self, simple_model, input_activation_only_config, example_input):
+    def test_calibration_mode(self, simple_model, basic_config, example_input):
         """
         Test that calibration mode works as expected, and scales are getting updated
         """
-        quantizer = Quantizer(simple_model, input_activation_only_config)
+        quantizer = Quantizer(simple_model, basic_config)
         simple_model.eval()
         prepared_model = quantizer.prepare((example_input,))
 
         fake_quant_modules = [
             m for m in prepared_model.modules() if isinstance(m, FakeQuantizeImplBase)
         ]
+        activation_fake_quant_modules = [
+            m
+            for m in fake_quant_modules
+            if m.quantization_target == CompressionTargetTensor.ACTIVATION
+        ]
 
         for module in fake_quant_modules:
             assert module.observer_enabled.item() == 0
             assert module.fake_quant_enabled.item() == 1
 
-        pre_calibration_scales = [mod.calculate_qparams()[0].clone() for mod in fake_quant_modules]
+        pre_calibration_scales = [
+            mod.calculate_qparams()[0].clone() for mod in activation_fake_quant_modules
+        ]
 
         with quantizer.calibration_mode():
             simple_model.eval()
@@ -563,8 +570,12 @@ class TestEagerQuantizer:
                 )
                 assert module.fake_quant_enabled.item() == expected_fq
 
-        post_calibration_scales = [mod.calculate_qparams()[0].clone() for mod in fake_quant_modules]
+        post_calibration_scales = [
+            mod.calculate_qparams()[0].clone() for mod in activation_fake_quant_modules
+        ]
 
+        # Only activation scales are expected to move here: weight ranges are
+        # fixed at prepare time and don't depend on calibration data.
         for pre_scale, post_scale in zip(
             pre_calibration_scales, post_calibration_scales, strict=True
         ):

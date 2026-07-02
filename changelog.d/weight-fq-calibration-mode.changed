@@ -1,1 +1,0 @@
-`Quantizer.calibration_mode` now keeps weight fake quantization enabled while only activation fake quantization is disabled, so activation observers see the effect of quantized weights when computing activation ranges.
