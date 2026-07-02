@@ -184,7 +184,7 @@ The defaults are:
 
 In [Quantization Overview](overview.md) we saw how to use the default `W_INT8_A_INT8` config. [Config classes and their defaults](#config-classes-and-their-defaults) described the default settings in `QuantizerConfig()`, `ModuleQuantizerConfig()`, and `OpQuantizerConfig()`. Let us now see how to configure quantization when non-default settings are desired.
 
-Several examples below configure specific module names, module types, op names, or op types. To determine these for your model, see [Inspecting Model Structure](../utils/model_inspection.md).
+Several examples below configure specific module names, module types, op names, or op types. To determine these for your model, see [Inspecting Model Structure](../debugging/model_inspection.md).
 
 ### Example: `W_MXFP4_A_FP8` applied to all supported ops
 
@@ -874,4 +874,4 @@ inspector = ModelInspector(
 print(inspector.format_summary())
 ```
 
-See [Inspecting Model Structure](../utils/model_inspection.md) for full usage, examples, and a comparison of graph and eager mode op naming.
+See [Inspecting Model Structure](../debugging/model_inspection.md) for full usage, examples, and a comparison of graph and eager mode op naming.

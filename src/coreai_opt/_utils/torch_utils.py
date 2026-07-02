@@ -390,12 +390,13 @@ def export_model(
     Args:
         model (torch.nn.Module): The model to export.
         example_inputs (tuple[Any, ...]): Example inputs for tracing.
-        dynamic_shapes: Dynamic shapes specification for torch.export.
+        dynamic_shapes (dict[str, Any] | tuple[Any] | list[Any] | None):
+                        Dynamic shapes specification for torch.export.
                         Can be a dict mapping input names to dynamic dimensions,
                         a tuple/list of dynamic shapes per input, or None for
                         static shapes. Used to specify which dimensions can vary
                         at runtime during model export.
-        export_with_no_grad: Whether to call torch.export.export within a
+        export_with_no_grad (bool): Whether to call torch.export.export within a
                              torch.no_grad() context.
 
     Returns:
@@ -416,8 +417,27 @@ def export_model(
                 exported_model = exported_program.module()
         return exported_model
     except Exception as e:
+        no_grad_hint = (
+            "  - Try export_with_no_grad=False — the torch.no_grad() context can "
+            "modify tracing behavior for some models.\n"
+            if export_with_no_grad
+            else "  - Try export_with_no_grad=True — exporting with torch.no_grad() "
+            "simplifies the traced graph.\n"
+        )
+        _dynamic_shapes_url = (
+            "https://docs.pytorch.org"
+            "/tutorials/intermediate/torch_export_tutorial.html"
+            "#constraints-dynamic-shapes"
+        )
         raise RuntimeError(
-            f"Failed to trace the model with torch.export.export(), received error: {e}"
+            f"Failed to trace the model with torch.export.export(), received error: "
+            f"{e}\n\n"
+            f"Debugging hints:\n"
+            f"{no_grad_hint}"
+            f"  - If the error mentions shape constraints, try specifying "
+            f"dynamic_shapes. See: {_dynamic_shapes_url}\n"
+            f"  - As a last resort, consider using EAGER execution mode: "
+            f"config.execution_mode = ExecutionMode.EAGER"
         ) from e
 
 
