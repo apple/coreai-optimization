@@ -1,0 +1,1 @@
+Replace the coremltools-based 1D k-means used by palettization with a built-in Numba implementation. `coremltools` is no longer a runtime dependency (it is now an optional dependency, installable via the `coreml` extra).
