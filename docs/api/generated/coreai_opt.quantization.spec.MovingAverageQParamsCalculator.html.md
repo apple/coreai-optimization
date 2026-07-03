@@ -2,7 +2,7 @@
 
 ### *class* coreai_opt.quantization.spec.MovingAverageQParamsCalculator(dtype, qscheme, granularity, target_dtype, quant_min, quant_max, range_calculator, float_range, averaging_constant=0.01, \*\*kwargs)
 
-Bases: [`RunningRangeMixin`](coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantization.spec.RunningRangeMixin), [`QParamsCalculatorBase`](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)
+Bases: [`RunningRangeMixin`](coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantization.spec.RunningRangeMixin), [`StatefulQParamsCalculatorBase`](coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.md#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase)
 
 Computes the scale and zero point using a moving average of the range.
 
@@ -42,12 +42,13 @@ where `c` is the `averaging_constant`.
 | `compute_qparams`(tensor, min_val, max_val)                                                                                   | Update running range, persist to buffers, then compute qparams.   |
 |-------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
 | `extra_repr`()                                                                                                                | Return the extra representation of the module.                    |
-| `forward`(tensor)                                                                                                             | Compute scale, zero point, and minval from the input tensor.      |
+| `forward`(tensor)                                                                                                             | Compute qparams from `tensor`; cache to buffers; return.          |
 | `get_class`(key)                                                                                                              |                                                                   |
 | `get_qparams`()                                                                                                               | Return the computed scale, zero point and minval.                 |
 | `list_registry_keys`()                                                                                                        |                                                                   |
 | `list_registry_values`()                                                                                                      |                                                                   |
 | `register`(key)                                                                                                               | Register a virtual subclass of an ABC.                            |
+| `resolve`(data)                                                                                                               | Resolve a string key or class type against this registry.         |
 | `set_export_mode`([enabled])                                                                                                  |                                                                   |
 | [`update_running_range`](#coreai_opt.quantization.spec.MovingAverageQParamsCalculator.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule. |
 

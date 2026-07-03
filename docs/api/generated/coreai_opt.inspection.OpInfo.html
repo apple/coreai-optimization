@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=86898c54" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
@@ -103,6 +103,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
 </ul>
@@ -130,6 +131,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
@@ -195,8 +198,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.KVCacheQuantConfig.html">coreai_opt.quantization.config.KVCacheQuantConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.DynamicQParamsCalculator.html">coreai_opt.quantization.spec.DynamicQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
@@ -210,6 +215,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatefulQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatelessQParamsCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
@@ -239,13 +246,15 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#coreai_opt.inspection.OpInfo.source_frames"><code class="docutils literal notranslate">source_frames</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.inspection.OpInfo.inputs"><code class="docutils literal notranslate">inputs</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.inspection.OpInfo.outputs"><code class="docutils literal notranslate">outputs</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.inspection.OpInfo.is_state"><code class="docutils literal notranslate">is_state</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.inspection.OpInfo.__init__"><code class="docutils literal notranslate">__init__()</span></code></a></li>
 <li><a class="reference internal" href="#id0"><code class="docutils literal notranslate">inputs</span></code></a></li>
-<li><a class="reference internal" href="#id1"><code class="docutils literal notranslate">module_stack</span></code></a></li>
-<li><a class="reference internal" href="#id2"><code class="docutils literal notranslate">op_name</span></code></a></li>
-<li><a class="reference internal" href="#id3"><code class="docutils literal notranslate">op_type</span></code></a></li>
-<li><a class="reference internal" href="#id4"><code class="docutils literal notranslate">outputs</span></code></a></li>
-<li><a class="reference internal" href="#id5"><code class="docutils literal notranslate">source_frames</span></code></a></li>
+<li><a class="reference internal" href="#id1"><code class="docutils literal notranslate">is_state</span></code></a></li>
+<li><a class="reference internal" href="#id2"><code class="docutils literal notranslate">module_stack</span></code></a></li>
+<li><a class="reference internal" href="#id3"><code class="docutils literal notranslate">op_name</span></code></a></li>
+<li><a class="reference internal" href="#id4"><code class="docutils literal notranslate">op_type</span></code></a></li>
+<li><a class="reference internal" href="#id5"><code class="docutils literal notranslate">outputs</span></code></a></li>
+<li><a class="reference internal" href="#id6"><code class="docutils literal notranslate">source_frames</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -317,7 +326,7 @@ data-aria-dark="Switch to auto color mode">
 <h1>coreai_opt.inspection.OpInfo<a class="headerlink" href="#coreai-opt-inspection-opinfo" title="Link to this heading">¶</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="coreai_opt.inspection.OpInfo">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">coreai_opt.inspection.</span></span><span class="sig-name descname"><span class="pre">OpInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module_stack</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_frames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/inspection/types.html#OpInfo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.inspection.OpInfo" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">coreai_opt.inspection.</span></span><span class="sig-name descname"><span class="pre">OpInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module_stack</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_frames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_state</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/inspection/types.html#OpInfo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.inspection.OpInfo" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Information about a single operation discovered in a model.</p>
 <dl class="field-list simple">
@@ -327,8 +336,9 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>op_type</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>module_stack</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="coreai_opt.inspection.ModuleContext.html#coreai_opt.inspection.ModuleContext" title="coreai_opt.inspection.types.ModuleContext"><em>ModuleContext</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
 <li><p><strong>source_frames</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="coreai_opt.inspection.SourceFrame.html#coreai_opt.inspection.SourceFrame" title="coreai_opt.inspection.types.SourceFrame"><em>SourceFrame</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
-<li><p><strong>inputs</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.types.OpInfo"><em>OpInfo</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
-<li><p><strong>outputs</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.types.OpInfo"><em>OpInfo</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
+<li><p><strong>inputs</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge" title="coreai_opt.inspection.types.InputEdge"><em>InputEdge</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
+<li><p><strong>outputs</strong> (<em>dict</em><em>[</em><em>int</em><em>, </em><em>tuple</em><em>[</em><a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.types.OpInfo"><em>OpInfo</em></a><em>, </em><em>...</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>is_state</strong> (<em>bool</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -388,11 +398,11 @@ May be empty if source information is unavailable.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="coreai_opt.inspection.OpInfo.inputs">
 <span class="sig-name descname"><span class="pre">inputs</span></span><a class="headerlink" href="#coreai_opt.inspection.OpInfo.inputs" title="Link to this definition">¶</a></dt>
-<dd><p>Ordered input ops (ops, placeholders,
-parameters) that feed into this op.</p>
+<dd><p>Ordered input edges. Each <a class="reference internal" href="coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge" title="coreai_opt.inspection.InputEdge"><code class="xref py py-class docutils literal notranslate"><span class="pre">InputEdge</span></code></a>
+carries the producing op and the output slot of that op the tensor came from.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>tuple[<a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.OpInfo">OpInfo</a>, …]</p>
+<dd class="field-odd"><p>tuple[<a class="reference internal" href="coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge" title="coreai_opt.inspection.InputEdge">InputEdge</a>, …]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -400,18 +410,31 @@ parameters) that feed into this op.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="coreai_opt.inspection.OpInfo.outputs">
 <span class="sig-name descname"><span class="pre">outputs</span></span><a class="headerlink" href="#coreai_opt.inspection.OpInfo.outputs" title="Link to this definition">¶</a></dt>
-<dd><p>Consumer ops that receive the output
-of this op, in graph order.</p>
+<dd><p>Dictionary mapping op outputs to a tuple of ops
+consuming the output.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>tuple[<a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.OpInfo">OpInfo</a>, …]</p>
+<dd class="field-odd"><p>dict[int, tuple[<a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.OpInfo">OpInfo</a>, …]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.inspection.OpInfo.is_state">
+<span class="sig-name descname"><span class="pre">is_state</span></span><a class="headerlink" href="#coreai_opt.inspection.OpInfo.is_state" title="Link to this definition">¶</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if this op represents a model parameter or
+buffer rather than a computation. State ops have an empty
+<code class="docutils literal notranslate"><span class="pre">module_stack</span></code> and do not appear in module tree or boundary lists.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="coreai_opt.inspection.OpInfo.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module_stack</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_frames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#coreai_opt.inspection.OpInfo.__init__" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module_stack</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_frames</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_state</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#coreai_opt.inspection.OpInfo.__init__" title="Link to this definition">¶</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -419,8 +442,9 @@ of this op, in graph order.</p>
 <li><p><strong>op_type</strong> (<em>str</em><em> | </em><em>None</em>)</p></li>
 <li><p><strong>module_stack</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="coreai_opt.inspection.ModuleContext.html#coreai_opt.inspection.ModuleContext" title="coreai_opt.inspection.types.ModuleContext"><em>ModuleContext</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
 <li><p><strong>source_frames</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="coreai_opt.inspection.SourceFrame.html#coreai_opt.inspection.SourceFrame" title="coreai_opt.inspection.types.SourceFrame"><em>SourceFrame</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
-<li><p><strong>inputs</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.types.OpInfo"><em>OpInfo</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
-<li><p><strong>outputs</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.types.OpInfo"><em>OpInfo</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
+<li><p><strong>inputs</strong> (<em>tuple</em><em>[</em><a class="reference internal" href="coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge" title="coreai_opt.inspection.types.InputEdge"><em>InputEdge</em></a><em>, </em><em>...</em><em>]</em>)</p></li>
+<li><p><strong>outputs</strong> (<em>dict</em><em>[</em><em>int</em><em>, </em><em>tuple</em><em>[</em><a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.types.OpInfo"><em>OpInfo</em></a><em>, </em><em>...</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>is_state</strong> (<em>bool</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -431,32 +455,37 @@ of this op, in graph order.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id0">
-<span class="sig-name descname"><span class="pre">inputs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.types.OpInfo"><span class="pre">OpInfo</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id0" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">inputs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge" title="coreai_opt.inspection.types.InputEdge"><span class="pre">InputEdge</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id0" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id1">
-<span class="sig-name descname"><span class="pre">module_stack</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="coreai_opt.inspection.ModuleContext.html#coreai_opt.inspection.ModuleContext" title="coreai_opt.inspection.types.ModuleContext"><span class="pre">ModuleContext</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id1" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">is_state</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#id1" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id2">
-<span class="sig-name descname"><span class="pre">op_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#id2" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">module_stack</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="coreai_opt.inspection.ModuleContext.html#coreai_opt.inspection.ModuleContext" title="coreai_opt.inspection.types.ModuleContext"><span class="pre">ModuleContext</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id2" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id3">
-<span class="sig-name descname"><span class="pre">op_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id3" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">op_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#id3" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id4">
-<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.types.OpInfo"><span class="pre">OpInfo</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id4" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">op_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id4" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id5">
-<span class="sig-name descname"><span class="pre">source_frames</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="coreai_opt.inspection.SourceFrame.html#coreai_opt.inspection.SourceFrame" title="coreai_opt.inspection.types.SourceFrame"><span class="pre">SourceFrame</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id5" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">outputs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#coreai_opt.inspection.OpInfo" title="coreai_opt.inspection.types.OpInfo"><span class="pre">OpInfo</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id5" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id6">
+<span class="sig-name descname"><span class="pre">source_frames</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="coreai_opt.inspection.SourceFrame.html#coreai_opt.inspection.SourceFrame" title="coreai_opt.inspection.types.SourceFrame"><span class="pre">SourceFrame</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id6" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>

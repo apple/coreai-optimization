@@ -19,7 +19,6 @@
       ~Quantizer.enable_fake_quant
       ~Quantizer.enable_observer
       ~Quantizer.finalize
-      ~Quantizer.get_compressible_op_names
       ~Quantizer.prepare
       ~Quantizer.step
       ~Quantizer.supported_modules

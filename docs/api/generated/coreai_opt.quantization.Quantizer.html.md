@@ -47,18 +47,17 @@ Initialize the model compressor.
 
 ### Methods
 
-| [`calibration_mode`](#coreai_opt.quantization.Quantizer.calibration_mode)([model])                                 | Context manager for calibration-based post-training quantization.                                                   |
-|--------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
-| [`disable_fake_quant`](#coreai_opt.quantization.Quantizer.disable_fake_quant)([module])                            | Disable fake quantization on the model or a specific module.                                                        |
-| [`disable_observer`](#coreai_opt.quantization.Quantizer.disable_observer)([module])                                | Disable observers on the model or a specific module.                                                                |
-| [`enable_fake_quant`](#coreai_opt.quantization.Quantizer.enable_fake_quant)([module])                              | Enable fake quantization on the model or a specific module.                                                         |
-| [`enable_observer`](#coreai_opt.quantization.Quantizer.enable_observer)([module])                                  | Enable observers on the model or a specific module.                                                                 |
-| [`finalize`](#coreai_opt.quantization.Quantizer.finalize)([model, backend, mmap_dir])                              | Convert quantized model to backend-specific representations.                                                        |
-| [`get_compressible_op_names`](#coreai_opt.quantization.Quantizer.get_compressible_op_names)(model, execution_mode) | Return op names in *model* that this quantizer can target.                                                          |
-| [`prepare`](#coreai_opt.quantization.Quantizer.prepare)(example_inputs[, dynamic_shapes, ...])                     | Prepare the model for quantization by inserting fake quantization modules.                                          |
-| [`step`](#coreai_opt.quantization.Quantizer.step)()                                                                | Advance the QAT schedule by one step and apply observer/fake_quant transitions after the step has been incremented. |
-| `supported_modules`()                                                                                              | Returns types of modules that are supported for compression with for a particular model optimization technique.     |
-| [`training_mode`](#coreai_opt.quantization.Quantizer.training_mode)([model])                                       | Context manager for quantization-aware training (QAT) workflow.                                                     |
+| [`calibration_mode`](#coreai_opt.quantization.Quantizer.calibration_mode)([model])             | Context manager for calibration-based post-training quantization.                                                   |
+|------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| [`disable_fake_quant`](#coreai_opt.quantization.Quantizer.disable_fake_quant)([module])        | Disable fake quantization on the model or a specific module.                                                        |
+| [`disable_observer`](#coreai_opt.quantization.Quantizer.disable_observer)([module])            | Disable observers on the model or a specific module.                                                                |
+| [`enable_fake_quant`](#coreai_opt.quantization.Quantizer.enable_fake_quant)([module])          | Enable fake quantization on the model or a specific module.                                                         |
+| [`enable_observer`](#coreai_opt.quantization.Quantizer.enable_observer)([module])              | Enable observers on the model or a specific module.                                                                 |
+| [`finalize`](#coreai_opt.quantization.Quantizer.finalize)([model, backend, mmap_dir])          | Convert quantized model to backend-specific representations.                                                        |
+| [`prepare`](#coreai_opt.quantization.Quantizer.prepare)(example_inputs[, dynamic_shapes, ...]) | Prepare the model for quantization by inserting fake quantization modules.                                          |
+| [`step`](#coreai_opt.quantization.Quantizer.step)()                                            | Advance the QAT schedule by one step and apply observer/fake_quant transitions after the step has been incremented. |
+| `supported_modules`()                                                                          | Returns types of modules that are supported for compression with for a particular model optimization technique.     |
+| [`training_mode`](#coreai_opt.quantization.Quantizer.training_mode)([model])                   | Context manager for quantization-aware training (QAT) workflow.                                                     |
 
 #### calibration_mode(model=None)
 
@@ -163,21 +162,6 @@ mode-dependent behavior are not affected.
 #### NOTE
 When `backend=ExportBackend.CoreAI` in execution_mode=ExecutionMode.EAGER,
 finalize frees the original dense weights.
-
-#### *classmethod* get_compressible_op_names(model, execution_mode)
-
-Return op names in *model* that this quantizer can target.
-
-Dispatches to the appropriate underlying quantizer based on
-*execution_mode*.
-
-* **Parameters:**
-  * **model** (*nn.Module*) – The model to get compressible op names for.
-  * **execution_mode** ([*ExecutionMode*](coreai_opt.quantization.ExecutionMode.md#coreai_opt.quantization.ExecutionMode)) – The execution mode.
-* **Returns:**
-  Op names that can be compressed via quantization.
-* **Return type:**
-  set[str]
 
 #### prepare(example_inputs, dynamic_shapes=None, export_with_no_grad=True)
 

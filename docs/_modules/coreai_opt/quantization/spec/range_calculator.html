@@ -103,6 +103,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
 </ul>
@@ -130,6 +131,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
@@ -195,8 +198,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.KVCacheQuantConfig.html">coreai_opt.quantization.config.KVCacheQuantConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.DynamicQParamsCalculator.html">coreai_opt.quantization.spec.DynamicQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
@@ -210,6 +215,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatefulQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatelessQParamsCalculatorBase</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
@@ -345,69 +352,63 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="42">        <span class="c1"># 2 to get [1, 5, 1, 1].</span>
 </span><span data-line="43">        <span class="c1"># In the end, each dimension in scale should have size equal to the number of</span>
 </span><span data-line="44">        <span class="c1"># blocks for that dimension.</span>
-</span><span data-line="45">        <span class="n">range_tensor_shape</span> <span class="o">=</span> \
-</span><span data-line="46">            <span class="p">[</span><span class="n">input_shape</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">//</span> <span class="n">block_size_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">input_shape</span><span class="p">))]</span>
-</span><span data-line="47">        <span class="k">return</span> <span class="n">range_tensor</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">range_tensor_shape</span><span class="p">)</span>
-</span><span data-line="48">
-</span><span data-line="49">
+</span><span data-line="45">        <span class="n">range_tensor_shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">input_shape</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">//</span> <span class="n">block_size_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">input_shape</span><span class="p">))]</span>
+</span><span data-line="46">        <span class="k">return</span> <span class="n">range_tensor</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">range_tensor_shape</span><span class="p">)</span>
+</span><span data-line="47">
 <div class="viewcode-block" id="RangeCalculatorBase.forward">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html#coreai_opt.quantization.spec.RangeCalculatorBase.forward">[docs]</a>
-</span><span data-line="50">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-</span><span data-line="51"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute range statistics on an input and return the min/max bounds.</span>
-</span><span data-line="52">
-</span><span data-line="53"><span class="sd">        Calls _generate_min_max to compute range statistics and validates that</span>
-</span><span data-line="54"><span class="sd">        the returned min/max shapes match the original tensor number of dimensions.</span>
-</span><span data-line="55">
-</span><span data-line="56"><span class="sd">        Args:</span>
-</span><span data-line="57"><span class="sd">            x (:py:class:`torch.Tensor`): Tensor to compute range statistics upon.</span>
-</span><span data-line="58"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="59">        <span class="n">min_tensor</span><span class="p">,</span> <span class="n">max_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_min_max</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="60">        <span class="n">min_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reshape_min_max</span><span class="p">(</span><span class="n">min_tensor</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-</span><span data-line="61">        <span class="n">max_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reshape_min_max</span><span class="p">(</span><span class="n">max_tensor</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-</span><span data-line="62">        <span class="k">return</span> <span class="n">min_tensor</span><span class="p">,</span> <span class="n">max_tensor</span></div>
+</span><span data-line="48">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+</span><span data-line="49"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute range statistics on an input and return the min/max bounds.</span>
+</span><span data-line="50">
+</span><span data-line="51"><span class="sd">        Calls _generate_min_max to compute range statistics and validates that</span>
+</span><span data-line="52"><span class="sd">        the returned min/max shapes match the original tensor number of dimensions.</span>
+</span><span data-line="53">
+</span><span data-line="54"><span class="sd">        Args:</span>
+</span><span data-line="55"><span class="sd">            x (:py:class:`torch.Tensor`): Tensor to compute range statistics upon.</span>
+</span><span data-line="56"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="57">        <span class="n">min_tensor</span><span class="p">,</span> <span class="n">max_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_min_max</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="58">        <span class="n">min_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reshape_min_max</span><span class="p">(</span><span class="n">min_tensor</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="59">        <span class="n">max_tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reshape_min_max</span><span class="p">(</span><span class="n">max_tensor</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="60">        <span class="k">return</span> <span class="n">min_tensor</span><span class="p">,</span> <span class="n">max_tensor</span></div>
 
-</span><span data-line="63">
-</span><span data-line="64">
-</span><span data-line="65">    <span class="nd">@abstractmethod</span>
-</span><span data-line="66">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_min_max</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-</span><span data-line="67"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the lower and upper bound of the range.</span>
-</span><span data-line="68">
-</span><span data-line="69"><span class="sd">        Args:</span>
-</span><span data-line="70"><span class="sd">            x (:py:class:`torch.Tensor`): Tensor to compute range statistics upon.</span>
-</span><span data-line="71"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="72">        <span class="k">pass</span></div>
+</span><span data-line="61">
+</span><span data-line="62">    <span class="nd">@abstractmethod</span>
+</span><span data-line="63">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_min_max</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+</span><span data-line="64"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the lower and upper bound of the range.</span>
+</span><span data-line="65">
+</span><span data-line="66"><span class="sd">        Args:</span>
+</span><span data-line="67"><span class="sd">            x (:py:class:`torch.Tensor`): Tensor to compute range statistics upon.</span>
+</span><span data-line="68"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="69">        <span class="k">pass</span></div>
 
-</span><span data-line="73">
-</span><span data-line="74">
+</span><span data-line="70">
+</span><span data-line="71">
 <div class="viewcode-block" id="MinMaxRangeCalculator">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html#coreai_opt.quantization.spec.MinMaxRangeCalculator">[docs]</a>
-</span><span data-line="75"><span class="nd">@RangeCalculatorBase</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;minmax&quot;</span><span class="p">)</span>
-</span><span data-line="76"><span class="k">class</span><span class="w"> </span><span class="nc">MinMaxRangeCalculator</span><span class="p">(</span><span class="n">RangeCalculatorBase</span><span class="p">):</span>
-</span><span data-line="77"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="78"><span class="sd">    Range calculator that computes the range of a given tensor as the min and max</span>
-</span><span data-line="79"><span class="sd">    values of the tensor.</span>
-</span><span data-line="80"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="81">
-</span><span data-line="82">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_min_max</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> \
-</span><span data-line="83">            <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-</span><span data-line="84">        <span class="n">block_size_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">granularity</span><span class="o">.</span><span class="n">get_block_size</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-</span><span data-line="85">        <span class="n">shape_for_reduction</span><span class="p">,</span> <span class="n">reduction_dims</span> <span class="o">=</span> <span class="n">_get_reduction_params</span><span class="p">(</span>
-</span><span data-line="86">            <span class="n">block_size_list</span><span class="p">,</span> <span class="n">tensor</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
-</span><span data-line="87">        <span class="p">)</span>
-</span><span data-line="88">
-</span><span data-line="89">        <span class="c1"># If tensor is already the shape required, no minmaxing is needed.</span>
-</span><span data-line="90">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">reduction_dims</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="91">            <span class="n">error_msg</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="92">                <span class="sa">f</span><span class="s2">&quot;With no reduction dims, tensor shape </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> is &quot;</span>
-</span><span data-line="93">                <span class="sa">f</span><span class="s2">&quot;expected to match shape_for_reduction </span><span class="si">{</span><span class="n">shape_for_reduction</span><span class="si">}</span><span class="s2">.&quot;</span>
-</span><span data-line="94">            <span class="p">)</span>
-</span><span data-line="95">            <span class="k">assert</span> <span class="nb">list</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="n">shape_for_reduction</span><span class="p">,</span> <span class="n">error_msg</span>
-</span><span data-line="96">            <span class="k">return</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">tensor</span>
-</span><span data-line="97">
-</span><span data-line="98">        <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">shape_for_reduction</span><span class="p">)</span>
-</span><span data-line="99">        <span class="n">min_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">amin</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">reduction_dims</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="100">        <span class="n">max_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">reduction_dims</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="101">        <span class="k">return</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span></div>
+</span><span data-line="72"><span class="nd">@RangeCalculatorBase</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;minmax&quot;</span><span class="p">)</span>
+</span><span data-line="73"><span class="k">class</span><span class="w"> </span><span class="nc">MinMaxRangeCalculator</span><span class="p">(</span><span class="n">RangeCalculatorBase</span><span class="p">):</span>
+</span><span data-line="74"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="75"><span class="sd">    Range calculator that computes the range of a given tensor as the min and max</span>
+</span><span data-line="76"><span class="sd">    values of the tensor.</span>
+</span><span data-line="77"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="78">
+</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_min_max</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+</span><span data-line="80">        <span class="n">block_size_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">granularity</span><span class="o">.</span><span class="n">get_block_size</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="81">        <span class="n">shape_for_reduction</span><span class="p">,</span> <span class="n">reduction_dims</span> <span class="o">=</span> <span class="n">_get_reduction_params</span><span class="p">(</span><span class="n">block_size_list</span><span class="p">,</span> <span class="n">tensor</span><span class="o">.</span><span class="n">size</span><span class="p">())</span>
+</span><span data-line="82">
+</span><span data-line="83">        <span class="c1"># If tensor is already the shape required, no minmaxing is needed.</span>
+</span><span data-line="84">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">reduction_dims</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="85">            <span class="n">error_msg</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="86">                <span class="sa">f</span><span class="s2">&quot;With no reduction dims, tensor shape </span><span class="si">{</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> is &quot;</span>
+</span><span data-line="87">                <span class="sa">f</span><span class="s2">&quot;expected to match shape_for_reduction </span><span class="si">{</span><span class="n">shape_for_reduction</span><span class="si">}</span><span class="s2">.&quot;</span>
+</span><span data-line="88">            <span class="p">)</span>
+</span><span data-line="89">            <span class="k">assert</span> <span class="nb">list</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="n">shape_for_reduction</span><span class="p">,</span> <span class="n">error_msg</span>
+</span><span data-line="90">            <span class="k">return</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">tensor</span>
+</span><span data-line="91">
+</span><span data-line="92">        <span class="n">tensor</span> <span class="o">=</span> <span class="n">tensor</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">shape_for_reduction</span><span class="p">)</span>
+</span><span data-line="93">        <span class="n">min_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">amin</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">reduction_dims</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="94">        <span class="n">max_val</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">reduction_dims</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="95">        <span class="k">return</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

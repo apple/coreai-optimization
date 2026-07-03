@@ -16,6 +16,8 @@
       ~FakeQuantizeImplBase.calculate_qparams
       ~FakeQuantizeImplBase.convert
       ~FakeQuantizeImplBase.dequantize
+      ~FakeQuantizeImplBase.disable_observer
+      ~FakeQuantizeImplBase.enable_observer
       ~FakeQuantizeImplBase.extra_repr
       ~FakeQuantizeImplBase.forward
       ~FakeQuantizeImplBase.get_class
@@ -24,6 +26,7 @@
       ~FakeQuantizeImplBase.list_registry_values
       ~FakeQuantizeImplBase.quantize
       ~FakeQuantizeImplBase.register
+      ~FakeQuantizeImplBase.resolve
       ~FakeQuantizeImplBase.set_export_mode
       ~FakeQuantizeImplBase.with_args
    

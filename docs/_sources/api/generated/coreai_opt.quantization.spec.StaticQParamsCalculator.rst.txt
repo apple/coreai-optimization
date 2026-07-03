@@ -21,6 +21,7 @@
       ~StaticQParamsCalculator.list_registry_keys
       ~StaticQParamsCalculator.list_registry_values
       ~StaticQParamsCalculator.register
+      ~StaticQParamsCalculator.resolve
       ~StaticQParamsCalculator.set_export_mode
    
    

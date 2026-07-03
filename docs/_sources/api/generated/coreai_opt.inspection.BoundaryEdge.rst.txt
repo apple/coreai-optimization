@@ -1,0 +1,16 @@
+﻿coreai\_opt.inspection.BoundaryEdge
+===================================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autoclass:: BoundaryEdge
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

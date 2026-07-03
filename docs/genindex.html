@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/custom.css?v=86898c54" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
@@ -110,6 +110,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
         <li><a href="api/generated/coreai_opt.ExportBackend.html#coreai_opt.ExportBackend.__init__">(coreai_opt.ExportBackend method)</a>
 </li>
+        <li><a href="api/generated/coreai_opt.inspection.BoundaryEdge.html#coreai_opt.inspection.BoundaryEdge.__init__">(coreai_opt.inspection.BoundaryEdge method)</a>
+</li>
+        <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge.__init__">(coreai_opt.inspection.InputEdge method)</a>
+</li>
         <li><a href="api/generated/coreai_opt.inspection.ModelInspector.html#coreai_opt.inspection.ModelInspector.__init__">(coreai_opt.inspection.ModelInspector method)</a>
 </li>
         <li><a href="api/generated/coreai_opt.inspection.ModelSummary.html#coreai_opt.inspection.ModelSummary.__init__">(coreai_opt.inspection.ModelSummary method)</a>
@@ -132,6 +136,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
         <li><a href="api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.__init__">(coreai_opt.quantization.Quantizer method)</a>
 </li>
+        <li><a href="api/generated/coreai_opt.quantization.spec.DynamicQParamsCalculator.html#coreai_opt.quantization.spec.DynamicQParamsCalculator.__init__">(coreai_opt.quantization.spec.DynamicQParamsCalculator method)</a>
+</li>
         <li><a href="api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.__init__">(coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase method)</a>
 </li>
         <li><a href="api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.__init__">(coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator method)</a>
@@ -151,6 +157,10 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html#coreai_opt.quantization.spec.RangeCalculatorBase.__init__">(coreai_opt.quantization.spec.RangeCalculatorBase method)</a>
 </li>
         <li><a href="api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html#coreai_opt.quantization.spec.RunningRangeMixin.__init__">(coreai_opt.quantization.spec.RunningRangeMixin method)</a>
+</li>
+        <li><a href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.__init__">(coreai_opt.quantization.spec.StatefulQParamsCalculatorBase method)</a>
+</li>
+        <li><a href="api/generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.__init__">(coreai_opt.quantization.spec.StatelessQParamsCalculatorBase method)</a>
 </li>
         <li><a href="api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html#coreai_opt.quantization.spec.StaticQParamsCalculator.__init__">(coreai_opt.quantization.spec.StaticQParamsCalculator method)</a>
 </li>
@@ -187,6 +197,8 @@ data-aria-dark="Switch to auto color mode">
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/coreai_opt.inspection.BoundaryEdge.html#coreai_opt.inspection.BoundaryEdge">BoundaryEdge (class in coreai_opt.inspection)</a>
+</li>
       <li><a href="api/generated/coreai_opt.config.CompressionConfig.html#coreai_opt.config.CompressionConfig.build_module_config_dict">build_module_config_dict() (coreai_opt.config.CompressionConfig method)</a>
 </li>
   </ul></td>
@@ -289,17 +301,23 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.dequantize">dequantize() (coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.disable_fake_quant">disable_fake_quant() (coreai_opt.quantization.Quantizer method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.quantization.config.QATSchedule.html#coreai_opt.quantization.config.QATSchedule.disable_observer">disable_observer (coreai_opt.quantization.config.QATSchedule attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.disable_observer">disable_observer() (coreai_opt.quantization.Quantizer method)</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.disable_observer">(coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase method)</a>
 </li>
+      </ul></li>
       <li><a href="api/generated/coreai_opt.coreai_utils.DType.html#coreai_opt.coreai_utils.DType">DType (class in coreai_opt.coreai_utils)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec.dtype">dtype (coreai_opt.quantization.QuantizationSpec attribute)</a>
+</li>
+      <li><a href="api/generated/coreai_opt.quantization.spec.DynamicQParamsCalculator.html#coreai_opt.quantization.spec.DynamicQParamsCalculator">DynamicQParamsCalculator (class in coreai_opt.quantization.spec)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -318,7 +336,11 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="api/generated/coreai_opt.quantization.config.QATSchedule.html#coreai_opt.quantization.config.QATSchedule.enable_observer">enable_observer (coreai_opt.quantization.config.QATSchedule attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.enable_observer">enable_observer() (coreai_opt.quantization.Quantizer method)</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer">(coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase method)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.palettization.PalettizationSpec.html#coreai_opt.palettization.PalettizationSpec.enable_per_channel_scale">enable_per_channel_scale (coreai_opt.palettization.PalettizationSpec attribute)</a>
@@ -332,9 +354,9 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr">extra_repr() (coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase method)</a>
 
       <ul>
-        <li><a href="api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html#coreai_opt.quantization.spec.QParamsCalculatorBase.extra_repr">(coreai_opt.quantization.spec.QParamsCalculatorBase method)</a>
-</li>
         <li><a href="api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html#coreai_opt.quantization.spec.RunningRangeMixin.extra_repr">(coreai_opt.quantization.spec.RunningRangeMixin method)</a>
+</li>
+        <li><a href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.extra_repr">(coreai_opt.quantization.spec.StatefulQParamsCalculatorBase method)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -372,6 +394,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
         <li><a href="api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html#coreai_opt.quantization.spec.RangeCalculatorBase.forward">(coreai_opt.quantization.spec.RangeCalculatorBase method)</a>
 </li>
+        <li><a href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.forward">(coreai_opt.quantization.spec.StatefulQParamsCalculatorBase method)</a>
+</li>
+        <li><a href="api/generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.forward">(coreai_opt.quantization.spec.StatelessQParamsCalculatorBase method)</a>
+</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -405,8 +431,6 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html#coreai_opt.palettization.spec.PerTensorGranularity.get_blocks_to_cluster">(coreai_opt.palettization.spec.PerTensorGranularity method)</a>
 </li>
       </ul></li>
-      <li><a href="api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.get_compressible_op_names">get_compressible_op_names() (coreai_opt.quantization.Quantizer class method)</a>
-</li>
       <li><a href="api/generated/coreai_opt.config.CompressionSpec.html#coreai_opt.config.CompressionSpec.get_compression_type">get_compression_type() (coreai_opt.config.CompressionSpec method)</a>
 </li>
       <li><a href="api/generated/coreai_opt.config.OpCompressionConfig.html#coreai_opt.config.OpCompressionConfig.get_default_input_spec">get_default_input_spec() (coreai_opt.config.OpCompressionConfig class method)</a>
@@ -439,10 +463,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.inspection.ModelInspector.html#coreai_opt.inspection.ModelInspector.get_matched_ops_for_module_name">get_matched_ops_for_module_name() (coreai_opt.inspection.ModelInspector method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.inspection.ModelInspector.html#coreai_opt.inspection.ModelInspector.get_matched_ops_for_module_type">get_matched_ops_for_module_type() (coreai_opt.inspection.ModelInspector method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.inspection.ModelInspector.html#coreai_opt.inspection.ModelInspector.get_matched_ops_for_op_name">get_matched_ops_for_op_name() (coreai_opt.inspection.ModelInspector method)</a>
 </li>
       <li><a href="api/generated/coreai_opt.inspection.ModelInspector.html#coreai_opt.inspection.ModelInspector.get_matched_ops_for_op_type">get_matched_ops_for_op_type() (coreai_opt.inspection.ModelInspector method)</a>
@@ -451,7 +475,9 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec.get_n_bits_from_dtype">get_n_bits_from_dtype() (coreai_opt.quantization.QuantizationSpec class method)</a>
 </li>
-      <li><a href="api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html#coreai_opt.quantization.spec.QParamsCalculatorBase.get_qparams">get_qparams() (coreai_opt.quantization.spec.QParamsCalculatorBase method)</a>
+      <li><a href="api/generated/coreai_opt.palettization.KMeansPalettizer.html#coreai_opt.palettization.KMeansPalettizer.get_op_type_resolver">get_op_type_resolver() (coreai_opt.palettization.KMeansPalettizer class method)</a>
+</li>
+      <li><a href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.get_qparams">get_qparams() (coreai_opt.quantization.spec.StatefulQParamsCalculatorBase method)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec.get_quant_range">get_quant_range() (coreai_opt.quantization.QuantizationSpec class method)</a>
 </li>
@@ -487,16 +513,24 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/coreai_opt.inspection.BoundaryEdge.html#coreai_opt.inspection.BoundaryEdge.index">index (coreai_opt.inspection.BoundaryEdge attribute)</a>
+</li>
       <li><a href="api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html#coreai_opt.pruning.config.PolynomialDecaySchedule.initial_sparsity">initial_sparsity (coreai_opt.pruning.config.PolynomialDecaySchedule attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.inspection.ModuleInfo.html#coreai_opt.inspection.ModuleInfo.input_ops">input_ops (coreai_opt.inspection.ModuleInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.ModuleInfo.html#id1">[1]</a>
 </li>
-      <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.inputs">inputs (coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id0">[1]</a>
+      <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge">InputEdge (class in coreai_opt.inspection)</a>
 </li>
-      <li><a href="api/generated/coreai_opt.coreai_utils.DType.html#coreai_opt.coreai_utils.DType.INT2">INT2 (coreai_opt.coreai_utils.DType attribute)</a>
+      <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge.inputs">inputs (coreai_opt.inspection.InputEdge property)</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.inputs">(coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id0">[1]</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/coreai_opt.coreai_utils.DType.html#coreai_opt.coreai_utils.DType.INT2">INT2 (coreai_opt.coreai_utils.DType attribute)</a>
+</li>
       <li><a href="api/generated/coreai_opt.coreai_utils.DType.html#coreai_opt.coreai_utils.DType.INT4">INT4 (coreai_opt.coreai_utils.DType attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.coreai_utils.DType.html#coreai_opt.coreai_utils.DType.INT8">INT8 (coreai_opt.coreai_utils.DType attribute)</a>
@@ -505,6 +539,12 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.coreai_utils.DType.html#coreai_opt.coreai_utils.DType.is_int">is_int() (coreai_opt.coreai_utils.DType method)</a>
 </li>
+      <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge.is_state">is_state (coreai_opt.inspection.InputEdge property)</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.is_state">(coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id1">[1]</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -512,6 +552,10 @@ data-aria-dark="Switch to auto color mode">
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.palettization.KMeansPalettizer.html#coreai_opt.palettization.KMeansPalettizer">KMeansPalettizer (class in coreai_opt.palettization)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/coreai_opt.quantization.QuantizerConfig.html#coreai_opt.quantization.QuantizerConfig.kv_cache_quant_configs">kv_cache_quant_configs (coreai_opt.quantization.QuantizerConfig attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -537,9 +581,9 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html#coreai_opt.quantization.spec.MinMaxRangeCalculator">MinMaxRangeCalculator (class in coreai_opt.quantization.spec)</a>
 </li>
-      <li><a href="api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html#coreai_opt.quantization.spec.QParamsCalculatorBase.minval">minval (coreai_opt.quantization.spec.QParamsCalculatorBase attribute)</a>
-</li>
       <li><a href="api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html#coreai_opt.quantization.spec.QuantizationFormulation.MINVAL">MINVAL (coreai_opt.quantization.spec.QuantizationFormulation attribute)</a>
+</li>
+      <li><a href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.minval">minval (coreai_opt.quantization.spec.StatefulQParamsCalculatorBase attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.ExportBackend.html#coreai_opt.ExportBackend.MLIR">MLIR (coreai_opt.ExportBackend attribute)</a>
 </li>
@@ -583,8 +627,12 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html#coreai_opt.quantization.ModuleQuantizerConfig.module_output_spec">(coreai_opt.quantization.ModuleQuantizerConfig attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.module_stack">module_stack (coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id1">[1]</a>
+      <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge.module_stack">module_stack (coreai_opt.inspection.InputEdge property)</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.module_stack">(coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id2">[1]</a>
 </li>
+      </ul></li>
       <li><a href="api/generated/coreai_opt.config.ModuleCompressionConfig.html#coreai_opt.config.ModuleCompressionConfig.module_state_spec">module_state_spec (coreai_opt.config.ModuleCompressionConfig attribute)</a>
 
       <ul>
@@ -647,6 +695,12 @@ data-aria-dark="Switch to auto color mode">
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.config.CompressionConfig.html#coreai_opt.config.CompressionConfig.only_for">only_for() (coreai_opt.config.CompressionConfig method)</a>
 </li>
+      <li><a href="api/generated/coreai_opt.inspection.BoundaryEdge.html#coreai_opt.inspection.BoundaryEdge.op">op (coreai_opt.inspection.BoundaryEdge attribute)</a>, <a href="api/generated/coreai_opt.inspection.BoundaryEdge.html#id0">[1]</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge.op">(coreai_opt.inspection.InputEdge attribute)</a>, <a href="api/generated/coreai_opt.inspection.InputEdge.html#id0">[1]</a>
+</li>
+      </ul></li>
       <li><a href="api/generated/coreai_opt.config.ModuleCompressionConfig.html#coreai_opt.config.ModuleCompressionConfig.op_input_spec">op_input_spec (coreai_opt.config.ModuleCompressionConfig attribute)</a>
 
       <ul>
@@ -657,8 +711,12 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html#coreai_opt.quantization.ModuleQuantizerConfig.op_input_spec">(coreai_opt.quantization.ModuleQuantizerConfig attribute)</a>
 </li>
       </ul></li>
-      <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.op_name">op_name (coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id2">[1]</a>
+      <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge.op_name">op_name (coreai_opt.inspection.InputEdge property)</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.op_name">(coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id3">[1]</a>
 </li>
+      </ul></li>
       <li><a href="api/generated/coreai_opt.config.ModuleCompressionConfig.html#coreai_opt.config.ModuleCompressionConfig.op_name_config">op_name_config (coreai_opt.config.ModuleCompressionConfig attribute)</a>
 
       <ul>
@@ -679,6 +737,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html#coreai_opt.quantization.ModuleQuantizerConfig.op_output_spec">(coreai_opt.quantization.ModuleQuantizerConfig attribute)</a>
 </li>
       </ul></li>
+      <li><a href="api/generated/coreai_opt.quantization.config.KVCacheQuantConfig.html#coreai_opt.quantization.config.KVCacheQuantConfig.op_quantizer_config">op_quantizer_config (coreai_opt.quantization.config.KVCacheQuantConfig attribute)</a>
+</li>
       <li><a href="api/generated/coreai_opt.config.ModuleCompressionConfig.html#coreai_opt.config.ModuleCompressionConfig.op_state_spec">op_state_spec (coreai_opt.config.ModuleCompressionConfig attribute)</a>
 
       <ul>
@@ -699,8 +759,12 @@ data-aria-dark="Switch to auto color mode">
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.op_type">op_type (coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id3">[1]</a>
+      <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge.op_type">op_type (coreai_opt.inspection.InputEdge property)</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.op_type">(coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id4">[1]</a>
 </li>
+      </ul></li>
       <li><a href="api/generated/coreai_opt.config.ModuleCompressionConfig.html#coreai_opt.config.ModuleCompressionConfig.op_type_config">op_type_config (coreai_opt.config.ModuleCompressionConfig attribute)</a>
 
       <ul>
@@ -715,10 +779,16 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.inspection.ModuleInfo.html#coreai_opt.inspection.ModuleInfo.ops">ops (coreai_opt.inspection.ModuleInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.ModuleInfo.html#id4">[1]</a>
 </li>
+      <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge.output_idx">output_idx (coreai_opt.inspection.InputEdge attribute)</a>, <a href="api/generated/coreai_opt.inspection.InputEdge.html#id1">[1]</a>
+</li>
       <li><a href="api/generated/coreai_opt.inspection.ModuleInfo.html#coreai_opt.inspection.ModuleInfo.output_ops">output_ops (coreai_opt.inspection.ModuleInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.ModuleInfo.html#id5">[1]</a>
 </li>
-      <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.outputs">outputs (coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id4">[1]</a>
+      <li><a href="api/generated/coreai_opt.inspection.InputEdge.html#coreai_opt.inspection.InputEdge.outputs">outputs (coreai_opt.inspection.InputEdge property)</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.outputs">(coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id5">[1]</a>
 </li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -777,6 +847,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/coreai_opt.quantization.config.KVCacheQuantConfig.html#coreai_opt.quantization.config.KVCacheQuantConfig.quant_input_idx">quant_input_idx (coreai_opt.quantization.config.KVCacheQuantConfig property)</a>
+</li>
       <li><a href="api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html#coreai_opt.quantization.spec.QuantizationComponentFactory">QuantizationComponentFactory (class in coreai_opt.quantization.spec)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html#coreai_opt.quantization.spec.QuantizationFormulation">QuantizationFormulation (class in coreai_opt.quantization.spec)</a>
@@ -817,7 +889,7 @@ data-aria-dark="Switch to auto color mode">
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.palettization.KMeansPalettizer.html#coreai_opt.palettization.KMeansPalettizer.save_sensitivities">save_sensitivities() (coreai_opt.palettization.KMeansPalettizer method)</a>
 </li>
-      <li><a href="api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html#coreai_opt.quantization.spec.QParamsCalculatorBase.scale">scale (coreai_opt.quantization.spec.QParamsCalculatorBase attribute)</a>
+      <li><a href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.scale">scale (coreai_opt.quantization.spec.StatefulQParamsCalculatorBase attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec.scale_dtype">scale_dtype (coreai_opt.quantization.QuantizationSpec attribute)</a>
 </li>
@@ -828,7 +900,9 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.set_export_mode">set_export_mode() (coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase method)</a>
 
       <ul>
-        <li><a href="api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html#coreai_opt.quantization.spec.QParamsCalculatorBase.set_export_mode">(coreai_opt.quantization.spec.QParamsCalculatorBase method)</a>
+        <li><a href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.set_export_mode">(coreai_opt.quantization.spec.StatefulQParamsCalculatorBase method)</a>
+</li>
+        <li><a href="api/generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.set_export_mode">(coreai_opt.quantization.spec.StatelessQParamsCalculatorBase method)</a>
 </li>
       </ul></li>
       <li><a href="api/generated/coreai_opt.config.CompressionConfig.html#coreai_opt.config.CompressionConfig.set_global">set_global() (coreai_opt.config.CompressionConfig method)</a>
@@ -837,10 +911,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.config.CompressionConfig.html#coreai_opt.config.CompressionConfig.set_module_type">set_module_type() (coreai_opt.config.CompressionConfig method)</a>
 </li>
+      <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.source_frames">source_frames (coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id6">[1]</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.source_frames">source_frames (coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id5">[1]</a>
-</li>
       <li><a href="api/generated/coreai_opt.inspection.SourceFrame.html#coreai_opt.inspection.SourceFrame">SourceFrame (class in coreai_opt.inspection)</a>
 </li>
       <li><a href="api/generated/coreai_opt.coreai_utils.sparsify_weights.html#coreai_opt.coreai_utils.sparsify_weights">sparsify_weights() (in module coreai_opt.coreai_utils)</a>
@@ -848,6 +922,10 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="api/generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase.sparsity">sparsity (coreai_opt.pruning.spec.PruneImplBase property)</a>
 </li>
       <li><a href="api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html#coreai_opt.pruning.ModuleMagnitudePrunerConfig.sparsity_schedule">sparsity_schedule (coreai_opt.pruning.ModuleMagnitudePrunerConfig attribute)</a>
+</li>
+      <li><a href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase">StatefulQParamsCalculatorBase (class in coreai_opt.quantization.spec)</a>
+</li>
+      <li><a href="api/generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatelessQParamsCalculatorBase">StatelessQParamsCalculatorBase (class in coreai_opt.quantization.spec)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html#coreai_opt.quantization.spec.StaticQParamsCalculator">StaticQParamsCalculator (class in coreai_opt.quantization.spec)</a>
 </li>
@@ -947,7 +1025,7 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="Z">Z</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html#coreai_opt.quantization.spec.QParamsCalculatorBase.zero_point">zero_point (coreai_opt.quantization.spec.QParamsCalculatorBase attribute)</a>
+      <li><a href="api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.zero_point">zero_point (coreai_opt.quantization.spec.StatefulQParamsCalculatorBase attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>

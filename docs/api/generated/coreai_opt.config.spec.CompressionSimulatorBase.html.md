@@ -30,12 +30,13 @@ Initialize internal Module state, shared by both nn.Module and ScriptModule.
 
 ### Methods
 
-| [`forward`](#coreai_opt.config.spec.CompressionSimulatorBase.forward)(tensor)   | Apply compression simulation to the input tensor.   |
-|---------------------------------------------------------------------------------|-----------------------------------------------------|
-| `get_class`(key)                                                                |                                                     |
-| `list_registry_keys`()                                                          |                                                     |
-| `list_registry_values`()                                                        |                                                     |
-| `register`(key)                                                                 | Register a virtual subclass of an ABC.              |
+| [`forward`](#coreai_opt.config.spec.CompressionSimulatorBase.forward)(tensor)   | Apply compression simulation to the input tensor.         |
+|---------------------------------------------------------------------------------|-----------------------------------------------------------|
+| `get_class`(key)                                                                |                                                           |
+| `list_registry_keys`()                                                          |                                                           |
+| `list_registry_values`()                                                        |                                                           |
+| `register`(key)                                                                 | Register a virtual subclass of an ABC.                    |
+| `resolve`(data)                                                                 | Resolve a string key or class type against this registry. |
 
 #### *abstract* forward(tensor)
 

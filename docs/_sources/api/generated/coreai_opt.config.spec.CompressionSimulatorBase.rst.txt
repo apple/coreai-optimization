@@ -18,6 +18,7 @@
       ~CompressionSimulatorBase.list_registry_keys
       ~CompressionSimulatorBase.list_registry_values
       ~CompressionSimulatorBase.register
+      ~CompressionSimulatorBase.resolve
    
    
 

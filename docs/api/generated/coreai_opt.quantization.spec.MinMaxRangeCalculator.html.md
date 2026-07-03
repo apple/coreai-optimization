@@ -23,3 +23,4 @@ values of the tensor.
 | `list_registry_keys`()   |                                                                       |
 | `list_registry_values`() |                                                                       |
 | `register`(key)          | Register a virtual subclass of an ABC.                                |
+| `resolve`(data)          | Resolve a string key or class type against this registry.             |

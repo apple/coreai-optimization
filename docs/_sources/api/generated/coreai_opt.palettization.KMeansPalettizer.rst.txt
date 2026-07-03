@@ -15,6 +15,7 @@
    
       ~KMeansPalettizer.calibration_mode
       ~KMeansPalettizer.finalize
+      ~KMeansPalettizer.get_op_type_resolver
       ~KMeansPalettizer.prepare
       ~KMeansPalettizer.save_sensitivities
       ~KMeansPalettizer.supported_modules

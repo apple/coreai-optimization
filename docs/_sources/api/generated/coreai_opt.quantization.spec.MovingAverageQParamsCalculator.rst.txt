@@ -21,6 +21,7 @@
       ~MovingAverageQParamsCalculator.list_registry_keys
       ~MovingAverageQParamsCalculator.list_registry_values
       ~MovingAverageQParamsCalculator.register
+      ~MovingAverageQParamsCalculator.resolve
       ~MovingAverageQParamsCalculator.set_export_mode
       ~MovingAverageQParamsCalculator.update_running_range
    

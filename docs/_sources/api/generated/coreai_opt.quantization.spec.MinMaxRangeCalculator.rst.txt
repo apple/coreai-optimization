@@ -18,6 +18,7 @@
       ~MinMaxRangeCalculator.list_registry_keys
       ~MinMaxRangeCalculator.list_registry_values
       ~MinMaxRangeCalculator.register
+      ~MinMaxRangeCalculator.resolve
    
    
 

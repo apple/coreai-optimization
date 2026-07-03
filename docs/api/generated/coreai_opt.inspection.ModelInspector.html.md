@@ -30,8 +30,8 @@ The underlying operation summary.
     Whether to call torch.export.export within a
     torch.no_grad() context. Defaults to True.
 * **Raises:**
-  * **TypeError** – If *model* is not an `nn.Module`.
-  * **NotImplementedError** – If *execution_mode* is `"eager"`.
+  * **TypeError** – If *model* is not an `nn.Module`, or if *model* is a
+        `GraphModule` and *execution_mode* is `"eager"`.
   * **RuntimeError** – If model export fails (graph mode).
   * **ValueError** – If example_inputs is None without the right model/execution_mode combination, or
         if execution_mode is not either “eager” or “graph”.

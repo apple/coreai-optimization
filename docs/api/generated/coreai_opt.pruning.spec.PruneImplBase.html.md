@@ -33,6 +33,7 @@ Initialize internal Module state, shared by both nn.Module and ScriptModule.
 | `list_registry_keys`()                                                                                    |                                                                                   |
 | `list_registry_values`()                                                                                  |                                                                                   |
 | `register`(key)                                                                                           | Register a virtual subclass of an ABC.                                            |
+| `resolve`(data)                                                                                           | Resolve a string key or class type against this registry.                         |
 | [`update_sparsity`](#coreai_opt.pruning.spec.PruneImplBase.update_sparsity)(step_count)                   | Update the sparsity based on the configured schedule and the provided step count. |
 | [`with_args`](#coreai_opt.pruning.spec.PruneImplBase.with_args)(\*\*kwargs)                               | Create a partial constructor with pre-filled arguments.                           |
 

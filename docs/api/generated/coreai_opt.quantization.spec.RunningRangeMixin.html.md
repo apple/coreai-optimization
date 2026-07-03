@@ -15,7 +15,7 @@ Subclasses that want to re-use the logic of computing quantization
 parameters but with different ways of updating the running statistics
 can override the `update_running_range` method.
 
-Must appear before `QParamsCalculatorBase` in the MRO so that its
+Must appear before `StatefulQParamsCalculatorBase` in the MRO so that its
 `compute_qparams` and `_initialize_state`
 take precedence over the base-class defaults.
 

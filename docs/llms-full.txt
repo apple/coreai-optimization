@@ -22,7 +22,7 @@ Available APIs cover the following categories of compression:
 
 - **[Quantization](quantization/index.md)** approximates weights and/or activations using a quantization function. Weight precisions include INT2, INT4, INT8 and FP4, FP8; activation precisions include INT8 and FP8.
 - **[Palettization](palettization/index.md)**, also known as codebook-style compression, clusters weights into a look-up table of centroids and stores indices in their place. Weights can be palettized to N ∈ {1, 2, 3, 4, 6, 8} bits.
-- **Pruning** zeros out weights with the smallest magnitudes and stores the remaining weights using sparse representations.
+- **[Pruning](pruning/index.md)** zeros out weights with the smallest magnitudes and stores the remaining weights using sparse representations.
 
 These techniques can also be combined and applied in a hybrid fashion — for example, applying different palettization bit widths to different weights, or combining weight palettization with activation quantization — to build customized optimization recipes.
 
@@ -73,6 +73,23 @@ For end-to-end examples on API usage and common workflows, see [MNIST examples](
   * [Symmetric vs asymmetric quantization](advanced.md#symmetric-vs-asymmetric-quantization)
   * [Quantization Defaults for Known-Range Activations](advanced.md#quantization-defaults-for-known-range-activations)
   * [Customization options](advanced.md#customization-options)
+
+
+# index.html.md
+
+# Pruning
+
+* [Basics](basics.md)
+  * [Pruning Algorithm](basics.md#pruning-algorithm)
+  * [Pruning Schemes](basics.md#pruning-schemes)
+  * [Pruning Schedule](basics.md#pruning-schedule)
+* [API Overview](overview.md)
+  * [Post-training Pruning](overview.md#post-training-pruning)
+  * [Pruning with Fine-Tuning](overview.md#pruning-with-fine-tuning)
+* [Config API](config.md)
+  * [PruningSpec](config.md#pruningspec)
+  * [Config classes and their defaults](config.md#config-classes-and-their-defaults)
+  * [Examples](config.md#examples)
 
 
 # index.html.md
@@ -140,13 +157,15 @@ Common enums and constants for coreai_opt.coreai_utils.
 
 Utilities for inspecting model operations and compression configuration.
 
-| [`coreai_opt.inspection.ModelInspector`](generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector)(model, ...)   | Inspect operations in a PyTorch model for compression configuration.   |
-|------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
-| [`coreai_opt.inspection.ModelSummary`](generated/coreai_opt.inspection.ModelSummary.md#coreai_opt.inspection.ModelSummary)(model, mode)        | Complete listing of operations discovered in a model.                  |
-| [`coreai_opt.inspection.ModuleContext`](generated/coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext)(...)             | One level of the `nn.Module` nesting hierarchy.                        |
-| [`coreai_opt.inspection.ModuleInfo`](generated/coreai_opt.inspection.ModuleInfo.md#coreai_opt.inspection.ModuleInfo)(...)                      | A node in the `nn.Module` hierarchy with its directly-owned ops.       |
-| [`coreai_opt.inspection.OpInfo`](generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)(op_name, ...)                         | Information about a single operation discovered in a model.            |
-| [`coreai_opt.inspection.SourceFrame`](generated/coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame)(filename, ...)         | A single frame in the source call stack leading to an operation.       |
+| [`coreai_opt.inspection.BoundaryEdge`](generated/coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)(op, index)        | A single data-flow edge crossing a module boundary.                       |
+|----------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`coreai_opt.inspection.InputEdge`](generated/coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge)(op, output_idx)            | One input edge into an op, pairing the producing op with its output slot. |
+| [`coreai_opt.inspection.ModelInspector`](generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector)(model, ...) | Inspect operations in a PyTorch model for compression configuration.      |
+| [`coreai_opt.inspection.ModelSummary`](generated/coreai_opt.inspection.ModelSummary.md#coreai_opt.inspection.ModelSummary)(model, mode)      | Complete listing of operations discovered in a model.                     |
+| [`coreai_opt.inspection.ModuleContext`](generated/coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext)(...)           | One level of the `nn.Module` nesting hierarchy.                           |
+| [`coreai_opt.inspection.ModuleInfo`](generated/coreai_opt.inspection.ModuleInfo.md#coreai_opt.inspection.ModuleInfo)(...)                    | A node in the `nn.Module` hierarchy with its directly-owned ops.          |
+| [`coreai_opt.inspection.OpInfo`](generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)(op_name, ...)                       | Information about a single operation discovered in a model.               |
+| [`coreai_opt.inspection.SourceFrame`](generated/coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame)(filename, ...)       | A single frame in the source call stack leading to an operation.          |
 
 ## coreai_opt.palettization
 
@@ -221,31 +240,35 @@ Quantization compressor, configuration, specs, and granularity classes.
 
 Quantization configuration classes and execution mode.
 
-| [`coreai_opt.quantization.config.OpQuantizerConfig`](generated/coreai_opt.quantization.config.OpQuantizerConfig.md#coreai_opt.quantization.config.OpQuantizerConfig)   | Configuration class for quantization at the operation level.          |
-|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| [`coreai_opt.quantization.config.QATSchedule`](generated/coreai_opt.quantization.config.QATSchedule.md#coreai_opt.quantization.config.QATSchedule)                     | Schedule for controlling observer and fake quantization state in QAT. |
+| [`coreai_opt.quantization.config.KVCacheQuantConfig`](generated/coreai_opt.quantization.config.KVCacheQuantConfig.md#coreai_opt.quantization.config.KVCacheQuantConfig)   | Enables KV-cache buffer storage in a quantized dtype for one cache-update op type.   |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| [`coreai_opt.quantization.config.OpQuantizerConfig`](generated/coreai_opt.quantization.config.OpQuantizerConfig.md#coreai_opt.quantization.config.OpQuantizerConfig)      | Configuration class for quantization at the operation level.                         |
+| [`coreai_opt.quantization.config.QATSchedule`](generated/coreai_opt.quantization.config.QATSchedule.md#coreai_opt.quantization.config.QATSchedule)                        | Schedule for controlling observer and fake quantization state in QAT.                |
 
 ### coreai_opt.quantization.spec
 
 Quantization specs, schemes, granularity classes, and parameter calculators.
 
-| [`coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator`](generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.md#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator)(...)                   | Computes scale and zero point by tracking the running min/max.                                                           |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| [`coreai_opt.quantization.spec.MinMaxRangeCalculator`](generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.md#coreai_opt.quantization.spec.MinMaxRangeCalculator)(...)                                           | Range calculator that computes the range of a given tensor as the min and max values of the tensor.                      |
-| [`coreai_opt.quantization.spec.MovingAverageQParamsCalculator`](generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.md#coreai_opt.quantization.spec.MovingAverageQParamsCalculator)(...)                | Computes the scale and zero point using a moving average of the range.                                                   |
-| [`coreai_opt.quantization.spec.PerBlockGranularity`](generated/coreai_opt.quantization.spec.PerBlockGranularity.md#coreai_opt.quantization.spec.PerBlockGranularity)                                                      | Per-block quantization granularity.                                                                                      |
-| [`coreai_opt.quantization.spec.PerChannelGranularity`](generated/coreai_opt.quantization.spec.PerChannelGranularity.md#coreai_opt.quantization.spec.PerChannelGranularity)                                                | Per-channel quantization granularity.                                                                                    |
-| [`coreai_opt.quantization.spec.PerTensorGranularity`](generated/coreai_opt.quantization.spec.PerTensorGranularity.md#coreai_opt.quantization.spec.PerTensorGranularity)                                                   | Per-tensor quantization granularity.                                                                                     |
-| [`coreai_opt.quantization.spec.QParamsCalculatorBase`](generated/coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)(...)                                           | Base class for implementing logic to calculate quantization parameters (scale, zero_point, minval) given min/max values. |
-| [`coreai_opt.quantization.spec.QuantizationComponentFactory`](generated/coreai_opt.quantization.spec.QuantizationComponentFactory.md#coreai_opt.quantization.spec.QuantizationComponentFactory)()                         | Factory class for creating quantization components from QuantizationSpec.                                                |
-| [`coreai_opt.quantization.spec.QuantizationFormulation`](generated/coreai_opt.quantization.spec.QuantizationFormulation.md#coreai_opt.quantization.spec.QuantizationFormulation)(value)                                   | Formula used to map between quantized integers and dequantized values.                                                   |
-| [`coreai_opt.quantization.spec.QuantizationGranularity`](generated/coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity)                                          | Base class for quantization granularity specifications.                                                                  |
-| [`coreai_opt.quantization.spec.QuantizationScheme`](generated/coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme)(value)                                                  |                                                                                                                          |
-| [`coreai_opt.quantization.spec.RangeCalculatorBase`](generated/coreai_opt.quantization.spec.RangeCalculatorBase.md#coreai_opt.quantization.spec.RangeCalculatorBase)(...)                                                 | Base class and registry for classes used to compute the range of a given tensor.                                         |
-| [`coreai_opt.quantization.spec.RunningRangeMixin`](generated/coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantization.spec.RunningRangeMixin)(...)                                                       | Mixin for calculators that maintain running min/max range buffers.                                                       |
-| [`coreai_opt.quantization.spec.StaticQParamsCalculator`](generated/coreai_opt.quantization.spec.StaticQParamsCalculator.md#coreai_opt.quantization.spec.StaticQParamsCalculator)(...)                                     | Computes scale and zero point using min/max values from the current tensor.                                              |
-| [`coreai_opt.quantization.spec.default_activation_quantization_spec`](generated/coreai_opt.quantization.spec.default_activation_quantization_spec.md#coreai_opt.quantization.spec.default_activation_quantization_spec)() |                                                                                                                          |
-| [`coreai_opt.quantization.spec.default_weight_quantization_spec`](generated/coreai_opt.quantization.spec.default_weight_quantization_spec.md#coreai_opt.quantization.spec.default_weight_quantization_spec)()             |                                                                                                                          |
+| [`coreai_opt.quantization.spec.DynamicQParamsCalculator`](generated/coreai_opt.quantization.spec.DynamicQParamsCalculator.md#coreai_opt.quantization.spec.DynamicQParamsCalculator)(...)                                  | Dynamically computes scale/zero-point/minval from the current tensor every forward.                 |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| [`coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator`](generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.md#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator)(...)                   | Computes scale and zero point by tracking the running min/max.                                      |
+| [`coreai_opt.quantization.spec.MinMaxRangeCalculator`](generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.md#coreai_opt.quantization.spec.MinMaxRangeCalculator)(...)                                           | Range calculator that computes the range of a given tensor as the min and max values of the tensor. |
+| [`coreai_opt.quantization.spec.MovingAverageQParamsCalculator`](generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.md#coreai_opt.quantization.spec.MovingAverageQParamsCalculator)(...)                | Computes the scale and zero point using a moving average of the range.                              |
+| [`coreai_opt.quantization.spec.PerBlockGranularity`](generated/coreai_opt.quantization.spec.PerBlockGranularity.md#coreai_opt.quantization.spec.PerBlockGranularity)                                                      | Per-block quantization granularity.                                                                 |
+| [`coreai_opt.quantization.spec.PerChannelGranularity`](generated/coreai_opt.quantization.spec.PerChannelGranularity.md#coreai_opt.quantization.spec.PerChannelGranularity)                                                | Per-channel quantization granularity.                                                               |
+| [`coreai_opt.quantization.spec.PerTensorGranularity`](generated/coreai_opt.quantization.spec.PerTensorGranularity.md#coreai_opt.quantization.spec.PerTensorGranularity)                                                   | Per-tensor quantization granularity.                                                                |
+| [`coreai_opt.quantization.spec.QParamsCalculatorBase`](generated/coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)(...)                                           | Abstract base for qparams calculators — common configuration and helpers.                           |
+| [`coreai_opt.quantization.spec.QuantizationComponentFactory`](generated/coreai_opt.quantization.spec.QuantizationComponentFactory.md#coreai_opt.quantization.spec.QuantizationComponentFactory)()                         | Factory class for creating quantization components from QuantizationSpec.                           |
+| [`coreai_opt.quantization.spec.QuantizationFormulation`](generated/coreai_opt.quantization.spec.QuantizationFormulation.md#coreai_opt.quantization.spec.QuantizationFormulation)(value)                                   | Formula used to map between quantized integers and dequantized values.                              |
+| [`coreai_opt.quantization.spec.QuantizationGranularity`](generated/coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity)                                          | Base class for quantization granularity specifications.                                             |
+| [`coreai_opt.quantization.spec.QuantizationScheme`](generated/coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme)(value)                                                  |                                                                                                     |
+| [`coreai_opt.quantization.spec.RangeCalculatorBase`](generated/coreai_opt.quantization.spec.RangeCalculatorBase.md#coreai_opt.quantization.spec.RangeCalculatorBase)(...)                                                 | Base class and registry for classes used to compute the range of a given tensor.                    |
+| [`coreai_opt.quantization.spec.RunningRangeMixin`](generated/coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantization.spec.RunningRangeMixin)(...)                                                       | Mixin for calculators that maintain running min/max range buffers.                                  |
+| [`coreai_opt.quantization.spec.StatefulQParamsCalculatorBase`](generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.md#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase)(...)                   | Stateful base: maintains scale/zero_point/minval as nn.Module buffers across forwards.              |
+| [`coreai_opt.quantization.spec.StatelessQParamsCalculatorBase`](generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.md#coreai_opt.quantization.spec.StatelessQParamsCalculatorBase)(...)                | Stateless base: no cached qparams; recomputed every forward.                                        |
+| [`coreai_opt.quantization.spec.StaticQParamsCalculator`](generated/coreai_opt.quantization.spec.StaticQParamsCalculator.md#coreai_opt.quantization.spec.StaticQParamsCalculator)(...)                                     | Computes scale/zero-point/minval using min/max values from the current tensor.                      |
+| [`coreai_opt.quantization.spec.default_activation_quantization_spec`](generated/coreai_opt.quantization.spec.default_activation_quantization_spec.md#coreai_opt.quantization.spec.default_activation_quantization_spec)() |                                                                                                     |
+| [`coreai_opt.quantization.spec.default_weight_quantization_spec`](generated/coreai_opt.quantization.spec.default_weight_quantization_spec.md#coreai_opt.quantization.spec.default_weight_quantization_spec)()             |                                                                                                     |
 
 ### coreai_opt.quantization.spec.fake_quantize
 
@@ -270,6 +293,294 @@ Fake quantization implementation base class and default implementation.
   * [PalettizationSpec](config.md#palettizationspec)
   * [Config classes and their defaults](config.md#config-classes-and-their-defaults)
   * [Examples](config.md#examples)
+
+
+# activation_comparison.html.md
+
+# Comparing Intermediate Activations
+
+A common debugging question after preparing a compressed model is: *which layers are most affected by compression?* Comparing intermediate activation tensors of the compressed model against the uncompressed model, on the same inputs, can be a simple yet effective technique to identify the most impacted layers and tune the config accordingly (e.g., raise bit-width or skip quantization).
+
+The recipe is:
+
+1. Pick a small batch of representative inputs.
+2. Run the uncompressed model and capture intermediate activations.
+3. Run the prepared (compressed) model on the *same* inputs and capture activations at corresponding points.
+4. For each pair of tensors, compute a similarity metric — signal-to-noise ratio (SNR) is a common choice.
+5. Sort layers by SNR; the lowest values point to the layers most affected by compression.
+
+The examples below use quantization (`Quantizer`), but the same recipe applies to any other compressor (e.g., `KMeansPalettizer`).
+
+The wiring of step 3 differs between [eager mode and graph mode](../quantization/overview.md#two-execution-modes-graph-and-eager) because the prepared model has a different structure in each. The rest of this page walks through both.
+
+#### NOTE
+The code snippets below use `torch.randn(...)` for brevity, but random inputs drive the model through activation regions it rarely sees in practice, so the resulting SNR can rank layers differently from what real data would produce. Use representative data when applying this technique in practice.
+
+## SNR helper
+
+```python
+import torch
+
+
+def snr_db(reference: torch.Tensor, noisy: torch.Tensor) -> float:
+    """SNR in dB between a reference tensor and a noisy approximation of it."""
+    signal_power = reference.float().pow(2).mean()
+    noise_power = (reference.float() - noisy.float()).pow(2).mean()
+    if noise_power == 0:
+        return float("inf")
+    return 10.0 * torch.log10(signal_power / noise_power).item()
+```
+
+Higher SNR ⇒ smaller compression-induced error. A drop of tens of dB at one layer relative to its neighbors is a strong hint that the layer is sensitive to the configured spec.
+
+## Example model
+
+The code on this page uses the following toy `Conv2d → ReLU → Linear` model on MNIST-sized inputs (1×28×28):
+
+```python
+import torch.nn as nn
+
+
+class ToyModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = nn.Conv2d(1, 8, 3, padding=1)
+        self.relu = nn.ReLU()
+        self.linear = nn.Linear(8 * 28 * 28, 10)
+
+    def forward(self, x):
+        x = self.relu(self.conv(x))
+        return self.linear(x.flatten(1))
+```
+
+## Eager mode
+
+In eager mode, `quantizer.prepare()` returns an `nn.Module` with the same submodule structure as the original — `prepared_model.layer1.conv1` lives at the same path as `model.layer1.conv1`. A forward hook on that path captures the *quantized* output on the prepared model and the *float* output on the original.
+
+For weights, `prepare()` registers PyTorch parametrizations in-place, so accessing `.weight` on either model after `prepare()` returns the fake-quantized value — not the original float. To retain the float reference, save copies of the weights before calling `prepare()`.
+
+### Activation collector
+
+The following helpers capture each named submodule’s output tensor using forward hooks:
+
+```python
+from collections import OrderedDict
+import torch
+
+
+def make_capture(store: dict[str, torch.Tensor], name: str):
+    def hook(_module, _inputs, output):
+        store[name] = output.detach().clone()
+
+    return hook
+
+
+def collect_outputs(
+    target: torch.nn.Module, names: list[str], inputs
+) -> dict[str, torch.Tensor]:
+    store: dict[str, torch.Tensor] = OrderedDict()
+    handles = [
+        target.get_submodule(n).register_forward_hook(make_capture(store, n))
+        for n in names
+    ]
+    try:
+        with torch.no_grad():
+            target(*inputs)
+    finally:
+        for h in handles:
+            h.remove()
+    return store
+```
+
+### Putting it together
+
+```python
+import torch
+from coreai_opt.quantization import Quantizer, QuantizerConfig
+from coreai_opt.quantization.config import ExecutionMode
+
+model = ToyModel().eval()
+example_inputs = (torch.randn(1, 1, 28, 28),)  # Use representative inputs in practice
+
+# Collect all named submodules for activation capture.
+target_names = [name for name, _ in model.named_modules() if name]
+
+# Save weight copies before prepare — prepare() registers parametrizations in-place,
+# making .weight return the fake-quantized value on both models after this point.
+original_weights = {
+    name: p.detach().clone() for name, p in model.named_parameters() if "weight" in name
+}
+
+# Capture float activations before preparing.
+fp_acts = collect_outputs(model, target_names, example_inputs)
+
+# Prepare and run to capture quantized activations.
+config = QuantizerConfig(execution_mode=ExecutionMode.EAGER)
+quantizer = Quantizer(model, config)
+prepared_model = quantizer.prepare(example_inputs)
+prepared_model.eval()
+q_acts = collect_outputs(prepared_model, target_names, example_inputs)
+
+# Print weight SNR.
+for key, orig_w in original_weights.items():
+    module_name = key.rsplit(".weight", 1)[0]
+    quant_w = prepared_model.get_submodule(module_name).weight
+    print(f"{key}: SNR = {snr_db(orig_w, quant_w):.2f} dB")
+
+# Print activation SNR.
+for name in target_names:
+    print(f"{name}: SNR = {snr_db(fp_acts[name], q_acts[name]):.2f} dB")
+```
+
+Running `ToyModel` with the default INT8 config produces:
+
+```text
+conv.weight: SNR = 47.17 dB
+linear.weight: SNR = 48.13 dB
+conv: SNR = 38.87 dB
+relu: SNR = 38.72 dB
+linear: SNR = 37.46 dB
+```
+
+Biases are not quantized and are omitted (SNR = ∞). Activation SNRs are lower than weight SNRs and reflect accumulated error: each activation output is affected by the quantization of the weights feeding into that op, plus the quantization of its own output.
+
+## Graph mode
+
+In graph mode (the default), `quantizer.prepare()` runs `torch.export` and returns an `fx.GraphModule`. The original `nn.Module` hierarchy is flattened into a flat graph of named nodes (`conv2d`, `relu`, `linear`, `linear_weight`, …), and fake-quantize submodules (`activation_post_process_0`, `activation_post_process_1`, …) are inserted around the ops being quantized.
+
+To compare cleanly, also export the *original* model with `torch.export`. Both graphs then share identical op-node names, so an op’s float activation and its quantized counterpart can be looked up by the same key — no `nn.Module` ↔ graph-node mapping needed. However, on the prepared side, an op’s *quantized* output sits on the fake-quantize node downstream of the op, not on the op itself. Build the op-to-FQ lookup by walking the prepared graph once.
+
+*Left: original exported graph. Right: after W8A8 quantization. Rounded rectangles are FQ nodes (activation_post_process_N), present only in the prepared graph; op node names are identical in both graphs.*
+
+### Activation collector
+
+`register_forward_hook` only fires on `call_module` nodes — most ops in `fx.GraphModule` are `call_function` and have no module to attach to. To capture every tensor output by node name, drive the model with [`torch.fx.Interpreter`](https://docs.pytorch.org/docs/stable/fx.html#torch.fx.Interpreter):
+
+```python
+from collections import OrderedDict
+import torch
+
+
+class ActivationCollector(torch.fx.Interpreter):
+    """Run an fx.GraphModule and capture every tensor output, keyed by node name."""
+
+    def __init__(self, graph_module: torch.fx.GraphModule):
+        super().__init__(graph_module)
+        self.captured: dict[str, torch.Tensor] = OrderedDict()
+
+    def run_node(self, n: torch.fx.Node):
+        out = super().run_node(n)
+        if isinstance(out, torch.Tensor):
+            self.captured[n.name] = out.detach().clone()
+        return out
+
+
+def collect_node_outputs(gm, inputs) -> dict[str, torch.Tensor]:
+    collector = ActivationCollector(gm)
+    with torch.no_grad():
+        collector.run(*inputs)
+    return collector.captured
+```
+
+### Mapping ops to their fake-quantize nodes
+
+When the prepared graph adds an `activation_post_process` node consuming an op’s output, the *quantized* counterpart of that op output lives on the FQ, not on the op itself. Build the lookup with a single walk over the prepared graph:
+
+```python
+def op_to_fq(prepared: torch.fx.GraphModule) -> dict[str, str]:
+    """Map each op (or weight/input) to the activation_post_process node consuming it."""
+    mapping: dict[str, str] = {}
+    for node in prepared.graph.nodes:
+        if node.op != "call_module" or "activation_post_process" not in str(
+            node.target
+        ):
+            continue
+        if node.args:
+            mapping[node.args[0].name] = node.name
+    return mapping
+```
+
+This map covers *everything* the prepared graph fake-quantizes — weights, inputs, and op outputs alike. For a `Conv2d → ReLU → Linear` model with default quantization, the map looks like:
+
+```python
+{
+    "x": "activation_post_process_0",  # input FQ
+    "conv_weight": "activation_post_process_1",  # weight FQ
+    "relu": "activation_post_process_2",  # output FQ for the conv→relu fused chain
+    "flatten": "activation_post_process_3",  # shared quantizer through flatten
+    "linear_weight": "activation_post_process_4",  # weight FQ
+    "linear": "activation_post_process_5",  # output FQ
+}
+```
+
+Two patterns to notice in this map:
+
+- **Weight-only configs.** For weight-only configs, the map only has `*_weight` entries — weights are the only things being fake-quantized. Op nodes like `linear` and `conv2d` don’t appear, but on the prepared side those ops already consume the fake-quantized weight, so their outputs already reflect the quantization. Just compare them by the same name on both sides.
+- **Pattern fusion.** `conv2d` has no entry because graph mode fuses `conv → relu` and places the single output FQ after `relu`, not after `conv2d`. Comparing `conv2d` by the same name on both sides still works — the prepared graph’s `conv2d` is computed from fake-quantized inputs and weights, so the SNR there reflects input + weight quantization error. The output-activation quantization error for the fused block shows up one row down, at `relu`.
+
+### Putting it together
+
+```python
+import torch
+from coreai_opt.quantization import Quantizer, QuantizerConfig
+
+model = ToyModel().eval()
+example_inputs = (torch.randn(1, 1, 28, 28),)  # Use representative inputs in practice
+
+# 1. Export the original model so we can interpret it node-by-node, by name.
+exported_original = torch.export.export(model, example_inputs).module()
+
+# 2. Prepare the (graph-mode) compressed model. Same input names; adds FQs.
+prepared = Quantizer(model, QuantizerConfig()).prepare(example_inputs)
+prepared.eval()
+
+# 3. Capture every tensor activation in both graphs.
+float_acts = collect_node_outputs(exported_original, example_inputs)
+quant_acts = collect_node_outputs(prepared, example_inputs)
+
+# 4. For each op in the float graph, compare against its FQ node on the prepared
+#    side if one exists, else against the same-named node.
+fq_map = op_to_fq(prepared)
+for name, fp in float_acts.items():
+    target = fq_map.get(name, name)
+    if target not in quant_acts or fp.shape != quant_acts[target].shape:
+        continue
+    print(f"{name:20s} -> {target:30s} SNR = {snr_db(fp, quant_acts[target]):.2f} dB")
+```
+
+You get one SNR row per *node* — weights, inputs, and op outputs alike.
+
+Running `ToyModel` with the default INT8 config produces:
+
+```text
+conv_weight          -> activation_post_process_1      SNR = 47.17 dB
+conv_bias            -> conv_bias                      SNR = inf dB
+linear_weight        -> activation_post_process_4      SNR = 48.13 dB
+linear_bias          -> linear_bias                    SNR = inf dB
+x                    -> activation_post_process_0      SNR = 43.20 dB
+conv2d               -> conv2d                         SNR = 42.40 dB
+relu                 -> activation_post_process_2      SNR = 38.94 dB
+flatten              -> activation_post_process_3      SNR = 38.94 dB
+linear               -> activation_post_process_5      SNR = 35.74 dB
+```
+
+Biases report SNR = ∞ — they are not quantized and compare identically on both sides. `conv2d` (42.40 dB) sits higher than `relu` (38.94 dB) because it has no downstream FQ; its error comes only from the fake-quantized input and weights, while `relu` additionally incurs output-activation quantization from FQ_2. `relu` and `flatten` share the same SNR because `flatten` is a reshape over identical values backed by a shared quantizer. `linear` has the lowest SNR, accumulating error from both its weight and the quantized activation arriving from `flatten`.
+
+## Acting on the results
+
+Two patterns are common in the SNR table:
+
+**Sudden drop at a single layer.** A sharp fall of tens of dB at one op — often visible on a weight or output FQ node — indicates that layer is particularly sensitive to the configured spec. Target it directly:
+
+- **Skip the layer.** Set its entry to `None` to leave it at full precision — `module_name_configs={"...": None}`, `module_type_configs={...: None}`, `op_name_config={"...": None}`, or `op_type_config={"...": None}`. `QuantizerConfig.without(...)` is the convenience shortcut for the module-level case. See [Skip quantization for a specific layer type](../quantization/config.md#example-skip-quantization-for-a-specific-layer-type).
+- **Raise its precision.** Replace the spec at that scope with a higher-bit dtype or a finer granularity (e.g., `PerBlockGranularity` instead of `PerChannelGranularity`). [Apply different configs to different module types](../quantization/config.md#example-apply-different-configs-to-different-module-types) shows the chaining pattern.
+
+**Gradual drift across a sequence of layers.** When SNR declines steadily over several consecutive layers with no obvious single culprit, quantization error accumulates as it propagates through the network. Two approaches can help:
+
+- **Skip the first few layers in the declining run.** Leaving the earliest affected layers at full precision prevents the initial error from accumulating downstream.
+- **Raise precision across the region.** Apply a higher-bit or finer-granularity spec to all layers in the sequence. This limits how much error each layer contributes.
+
+Re-run the same comparison after each config change to confirm the SNR at the targeted layers improved without regressing elsewhere.
 
 
 # advanced.html.md
@@ -684,6 +995,65 @@ To see which axis is chosen as the default for common layer types, refer to the 
 
 # Basics
 
+Pruning a model is the process of sparsifying the weight matrices within a model, thereby reducing its storage size by packing weights more efficiently. This can be done by setting a fraction of the values in the model’s weight matrices to zero.
+
+Pruned weights can be represented more efficiently using a sparse representation rather than the typical dense representation. In a sparse representation, only non-zero values are stored, along with a bit mask, that takes the value 1 at the indices of the non-zero values. For example, if the weight values are
+
+```text
+[0, 7, 0, 0, -3.2, 0, 0, 56.3]
+```
+
+the sparse representation contains a bit mask with 1s in the locations where the value is non-zero:
+
+```text
+[0, 1, 0, 0, 1, 0, 0, 1]
+```
+
+This is accompanied by the non-zero data, which in the following example will look like:
+
+```text
+[7, -3.2, 56.3]
+```
+
+![Magnitude pruning of a weight tensor and its sparse representation](pruning/images/pruning_magnitude.svg)
+
+## Pruning Algorithm
+
+The pruning algorithm selects which elements to zero out.
+
+- `MagnitudePruning`: A simple way to pick the elements to zero out is by the magnitude of the element. The magnitude pruner sorts the elements based on the value and zeros out the smallest set of elements up to the `target_sparsity`.
+
+## Pruning Schemes
+
+Sparsity can be introduced either in an unstructured way (the 0s introduced follow no pattern) or in a structured way (0s will be grouped together based on a pattern). This can be configured using the `PruningScheme`.
+
+- `Unstructured`: in this pruning scheme, there is no constraint for the 0s introduced into the tensor. For example, in the case of magnitude pruning with 50% sparsity, the pruner finds the smallest values in the tensor and zeros out half of them, wherever they may be located across the tensor.
+- `ChannelStructured`: this pruning scheme constrains the 0s to entire channels (slices along a chosen `axis` of the tensor) — every element within a pruned channel is zeroed together. For example, in the case of magnitude pruning with 50% sparsity, channels are ranked by their L1 norm and the half with the smallest norms are zeroed out across all of their elements, while the other half are kept intact. The realized sparsity is rounded down to the nearest multiple of `1/num_channels`.
+
+![Comparison of unstructured and channel-structured pruning at 20% sparsity](pruning/images/pruning_schemes.svg)
+
+## Pruning Schedule
+
+When the sparsity is applied to the module, it introduces error into the module as a portion of the weight values are no longer contributing to the model’s output. In models that are sensitive to sparsity, it might help to apply the sparsity in an incremental manner while fine-tuning the model to adapt to the sparsification. The Pruning Schedule allows applying sparsity based on a certain schedule.
+
+- `ConstantSparsitySchedule`: This is a simple schedule which mimics a step function. Up to `begin_step` the sparsity is 0%. Starting from `begin_step`, the schedule applies the entire `target_sparsity` to the model. This is a good first step to check how the model behaves with sparsity. For robust models and smaller amounts of sparsity, this works well and is recommended.
+- `PolynomialDecaySchedule`: This schedule applies the sparsity based on a polynomial function which can be configured. The sparsity at step `s` within the schedule window is
+
+```text
+sparsity(s) = s_target + (s_initial − s_target) · (1 − t)^power
+
+where  t = (s − begin_step) / (total_iters − 1)
+```
+
+Starting from `begin_step`, the schedule incrementally applies the sparsity in increments of `update_frequency` up till the `target_sparsity`, following the polynomial described by the polynomial exponent `power` until `total_iters` is reached. Beyond `total_iters`, it will maintain the `target_sparsity`.
+
+![Comparison of ConstantSparsitySchedule and PolynomialDecaySchedule over training steps](pruning/images/pruning_schedule.svg)
+
+
+# basics.html.md
+
+# Basics
+
 Palettization compresses model weights by clustering them into a look-up table (LUT) of
 centroids. Each weight value is replaced by an index into the LUT, reducing storage from
 full-precision floats to a small number of bits per weight.
@@ -853,6 +1223,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- towncrier release notes start -->
+
+## [0.2.1](https://github.com/apple/coreai-optimization/releases/tag/v0.2.1) - 2026-07-02
+
+### Added
+
+- Support palettization of `ConvTranspose1d`/`ConvTranspose2d`/`ConvTranspose3d` layers via `KMeansPalettizer`
+- Support for `EAGER` execution mode in model inspection utility
+
+### Fixed
+
+- Fixed pruning mask `dtype` to match that of the weight being pruned
+- Fixes to allow better support for `bfloat16` `dtype` in palettization and quantization
 
 ## [0.2.0](https://github.com/apple/coreai-optimization/releases/tag/v0.2.0) - 2026-06-08
 
@@ -1685,6 +2067,187 @@ class Model(torch.nn.Module):
 # - submodule_a.add_1
 # - submodule_b.add
 # - submodule_b.add_1
+```
+
+
+# config.html.md
+
+# Config API
+
+Pruning Configs follow the same philosophy as the [Palettization Config](../palettization/config.md).
+They are simpler as pruning applies only to the weights in the model.
+(Hence there are no `op_input_spec` and `op_output_spec` fields in the `ModuleMagnitudePrunerConfig` and [`OpMagnitudePrunerConfig`](../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.md#coreai_opt.pruning.config.OpMagnitudePrunerConfig).)
+
+## PruningSpec
+
+`PruningSpec` defines the following key properties (for full list see API reference):
+
+- `target_sparsity`: Fraction of elements to zero, in `[0, 1]`. Default: 0.5.
+- `pruning_scheme`: Structural pattern of sparsity. Allowed: [`Unstructured`](../api/generated/coreai_opt.pruning.spec.Unstructured.md#coreai_opt.pruning.spec.Unstructured)() or [`ChannelStructured`](../api/generated/coreai_opt.pruning.spec.ChannelStructured.md#coreai_opt.pruning.spec.ChannelStructured)(axis=…), defaults to the former.
+
+```python
+from coreai_opt.pruning import PruningSpec
+from coreai_opt.pruning.spec import (
+    ChannelStructured,
+    default_weight_pruning_spec,
+)
+
+# 50% unstructured magnitude pruning (default)
+spec = default_weight_pruning_spec()
+
+# 75% unstructured
+spec = PruningSpec(target_sparsity=0.75)
+
+# 50% channel-structured along axis 0 — entire channels are pruned together
+spec = PruningSpec(
+    target_sparsity=0.5,
+    pruning_scheme=ChannelStructured(axis=0),
+)
+```
+
+#### NOTE
+**Realized sparsity for `ChannelStructured`**:
+
+Channel-structured pruning prunes whole channels along `axis`, so the realized sparsity is rounded down to the nearest multiple of `1/num_channels`. For `num_channels=10` and `target_sparsity=0.5`, exactly 5 channels are pruned and the realized sparsity matches the target. For `num_channels=7` and the same target sparsity, only 3 channels are pruned, giving 3/7 ≈ 43% realized sparsity. `Unstructured` rounds at the element level, so this is only a concern for `ChannelStructured`.
+
+## Config classes and their defaults
+
+The pruning config system mirrors palettization’s three-class hierarchy:
+
+- [`MagnitudePrunerConfig`](../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.md#coreai_opt.pruning.MagnitudePrunerConfig) — the top-level config for the entire model. It holds a `global_config`, plus optional `module_type_configs` and `module_name_configs` for overrides. Same precedence as palettization: `module_name_configs` > `module_type_configs` > `global_config`.
+- [`ModuleMagnitudePrunerConfig`](../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.md#coreai_opt.pruning.ModuleMagnitudePrunerConfig) — controls pruning for all ops within a module’s scope (or all modules if used as a `global_config`). Like `ModuleKMeansPalettizerConfig`, it specifies a default `op_state_spec` for ops in the module and allows overrides via `op_type_config`, `op_name_config`, and `module_state_spec`. For a given op’s weight, the spec is resolved in this priority order (highest first): `module_state_spec`, the matching entry in `op_name_config`, the matching entry in `op_type_config`, then the module’s `op_state_spec`. It also exposes a `sparsity_schedule` field — when set, `pruner.step()` ramps sparsity over training (see [Pruning with Fine-Tuning](overview.md#pruning-with-fine-tuning)); when unset, the spec’s `target_sparsity` is applied statically.
+- [`OpMagnitudePrunerConfig`](../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.md#coreai_opt.pruning.config.OpMagnitudePrunerConfig) — controls pruning for a specific op type or op name. Only `op_state_spec` is used.
+
+### Default behavior when no arguments are provided
+
+Creating any of these config classes with no arguments gives you a ready-to-use **50% unstructured magnitude pruning** configuration:
+
+```python
+# All three of these produce equivalent default pruning settings:
+config = MagnitudePrunerConfig()
+# is equivalent to:
+config = MagnitudePrunerConfig(global_config=ModuleMagnitudePrunerConfig())
+# which is equivalent to:
+config = MagnitudePrunerConfig(
+    global_config=ModuleMagnitudePrunerConfig(
+        op_state_spec={
+            "weight": default_weight_pruning_spec(),
+            "in_proj_weight": default_weight_pruning_spec(),
+        },
+    )
+)
+
+op_config = OpMagnitudePrunerConfig()
+# is equivalent to:
+op_config = OpMagnitudePrunerConfig(
+    op_state_spec={
+        "weight": default_weight_pruning_spec(),
+        "in_proj_weight": default_weight_pruning_spec(),
+    },
+)
+```
+
+- The default applies `default_weight_pruning_spec()` — 50% target sparsity, unstructured, magnitude-based — to parameters named `"weight"` and `"in_proj_weight"`. Other state tensors (e.g., `"bias"`) are left uncompressed.
+- If you need different behavior — such as pruning custom parameter names, excluding certain modules, or applying different sparsity targets to different layers — see the [Examples](#examples) section below.
+
+## Examples
+
+Several examples below configure specific module types or module names. To determine these for your model, see [How to get names + types](../quantization/config.md#how-to-get-names-types-for-modules-and-ops). Since pruning only supports eager execution mode, only the eager mode guidance in that section is relevant.
+
+### Apply 50% pruning globally, 75% to linear layers
+
+Apply 50% magnitude pruning to all supported layers, and override `linear` layers to 75%.
+
+```python
+# programmatic
+import torch.nn as nn
+from coreai_opt.pruning import (
+    MagnitudePrunerConfig,
+    ModuleMagnitudePrunerConfig,
+    PruningSpec,
+)
+
+# 50% on all supported layers globally (the default)
+config = MagnitudePrunerConfig()
+
+# override Linear layers to 75%
+config.set_module_type(
+    nn.Linear,
+    ModuleMagnitudePrunerConfig(
+        op_state_spec={"weight": PruningSpec(target_sparsity=0.75)},
+    ),
+)
+```
+
+The snippet above applies 50% pruning globally (covering Conv2d and all other supported modules), then overrides Linear layers to 75%.
+
+#### Config chaining
+
+The setters also return the config itself, so multiple modifications can be chained into a single expression. The snippet above is equivalent to:
+
+```python
+config = MagnitudePrunerConfig().set_module_type(
+    nn.Linear,
+    ModuleMagnitudePrunerConfig(
+        op_state_spec={"weight": PruningSpec(target_sparsity=0.75)},
+    ),
+)
+```
+
+```yaml
+# yaml
+magnitude_pruning_config:
+  global_config:
+    op_state_spec:
+      weight:
+        target_sparsity: 0.5
+        pruning_scheme: { type: unstructured }
+  module_type_configs:
+    torch.nn.modules.linear.Linear:
+      op_state_spec:
+        weight:
+          target_sparsity: 0.75
+          pruning_scheme: { type: unstructured }
+```
+
+### Apply pruning to specific module types only
+
+When you want to prune only specific module types and leave everything else uncompressed, construct the config explicitly without a `global_config`. Each module type gets its own `ModuleMagnitudePrunerConfig`, and modules not listed in `module_type_configs` are skipped.
+
+```python
+# programmatic — explicit (scoped to specific module types)
+from coreai_opt.pruning import (
+    MagnitudePrunerConfig,
+    ModuleMagnitudePrunerConfig,
+    PruningSpec,
+)
+
+config = MagnitudePrunerConfig(
+    module_type_configs={
+        "torch.nn.modules.linear.Linear": ModuleMagnitudePrunerConfig(
+            op_state_spec={"weight": PruningSpec(target_sparsity=0.75)},
+        ),
+        "torch.nn.modules.conv.Conv2d": ModuleMagnitudePrunerConfig(
+            op_state_spec={"weight": PruningSpec(target_sparsity=0.5)},
+        ),
+    },
+)
+```
+
+```yaml
+# yaml
+magnitude_pruning_config:
+  module_type_configs:
+    torch.nn.modules.linear.Linear:
+      op_state_spec:
+        weight:
+          target_sparsity: 0.75
+          pruning_scheme: { type: unstructured }
+    torch.nn.modules.conv.Conv2d:
+      op_state_spec:
+        weight:
+          target_sparsity: 0.5
+          pruning_scheme: { type: unstructured }
 ```
 
 
@@ -2800,12 +3363,13 @@ Initialize internal Module state, shared by both nn.Module and ScriptModule.
 
 ### Methods
 
-| [`forward`](#coreai_opt.config.spec.CompressionSimulatorBase.forward)(tensor)   | Apply compression simulation to the input tensor.   |
-|---------------------------------------------------------------------------------|-----------------------------------------------------|
-| `get_class`(key)                                                                |                                                     |
-| `list_registry_keys`()                                                          |                                                     |
-| `list_registry_values`()                                                        |                                                     |
-| `register`(key)                                                                 | Register a virtual subclass of an ABC.              |
+| [`forward`](#coreai_opt.config.spec.CompressionSimulatorBase.forward)(tensor)   | Apply compression simulation to the input tensor.         |
+|---------------------------------------------------------------------------------|-----------------------------------------------------------|
+| `get_class`(key)                                                                |                                                           |
+| `list_registry_keys`()                                                          |                                                           |
+| `list_registry_values`()                                                        |                                                           |
+| `register`(key)                                                                 | Register a virtual subclass of an ABC.                    |
+| `resolve`(data)                                                                 | Resolve a string key or class type against this registry. |
 
 #### *abstract* forward(tensor)
 
@@ -3151,6 +3715,111 @@ are candidates; ops that fail to be sparsified are skipped with a warning.
         has `m <= 0`, or has `n` outside `[0, m]`.
 
 
+# coreai_opt.inspection.BoundaryEdge.html.md
+
+# coreai_opt.inspection.BoundaryEdge
+
+### *class* coreai_opt.inspection.BoundaryEdge(op, index)
+
+Bases: `object`
+
+A single data-flow edge crossing a module boundary.
+
+Each entry in [`ModuleInfo.input_ops`](coreai_opt.inspection.ModuleInfo.md#id1) or [`ModuleInfo.output_ops`](coreai_opt.inspection.ModuleInfo.md#id5)
+corresponds to one quantizer configuration point at the boundary.
+
+* **Parameters:**
+  * **op** ([*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo))
+  * **index** (*int*)
+
+#### op
+
+The op inside the module at the boundary.
+
+* **Type:**
+  [OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)
+
+#### index
+
+For input boundaries: the input slot of `op` that
+receives external data, matching the index used in
+`module_input_spec`. For output boundaries: the output slot of
+`op` whose tensor leaves the module, matching the index used in
+`module_output_spec`.
+
+* **Type:**
+  int
+
+#### \_\_init_\_(op, index)
+
+* **Parameters:**
+  * **op** ([*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo))
+  * **index** (*int*)
+* **Return type:**
+  None
+
+#### op *: [OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)*
+
+
+# coreai_opt.inspection.InputEdge.html.md
+
+# coreai_opt.inspection.InputEdge
+
+### *class* coreai_opt.inspection.InputEdge(op, output_idx)
+
+Bases: `object`
+
+One input edge into an op, pairing the producing op with its output slot.
+
+Used as the element type of [`OpInfo.inputs`](coreai_opt.inspection.OpInfo.md#id0). Delegation properties
+forward the most-accessed [`OpInfo`](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) attributes so that code iterating
+`op.inputs` does not need to go through `.op` for routine checks.
+
+* **Parameters:**
+  * **op** ([*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo))
+  * **output_idx** (*int* *|* *None*)
+
+#### op
+
+The op that produced this input tensor.
+
+* **Type:**
+  [OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)
+
+#### output_idx
+
+Which output slot of `op` this tensor came from,
+or `None` for synthetic ops (registered states, ephemeral/untracked
+tensors) that have no meaningful output slot.
+
+* **Type:**
+  int | None
+
+#### \_\_init_\_(op, output_idx)
+
+* **Parameters:**
+  * **op** ([*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo))
+  * **output_idx** (*int* *|* *None*)
+* **Return type:**
+  None
+
+#### *property* inputs *: tuple[[InputEdge](#coreai_opt.inspection.InputEdge), ...]*
+
+#### *property* is_state *: bool*
+
+#### *property* module_stack *: tuple[[ModuleContext](coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext), ...]*
+
+#### op *: [OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)*
+
+#### *property* op_name *: str*
+
+#### *property* op_type *: str | None*
+
+#### output_idx *: int | None*
+
+#### *property* outputs *: dict[int, tuple[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo), ...]]*
+
+
 # coreai_opt.inspection.ModelInspector.html.md
 
 # coreai_opt.inspection.ModelInspector
@@ -3185,8 +3854,8 @@ The underlying operation summary.
     Whether to call torch.export.export within a
     torch.no_grad() context. Defaults to True.
 * **Raises:**
-  * **TypeError** – If *model* is not an `nn.Module`.
-  * **NotImplementedError** – If *execution_mode* is `"eager"`.
+  * **TypeError** – If *model* is not an `nn.Module`, or if *model* is a
+        `GraphModule` and *execution_mode* is `"eager"`.
   * **RuntimeError** – If model export fails (graph mode).
   * **ValueError** – If example_inputs is None without the right model/execution_mode combination, or
         if execution_mode is not either “eager” or “graph”.
@@ -3402,8 +4071,8 @@ child modules as nested `ModuleInfo` instances.
   * **module_type** (*str*)
   * **child_modules** (*dict* *[**str* *,* [*ModuleInfo*](#coreai_opt.inspection.ModuleInfo) *]*)
   * **ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
-  * **input_ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
-  * **output_ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
+  * **input_ops** (*dict* *[**int* *,* *list* *[*[*BoundaryEdge*](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge) *]* *]*)
+  * **output_ops** (*dict* *[**int* *,* [*BoundaryEdge*](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge) *]*)
 
 #### module_name
 
@@ -3439,19 +4108,28 @@ graph order.
 
 #### input_ops
 
-Ops owned by this module, that receive data from
-outside this module.
+Boundary edges where data enters this
+module from outside. Keys are module input spec indices (positions in the
+flattened module forward arguments). Values are lists of all
+`(op, input_slot)` pairs that the tensor at that position feeds into inside
+the module — a single module input tensor can fan out to multiple ops. Keys
+are absent for positions occupied by state tensors, untracked tensors, or
+unused arguments. The key is what the user passes to `module_input_spec`.
 
 * **Type:**
-  list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]
+  dict[int, list[[BoundaryEdge](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)]]
 
 #### output_ops
 
-Ops owned by this module, that send data outside
-this module.
+Boundary edges where data leaves this
+module. Keys are module output spec indices (positions in the flattened
+module return value). Each key maps to the `(op, output_slot)` pair that
+produces the tensor at that position. Keys are absent for positions occupied
+by state tensors or untracked tensors. The key is what the user passes to
+`module_output_spec`.
 
 * **Type:**
-  list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]
+  dict[int, [BoundaryEdge](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)]
 
 #### \_\_init_\_(module_name, module_type, child_modules, ops, input_ops, output_ops)
 
@@ -3460,8 +4138,8 @@ this module.
   * **module_type** (*str*)
   * **child_modules** (*dict* *[**str* *,* [*ModuleInfo*](#coreai_opt.inspection.ModuleInfo) *]*)
   * **ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
-  * **input_ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
-  * **output_ops** (*list* *[*[*OpInfo*](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) *]*)
+  * **input_ops** (*dict* *[**int* *,* *list* *[*[*BoundaryEdge*](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge) *]* *]*)
+  * **output_ops** (*dict* *[**int* *,* [*BoundaryEdge*](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge) *]*)
 * **Return type:**
   None
 
@@ -3524,7 +4202,7 @@ Yield `(module_name, ModuleInfo)` for this module and all descendants.
 
 #### child_modules *: dict[str, [ModuleInfo](#coreai_opt.inspection.ModuleInfo)]*
 
-#### input_ops *: list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]*
+#### input_ops *: dict[int, list[[BoundaryEdge](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)]]*
 
 #### module_name *: str*
 
@@ -3532,14 +4210,14 @@ Yield `(module_name, ModuleInfo)` for this module and all descendants.
 
 #### ops *: list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]*
 
-#### output_ops *: list[[OpInfo](coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)]*
+#### output_ops *: dict[int, [BoundaryEdge](coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)]*
 
 
 # coreai_opt.inspection.OpInfo.html.md
 
 # coreai_opt.inspection.OpInfo
 
-### *class* coreai_opt.inspection.OpInfo(op_name, op_type, module_stack, source_frames, inputs, outputs)
+### *class* coreai_opt.inspection.OpInfo(op_name, op_type, module_stack, source_frames, inputs, outputs, is_state)
 
 Bases: `object`
 
@@ -3550,8 +4228,9 @@ Information about a single operation discovered in a model.
   * **op_type** (*str* *|* *None*)
   * **module_stack** (*tuple* *[*[*ModuleContext*](coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext) *,*  *...* *]*)
   * **source_frames** (*tuple* *[*[*SourceFrame*](coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame) *,*  *...* *]*)
-  * **inputs** (*tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]*)
-  * **outputs** (*tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]*)
+  * **inputs** (*tuple* *[*[*InputEdge*](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge) *,*  *...* *]*)
+  * **outputs** (*dict* *[**int* *,* *tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]* *]*)
+  * **is_state** (*bool*)
 
 #### op_name
 
@@ -3592,33 +4271,45 @@ May be empty if source information is unavailable.
 
 #### inputs
 
-Ordered input ops (ops, placeholders,
-parameters) that feed into this op.
+Ordered input edges. Each [`InputEdge`](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge)
+carries the producing op and the output slot of that op the tensor came from.
 
 * **Type:**
-  tuple[[OpInfo](#coreai_opt.inspection.OpInfo), …]
+  tuple[[InputEdge](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge), …]
 
 #### outputs
 
-Consumer ops that receive the output
-of this op, in graph order.
+Dictionary mapping op outputs to a tuple of ops
+consuming the output.
 
 * **Type:**
-  tuple[[OpInfo](#coreai_opt.inspection.OpInfo), …]
+  dict[int, tuple[[OpInfo](#coreai_opt.inspection.OpInfo), …]]
 
-#### \_\_init_\_(op_name, op_type, module_stack, source_frames, inputs, outputs)
+#### is_state
+
+`True` if this op represents a model parameter or
+buffer rather than a computation. State ops have an empty
+`module_stack` and do not appear in module tree or boundary lists.
+
+* **Type:**
+  bool
+
+#### \_\_init_\_(op_name, op_type, module_stack, source_frames, inputs, outputs, is_state)
 
 * **Parameters:**
   * **op_name** (*str*)
   * **op_type** (*str* *|* *None*)
   * **module_stack** (*tuple* *[*[*ModuleContext*](coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext) *,*  *...* *]*)
   * **source_frames** (*tuple* *[*[*SourceFrame*](coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame) *,*  *...* *]*)
-  * **inputs** (*tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]*)
-  * **outputs** (*tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]*)
+  * **inputs** (*tuple* *[*[*InputEdge*](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge) *,*  *...* *]*)
+  * **outputs** (*dict* *[**int* *,* *tuple* *[*[*OpInfo*](#coreai_opt.inspection.OpInfo) *,*  *...* *]* *]*)
+  * **is_state** (*bool*)
 * **Return type:**
   None
 
-#### inputs *: tuple[[OpInfo](#coreai_opt.inspection.OpInfo), ...]*
+#### inputs *: tuple[[InputEdge](coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge), ...]*
+
+#### is_state *: bool*
 
 #### module_stack *: tuple[[ModuleContext](coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext), ...]*
 
@@ -3626,7 +4317,7 @@ of this op, in graph order.
 
 #### op_type *: str | None*
 
-#### outputs *: tuple[[OpInfo](#coreai_opt.inspection.OpInfo), ...]*
+#### outputs *: dict[int, tuple[[OpInfo](#coreai_opt.inspection.OpInfo), ...]]*
 
 #### source_frames *: tuple[[SourceFrame](coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame), ...]*
 
@@ -3726,6 +4417,7 @@ Initialize the KMeans palettizer.
 | [`calibration_mode`](#coreai_opt.palettization.KMeansPalettizer.calibration_mode)([model, sensitivity_path])   | Context manager for calibration using Sensitive K-Means clustering.                                             |
 |----------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
 | [`finalize`](#coreai_opt.palettization.KMeansPalettizer.finalize)([model, backend, mmap_dir])                  | Convert palettized model to backend-specific representations.                                                   |
+| [`get_op_type_resolver`](#coreai_opt.palettization.KMeansPalettizer.get_op_type_resolver)()                    | Return a function that maps a torch function to its palettizable op type.                                       |
 | [`prepare`](#coreai_opt.palettization.KMeansPalettizer.prepare)(example_inputs[, sensitivity_path, ...])       | Prepare the model for palettization.                                                                            |
 | [`save_sensitivities`](#coreai_opt.palettization.KMeansPalettizer.save_sensitivities)(path)                    | Save sensitivity values from the prepared model to a file.                                                      |
 | `supported_modules`()                                                                                          | Returns types of modules that are supported for compression with for a particular model optimization technique. |
@@ -3786,6 +4478,13 @@ When `backend=ExportBackend.CoreAI`, finalize frees the original
 dense weights in place: on each parametrized weight,
 `parametrizations[...].original` is replaced with a zero-size
 placeholder so its storage can be released.
+
+#### *classmethod* get_op_type_resolver()
+
+Return a function that maps a torch function to its palettizable op type.
+
+* **Return type:**
+  *Callable*[[*Callable*], str | None]
 
 #### prepare(example_inputs, sensitivity_path=None, num_workers=1)
 
@@ -4290,7 +4989,8 @@ Per-grouped-channel palettization granularity.
 
 This applies palettization to a specific channel which is selected through the
 `axis` argument. `axis` defaults to `None`, in which case the default
-axis for the consuming op is used (e.g. 0 for `Linear`/`Conv`).
+axis for the consuming op is used (e.g. 0 for `Linear`/`Conv`, 1 for
+`ConvTranspose`).
 
 #### get_blocks_to_cluster(weight)
 
@@ -4821,6 +5521,7 @@ Initialize internal Module state, shared by both nn.Module and ScriptModule.
 | `list_registry_keys`()                                                                                    |                                                                                   |
 | `list_registry_values`()                                                                                  |                                                                                   |
 | `register`(key)                                                                                           | Register a virtual subclass of an ABC.                                            |
+| `resolve`(data)                                                                                           | Resolve a string key or class type against this registry.                         |
 | [`update_sparsity`](#coreai_opt.pruning.spec.PruneImplBase.update_sparsity)(step_count)                   | Update the sparsity based on the configured schedule and the provided step count. |
 | [`with_args`](#coreai_opt.pruning.spec.PruneImplBase.with_args)(\*\*kwargs)                               | Create a partial constructor with pre-filled arguments.                           |
 
@@ -5450,6 +6151,9 @@ Valid inputs:
   most recent calibration sample only
 - “moving_average”: Uses exponential moving average for stability
 - “global_minmax”: Tracks running min/max across all calibration samples
+- “dynamic”: Computes scale/zero/minval point on each forward pass from the
+  current tensor — no calibration. Only valid for activation quantization
+  (rejected by the factory for weights/LUT).
 - Custom registered class string name
 - coreai_opt.quantization.qparams_calculator.QParamsCalculatorBase
   class type: StaticQParamsCalculator,
@@ -5650,18 +6354,17 @@ Initialize the model compressor.
 
 ### Methods
 
-| [`calibration_mode`](#coreai_opt.quantization.Quantizer.calibration_mode)([model])                                 | Context manager for calibration-based post-training quantization.                                                   |
-|--------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
-| [`disable_fake_quant`](#coreai_opt.quantization.Quantizer.disable_fake_quant)([module])                            | Disable fake quantization on the model or a specific module.                                                        |
-| [`disable_observer`](#coreai_opt.quantization.Quantizer.disable_observer)([module])                                | Disable observers on the model or a specific module.                                                                |
-| [`enable_fake_quant`](#coreai_opt.quantization.Quantizer.enable_fake_quant)([module])                              | Enable fake quantization on the model or a specific module.                                                         |
-| [`enable_observer`](#coreai_opt.quantization.Quantizer.enable_observer)([module])                                  | Enable observers on the model or a specific module.                                                                 |
-| [`finalize`](#coreai_opt.quantization.Quantizer.finalize)([model, backend, mmap_dir])                              | Convert quantized model to backend-specific representations.                                                        |
-| [`get_compressible_op_names`](#coreai_opt.quantization.Quantizer.get_compressible_op_names)(model, execution_mode) | Return op names in *model* that this quantizer can target.                                                          |
-| [`prepare`](#coreai_opt.quantization.Quantizer.prepare)(example_inputs[, dynamic_shapes, ...])                     | Prepare the model for quantization by inserting fake quantization modules.                                          |
-| [`step`](#coreai_opt.quantization.Quantizer.step)()                                                                | Advance the QAT schedule by one step and apply observer/fake_quant transitions after the step has been incremented. |
-| `supported_modules`()                                                                                              | Returns types of modules that are supported for compression with for a particular model optimization technique.     |
-| [`training_mode`](#coreai_opt.quantization.Quantizer.training_mode)([model])                                       | Context manager for quantization-aware training (QAT) workflow.                                                     |
+| [`calibration_mode`](#coreai_opt.quantization.Quantizer.calibration_mode)([model])             | Context manager for calibration-based post-training quantization.                                                   |
+|------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| [`disable_fake_quant`](#coreai_opt.quantization.Quantizer.disable_fake_quant)([module])        | Disable fake quantization on the model or a specific module.                                                        |
+| [`disable_observer`](#coreai_opt.quantization.Quantizer.disable_observer)([module])            | Disable observers on the model or a specific module.                                                                |
+| [`enable_fake_quant`](#coreai_opt.quantization.Quantizer.enable_fake_quant)([module])          | Enable fake quantization on the model or a specific module.                                                         |
+| [`enable_observer`](#coreai_opt.quantization.Quantizer.enable_observer)([module])              | Enable observers on the model or a specific module.                                                                 |
+| [`finalize`](#coreai_opt.quantization.Quantizer.finalize)([model, backend, mmap_dir])          | Convert quantized model to backend-specific representations.                                                        |
+| [`prepare`](#coreai_opt.quantization.Quantizer.prepare)(example_inputs[, dynamic_shapes, ...]) | Prepare the model for quantization by inserting fake quantization modules.                                          |
+| [`step`](#coreai_opt.quantization.Quantizer.step)()                                            | Advance the QAT schedule by one step and apply observer/fake_quant transitions after the step has been incremented. |
+| `supported_modules`()                                                                          | Returns types of modules that are supported for compression with for a particular model optimization technique.     |
+| [`training_mode`](#coreai_opt.quantization.Quantizer.training_mode)([model])                   | Context manager for quantization-aware training (QAT) workflow.                                                     |
 
 #### calibration_mode(model=None)
 
@@ -5766,21 +6469,6 @@ mode-dependent behavior are not affected.
 #### NOTE
 When `backend=ExportBackend.CoreAI` in execution_mode=ExecutionMode.EAGER,
 finalize frees the original dense weights.
-
-#### *classmethod* get_compressible_op_names(model, execution_mode)
-
-Return op names in *model* that this quantizer can target.
-
-Dispatches to the appropriate underlying quantizer based on
-*execution_mode*.
-
-* **Parameters:**
-  * **model** (*nn.Module*) – The model to get compressible op names for.
-  * **execution_mode** ([*ExecutionMode*](coreai_opt.quantization.ExecutionMode.md#coreai_opt.quantization.ExecutionMode)) – The execution mode.
-* **Returns:**
-  Op names that can be compressed via quantization.
-* **Return type:**
-  set[str]
 
 #### prepare(example_inputs, dynamic_shapes=None, export_with_no_grad=True)
 
@@ -5972,6 +6660,22 @@ Default: ExecutionMode.GRAPH
 * **Type:**
   [ExecutionMode](coreai_opt.quantization.ExecutionMode.md#coreai_opt.quantization.ExecutionMode) | str
 
+#### kv_cache_quant_configs
+
+Optional
+mapping from short op-type name (as returned by `get_node_type`,
+to the cache-update op’s `KVCacheQuantConfig`. Each entry enables
+storing the corresponding KV-cache buffer in a quantized dtype: it
+carries the op’s `OpQuantizerConfig` inline and triggers a finalize-side
+rewrite that relocates the dequantize from the op’s input to its
+output. Graph mode only; rejected for eager mode by
+`_validate_kv_cache_quant_configs()`. See
+`KVCacheQuantConfig` for details.
+Default: None (no KV-cache buffer quantization)
+
+* **Type:**
+  dict[str, [KVCacheQuantConfig](coreai_opt.quantization.config.KVCacheQuantConfig.md#coreai_opt.quantization.config.KVCacheQuantConfig)] | None
+
 #### set_execution_mode(mode)
 
 Set the quantization execution mode.
@@ -6066,6 +6770,54 @@ int8 weight-only quantization, per-channel symmetric.
   int8 weight-only configuration.
 * **Return type:**
   [QuantizerConfig](coreai_opt.quantization.QuantizerConfig.md#coreai_opt.quantization.QuantizerConfig)
+
+
+# coreai_opt.quantization.config.KVCacheQuantConfig.html.md
+
+# coreai_opt.quantization.config.KVCacheQuantConfig
+
+### *class* coreai_opt.quantization.config.KVCacheQuantConfig
+
+Bases: `BaseModel`
+
+Enables KV-cache buffer storage in a quantized dtype for one cache-update op type.
+
+Carries the cache-update op’s quantization spec inline (via `op_quantizer_config`)
+and is the finalize-side switch that promotes the resulting fake-quant to stored
+quantization: the dequantize is relocated from the op’s input to its output and
+the cache buffer is retyped to the quantized dtype.
+
+Used as a value in `QuantizerConfig.kv_cache_quant_configs`, which maps the
+short op-type name to a config.
+
+Precondition on the cache op: it must commute with quantize/dequantize —
+i.e. a pure data-movement op (slicing, narrowing, copy). Arithmetic on
+cached values would silently produce a numerically wrong model.
+
+During `prepare`, the cache spec is applied as a global-only knob with
+highest priority: any prior annotation on the cache op — from any scope, by
+any mechanism (including module-scope `op_input_spec={"*": ...}`
+wildcards) — is **hard-overridden**, not merged. A warning is emitted at
+config-construction time when explicit `op_type_config[op]` collisions
+are detected. See `QuantizerConfig._validate_kv_cache_quant_configs()`.
+
+#### op_quantizer_config
+
+`OpQuantizerConfig` whose `op_input_spec` selects the
+input edge to quantize. The int key indexes the op’s tensor-valued,
+deduplicated inputs (`node.all_input_nodes`). `op_input_spec` must
+contain exactly one key (no `"*"`, no multi-key dicts) because the
+finalize-side relocation needs a single, unambiguous input edge to act on.
+`op_output_spec` and `op_state_spec` must be explicitly set to None
+(or empty); `OpQuantizerConfig` otherwise applies non-None defaults
+which the validator rejects.
+
+#### *property* quant_input_idx *: int*
+
+The single int key in `op_quantizer_config.op_input_spec`.
+
+Indexes the cache op’s `all_input_nodes` (tensor-valued, deduplicated
+inputs) — see `op_quantizer_config` for details.
 
 
 # coreai_opt.quantization.config.OpQuantizerConfig.html.md
@@ -6220,13 +6972,44 @@ there is no fake-quantize node deduplication happening (in Eager
 execution mode).
 
 
+# coreai_opt.quantization.spec.DynamicQParamsCalculator.html.md
+
+# coreai_opt.quantization.spec.DynamicQParamsCalculator
+
+### *class* coreai_opt.quantization.spec.DynamicQParamsCalculator(\*\*kwargs)
+
+Bases: [`StatelessQParamsCalculatorBase`](coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.md#coreai_opt.quantization.spec.StatelessQParamsCalculatorBase)
+
+Dynamically computes scale/zero-point/minval from the current tensor every forward.
+
+Typically used for activation quantization where activations vary per
+inference and there is no calibration phase. Supports variable-shape scales
+(e.g. LLM token-wise quantization with variable sequence length) since no
+nn.Module buffers are allocated — see `StatelessQParamsCalculatorBase`
+for the full stateless contract.
+
+#### \_\_init_\_(\*\*kwargs)
+
+### Methods
+
+| `compute_qparams`(tensor, min_val, max_val)   | Given the observed min/max range, return `(scale, zero_point, minval)`.   |
+|-----------------------------------------------|---------------------------------------------------------------------------|
+| `forward`(tensor)                             | Compute qparams from `tensor` and return; no buffer state.                |
+| `get_class`(key)                              |                                                                           |
+| `list_registry_keys`()                        |                                                                           |
+| `list_registry_values`()                      |                                                                           |
+| `register`(key)                               | Register a virtual subclass of an ABC.                                    |
+| `resolve`(data)                               | Resolve a string key or class type against this registry.                 |
+| `set_export_mode`([enabled])                  |                                                                           |
+
+
 # coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html.md
 
 # coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator
 
 ### *class* coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator(\*args, \*\*kwargs)
 
-Bases: [`RunningRangeMixin`](coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantization.spec.RunningRangeMixin), [`QParamsCalculatorBase`](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)
+Bases: [`RunningRangeMixin`](coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantization.spec.RunningRangeMixin), [`StatefulQParamsCalculatorBase`](coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.md#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase)
 
 Computes scale and zero point by tracking the running min/max.
 
@@ -6252,12 +7035,13 @@ forward pass via element-wise minimum and maximum:
 | `compute_qparams`(tensor, min_val, max_val)                                                                                  | Update running range, persist to buffers, then compute qparams.   |
 |------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
 | `extra_repr`()                                                                                                               | Return the extra representation of the module.                    |
-| `forward`(tensor)                                                                                                            | Compute scale, zero point, and minval from the input tensor.      |
+| `forward`(tensor)                                                                                                            | Compute qparams from `tensor`; cache to buffers; return.          |
 | `get_class`(key)                                                                                                             |                                                                   |
 | `get_qparams`()                                                                                                              | Return the computed scale, zero point and minval.                 |
 | `list_registry_keys`()                                                                                                       |                                                                   |
 | `list_registry_values`()                                                                                                     |                                                                   |
 | `register`(key)                                                                                                              | Register a virtual subclass of an ABC.                            |
+| `resolve`(data)                                                                                                              | Resolve a string key or class type against this registry.         |
 | `set_export_mode`([enabled])                                                                                                 |                                                                   |
 | [`update_running_range`](#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule. |
 
@@ -6299,6 +7083,7 @@ values of the tensor.
 | `list_registry_keys`()   |                                                                       |
 | `list_registry_values`() |                                                                       |
 | `register`(key)          | Register a virtual subclass of an ABC.                                |
+| `resolve`(data)          | Resolve a string key or class type against this registry.             |
 
 
 # coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html.md
@@ -6307,7 +7092,7 @@ values of the tensor.
 
 ### *class* coreai_opt.quantization.spec.MovingAverageQParamsCalculator(dtype, qscheme, granularity, target_dtype, quant_min, quant_max, range_calculator, float_range, averaging_constant=0.01, \*\*kwargs)
 
-Bases: [`RunningRangeMixin`](coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantization.spec.RunningRangeMixin), [`QParamsCalculatorBase`](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)
+Bases: [`RunningRangeMixin`](coreai_opt.quantization.spec.RunningRangeMixin.md#coreai_opt.quantization.spec.RunningRangeMixin), [`StatefulQParamsCalculatorBase`](coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.md#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase)
 
 Computes the scale and zero point using a moving average of the range.
 
@@ -6347,12 +7132,13 @@ where `c` is the `averaging_constant`.
 | `compute_qparams`(tensor, min_val, max_val)                                                                                   | Update running range, persist to buffers, then compute qparams.   |
 |-------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
 | `extra_repr`()                                                                                                                | Return the extra representation of the module.                    |
-| `forward`(tensor)                                                                                                             | Compute scale, zero point, and minval from the input tensor.      |
+| `forward`(tensor)                                                                                                             | Compute qparams from `tensor`; cache to buffers; return.          |
 | `get_class`(key)                                                                                                              |                                                                   |
 | `get_qparams`()                                                                                                               | Return the computed scale, zero point and minval.                 |
 | `list_registry_keys`()                                                                                                        |                                                                   |
 | `list_registry_values`()                                                                                                      |                                                                   |
 | `register`(key)                                                                                                               | Register a virtual subclass of an ABC.                            |
+| `resolve`(data)                                                                                                               | Resolve a string key or class type against this registry.         |
 | `set_export_mode`([enabled])                                                                                                  |                                                                   |
 | [`update_running_range`](#coreai_opt.quantization.spec.MovingAverageQParamsCalculator.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule. |
 
@@ -6440,8 +7226,18 @@ This applies quantization to the tensor as a whole.
 
 Bases: `ClassRegistryMixin`, `Module`
 
-Base class for implementing logic to calculate quantization parameters
-(scale, zero_point, minval) given min/max values.
+Abstract base for qparams calculators — common configuration and helpers.
+
+Concrete subclasses inherit from either:
+
+- `StatefulQParamsCalculatorBase` — has scale/zp/minval buffers; used by
+  Static, MovingAverage, GlobalMinMax.
+- `StatelessQParamsCalculatorBase` — no buffers, qparams recomputed per
+  forward; used by Dynamic. `FakeQuantizeImplBase` and `Quantizer`
+  detect this subclass to keep the observer always on and to reject
+  export.
+
+Subclasses must implement `forward(tensor) -> (scale, zero_point, minval)`.
 
 * **Parameters:**
   * **dtype** (*torch.dtype*)
@@ -6471,25 +7267,20 @@ Base class for implementing logic to calculate quantization parameters
 
 | [`compute_qparams`](#coreai_opt.quantization.spec.QParamsCalculatorBase.compute_qparams)(tensor, min_val, max_val)   | Given the observed min/max range, return `(scale, zero_point, minval)`.   |
 |----------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| [`extra_repr`](#coreai_opt.quantization.spec.QParamsCalculatorBase.extra_repr)()                                     | Return the extra representation of the module.                            |
-| [`forward`](#coreai_opt.quantization.spec.QParamsCalculatorBase.forward)(tensor)                                     | Compute scale, zero point, and minval from the input tensor.              |
+| [`forward`](#coreai_opt.quantization.spec.QParamsCalculatorBase.forward)(tensor)                                     | Compute and return `(scale, zero_point, minval)` for `tensor`.            |
 | `get_class`(key)                                                                                                     |                                                                           |
-| [`get_qparams`](#coreai_opt.quantization.spec.QParamsCalculatorBase.get_qparams)()                                   | Return the computed scale, zero point and minval.                         |
 | `list_registry_keys`()                                                                                               |                                                                           |
 | `list_registry_values`()                                                                                             |                                                                           |
 | `register`(key)                                                                                                      | Register a virtual subclass of an ABC.                                    |
-| [`set_export_mode`](#coreai_opt.quantization.spec.QParamsCalculatorBase.set_export_mode)([enabled])                  |                                                                           |
+| `resolve`(data)                                                                                                      | Resolve a string key or class type against this registry.                 |
 
 #### compute_qparams(tensor, min_val, max_val)
 
 Given the observed min/max range, return `(scale, zero_point, minval)`.
 
-The default implementation directly computes qparams from the given
-range via `_compute_scale_zero_point_minval`.  This is the correct behavior
-for stateless calculators (e.g. `StaticQParamsCalculator`).
-
-Stateful calculators override this via `RunningRangeMixin` to update
-running-range buffers before computing qparams from the smoothed range.
+Default implementation: pure function of the supplied range, no running state.
+`RunningRangeMixin` overrides this to apply a running-range smoothing rule
+before computing qparams.
 
 * **Parameters:**
   * **tensor** (*Tensor*)
@@ -6498,54 +7289,18 @@ running-range buffers before computing qparams from the smoothed range.
 * **Return type:**
   tuple[*Tensor*, *Tensor* | None, *Tensor* | None]
 
-#### extra_repr()
+#### *abstract* forward(tensor)
 
-Return the extra representation of the module.
-
-To print customized extra information, you should re-implement
-this method in your own modules. Both single-line and multi-line
-strings are acceptable.
-
-* **Return type:**
-  str
-
-#### forward(tensor)
-
-Compute scale, zero point, and minval from the input tensor.
-
-On the first forward pass, initializes internal buffers using the
-observed tensor shape and device. Delegates the actual qparams
-calculation to `compute_qparams`.
+Compute and return `(scale, zero_point, minval)` for `tensor`.
 
 * **Parameters:**
   **tensor** (*Tensor*)
 * **Return type:**
   tuple[*Tensor*, *Tensor* | None, *Tensor* | None]
 
-#### get_qparams()
-
-Return the computed scale, zero point and minval.
-For FP4/FP8/floating-point quantization, zero_point and minval are None.
-
-* **Return type:**
-  tuple[*Tensor*, *Tensor* | None, *Tensor* | None]
-
-#### set_export_mode(enabled=True)
-
-* **Parameters:**
-  **enabled** (*bool*)
-* **Return type:**
-  None
-
 #### *property* granularity *: [QuantizationGranularity](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity)*
 
 Getter for granularity.
-
-#### minval *: torch.Tensor | None*
-
-#### scale *: torch.Tensor*
-
-#### zero_point *: torch.Tensor | None*
 
 
 # coreai_opt.quantization.spec.QuantizationComponentFactory.html.md
@@ -6747,6 +7502,7 @@ of a given tensor.
 | `list_registry_keys`()                                                      |                                                                       |
 | `list_registry_values`()                                                    |                                                                       |
 | `register`(key)                                                             | Register a virtual subclass of an ABC.                                |
+| `resolve`(data)                                                             | Resolve a string key or class type against this registry.             |
 
 #### forward(x)
 
@@ -6780,7 +7536,7 @@ Subclasses that want to re-use the logic of computing quantization
 parameters but with different ways of updating the running statistics
 can override the `update_running_range` method.
 
-Must appear before `QParamsCalculatorBase` in the MRO so that its
+Must appear before `StatefulQParamsCalculatorBase` in the MRO so that its
 `compute_qparams` and `_initialize_state`
 take precedence over the base-class defaults.
 
@@ -6834,15 +7590,144 @@ Return `(updated_min, updated_max)` using subclass-specific rule.
 #### running_min *: Tensor*
 
 
+# coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html.md
+
+# coreai_opt.quantization.spec.StatefulQParamsCalculatorBase
+
+### *class* coreai_opt.quantization.spec.StatefulQParamsCalculatorBase(\*\*kwargs)
+
+Bases: [`QParamsCalculatorBase`](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)
+
+Stateful base: maintains scale/zero_point/minval as nn.Module buffers
+across forwards.
+
+Buffer shapes are allocated on first forward and must remain stable
+(`copy_` requires shape compatibility) — use
+`StatelessQParamsCalculatorBase` for variable-shape scales.
+
+#### \_\_init_\_(\*\*kwargs)
+
+### Methods
+
+| `compute_qparams`(tensor, min_val, max_val)                                                                 | Given the observed min/max range, return `(scale, zero_point, minval)`.   |
+|-------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`extra_repr`](#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.extra_repr)()                    | Return the extra representation of the module.                            |
+| [`forward`](#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.forward)(tensor)                    | Compute qparams from `tensor`; cache to buffers; return.                  |
+| `get_class`(key)                                                                                            |                                                                           |
+| [`get_qparams`](#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.get_qparams)()                  | Return the computed scale, zero point and minval.                         |
+| `list_registry_keys`()                                                                                      |                                                                           |
+| `list_registry_values`()                                                                                    |                                                                           |
+| `register`(key)                                                                                             | Register a virtual subclass of an ABC.                                    |
+| `resolve`(data)                                                                                             | Resolve a string key or class type against this registry.                 |
+| [`set_export_mode`](#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.set_export_mode)([enabled]) |                                                                           |
+
+#### extra_repr()
+
+Return the extra representation of the module.
+
+To print customized extra information, you should re-implement
+this method in your own modules. Both single-line and multi-line
+strings are acceptable.
+
+* **Return type:**
+  str
+
+#### forward(tensor)
+
+Compute qparams from `tensor`; cache to buffers; return.
+
+On the first forward pass, initializes internal buffers using the
+observed tensor shape and device. Delegates the actual qparams
+calculation to `compute_qparams`.
+
+* **Parameters:**
+  **tensor** (*Tensor*)
+* **Return type:**
+  tuple[*Tensor*, *Tensor* | None, *Tensor* | None]
+
+#### get_qparams()
+
+Return the computed scale, zero point and minval.
+For FP4/FP8/floating-point quantization, zero_point and minval are None.
+
+* **Return type:**
+  tuple[*Tensor*, *Tensor* | None, *Tensor* | None]
+
+#### set_export_mode(enabled=True)
+
+* **Parameters:**
+  **enabled** (*bool*)
+* **Return type:**
+  None
+
+#### minval *: torch.Tensor | None*
+
+#### scale *: torch.Tensor*
+
+#### zero_point *: torch.Tensor | None*
+
+
+# coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html.md
+
+# coreai_opt.quantization.spec.StatelessQParamsCalculatorBase
+
+### *class* coreai_opt.quantization.spec.StatelessQParamsCalculatorBase(\*\*kwargs)
+
+Bases: [`QParamsCalculatorBase`](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)
+
+Stateless base: no cached qparams; recomputed every forward.
+
+Used for dynamic quantization where activations vary per inference and the
+scale shape may change across forwards (e.g. LLM token-wise with variable
+sequence length). `self.scale`/`zero_point`/`minval` are assigned in
+forward as plain Python attributes (not buffers) for debugging visibility
+only — they reflect the most recent forward and are not in `state_dict`.
+
+- `FakeQuantizeImplBase` keeps `observer_enabled = 1` for this subclass
+  so the recompute path stays live.
+- `get_qparams` is undefined; `set_export_mode(True)` raises;
+  `float_range=[None, None]` is required.
+
+#### \_\_init_\_(\*\*kwargs)
+
+### Methods
+
+| `compute_qparams`(tensor, min_val, max_val)                                                                  | Given the observed min/max range, return `(scale, zero_point, minval)`.   |
+|--------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`forward`](#coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.forward)(tensor)                    | Compute qparams from `tensor` and return; no buffer state.                |
+| `get_class`(key)                                                                                             |                                                                           |
+| `list_registry_keys`()                                                                                       |                                                                           |
+| `list_registry_values`()                                                                                     |                                                                           |
+| `register`(key)                                                                                              | Register a virtual subclass of an ABC.                                    |
+| `resolve`(data)                                                                                              | Resolve a string key or class type against this registry.                 |
+| [`set_export_mode`](#coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.set_export_mode)([enabled]) |                                                                           |
+
+#### forward(tensor)
+
+Compute qparams from `tensor` and return; no buffer state.
+
+* **Parameters:**
+  **tensor** (*Tensor*)
+* **Return type:**
+  tuple[*Tensor*, *Tensor* | None, *Tensor* | None]
+
+#### set_export_mode(enabled=True)
+
+* **Parameters:**
+  **enabled** (*bool*)
+* **Return type:**
+  None
+
+
 # coreai_opt.quantization.spec.StaticQParamsCalculator.html.md
 
 # coreai_opt.quantization.spec.StaticQParamsCalculator
 
-### *class* coreai_opt.quantization.spec.StaticQParamsCalculator(dtype, qscheme, granularity, target_dtype, quant_min, quant_max, range_calculator, float_range, scale_dtype=None, \*\*kwargs)
+### *class* coreai_opt.quantization.spec.StaticQParamsCalculator(\*\*kwargs)
 
-Bases: [`QParamsCalculatorBase`](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)
+Bases: [`StatefulQParamsCalculatorBase`](coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.md#coreai_opt.quantization.spec.StatefulQParamsCalculatorBase)
 
-Computes scale and zero point using min/max values from the current tensor.
+Computes scale/zero-point/minval using min/max values from the current tensor.
 
 This QParamsCalculator directly uses the min/max range from each forward pass to compute
 quantization parameters. So in that sense, it does not maintain any “history” and
@@ -6855,41 +7740,20 @@ most recent weight tensor value.
 Uses the base-class default `compute_qparams` which
 directly delegates to `_compute_scale_zero_point_minval` without any running state.
 
-* **Parameters:**
-  * **dtype** (*torch.dtype*)
-  * **qscheme** ([*QuantizationScheme*](coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme))
-  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
-  * **target_dtype** (*torch.dtype*)
-  * **quant_min** (*int*)
-  * **quant_max** (*int*)
-  * **range_calculator** ([*RangeCalculatorBase*](coreai_opt.quantization.spec.RangeCalculatorBase.md#coreai_opt.quantization.spec.RangeCalculatorBase))
-  * **float_range** (*tuple* *[**float* *|* *None* *,* *float* *|* *None* *]*)
-  * **scale_dtype** (*torch.dtype* *|* *None*)
-
-#### \_\_init_\_(dtype, qscheme, granularity, target_dtype, quant_min, quant_max, range_calculator, float_range, scale_dtype=None, \*\*kwargs)
-
-* **Parameters:**
-  * **dtype** (*dtype*)
-  * **qscheme** ([*QuantizationScheme*](coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme))
-  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
-  * **target_dtype** (*dtype*)
-  * **quant_min** (*int*)
-  * **quant_max** (*int*)
-  * **range_calculator** ([*RangeCalculatorBase*](coreai_opt.quantization.spec.RangeCalculatorBase.md#coreai_opt.quantization.spec.RangeCalculatorBase))
-  * **float_range** (*tuple* *[**float* *|* *None* *,* *float* *|* *None* *]*)
-  * **scale_dtype** (*dtype* *|* *None*)
+#### \_\_init_\_(\*\*kwargs)
 
 ### Methods
 
 | `compute_qparams`(tensor, min_val, max_val)   | Given the observed min/max range, return `(scale, zero_point, minval)`.   |
 |-----------------------------------------------|---------------------------------------------------------------------------|
 | `extra_repr`()                                | Return the extra representation of the module.                            |
-| `forward`(tensor)                             | Compute scale, zero point, and minval from the input tensor.              |
+| `forward`(tensor)                             | Compute qparams from `tensor`; cache to buffers; return.                  |
 | `get_class`(key)                              |                                                                           |
 | `get_qparams`()                               | Return the computed scale, zero point and minval.                         |
 | `list_registry_keys`()                        |                                                                           |
 | `list_registry_values`()                      |                                                                           |
 | `register`(key)                               | Register a virtual subclass of an ABC.                                    |
+| `resolve`(data)                               | Resolve a string key or class type against this registry.                 |
 | `set_export_mode`([enabled])                  |                                                                           |
 
 
@@ -6957,6 +7821,8 @@ Initialize internal Module state, shared by both nn.Module and ScriptModule.
 |--------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [`convert`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.convert)(model, observer_node)                    | No-op: keep fake quant nodes intact during convert_pt2e.                                                                                                                                                                            |
 | [`dequantize`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.dequantize)(tensor, scale, zero_point, minval) | Given a quantized tensor, the scale and zero point used to perform quantization, perform de-quantization of the tensor based on the configuration in the `QuantizationSpec` and return it as a tensor with dtype as `output_dtype`. |
+| [`disable_observer`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.disable_observer)()                      | Disable the observer, unless the qparams calculator is stateless.                                                                                                                                                                   |
+| [`enable_observer`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer)([enabled])               | Inverse of `disable_observer`: ignore `enabled=False` when the qparams calculator is stateless.                                                                                                                                     |
 | [`extra_repr`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr)()                                  | Return the extra representation of the module.                                                                                                                                                                                      |
 | [`forward`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward)(tensor)                                  | Performs fake quantization of the given tensor using the qparams (scale, zero point, minval) computed by the QParamsCalculator.                                                                                                     |
 | `get_class`(key)                                                                                                               |                                                                                                                                                                                                                                     |
@@ -6965,6 +7831,7 @@ Initialize internal Module state, shared by both nn.Module and ScriptModule.
 | `list_registry_values`()                                                                                                       |                                                                                                                                                                                                                                     |
 | [`quantize`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.quantize)(tensor, scale, zero_point, minval)     | Given a tensor, scale and zero point, perform quantization of the tensor based on the configuration in the `QuantizationSpec`.                                                                                                      |
 | `register`(key)                                                                                                                | Register a virtual subclass of an ABC.                                                                                                                                                                                              |
+| `resolve`(data)                                                                                                                | Resolve a string key or class type against this registry.                                                                                                                                                                           |
 | [`set_export_mode`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.set_export_mode)([enabled])               | Set or unset export mode.                                                                                                                                                                                                           |
 | [`with_args`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.with_args)(\*\*kwargs)                          |                                                                                                                                                                                                                                     |
 
@@ -7006,6 +7873,32 @@ perform de-quantization of the tensor based on the configuration in the
   * **output_dtype** (*dtype*) – The dtype to use for the dequantized tensor
 * **Return type:**
   *Tensor*
+
+#### disable_observer()
+
+Disable the observer, unless the qparams calculator is stateless.
+
+Applies to **any** caller (direct, `apply(disable_observer)`,
+`convert_pt2e`, QAT scheduling). Stateless calculators recompute per
+forward and need `observer_enabled=1` permanently — `forward` uses
+that flag to route between live recompute and the stateful
+`get_qparams()` cache (which stateless doesn’t have).
+
+* **Return type:**
+  None
+
+#### enable_observer(enabled=True)
+
+Inverse of `disable_observer`: ignore `enabled=False` when the
+qparams calculator is stateless. Covers callers that invoke
+`enable_observer(False)` directly (e.g. the QAT scheduler at
+`quantizer.py:_maybe_apply_qat_schedule`); `disable_observer()`
+itself routes through the override above.
+
+* **Parameters:**
+  **enabled** (*bool*)
+* **Return type:**
+  None
 
 #### extra_repr()
 
@@ -7500,6 +8393,55 @@ final_model = quantizer.finalize(backend=opt.ExportBackend.CoreAI)
 - For a working end-to-end example, see `test_p4a8_compression_mnist_accuracy` in `tests/test_joint_compression.py`.
 - For export-related tests, see `test_mnist_p4a8_compression_export` in `tests/export/test_pt2e_mlir_export.py`.
 - We explore applying joint compression to the EDSR model [here](../examples/edsr.md).
+
+
+# landing_page.html.md
+
+# Core AI Optimization Documentation
+
+## What is `coreai-opt`?
+
+`coreai-opt` is a Python library for compressing PyTorch models for deployment on Apple Silicon. It allows you to apply compression-based optimizations (such as quantization or palettization) to any PyTorch model, producing a transformed PyTorch model that can be converted to a Core AI model and run with the [Core AI](https://developer.apple.com/documentation/coreai) framework.
+
+Model compression can help reduce the memory footprint of your model (disk size and at runtime), reduce inference latency, reduce power consumption, or optimize them all at once.
+
+`coreai-opt` is built around the following ideas:
+
+- **PyTorch native.** All APIs operate on PyTorch models. Compression is another transformation in your PyTorch workflow. The output of every compressor is itself a PyTorch model that can be validated, fine-tuned, and exported like any other model.
+- **Integrates with existing PyTorch code.** Adding post-training compression, calibration-based, or compression-aware training to an existing PyTorch pipeline takes a few additional lines of code. All three use the same compressor object.
+- **Aligned with Apple Silicon.** Default configurations and the majority of the available optimization options align with what the [Core AI](https://developer.apple.com/documentation/coreai) runtime executes efficiently, on one or many of the Apple Silicon platforms. Compressed PyTorch models can be seamlessly converted to `.aimodel` for deployment via Core AI.
+
+## Types of compression
+
+Available APIs cover the following categories of compression:
+
+- **[Quantization](quantization/index.md)** approximates weights and/or activations using a quantization function. Weight precisions include INT2, INT4, INT8 and FP4, FP8; activation precisions include INT8 and FP8.
+- **[Palettization](palettization/index.md)**, also known as codebook-style compression, clusters weights into a look-up table of centroids and stores indices in their place. Weights can be palettized to N ∈ {1, 2, 3, 4, 6, 8} bits.
+- **[Pruning](pruning/index.md)** zeros out weights with the smallest magnitudes and stores the remaining weights using sparse representations.
+
+These techniques can also be combined and applied in a hybrid fashion — for example, applying different palettization bit widths to different weights, or combining weight palettization with activation quantization — to build customized optimization recipes.
+
+## Compression workflows
+
+The process of applying compression to a model typically involves the following stages.
+
+- **Data-free compression**: Weight-only compression that needs only the model — no calibration or training data. (Test data and an evaluation metric are still used to validate the result.) The fastest workflow — typically seconds to minutes even for large models. Often works well for reducing the model down to 8 bits, or even 6 or 4 bits, with only a slight decrease in accuracy. Typical approaches used for getting more aggressive compression, effective bits-per-weight (bpw) < 5 bits, involve using more granular compression (e.g. per-block quantization, per-grouped-channel palettization) and/or mixed-bit compression (assigning different bits to different weights, based on their effect on accuracy).
+- **Calibration-based compression**: Post-training compression with calibration data. Often used when quantizing activations. A small amount of representative data (e.g. ~128 samples) lets compressors observe activation ranges and weight sensitivities.
+- **Fine-tuning-based compression**: Compression-aware fine-tuning (e.g. quantization-aware training) with full training data. The compressor is integrated into your training loop so the model adapts to compression error as it trains. The most time-intensive workflow, but typically the only way to recover accuracy at the most aggressive compression ratios for weights (4 bits and below), and/or for models that are sensitive to activation quantization.
+
+`coreai-opt`’s APIs allow you to easily move from one stage to the next while evaluating accuracy after each stage and escalating to a more expensive workflow only when needed.
+
+## Getting started
+
+For an overview of the generic structure of `coreai-opt` APIs, see [How to use coreai-opt](introduction/how_to_use_coreaiopt.md).
+
+For end-to-end examples on API usage and common workflows, see [MNIST examples](examples/toy_models.md) and [model examples](examples/model_examples.md).
+
+## Links to related Core AI components
+
+- **[coreai-torch](https://github.com/apple/coreai-torch)** — Python library for converting PyTorch models to the Core AI (`.aimodel`) format.
+- **[coreai-models](https://github.com/apple/coreai-models)** — GitHub repository with example models demonstrating how to convert, optimize, and re-author models for deployment with Core AI. Several of the LLMs in there are compressed to ~4–5 bits using `coreai-opt`. The repo also contains a number of AI skills, including some that wrap `coreai-opt` workflows.
+- **[Core AI framework](https://developer.apple.com/documentation/coreai)** — Apple’s on-device AI framework that runs `.aimodel` models.
 
 
 # mixed_precision.html.md
@@ -8409,6 +9351,101 @@ The registries that drive these behaviors live in `_graph/_annotation_pattern_re
 ### Pattern matching and op naming
 
 The name strings of modules and ops used for granular control in `QuantizerConfig` differ between the two execution modes. See [Quantization Config](config.md) for details and [How to get names + types for modules and ops](config.md#how-to-get-names-types-for-modules-and-ops) for how to retrieve them.
+
+
+# overview.html.md
+
+# API Overview
+
+## Post-training Pruning
+
+Post-training pruning sparsifies the model in a single shot. The mask is computed during the `prepare()` call and the prepared model immediately reflects the effects of sparsity.
+
+Unless the original PyTorch model already has a large fraction of weights close to zero across all of its weight parameters, post-training pruning will almost always degrade accuracy. It is most useful as a quick way to evaluate the impact of sparsity on model size and inference latency before committing to a fine-tuning workflow.
+
+```python
+import coreai_opt as opt
+from coreai_opt.pruning import MagnitudePruner, MagnitudePrunerConfig
+import torch
+
+model = MyModel().eval()
+example_inputs = (torch.randn(1, 3, 224, 224),)
+
+# Default config: 50% unstructured magnitude pruning on every supported weight.
+config = MagnitudePrunerConfig()
+
+# Apply sparsity to the model. After the prepare API is called,
+# the model will have 50% sparsity on every supported weight parameter
+pruner = MagnitudePruner(model, config)
+prepared_model = pruner.prepare(example_inputs)
+
+# Validate the model with the effects of sparsity
+val_metric = validate(prepared_model, val_dataset)
+
+# Deployment is similar to the Quantizer.
+# We invoke the 'finalize' API to update the PyTorch model and make it compatible
+# for conversion with either CoreAI or CoreML
+
+finalized_model_for_coreai = pruner.finalize(backend=opt.ExportBackend.CoreAI)
+# OR
+finalized_model_for_coreml = pruner.finalize(backend=opt.ExportBackend.CoreML)
+```
+
+## Pruning with Fine-Tuning
+
+In most cases, fine-tuning is required to recover good accuracy after pruning. We can use a sparsity schedule on the module config and call `pruner.step()` to gradually ramp up sparsity over training.
+
+```python
+from coreai_opt.pruning import (
+    MagnitudePruner,
+    MagnitudePrunerConfig,
+    ModuleMagnitudePrunerConfig,
+    PruningSpec,
+)
+from coreai_opt.pruning.config import PolynomialDecaySchedule
+import torch
+
+model = MyModel()
+example_inputs = (...,)
+num_epochs = 5
+
+# 70% target sparsity ramped in via a polynomial schedule over num_epochs.
+# Schedule starts at step 0 (sparsity=0) and advances on every pruner.step()
+# call along a cubic curve until reaching target_sparsity at step total_iters.
+config = MagnitudePrunerConfig(
+    global_config=ModuleMagnitudePrunerConfig(
+        op_state_spec={"weight": PruningSpec(target_sparsity=0.7)},
+        sparsity_schedule=PolynomialDecaySchedule(
+            begin_step=0, total_iters=num_epochs, power=3.0
+        ),
+    ),
+)
+pruner = MagnitudePruner(model, config)
+prepared_model = pruner.prepare(example_inputs)
+
+# ---------- training loop --------------------
+# We fine-tune the model while incrementing the sparsity schedule.
+# The pruner.step() API advances the sparsity schedule and recomputes
+# the masks against the current weight magnitudes for the next sparsity level.
+# The step() API can be called at the epoch frequency or at the batch step frequency
+# based on the configuration of the schedule
+optimizer = torch.optim.SGD(prepared_model.parameters(), lr=1e-3)
+for epoch in range(num_epochs):
+    prepared_model.train()
+    for batch, target in train_dataloader:
+        optimizer.zero_grad()
+        loss = criterion(prepared_model(batch), target)
+        loss.backward()
+        optimizer.step()
+    pruner.step()
+
+    val_metric = validate(prepared_model, val_dataloader)
+
+# ----------- deployment ------------------
+# same as before
+```
+
+For more details on how to use [`MagnitudePrunerConfig`](../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.md#coreai_opt.pruning.MagnitudePrunerConfig), [`ModuleMagnitudePrunerConfig`](../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.md#coreai_opt.pruning.ModuleMagnitudePrunerConfig) to apply different settings to different weights in the model, see [Pruning Config](config.md).
 
 
 # overview.html.md

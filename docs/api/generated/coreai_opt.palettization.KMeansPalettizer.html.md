@@ -24,6 +24,7 @@ Initialize the KMeans palettizer.
 | [`calibration_mode`](#coreai_opt.palettization.KMeansPalettizer.calibration_mode)([model, sensitivity_path])   | Context manager for calibration using Sensitive K-Means clustering.                                             |
 |----------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
 | [`finalize`](#coreai_opt.palettization.KMeansPalettizer.finalize)([model, backend, mmap_dir])                  | Convert palettized model to backend-specific representations.                                                   |
+| [`get_op_type_resolver`](#coreai_opt.palettization.KMeansPalettizer.get_op_type_resolver)()                    | Return a function that maps a torch function to its palettizable op type.                                       |
 | [`prepare`](#coreai_opt.palettization.KMeansPalettizer.prepare)(example_inputs[, sensitivity_path, ...])       | Prepare the model for palettization.                                                                            |
 | [`save_sensitivities`](#coreai_opt.palettization.KMeansPalettizer.save_sensitivities)(path)                    | Save sensitivity values from the prepared model to a file.                                                      |
 | `supported_modules`()                                                                                          | Returns types of modules that are supported for compression with for a particular model optimization technique. |
@@ -84,6 +85,13 @@ When `backend=ExportBackend.CoreAI`, finalize frees the original
 dense weights in place: on each parametrized weight,
 `parametrizations[...].original` is replaced with a zero-size
 placeholder so its storage can be released.
+
+#### *classmethod* get_op_type_resolver()
+
+Return a function that maps a torch function to its palettizable op type.
+
+* **Return type:**
+  *Callable*[[*Callable*], str | None]
 
 #### prepare(example_inputs, sensitivity_path=None, num_workers=1)
 

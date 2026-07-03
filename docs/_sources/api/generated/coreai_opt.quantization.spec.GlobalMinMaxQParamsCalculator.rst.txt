@@ -21,6 +21,7 @@
       ~GlobalMinMaxQParamsCalculator.list_registry_keys
       ~GlobalMinMaxQParamsCalculator.list_registry_values
       ~GlobalMinMaxQParamsCalculator.register
+      ~GlobalMinMaxQParamsCalculator.resolve
       ~GlobalMinMaxQParamsCalculator.set_export_mode
       ~GlobalMinMaxQParamsCalculator.update_running_range
    
