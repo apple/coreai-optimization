@@ -31,9 +31,12 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 dependencies = [
-    "coremltools>=8.3",
-    "numpy>=2,<2.4",              # TODO: Remove once coremltools has released a version > 9.0
+    # Required at runtime by torch.utils.cpp_extension to JIT-compile the vendored
+    # kmeans1d C++ core (a C++ toolchain must also be present on the host).
+    "ninja>=1.11",
+    "numpy>=2",
     "pydantic>=2.0.0",
+    "pyyaml>=6.0",
     "rich>=13.0.0",
     "safetensors>=0.5.3,<=0.7.0",
     # PyTorch >= 2.9.0 requires torchao >= 0.15.0
@@ -53,6 +56,10 @@ coreai = [
     "coreai-core==1.0.0b2",
     "coreai-torch==0.4.1",
     "scikit-learn>=1.7.2",
+]
+coreml = [
+    "coremltools>=8.3",
+    "numpy>=2,<2.4",    # TODO: Remove once coremltools has released a version > 9.0
 ]
 [project.urls]
 Changelog = "https://github.com/apple/coreai-optimization/blob/main/CHANGELOG.md"
@@ -90,12 +97,15 @@ docs = [
     "sphinx-llm==0.3.0",
     "sphinxcontrib-mermaid==1.0.0",
     { include-group = "coreai" },
+    { include-group = "coreml" },
 ]
 # `coreai` group mirrors the `coreai` optional-dependency (extra) so `uv sync`
 # installs CoreAI by default (see tool.uv.default-groups). The extra is the
 # single source of truth; this group self-references it to avoid duplicating the
 # package list.
+# This applies to the `coreml` group as well.
 coreai = [ "coreai-opt[coreai]" ]
+coreml = [ "coreai-opt[coreml]" ]
 # Used in CI to force latest mimimum supported torch version
 # These torch versions must be in bounds of torch versions listed in project dependencies
 highest_tested_torch = [
@@ -145,6 +155,7 @@ tutorial = [
     "papermill>=2.7.0",
     "torchinfo>=1.8.0",
     { include-group = "coreai" },
+    { include-group = "coreml" },
     { include-group = "torchvision" },
 ]
 
@@ -153,14 +164,14 @@ package-dir = { "" = "src" }
 [tool.setuptools.dynamic]
 version = { attr = "coreai_opt._about.__version__" }
 [tool.setuptools.package-data]
-coreai_opt = [ "py.typed" ]
+coreai_opt = [ "_utils/_kmeans1d/_core.cpp", "_utils/_kmeans1d/LICENSE", "py.typed" ]
 [tool.setuptools.packages]
 find.exclude = [ "coreai_opt_benchmarking*", "tests*" ]
 find.where = [ "src" ]
 
 # make env group installed by default with uv sync
 [tool.uv]
-default-groups = [ "dev", "coreai" ]
+default-groups = [ "dev", "coreai", "coreml" ]
 index = [
     { explicit = true, name = "pytorch-cpu", url = "https://download.pytorch.org/whl/cpu" },
     { explicit = true, name = "pytorch-cu128", url = "https://download.pytorch.org/whl/cu128" },
