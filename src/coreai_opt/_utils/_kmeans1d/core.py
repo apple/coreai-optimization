@@ -41,7 +41,17 @@ Clustered = namedtuple("Clustered", "clusters centroids")
 # coremltools builds _core.cpp with `-std=c++11` (plus the `-stdlib=libc++`
 # fallback on macOS); see coremltools deps/kmeans1d/setup.py. We JIT-compile it
 # on first use instead of shipping a prebuilt extension.
-_EXTRA_CFLAGS = ["-std=c++11"] + (["-stdlib=libc++"] if sys.platform == "darwin" else [])
+#
+# coremltools' setup.py sets no explicit -O flag itself, but distutils
+# prepends CPython's sysconfig OPT/CFLAGS ("-O2 -DNDEBUG" on standard
+# python.org/conda builds) ahead of extra_compile_args, so its shipped
+# .so is effectively an -O2 build. torch.utils.cpp_extension.load() does
+# NOT inherit sysconfig flags and defaults to -O0, which made this
+# tight-inner-loop, template-heavy DP code 10-15x slower per call than
+# coremltools' prebuilt extension. Pass the same flags explicitly to match.
+_EXTRA_CFLAGS = ["-std=c++11", "-O2", "-DNDEBUG"] + (
+    ["-stdlib=libc++"] if sys.platform == "darwin" else []
+)
 _EXTRA_LDFLAGS = ["-stdlib=libc++"] if sys.platform == "darwin" else []
 
 _DLL = None
