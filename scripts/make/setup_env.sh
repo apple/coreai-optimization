@@ -109,7 +109,7 @@ ENSURE_MODE=false
 
 # Groups excluded from --all-groups due to mutual conflicts in pyproject.toml.
 # tamm-export is omitted because it's opt-in only (never in default-groups or --all-groups).
-CONFLICTING_GROUPS=("highest_tested_torch" "lowest_tested_torch")
+CONFLICTING_GROUPS=("torch_2_8" "torch_2_9" "torch_2_10" "torch_2_11")
 
 show_help() {
     echo "Usage: $0 [OPTIONS]"
@@ -135,8 +135,8 @@ show_help() {
     echo "  $0 --python-version 3.11                               # Setup with dev group only"
     echo "  $0 --python-version 3.11 --with-docs                   # Setup with dev and docs groups"
     echo "  $0 --python-version 3.11 --all-groups                                    # Setup with all non-conflicting groups"
-    echo "  $0 --python-version 3.11 --all-groups --with-highest_tested_torch        # Setup with all groups and highest torch"
-    echo "  $0 --python-version 3.11 --all-groups --with-lowest_tested_torch         # Setup with all groups and lowest torch"
+    echo "  $0 --python-version 3.11 --all-groups --with-torch_2_11                   # Setup with all groups and torch 2.11"
+    echo "  $0 --python-version 3.11 --all-groups --with-torch_2_8                    # Setup with all groups and torch 2.8"
     echo "  $0 --python-version 3.11 --venv .venv-exp              # Setup with custom venv name"
     echo "  $0 --python-version 3.11 --with-docs --venv .venv-exp  # Setup with docs group and custom venv name"
     echo "  $0 --python-version 3.12                               # Setup with Python 3.12"
@@ -267,7 +267,7 @@ if [[ "$ENSURE_MODE" == "true" ]] && [ -f "$VENV/bin/python" ]; then
         for GROUP in "${EXTRA_GROUPS[@]}"; do
             case "$GROUP" in
             docs) IMPORT_STMTS+="; import sphinx" ;;
-            highest_tested_torch | lowest_tested_torch)
+            torch_2_8 | torch_2_9 | torch_2_10 | torch_2_11)
                 IMPORT_STMTS+="; import torchao"
                 EXPECTED_TORCH="$(group_torch_pin "$GROUP")"
                 # These groups always pin torch, so an empty result means the

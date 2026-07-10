@@ -34,8 +34,17 @@ from ci.nox.utils import (  # noqa: E402
 options.default_venv_backend = "uv"
 options.error_on_missing_interpreters = True
 
+# Pins the torch minor version smoke tests install, one of the torch_2_*
+# dependency groups in pyproject.toml. Set by the CI matrix (ci.yaml) so each
+# job tests a different torch version; defaults to the newest supported.
+SMOKE_TEST_TORCH_GROUP = os.environ.get("SMOKE_TEST_TORCH_GROUP", "torch_2_11")
 
-@session(python=get_supported_python_versions(), uv_extras=["coreai"], uv_groups=["test"])
+
+@session(
+    python=get_supported_python_versions(),
+    uv_extras=["coreai"],
+    uv_groups=["test", SMOKE_TEST_TORCH_GROUP],
+)
 def smoke_tests(session: Session) -> None:
     """Smoke test the package build and coreai_opt imports and basic functionality.
 

@@ -46,7 +46,7 @@ dependencies = [
     # based on other package versions. We can either 1) add a stricter check to require the newer torchao
     # version for everyone, or 2) add a runtime check in src/coreai_opt/init.py to ensure torchao
     # version >= 0.15.0 for torch version >= 2.9.0. Opting option 1.
-    # These torch versions must be in bounds of lowest_tested_torch and highest_tested_torch
+    # These torch versions must be in bounds of torch_2_8, torch_2_9, torch_2_10, and torch_2_11
     "torch>=2.8.0,<=2.11.0",
     "torchao>=0.15.0,<=0.17.0",
     "tqdm>=4.65",
@@ -107,20 +107,6 @@ docs = [
 # This applies to the `coreml` group as well.
 coreai = [ "coreai-opt[coreai]" ]
 coreml = [ "coreai-opt[coreml]" ]
-# Used in CI to force latest mimimum supported torch version
-# These torch versions must be in bounds of torch versions listed in project dependencies
-highest_tested_torch = [
-    "torch==2.11.0",
-    "torchao==0.17.0",
-    "torchvision==0.26.0",
-]
-# Used in CI to force lowest mimimum supported torch version
-# These torch versions must be in bounds of torch versions listed in project dependencies
-lowest_tested_torch = [
-    "torch==2.8.0",
-    "torchao==0.15.0",
-    "torchvision==0.23.0",
-]
 pre-commit = [
     "bashate>=2.1.1",
     "darker>=3.0.0",
@@ -144,6 +130,27 @@ pre-commit = [
     "tomli-w>=1.0.0",
 ]
 tamm-export = []
+# These torch versions must be in bounds of torch versions listed in project dependencies
+torch_2_10 = [
+    "torch==2.10.0",
+    "torchao==0.16.0",
+    "torchvision==0.25.0",
+]
+torch_2_11 = [
+    "torch==2.11.0",
+    "torchao==0.17.0",
+    "torchvision==0.26.0",
+]
+torch_2_8 = [
+    "torch==2.8.0",
+    "torchao==0.15.0",
+    "torchvision==0.23.0",
+]
+torch_2_9 = [
+    "torch==2.9.1",
+    "torchao==0.15.0",
+    "torchvision==0.24.1",
+]
 # Since torch and torchao are project dependencies, we need to include torchvision in dev
 # This allows standard `make test` to find torchvision
 torchvision = [
@@ -190,8 +197,10 @@ exclude-newer-package = { coreai-core = false, coreai-torch = false }
 # Declare conflicting groups so uv does not error
 conflicts = [
     [
-        { group = "highest_tested_torch" },
-        { group = "lowest_tested_torch" },
+        { group = "torch_2_8" },
+        { group = "torch_2_9" },
+        { group = "torch_2_10" },
+        { group = "torch_2_11" },
     ],
 ]
 [tool.uv.sources]
