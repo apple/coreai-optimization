@@ -171,3 +171,67 @@ def simple_mha_model():
 def simple_mha_model_input():
     """Fixture providing example input tensor for MHA model."""
     return torch.randn(1, 10, 64)
+
+
+class PlainEmbeddingModel(nn.Module):
+    """Simple model with standard nn.Embedding."""
+
+    def __init__(self, vocab_size: int = 256, embed_dim: int = 64) -> None:
+        super().__init__()
+        self.embed_tokens = nn.Embedding(vocab_size, embed_dim)
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        return self.embed_tokens(input_ids)
+
+
+class ScaledEmbeddingModel(nn.Module):
+    """Simple model with embedding output scaled by sqrt(hidden_size)."""
+
+    def __init__(self, vocab_size: int = 256, embed_dim: int = 64) -> None:
+        super().__init__()
+        self.embed_tokens = nn.Embedding(vocab_size, embed_dim)
+        self.embed_scale = embed_dim**0.5
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        return self.embed_tokens(input_ids) * torch.tensor(
+            self.embed_scale, dtype=self.embed_tokens.weight.dtype
+        )
+
+
+class TiedEmbeddingModel(nn.Module):
+    """Simple model with embedding weight tied with an lm_head Linear."""
+
+    def __init__(self, vocab_size: int = 256, embed_dim: int = 64) -> None:
+        super().__init__()
+        self.embed_tokens = nn.Embedding(vocab_size, embed_dim)
+        self.lm_head = nn.Linear(embed_dim, vocab_size, bias=False)
+        # Tie weights.
+        self.lm_head.weight = self.embed_tokens.weight
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        hidden = self.embed_tokens(input_ids)
+        return self.lm_head(hidden)
+
+
+@pytest.fixture
+def plain_embedding_model():
+    """Fixture providing a plain nn.Embedding model."""
+    return PlainEmbeddingModel()
+
+
+@pytest.fixture
+def scaled_embedding_model():
+    """Fixture providing a sqrt(hidden_size)-scaled embedding model."""
+    return ScaledEmbeddingModel()
+
+
+@pytest.fixture
+def tied_embedding_model():
+    """Fixture providing an embedding model with weight tied to an lm_head."""
+    return TiedEmbeddingModel()
+
+
+@pytest.fixture
+def embedding_model_input():
+    """Fixture providing example token-id input for the embedding models."""
+    return torch.randint(0, 256, (1, 8), dtype=torch.int32)

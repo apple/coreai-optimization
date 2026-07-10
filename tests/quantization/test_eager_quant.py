@@ -442,51 +442,79 @@ class TestEagerQuantizer:
         else:
             assert files == []
 
-    @pytest.mark.parametrize(
-        "shared_weight_model",
-        [True, False],
-        ids=["shared_weights", "no_sharing"],
-    )
-    def test_finalize_mmap_matches_non_mmap_output(
-        self, basic_config, tmp_path, shared_weight_model
-    ):
-        """Finalize with and without ``mmap_dir`` produces numerically identical
-        outputs, including for models with shared (weight-tied) layers."""
-        if shared_weight_model:
-            model_cls = SharedWeightModel
-            example_input_shape = (1, 4)
-        else:
-            model_cls = SimpleLinearModel
-            example_input_shape = (1, 10)
-
-        model_no_mmap = model_cls()
-        model_with_mmap = copy.deepcopy(model_no_mmap)
-        example_input = torch.rand(*example_input_shape)
+    def _finalize_with_and_without_mmap(self, model, config, example_input, tmp_path):
+        """Finalize ``model`` for the CoreAI backend both without and with
+        ``mmap_dir``, returning the ``(no_mmap, with_mmap)`` finalized models."""
+        model_with_mmap = copy.deepcopy(model)
 
         finalized_no_mmap = self._quantize_model(
-            model_no_mmap, basic_config, example_input, None, ExportBackend.CoreAI
+            model, config, example_input, None, ExportBackend.CoreAI
         )
         finalized_with_mmap = self._quantize_model(
-            model_with_mmap, basic_config, example_input, str(tmp_path), ExportBackend.CoreAI
+            model_with_mmap, config, example_input, str(tmp_path), ExportBackend.CoreAI
+        )
+        return finalized_no_mmap, finalized_with_mmap
+
+    @staticmethod
+    def _assert_forward_outputs_equal(model_a, model_b, example_input):
+        """Assert two models produce numerically identical forward outputs."""
+        with torch.no_grad():
+            out_a = model_a(example_input)
+            out_b = model_b(example_input)
+        assert torch.equal(out_a, out_b)
+
+    def test_finalize_mmap_matches_non_mmap_output(self, basic_config, tmp_path):
+        """Standard per-tensor quantization: finalize with and without
+        ``mmap_dir`` produces numerically identical outputs."""
+        example_input = torch.rand(1, 10)
+        finalized_no_mmap, finalized_with_mmap = self._finalize_with_and_without_mmap(
+            SimpleLinearModel(), basic_config, example_input, tmp_path
+        )
+        self._assert_forward_outputs_equal(finalized_no_mmap, finalized_with_mmap, example_input)
+
+    def test_finalize_mmap_preserves_weight_sharing(self, basic_config, tmp_path):
+        """Weight-tied modules keep a single shared dequant parametrization after
+        finalize, both with and without ``mmap_dir`` and ensure outputs still match."""
+        example_input = torch.rand(1, 4)
+        finalized_no_mmap, finalized_with_mmap = self._finalize_with_and_without_mmap(
+            SharedWeightModel(), basic_config, example_input, tmp_path
+        )
+        self._assert_forward_outputs_equal(finalized_no_mmap, finalized_with_mmap, example_input)
+
+        for label, finalized in (("no-mmap", finalized_no_mmap), ("mmap", finalized_with_mmap)):
+            assert (
+                finalized.linear1.parametrizations.weight[0]
+                is finalized.linear2.parametrizations.weight[0]
+            ), f"{label} finalize did not preserve sharing for weight-tied modules"
+
+    def test_finalize_mmap_matches_non_mmap_output_fp4_per_block(self, tmp_path):
+        """FP4 per-block weights stored as Float4Tensor finalize identically
+        with and without ``mmap_dir``, and the mmap path emits a safetensors
+        file for the weight."""
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={
+                    "weight": QuantizationSpec(
+                        dtype="float4_e2m1fn",
+                        qscheme=QuantizationScheme.SYMMETRIC,
+                        granularity=PerBlockGranularity(axis=1, block_size=32),
+                    ),
+                },
+                op_input_spec=None,
+                op_output_spec=None,
+            ),
+            execution_mode="eager",
         )
 
-        if shared_weight_model:
-            # Tied-weight modules should share a single dequant parametrization
-            # post-finalize, both with and without mmap.
-            assert (
-                finalized_no_mmap.linear1.parametrizations.weight[0]
-                is finalized_no_mmap.linear2.parametrizations.weight[0]
-            ), "no-mmap finalize did not preserve sharing for weight-tied modules"
-            assert (
-                finalized_with_mmap.linear1.parametrizations.weight[0]
-                is finalized_with_mmap.linear2.parametrizations.weight[0]
-            ), "mmap finalize did not preserve sharing for weight-tied modules"
+        example_input = torch.randn(1, 64)
+        finalized_no_mmap, finalized_with_mmap = self._finalize_with_and_without_mmap(
+            nn.Linear(64, 32, bias=False), config, example_input, tmp_path
+        )
+        self._assert_forward_outputs_equal(finalized_no_mmap, finalized_with_mmap, example_input)
 
-        with torch.no_grad():
-            out_no_mmap = finalized_no_mmap(example_input)
-            out_with_mmap = finalized_with_mmap(example_input)
-
-        assert torch.equal(out_no_mmap, out_with_mmap)
+        # FP4 weights are stored as Float4Tensor; a safetensors file must be
+        # emitted for the mmap-backed weight.
+        assert any(f.endswith(".safetensors") for f in os.listdir(tmp_path))
 
     def test_finalize_state_dict_safetensors_roundtrip(self, basic_config, tmp_path):
         """An mmap-finalized model survives a state_dict save → load_file →
@@ -3315,7 +3343,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerTensorGranularity(),
                 False,
-                "FP4 quantization requires PerBlockGranularity with block_size=32",
+                "FP4 quantization requires PerBlockGranularity",
                 id="per_tensor_granularity_rejected",
             ),
             pytest.param(
@@ -3323,7 +3351,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerBlockGranularity(axis=1, block_size=16),
                 False,
-                "FP4 quantization requires PerBlockGranularity with block_size=32",
+                r"FP4 export requires per-axis block sizes \(1, 32\) for a 2D weight",
                 id="wrong_block_size_rejected",
             ),
             pytest.param(
@@ -3339,7 +3367,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32, 5, 5),
                 PerBlockGranularity(axis=1, block_size=32),
                 False,
-                "FP4 weight quantization export is only supported for 2D weight tensors",
+                r"FP4 export requires per-axis block sizes \(1, 1, 1, 32\) for a 4D weight",
                 id="conv_layer_rejected",
             ),
         ],

@@ -7,10 +7,13 @@
 
 import pytest
 import torch
+from coreai_torch._compression._floatx import Float4Tensor
+from torch import nn
 from torchao.quantization.pt2e import allow_exported_model_train_eval
 
 from coreai_opt._utils.fx_utils import normalize_module_fqn
 from coreai_opt._utils.torch_utils import (
+    mmap_module_state_dict,
     move_model_to_eval,
     move_model_to_train,
 )
@@ -88,3 +91,51 @@ class TestNormalizeModuleFqn:
     def test_normalize_module_fqn(raw: str, expected: str) -> None:
         """Verify various path formats are normalized correctly."""
         assert normalize_module_fqn(raw) == expected
+
+
+class TestMmapModuleStateDict:
+    """Test mmap_module_state_dict serialization and reload."""
+
+    @staticmethod
+    def test_standard_tensors_roundtrip(tmp_path):
+        """Standard (non-subbyte) tensors are saved and reloaded correctly."""
+        model = nn.Linear(8, 4, bias=True)
+        original_weight = model.weight.data.clone()
+        original_bias = model.bias.data.clone()
+
+        mmap_module_state_dict(model, tmp_path / "model.safetensors")
+
+        assert torch.equal(model.weight.data, original_weight)
+        assert torch.equal(model.bias.data, original_bias)
+
+    @staticmethod
+    def test_mixed_standard_and_float4(tmp_path):
+        """Module with both standard and Float4Tensor parameters roundtrips."""
+
+        module = nn.Module()
+        module.register_buffer("normal", torch.randn(4, 4))
+        uint8_data = torch.randint(0, 255, (2, 8), dtype=torch.uint8)
+        module.register_buffer("compressed", Float4Tensor(uint8_data))
+
+        original_normal = module.normal.clone()
+
+        mmap_module_state_dict(module, tmp_path / "model.safetensors")
+
+        assert torch.equal(module.normal, original_normal)
+        assert isinstance(module.compressed, Float4Tensor)
+        assert torch.equal(module.compressed.elem, uint8_data)
+
+    @staticmethod
+    def test_raises_on_non_cpu_tensor(tmp_path):
+        """Raises ValueError when a tensor is not on CPU."""
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            pytest.skip("No non-CPU device available")
+
+        model = nn.Linear(4, 4).to(device)
+
+        with pytest.raises(ValueError, match="requires CPU tensors"):
+            mmap_module_state_dict(model, tmp_path / "model.safetensors")

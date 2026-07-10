@@ -1328,7 +1328,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerTensorGranularity(),
                 False,
-                "FP4 quantization requires PerBlockGranularity with block_size=32",
+                "FP4 quantization requires PerBlockGranularity",
                 id="per_tensor_granularity_rejected",
             ),
             pytest.param(
@@ -1336,7 +1336,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerBlockGranularity(axis=1, block_size=16),
                 False,
-                "FP4 quantization requires PerBlockGranularity with block_size=32",
+                r"FP4 export requires per-axis block sizes \(1, 32\) for a 2D weight",
                 id="wrong_block_size_rejected",
             ),
             pytest.param(
@@ -1352,7 +1352,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32, 5, 5),
                 PerBlockGranularity(axis=1, block_size=32),
                 False,
-                "FP4 weight quantization export is only supported for 2D weight tensors",
+                r"FP4 export requires per-axis block sizes \(1, 1, 1, 32\) for a 4D weight",
                 id="conv_layer_rejected",
             ),
         ],

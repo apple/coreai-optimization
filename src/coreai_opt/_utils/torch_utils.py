@@ -426,12 +426,23 @@ def mmap_module_state_dict(module: torch.nn.Module, path: str | PathLike[str]) -
     reload it via mmap, replacing the module's parameters/buffers with mmap
     views so the in-RAM tensors can be released.
 
+    Handles ``SubbyteTensor`` subclasses (e.g. ``Float4Tensor``) that safetensors
+    cannot serialize directly by unwrapping to plain uint8 for storage and
+    re-wrapping after reload.
+
     Requires all tensors in ``module.state_dict()`` to be on CPU. Raises
     ``ValueError`` otherwise — mmap is a CPU-only mechanism
     """
+    from coreai_torch._compression._floatx import SubbyteTensor as _SubbyteTensor  # noqa: PLC0415
     from safetensors.torch import load_file, save_file  # noqa: PLC0415
 
     state_dict = module.state_dict()
+
+    # Keys whose tensors are SubbyteTensor wrappers (Float4Tensor, etc.) that
+    # safetensors cannot serialize. Track their class for re-wrapping after load.
+    subbyte_keys: dict[str, type] = {}
+    tensors_to_save: dict[str, torch.Tensor] = {}
+
     for name, tensor in state_dict.items():
         if not isinstance(tensor, torch.Tensor):
             continue
@@ -439,10 +450,17 @@ def mmap_module_state_dict(module: torch.nn.Module, path: str | PathLike[str]) -
             raise ValueError(
                 f"mmap_module_state_dict requires CPU tensors; '{name}' is on {tensor.device}."
             )
+        if isinstance(tensor, _SubbyteTensor):
+            subbyte_keys[name] = type(tensor)
+            tensors_to_save[name] = tensor.elem.contiguous()
+        else:
+            tensors_to_save[name] = tensor.contiguous()
 
-    save_file(
-        {k: v.contiguous() for k, v in state_dict.items() if isinstance(v, torch.Tensor)},
-        path,
-    )
+    save_file(tensors_to_save, path)
     mmap_sd = load_file(path, device="cpu")
+
+    # Re-wrap SubbyteTensor keys from their underlying uint8 representation.
+    for name, tensor_cls in subbyte_keys.items():
+        mmap_sd[name] = tensor_cls(mmap_sd[name])
+
     module.load_state_dict(mmap_sd, assign=True)
