@@ -59,8 +59,8 @@ fi
 #    - in_section && /^\[/: If we're in the section AND hit another section header (line starting with [)
 #      * exit: Stop processing (we've left the dependency-groups section)
 #    - in_section {print}: If we're in the section, print the line
-# 2. grep -E '^[a-z_-]+ = \[': Filter to lines that define groups
-#    - ^[a-z_-]+: Group name at start of line (lowercase letters, hyphens, underscores)
+# 2. grep -E '^[a-z0-9_-]+ = \[': Filter to lines that define groups
+#    - ^[a-z0-9_-]+: Group name at start of line (lowercase letters, digits, hyphens, underscores)
 #    - = \[: Followed by space, equals sign, space, opening bracket
 # 3. cut -d' ' -f1: Extract just the group name
 #    - -d' ': Use space as delimiter
@@ -75,7 +75,7 @@ AVAILABLE_GROUPS=$(
         in_section && /^\[/ { exit }
         in_section { print }
     ' "$PYPROJECT_TOML" |
-        grep -E '^[a-z_-]+ = \[' |
+        grep -E '^[a-z0-9_-]+ = \[' |
         cut -d' ' -f1 |
         tr '\n' ' '
 )
