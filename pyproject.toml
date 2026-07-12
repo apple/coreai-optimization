@@ -39,6 +39,8 @@ dependencies = [
     "pyyaml>=6.0",
     "rich>=13.0.0",
     "safetensors>=0.5.3,<=0.7.0",
+    # Required at runtime by torch.utils.cpp_extension
+    "setuptools>=42",
     # PyTorch >= 2.9.0 requires torchao >= 0.15.0
     # Python's standard dependency specification (PEP 508) doesn't support conditional dependencies
     # based on other package versions. We can either 1) add a stricter check to require the newer torchao
