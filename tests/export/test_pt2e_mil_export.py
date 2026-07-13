@@ -79,7 +79,7 @@ _test_params = (
         for qscheme in QuantizationScheme
     ]
     + [
-        # uint8 asymmetric per-tensor - crashes with segfault
+        # uint8 weights with per-tensor granularity, asymmetric qscheme
         (
             torch.uint8,
             PerTensorGranularity(),
@@ -102,22 +102,9 @@ _test_ids = [
 _test_params_with_xfail: list = []
 for params in _test_params:
     dtype, wg, ag, qscheme = params
-    # uint8 asymmetric per-tensor crashes with segfault
-    if (
-        dtype == torch.uint8
-        and isinstance(wg, PerTensorGranularity)
-        and isinstance(ag, PerTensorGranularity)
-        and qscheme == QuantizationScheme.ASYMMETRIC
-    ):
-        _test_params_with_xfail.append(
-            pytest.param(
-                *params,
-                marks=pytest.mark.skip(reason="Crashes with segfault"),
-            ),
-        )
     # Per-channel activation with negative axis has SNR below threshold.
     # TODO: SNR below threshold for per-channel activation with negative axis on CoreML export.
-    elif isinstance(ag, PerChannelGranularity) and ag.axis is not None and ag.axis < 0:
+    if isinstance(ag, PerChannelGranularity) and ag.axis is not None and ag.axis < 0:
         _test_params_with_xfail.append(
             pytest.param(
                 *params,
