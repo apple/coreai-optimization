@@ -604,9 +604,9 @@ class TestPartialQuantizerSharing:
         assert fq_partial_out.dtype == x.dtype
         assert fq_direct_out.dtype == x.dtype
 
-    def test_update_partial_qparams_calculator_single_attr(self):
-        """
-        update_partial_qparams_calculator overrides one attribute on each constructed calculator.
+    def test_reconstruct_partial_qparams_calculator(self):
+        """reconstruct_partial_qparams_calculator overrides attributes without mutating the original
+        partial.
         """
         spec = QuantizationSpec(
             dtype=torch.int8,
@@ -619,78 +619,33 @@ class TestPartialQuantizerSharing:
             spec, quantization_target=CompressionTargetTensor.WEIGHT
         )
 
-        updated = QuantizationComponentFactory.update_partial_qparams_calculator(
+        # Overriding a single attribute updates the constructed calculator.
+        updated_single = QuantizationComponentFactory.reconstruct_partial_qparams_calculator(
             partial, qscheme=QuantizationScheme.ASYMMETRIC
         )
-
-        fq = updated()
+        fq = updated_single()
         assert fq.qparams_calculator.qscheme == QuantizationScheme.ASYMMETRIC
         # qscheme property on the fake quantizer delegates to the calculator
         assert fq.qscheme == QuantizationScheme.ASYMMETRIC
 
-    def test_update_partial_qparams_calculator_multiple_attrs(self):
-        """update_partial_qparams_calculator overrides multiple attributes in one call."""
-        spec = QuantizationSpec(
-            dtype=torch.int8,
-            qscheme="symmetric",
-            granularity=PerTensorGranularity(),
-            qparam_calculator_cls=StaticQParamsCalculator,
-            range_calculator_cls=MinMaxRangeCalculator,
-        )
-        partial = QuantizationComponentFactory.create_fake_quantizer_partial(
-            spec, quantization_target=CompressionTargetTensor.WEIGHT
-        )
-
-        updated = QuantizationComponentFactory.update_partial_qparams_calculator(
+        # Overriding multiple attributes in one call updates all of them.
+        updated_multiple = QuantizationComponentFactory.reconstruct_partial_qparams_calculator(
             partial,
             qscheme=QuantizationScheme.ASYMMETRIC,
             float_range=(0.0, 1.0),
         )
-
-        fq = updated()
+        fq = updated_multiple()
         assert fq.qparams_calculator.qscheme == QuantizationScheme.ASYMMETRIC
         assert fq.qparams_calculator.float_range == (0.0, 1.0)
 
-    def test_update_partial_qparams_calculator_does_not_mutate_original(self):
-        """update_partial_qparams_calculator returns a new partial; the original is unchanged."""
-        spec = QuantizationSpec(
-            dtype=torch.int8,
-            qscheme="symmetric",
-            granularity=PerTensorGranularity(),
-            qparam_calculator_cls=StaticQParamsCalculator,
-            range_calculator_cls=MinMaxRangeCalculator,
-        )
-        partial = QuantizationComponentFactory.create_fake_quantizer_partial(
-            spec, quantization_target=CompressionTargetTensor.WEIGHT
-        )
-
-        _ = QuantizationComponentFactory.update_partial_qparams_calculator(
-            partial, qscheme=QuantizationScheme.ASYMMETRIC
-        )
-
-        # Original partial still produces calculators with the original qscheme.
+        # The original partial is unaffected by either override.
         fq_original = partial()
         assert fq_original.qparams_calculator.qscheme == QuantizationScheme.SYMMETRIC
 
-    def test_update_partial_qparams_calculator_independent_instances(self):
-        """Each call to an updated partial creates an independent calculator with the override."""
-        spec = QuantizationSpec(
-            dtype=torch.int8,
-            qscheme="symmetric",
-            granularity=PerTensorGranularity(),
-            qparam_calculator_cls=MovingAverageQParamsCalculator,
-            range_calculator_cls=MinMaxRangeCalculator,
-        )
-        partial = QuantizationComponentFactory.create_fake_quantizer_partial(
-            spec, quantization_target=CompressionTargetTensor.ACTIVATION
-        )
-        updated = QuantizationComponentFactory.update_partial_qparams_calculator(
-            partial, float_range=(0.0, 1.0)
-        )
-
-        fq1 = updated()
-        fq2 = updated()
-
+        # Each call to an updated partial creates an independent calculator with the override
+        # applied.
+        fq1 = updated_multiple()
+        fq2 = updated_multiple()
         assert id(fq1.qparams_calculator) != id(fq2.qparams_calculator)
         assert fq1.qparams_calculator.float_range == (0.0, 1.0)
         assert fq2.qparams_calculator.float_range == (0.0, 1.0)

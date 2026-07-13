@@ -158,10 +158,13 @@ _supported_activations = (
 # Dictionary mapping ops with known output bounds to (qscheme, float_range).
 # float_range elements may be None to leave that side data-driven.
 _fixed_q_params_ops = {
+    # tanh: bounded to [-1, 1]
     torch.ops.aten.tanh.default: (QuantizationScheme.SYMMETRIC, (-1.0, 1.0)),
     torch.ops.aten.tanh_.default: (QuantizationScheme.SYMMETRIC, (-1.0, 1.0)),
+    # sigmoid: bounded to [0, 1]
     torch.ops.aten.sigmoid.default: (QuantizationScheme.ASYMMETRIC, (0.0, 1.0)),
     torch.ops.aten.sigmoid_.default: (QuantizationScheme.ASYMMETRIC, (0.0, 1.0)),
+    # hardsigmoid: bounded to [0, 1]
     torch.ops.aten.hardsigmoid.default: (QuantizationScheme.ASYMMETRIC, (0.0, 1.0)),
     torch.ops.aten.hardsigmoid_.default: (QuantizationScheme.ASYMMETRIC, (0.0, 1.0)),
     # relu: always >= 0, upper bound is data-driven
@@ -271,7 +274,9 @@ def _propagate_adjusted_spec_to_child_nodes(
             if float_range is not None:
                 kwargs["float_range"] = float_range
             if kwargs:
-                ctr = QuantizationComponentFactory.update_partial_qparams_calculator(ctr, **kwargs)
+                ctr = QuantizationComponentFactory.reconstruct_partial_qparams_calculator(
+                    ctr, **kwargs
+                )
 
             # qscheme in TorchAOQuantizationSpec is not read by coreai-opt later on so we omit it.
             # Only the qscheme contained within observer_or_fake_quant_ctr matters.
@@ -319,7 +324,7 @@ def adjust_output_qspec_for_qscheme_and_propagate(
     else:
         return
 
-    ctr = QuantizationComponentFactory.update_partial_qparams_calculator(
+    ctr = QuantizationComponentFactory.reconstruct_partial_qparams_calculator(
         qspec.observer_or_fake_quant_ctr, qscheme=qscheme, float_range=float_range
     )
 

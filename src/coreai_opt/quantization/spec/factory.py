@@ -213,7 +213,7 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
         return spec.fake_quantize_cls(**common_args, **extra_args)
 
     @classmethod
-    def update_partial_qparams_calculator(
+    def reconstruct_partial_qparams_calculator(
         cls,
         partial_ctr: _PartialConstructor,
         **kwargs: Any,
