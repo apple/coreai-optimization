@@ -94,13 +94,6 @@ def test_simple_model_export(
     parametrized_quant_config_general: ParametrizedQuantConfigs,
 ) -> None:
     """Test eager CoreML export with various quantization configurations."""
-    # CoreML doesn't support int8 activation quantization
-    parametrized_quant_config_general.skip_if_unsupported(
-        "eager",
-        ExportBackend.CoreML,
-        unsupported_configs={"backend": ExportBackend.CoreML, "act_dtype": torch.int8},
-    )
-
     has_act_quant = parametrized_quant_config_general.has_activation_quantization
 
     _run_eager_mil_export_test(
@@ -121,13 +114,6 @@ def test_mnist_export(
     parametrized_quant_config_general: ParametrizedQuantConfigs,
 ) -> None:
     """Test eager CoreML export on MNIST model with various quantization configurations."""
-    # CoreML doesn't support int8 activation quantization
-    parametrized_quant_config_general.skip_if_unsupported(
-        "eager",
-        ExportBackend.CoreML,
-        unsupported_configs={"backend": ExportBackend.CoreML, "act_dtype": torch.int8},
-    )
-
     has_act_quant = parametrized_quant_config_general.has_activation_quantization
 
     _run_eager_mil_export_test(
