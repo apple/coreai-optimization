@@ -66,10 +66,36 @@ class _FeatureDropout(nn.Module):
         return F.dropout2d(x, p=0.5, training=True)
 
 
+class _Clone(nn.Module):
+    def forward(self, x):
+        return x.clone()
+
+
+class _Expand(nn.Module):
+    def forward(self, x):
+        return x.expand(3, -1)
+
+
+class _Select(nn.Module):
+    def forward(self, x):
+        return x.select(1, 0)
+
+
+class _Slice(nn.Module):
+    def forward(self, x):
+        return x[:, :2]
+
+
+class _T(nn.Module):
+    def forward(self, x):
+        return x.t()
+
+
 # Maps each member of _PASSTHROUGH_OP_OVERLOADS to a (model, example_inputs) pair
 # that exercises it. If an op is added to _PASSTHROUGH_OP_OVERLOADS without a
 # corresponding entry here, test_passthrough_ops_all_covered will fail.
 _PASSTHROUGH_OP_TEST_CASES: dict[OpOverloadPacket, tuple[nn.Module, tuple]] = {
+    torch.ops.aten.clone: (_Clone(), (torch.randn(1, 4),)),
     torch.ops.aten.dropout: (
         _Dropout(),
         (
@@ -78,10 +104,14 @@ _PASSTHROUGH_OP_TEST_CASES: dict[OpOverloadPacket, tuple[nn.Module, tuple]] = {
             ),
         ),
     ),
+    torch.ops.aten.expand: (_Expand(), (torch.randn(1, 4),)),
     torch.ops.aten.feature_dropout: (_FeatureDropout(), (torch.randn(1, 4, 4, 4),)),
     torch.ops.aten.permute: (_Permute(), (torch.randn(1, 4, 8),)),
     torch.ops.aten.reshape: (_Reshape(), (torch.randn(1, 4),)),
+    torch.ops.aten.select: (_Select(), (torch.randn(1, 4, 4),)),
+    torch.ops.aten.slice: (_Slice(), (torch.randn(1, 4),)),
     torch.ops.aten.squeeze: (_Squeeze(), (torch.randn(1, 1, 4),)),
+    torch.ops.aten.t: (_T(), (torch.randn(2, 4),)),
     torch.ops.aten.transpose: (_Transpose(), (torch.randn(2, 4),)),
     torch.ops.aten.unsqueeze: (
         _Unsqueeze(),

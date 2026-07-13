@@ -64,11 +64,16 @@ PARAM_NODE_PREFIX = "param::"
 # adjusted qspecs to child nodes.
 _PASSTHROUGH_OP_OVERLOADS: frozenset = frozenset(
     {
+        torch.ops.aten.clone,
         torch.ops.aten.dropout,
+        torch.ops.aten.expand,
         torch.ops.aten.feature_dropout,
         torch.ops.aten.permute,
         torch.ops.aten.reshape,
+        torch.ops.aten.select,
+        torch.ops.aten.slice,
         torch.ops.aten.squeeze,
+        torch.ops.aten.t,
         torch.ops.aten.transpose,
         torch.ops.aten.unsqueeze,
         torch.ops.aten.view,
