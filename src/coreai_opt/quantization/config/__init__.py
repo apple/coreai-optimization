@@ -7,6 +7,7 @@
 
 from .quantization_config import (
     ExecutionMode,
+    InvalidExecutionModeError,
     KVCacheQuantConfig,
     ModuleQuantizerConfig,
     OpQuantizerConfig,
@@ -16,6 +17,7 @@ from .quantization_config import (
 
 __all__ = [
     "ExecutionMode",
+    "InvalidExecutionModeError",
     # Configuration classes
     "KVCacheQuantConfig",
     "ModuleQuantizerConfig",
