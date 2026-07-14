@@ -12,6 +12,7 @@ caches the artifact for the session, so the compile cost is paid once.
 """
 
 import hashlib
+import re
 import urllib.request
 from pathlib import Path
 
@@ -238,9 +239,22 @@ _UPSTREAM_CORE_CPP_URL = (
 )
 _VENDORED_CORE_CPP = Path(_kmeans1d.__file__).parent / "_core.cpp"
 
+# coremltools vendored this file from apple/coremltools main under a trailing
+# "// Copyright © 2023 Apple Inc." line; ours reads "// Copyright © 2026 Apple
+# Inc." (the year coreai-opt vendored it from coremltools). Normalize this one
+# known, intentional difference away so the canary only fires on real drift in
+# the kmeans1d logic itself.
+_APPLE_COPYRIGHT_LINE_RE = re.compile(rb"// Copyright \xc2\xa9 \d{4} Apple Inc\.")
+
+
+def _normalize_apple_copyright_year(source_bytes: bytes) -> bytes:
+    return _APPLE_COPYRIGHT_LINE_RE.sub(b"// Copyright (c) <year> Apple Inc.", source_bytes)
+
 
 class TestVendoredSourceMatchesUpstream:
-    """Canary: our vendored ``_core.cpp`` must stay byte-identical to upstream.
+    """Canary: our vendored ``_core.cpp`` must stay byte-identical to upstream
+    (modulo the trailing Apple copyright year, which coreai-opt intentionally
+    stamps with its own vendoring year rather than coremltools').
 
     Deliberately fetches over the network and does NOT guard the fetch: if the
     hashes differ, our copy drifted or Apple changed the file (time to re-vendor);
@@ -252,8 +266,10 @@ class TestVendoredSourceMatchesUpstream:
         with urllib.request.urlopen(_UPSTREAM_CORE_CPP_URL, timeout=30) as response:
             upstream_bytes = response.read()
 
-        upstream_hash = hashlib.sha256(upstream_bytes).hexdigest()
-        vendored_hash = hashlib.sha256(_VENDORED_CORE_CPP.read_bytes()).hexdigest()
+        upstream_hash = hashlib.sha256(_normalize_apple_copyright_year(upstream_bytes)).hexdigest()
+        vendored_hash = hashlib.sha256(
+            _normalize_apple_copyright_year(_VENDORED_CORE_CPP.read_bytes())
+        ).hexdigest()
 
         assert vendored_hash == upstream_hash, (
             "Vendored _core.cpp no longer matches apple/coremltools main "
