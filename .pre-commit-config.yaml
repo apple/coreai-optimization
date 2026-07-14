@@ -23,6 +23,7 @@ repos:
         language: system
         entry: scripts/pre_commit/add_license_header.py --license-file configs/BSD-3-LICENSE-HEADER-TEMPLATE --start-year 2026
         files: '\.(py|sh|js|css|html)$|(^|/)(GNUmakefile|[Mm]akefile)$'
+        exclude: ^src/coreai_opt/deps/
 
   # ----------------------------------------------------------------------------
   # 0.2 Update LICENSE year

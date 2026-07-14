@@ -1,9 +1,3 @@
-# Copyright 2026 Apple Inc.
-#
-# Use of this source code is governed by a BSD-3-Clause license that can
-# be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
-
-
 # MIT License
 #
 # Copyright (c) 2019 Daniel Steinberg
@@ -26,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# Copyright © 2023 Apple Inc.
+# Copyright © 2026 Apple Inc.
 
 import ctypes
 import os
