@@ -158,6 +158,13 @@ class ExecutionMode(_StrEnum, metaclass=_DeprecatedMemberEnumMeta):
         """Deprecated. Use ``ExecutionMode.GRAPH`` instead."""
 
 
+class InvalidExecutionModeError(ValueError):
+    """Raised when an execution mode is not a recognized ExecutionMode value."""
+
+    def __init__(self, execution_mode: object) -> None:
+        super().__init__(f"Unknown execution_mode {execution_mode}. Expected 'graph' or 'eager'.")
+
+
 class OpQuantizerConfig(OpCompressionConfig[QuantizationSpec]):
     """
     Configuration class for quantization at the operation level.
