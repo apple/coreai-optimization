@@ -18,7 +18,10 @@ from coreai_opt._utils.torch_utils import export_model as _export_model
 from coreai_opt.base_model_compressor import _BaseModelCompressor
 from coreai_opt.palettization import KMeansPalettizer
 from coreai_opt.quantization import Quantizer
-from coreai_opt.quantization.config.quantization_config import ExecutionMode
+from coreai_opt.quantization.config.quantization_config import (
+    ExecutionMode,
+    InvalidExecutionModeError,
+)
 
 from ._eager_mode import parse_ops_for_eager as _parse_ops_for_eager
 from ._formatting import format_model_summary as _format_model_summary
@@ -138,8 +141,7 @@ class ModelInspector:
             raise TypeError(msg)
 
         if execution_mode not in (ExecutionMode.GRAPH, ExecutionMode.EAGER):
-            msg = f"Unknown execution_mode {execution_mode}. Expected 'graph' or 'eager'."
-            raise ValueError(msg)
+            raise InvalidExecutionModeError(execution_mode)
 
         if example_inputs is None and not (
             isinstance(model, torch.fx.GraphModule) and execution_mode == ExecutionMode.GRAPH

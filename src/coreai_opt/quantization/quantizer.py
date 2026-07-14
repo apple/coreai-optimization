@@ -30,6 +30,7 @@ from coreai_opt.quantization._graph import GraphQuantizer as _GraphQuantizer
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config.quantization_config import (
     ExecutionMode,
+    InvalidExecutionModeError,
     QATSchedule,
     QuantizerConfig,
 )
@@ -154,7 +155,7 @@ class Quantizer(_BaseQuantizer):
         elif execution_mode == ExecutionMode.EAGER:
             self._quantizer = _EagerQuantizer(model, config)
         else:
-            raise ValueError(f"Unsupported execution mode: {execution_mode}")
+            raise InvalidExecutionModeError(execution_mode)
 
         super().__init__(model, config)
 
