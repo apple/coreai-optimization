@@ -18,13 +18,13 @@ from typing import cast
 
 import numpy as np
 
-from coreai_opt._utils import _kmeans1d
 from coreai_opt.coreai_utils._coreai_imports import (
     Operation,
     _get_constant_value_as_np_array,
 )
 from coreai_opt.coreai_utils._utils.graph_utils import _select_input_output_channel_axis
 from coreai_opt.coreai_utils.common import CompressionGranularity as _CompressionGranularity
+from coreai_opt.deps import _kmeans1d
 
 logger = logging.getLogger(__name__)
 

@@ -9,8 +9,8 @@ from collections.abc import Callable
 import numpy as np
 import torch
 
-from coreai_opt._utils import _kmeans1d
 from coreai_opt.config.spec import CompressionTargetTensor
+from coreai_opt.deps import _kmeans1d
 from coreai_opt.palettization.spec import (
     PalettizationGranularity,
     PerGroupedChannelGranularity,

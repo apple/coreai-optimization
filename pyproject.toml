@@ -166,7 +166,7 @@ package-dir = { "" = "src" }
 [tool.setuptools.dynamic]
 version = { attr = "coreai_opt._about.__version__" }
 [tool.setuptools.package-data]
-coreai_opt = [ "_utils/_kmeans1d/_core.cpp", "_utils/_kmeans1d/LICENSE", "py.typed" ]
+coreai_opt = [ "deps/_kmeans1d/_core.cpp", "deps/_kmeans1d/LICENSE", "py.typed" ]
 [tool.setuptools.packages]
 find.exclude = [ "coreai_opt_benchmarking*", "tests*" ]
 find.where = [ "src" ]

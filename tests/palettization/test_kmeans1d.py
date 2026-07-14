@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 from coremltools._deps import _kmeans1d as ct_kmeans1d
 
-from coreai_opt._utils import _kmeans1d
+from coreai_opt.deps import _kmeans1d
 
 _RTOL = 1e-9
 _ATOL = 1e-9
