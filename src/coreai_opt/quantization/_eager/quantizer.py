@@ -39,6 +39,10 @@ from coreai_opt.quantization._axis_defaults import (
     apply_weight_axis_defaults_eager as _apply_weight_axis_defaults,
     validate_activation_axes as _validate_activation_axes,
 )
+from coreai_opt.quantization._fake_quant_utils import (
+    disable_activation_fake_quant as _disable_activation_fake_quant,
+    enable_weight_fake_quant as _enable_weight_fake_quant,
+)
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
     ModuleQuantizerConfig,
@@ -291,8 +295,10 @@ class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
     def calibration_mode(self, model: nn.Module | None = None) -> Generator:
         """Context manager for calibration phase.
 
-        Enables observers and disables fake quantization for calibration
-        data collection.
+        Enables observers and disables activation fake quantization for
+        calibration data collection. Weight fake quantization stays enabled so
+        that activation observers see the effect of quantized weights when
+        computing activation ranges.
 
         Args:
             model: Model to calibrate (uses internal model if None)
@@ -309,7 +315,8 @@ class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
             )
         with move_model_to_eval(self._model):
             self._model.apply(enable_observer)
-            self._model.apply(disable_fake_quant)
+            self._model.apply(_enable_weight_fake_quant)
+            self._model.apply(_disable_activation_fake_quant)
             try:
                 yield
             finally:
