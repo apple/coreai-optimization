@@ -1,6 +1,6 @@
 # Graph Mode Troubleshooting
 
-This guide helps debug common issues when using Graph execution mode in CoreAI-Opt.
+This guide helps debug common issues when using [Graph execution mode](../quantization/overview.md#two-execution-modes-graph-and-eager) in CoreAI-Opt.
 
 A `quantizer.prepare()` failure in graph mode happens in one of two stages, and the fix differs sharply between them. The first thing to do is figure out **which** stage is failing.
 
@@ -61,13 +61,13 @@ prepared = quantizer.prepare(
 
 For full details on dynamic shapes, see the [PyTorch Export Tutorial -- Dynamic Shapes](https://docs.pytorch.org/tutorials/intermediate/torch_export_tutorial.html#constraints-dynamic-shapes).
 
-If Steps 2-3 don't resolve the export failure (e.g., the model has data-dependent control flow that `torch.export` cannot capture), see [Fall back to EAGER execution mode](#fall-back-to-eager-execution-mode) below.
+If Steps 2-3 don't resolve the export failure (e.g., the model has data-dependent control flow that `torch.export` cannot capture), the model definition itself may need to change to become exportable — this is worth fixing at the source, since the same construct can also block conversion via [coreai-torch](https://github.com/apple/coreai-torch) later on. Otherwise, see [Fall back to EAGER execution mode](#fall-back-to-eager-execution-mode) below.
 
 ## If `prepare()` fails after a successful export
 
-After `torch.export.export` returns, `Quantizer.prepare()` applies coreai-opt's annotation pass and then calls into torch's `prepare_qat_pt2e` API. If the error you're seeing comes from `prepare_qat_pt2e` itself, it is a torch-side issue — refer to the [`torchao` documentation](https://docs.pytorch.org/ao/stable/) and report against torch.
+After `torch.export.export` returns, `Quantizer.prepare()` applies coreai-opt's annotation pass and then calls into torch's `prepare_qat_pt2e` API. If the error you're seeing comes from `prepare_qat_pt2e` itself, it is a torch-side issue — refer to the [`torchao` documentation](https://docs.pytorch.org/ao/stable/).
 
-If the error does **not** come from `prepare_qat_pt2e` (i.e. it originates inside coreai-opt's annotation pass), it likely indicates a bug on our end. **Please file an issue on GitHub** with the error message and a minimal reproducer. In the meantime, [fall back to eager mode](#fall-back-to-eager-execution-mode) below — eager bypasses the entire graph-mode pipeline.
+If the error does **not** come from `prepare_qat_pt2e` (i.e. it originates inside coreai-opt's annotation pass), it likely indicates a bug in coreai-opt. **Please file an issue on GitHub** with the error message and a minimal reproducer. In the meantime, [fall back to eager mode](#fall-back-to-eager-execution-mode) below — eager bypasses the entire graph-mode pipeline.
 
 ## Fall back to EAGER execution mode
 
