@@ -166,17 +166,28 @@ The `qscheme` controls how these bins are distributed around zero, by determinin
 
 ## Quantization Defaults for Known-Range Activations
 
-In graph mode, certain ops have known output ranges. For these ops, the user's `qscheme` setting is not respected — the activation is always treated as asymmetric or symmetric depending on the op, regardless of what the user configured. The treatment also differs between `relu` and the `sigmoid` / `tanh` family. For `relu`, only `qscheme` is overridden; `dtype`, scale, and zero point are still derived from the user's spec and calibration data. For `sigmoid` and `tanh`, scale, zero point, **and** `dtype` are pinned to fixed values (always `torch.uint8`, ignoring whatever `dtype` the user configured).
+In graph mode, certain activation ops have analytically known output ranges. For these ops, the quantizer overrides the `qscheme` and `float_range` of the qparams calculator at prepare time, regardless of what the user configured. The user's `dtype` is always preserved — these adjustments do not change the number of bits or the signed/unsigned choice.
 
-| Op        | Output range | Always treated as | Scale     | Zero point |
-| --------- | ------------ | ----------------- | --------- | ---------- |
-| `relu`    | \[0, ∞)      | asymmetric        | dynamic   | dynamic    |
-| `sigmoid` | [0, 1]       | asymmetric        | `1 / 256` | `0`        |
-| `tanh`    | [-1, 1]      | symmetric         | `2 / 256` | `128`      |
+The scale and zero point values in the table below assume the default `int8` dtype. For other dtypes, the same formulas apply with the appropriate `quant_min` / `quant_max`.
 
-**Relu**: Treated as asymmetric. The user's `qscheme` is ignored, but `dtype`, scale, and zero point are still derived from the user's spec and calibration data. The zero point follows `zero_point = quant_min - round(min_val / scale)`. Since `relu`'s observed min is always `0`, the zero point very commonly ends up near `quant_min` (e.g., `-128` for `int8`).
+| Op            | Output range        | `qscheme`  | `float_range` | Scale (int8) | Zero point (int8) |
+| ------------- | ------------------- | ---------- | ------------- | ------------ | ----------------- |
+| `hardsigmoid` | [0, 1]              | asymmetric | (0, 1)        | 1 / 255      | −128              |
+| `hardtanh`    | Depends (see below) | Depends    | Depends       | Depends      | Depends           |
+| `relu`        | \[0, ∞)             | asymmetric | (0, None)     | dynamic      | −128              |
+| `relu6`       | [0, 6]              | asymmetric | (0, 6)        | 6 / 255      | −128              |
+| `sigmoid`     | [0, 1]              | asymmetric | (0, 1)        | 1 / 255      | −128              |
+| `tanh`        | [−1, 1]             | symmetric  | (−1, 1)       | 2 / 255      | 0                 |
 
-> **Motivation for asymmetric `relu` and `sigmoid`**: Both ops produce non-negative outputs. With symmetric quantization, the zero point sits at the center of the quantized range, placing half the bins in negative territory that these ops never produce. Those bins are effectively wasted — no floating-point value will ever map to them, reducing quantization resolution by half. Asymmetric treatment shifts the zero point toward the edge of the range so all bins cover values the op actually produces.
+**Relu**: The lower bound of `float_range` is pinned to 0 and `qscheme` is set to asymmetric. Because the observed minimum is always 0, the zero point is fixed at `quant_min` (−128 for int8) and stays there regardless of calibration data. The upper bound remains `None` (data-driven), so the scale continues to update during calibration.
+
+**Sigmoid and hardsigmoid**: Both `qscheme` and `float_range` are fully pinned. Scale and zero point are entirely determined by the dtype and the fixed output range — calibration data has no effect on them.
+
+**Tanh**: `qscheme` (symmetric) and `float_range` (−1, 1) are fully pinned. Scale and zero point are entirely determined by the dtype and range.
+
+**Hardtanh**: Bounds are read from the op's node arguments at prepare time, so the effective range and qscheme depend on how the op was configured. If `min_val == −max_val` the range is symmetric around zero and `qscheme` is set to symmetric; otherwise `qscheme` is set to asymmetric. Both ends of `float_range` are pinned to the configured bounds. `relu6` is a special case of `hardtanh(0, 6)` and is handled identically.
+
+> **Motivation for asymmetric treatment**: Symmetric quantization places the zero point at the center of the quantized range. For `relu`, `sigmoid`, and `hardsigmoid`, whose outputs are always non-negative, symmetric quantization places half the bins in negative territory that the op never produces — wasting half the available resolution. Asymmetric quantization shifts the zero point to the edge of the range so that all bins cover values the op actually generates. For `tanh` and symmetric `hardtanh`, the output is centered at zero so both halves of the range are used equally, and symmetric quantization is appropriate.
 
 Eager mode does not perform these adjustments — all activations are quantized uniformly using the user-configured spec.
 

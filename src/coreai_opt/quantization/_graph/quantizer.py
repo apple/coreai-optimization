@@ -60,6 +60,10 @@ from coreai_opt.quantization._axis_defaults import (
     apply_weight_axis_defaults_graph as _apply_weight_axis_defaults,
     validate_activation_axes as _validate_activation_axes,
 )
+from coreai_opt.quantization._fake_quant_utils import (
+    disable_activation_fake_quant as _disable_activation_fake_quant,
+    enable_weight_fake_quant as _enable_weight_fake_quant,
+)
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
     KVCacheQuantConfig,
@@ -1128,9 +1132,11 @@ class GraphQuantizer(_BaseQuantizer):
         Context manager for calibration-based post-training quantization.
 
         When entering this context, observers are enabled to collect statistics
-        from calibration data, and fake quantization is disabled to get accurate
-        statistics. When exiting, observers are disabled and fake quantization
-        is re-enabled for evaluation.
+        from calibration data. Weight fake quantization stays enabled, while
+        activation fake quantization is disabled so that activation observers
+        see the effect of quantized weights when computing activation ranges.
+        When exiting, observers are disabled and fake quantization is
+        re-enabled on both weights and activations for evaluation.
 
         **When to use:**
         - Required for activation quantization to achieve good accuracy
@@ -1164,9 +1170,11 @@ class GraphQuantizer(_BaseQuantizer):
                 "Model must be prepared before entering calibration mode. Call prepare() first."
             )
 
-        # Enable observers and disable fake quantization for calibration
+        # Enable observers; keep weight FQ on, disable activation FQ so observers
+        # see the effect of quantized weights on activation ranges.
         self._model.apply(enable_observer)
-        self._model.apply(disable_fake_quant)
+        self._model.apply(_enable_weight_fake_quant)
+        self._model.apply(_disable_activation_fake_quant)
 
         # Move model to eval mode and save original state
         with move_model_to_eval(self._model):

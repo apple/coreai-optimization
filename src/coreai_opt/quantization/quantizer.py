@@ -488,9 +488,11 @@ class Quantizer(_BaseQuantizer):
         Context manager for calibration-based post-training quantization.
 
         When entering this context, observers are enabled to collect statistics
-        from calibration data, and fake quantization is disabled to get accurate
-        statistics. When exiting, observers are disabled and fake quantization
-        is re-enabled for evaluation.
+        from calibration data. Weight fake quantization stays enabled, while
+        activation fake quantization is disabled so that activation observers
+        see the effect of quantized weights when computing activation ranges.
+        When exiting, observers are disabled and fake quantization is
+        re-enabled on both weights and activations for evaluation.
 
         **When to use:**
 

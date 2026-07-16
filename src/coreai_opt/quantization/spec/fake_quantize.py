@@ -28,11 +28,11 @@ from coreai_opt._utils.torch_utils import (
 from coreai_opt.config.spec import CompressionSimulatorBase, CompressionTargetTensor
 from coreai_opt.quantization._utils import get_quantization_shapes as _get_quantization_shapes
 from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
+from coreai_opt.quantization.spec.qscheme import QuantizationScheme
 
 from .granularity import QuantizationGranularity
 from .qformulation import QuantizationFormulation
 from .qparams_calculator import QParamsCalculatorBase, StatelessQParamsCalculatorBase
-from .qscheme import QuantizationScheme
 
 __all__ = ["FakeQuantizeImplBase"]
 
@@ -47,7 +47,6 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
     def __init__(
         self,
         dtype: torch.dtype,
-        qscheme: QuantizationScheme,
         qformulation: QuantizationFormulation,
         granularity: QuantizationGranularity,
         target_dtype: torch.dtype,
@@ -60,7 +59,6 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
     ):
         super().__init__()
         self.dtype = dtype
-        self.qscheme = qscheme
         self.qformulation = qformulation
         self._granularity = granularity
         self.target_dtype = target_dtype
@@ -74,6 +72,11 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         if n_bits is None:
             n_bits = _get_n_bits_from_dtype(dtype)
         self.n_bits = n_bits
+
+    @property
+    def qscheme(self) -> QuantizationScheme:
+        """The quantization scheme, delegated to the qparams_calculator."""
+        return self.qparams_calculator.qscheme
 
     @property
     def granularity(self) -> QuantizationGranularity:
