@@ -29,6 +29,7 @@ examples/model_examples
 
 quantization/index
 palettization/index
+pruning/index
 ```
 
 ```{toctree}
