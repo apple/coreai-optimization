@@ -922,6 +922,15 @@ def _get_call_function_node_from_partition(partition: SourcePartition) -> torch.
     """
     call_function_nodes = [node for node in partition.nodes if node.op == "call_function"]
     if len(call_function_nodes) != 1:
+        # torch.export's insert_deferred_runtime_asserts synthesizes one SymInt mul per
+        # shape-runtime assertion, all sharing one torch_fn tag, so several can collapse
+        # into a single partition. They carry no tensor value to annotate, so picking any
+        # one of them is safe here; downstream floating-point filtering no-ops on SymInt.
+        if call_function_nodes and all(
+            isinstance(node.meta.get("val"), torch.SymInt) for node in call_function_nodes
+        ):
+            return call_function_nodes[0]
+
         module_names = {
             name
             for node in call_function_nodes
