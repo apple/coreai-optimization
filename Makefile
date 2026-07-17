@@ -250,7 +250,7 @@ test-slow:
 test-smoke:
 	@$(call use_env,VENV) && \
 	echo "Running smoke tests..." && \
-	SMOKE_TEST_TORCH_GROUP=$(TORCH_GROUP) uv run --no-sync --active nox -f $(MAKEFILE_DIR)ci/nox/noxfile.py -s smoke_tests -- $(PYTEST_ARGS) && \
+	uv run --no-sync --active nox -f $(MAKEFILE_DIR)ci/nox/noxfile.py -s smoke_tests -- $(PYTEST_ARGS) && \
 	echo "All smoke tests passed!"
 
 # Run tests on lowest supported PyTorch version (pass PYTEST_ARGS for custom flags)
