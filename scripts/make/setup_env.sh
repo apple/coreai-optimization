@@ -235,21 +235,6 @@ if [[ ${#EXTRA_GROUPS[@]} -gt 0 && ${#EXCLUDE_GROUPS[@]} -gt 0 ]]; then
     done
 fi
 
-# TORCH_GROUP (env var) is the single source of truth for torch pinning; a
-# --with-<torch_2_*> flag that disagrees with it is almost certainly a
-# mistake (e.g. TORCH_GROUP left set from a prior `make` invocation) rather
-# than an intentional double-specification, so fail loudly instead of
-# leaving it to a raw `uv` conflicting-groups resolver error.
-if [[ -n "${TORCH_GROUP:-}" ]]; then
-    for GROUP in "${EXTRA_GROUPS[@]:-}"; do
-        if [[ " ${CONFLICTING_GROUPS[*]} " == *" ${GROUP} "* && "$GROUP" != "$TORCH_GROUP" ]]; then
-            echo "Error: --with-$GROUP conflicts with TORCH_GROUP=$TORCH_GROUP." >&2
-            echo "TORCH_GROUP is the source of truth; unset it or set it to '$GROUP' instead." >&2
-            exit 1
-        fi
-    done
-fi
-
 # Validate venv name contains only allowed characters
 if [[ ! "$VENV" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
     echo "Error: Virtual environment name contains invalid characters"
@@ -353,13 +338,12 @@ SYNC_CMD=(uv sync --active)
 if [[ "$ALL_GROUPS" == "true" ]]; then
     SYNC_CMD+=(--all-groups)
     # Exclude conflicting torch groups other than the one TORCH_GROUP or
-    # --with-<group> selects, so --all-groups doesn't trip the mutual
-    # -conflicts declaration in pyproject.toml.
+    # --with-<group> selects, so --all-groups doesn't try to sync every
+    # torch_2_* group at once. If both TORCH_GROUP and --with-<other-group>
+    # name different groups, neither gets excluded here and `uv sync` itself
+    # rejects the combination via its own conflicting-groups resolution.
     for GROUP in "${CONFLICTING_GROUPS[@]}"; do
-        GROUP_REQUESTED=false
-        [[ "$GROUP" == "${TORCH_GROUP:-}" ]] && GROUP_REQUESTED=true
-        [[ " ${EXTRA_GROUPS[*]:-} " == *" ${GROUP} "* ]] && GROUP_REQUESTED=true
-        if [[ "$GROUP_REQUESTED" == "false" ]]; then
+        if [[ "$GROUP" != "${TORCH_GROUP:-}" ]] && [[ ! " ${EXTRA_GROUPS[*]:-} " == *" ${GROUP} "* ]]; then
             SYNC_CMD+=(--no-group "$GROUP")
         fi
     done
@@ -368,13 +352,12 @@ elif [[ ${#EXTRA_GROUPS[@]} -gt 0 ]]; then
         SYNC_CMD+=(--group "$GROUP")
     done
 fi
-# TORCH_GROUP is the single source of truth for torch pinning: fold it in
-# unless --all-groups already swept it up or a --with-<group> above already
-# requested it explicitly (the earlier guard ensures no disagreement).
-TORCH_GROUP_ALREADY_SYNCED=false
-[[ "$ALL_GROUPS" == "true" ]] && TORCH_GROUP_ALREADY_SYNCED=true
-[[ " ${EXTRA_GROUPS[*]:-} " == *" ${TORCH_GROUP:-} "* ]] && TORCH_GROUP_ALREADY_SYNCED=true
-if [[ -n "${TORCH_GROUP:-}" && "$TORCH_GROUP_ALREADY_SYNCED" == "false" ]]; then
+# TORCH_GROUP is the single source of truth for torch pinning: append it
+# unconditionally (already covered under --all-groups by not being
+# excluded above). A disagreeing --with-<other-torch-group> ends up as a
+# second, different --group flag here, which `uv sync` itself rejects via
+# its conflicting-groups resolution rather than a bespoke check.
+if [[ -n "${TORCH_GROUP:-}" && "$ALL_GROUPS" != "true" ]]; then
     SYNC_CMD+=(--group "$TORCH_GROUP")
 fi
 # Apply explicit group exclusions (e.g., --without-coreai)
