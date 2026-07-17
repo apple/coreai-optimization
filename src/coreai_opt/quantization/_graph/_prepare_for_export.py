@@ -17,10 +17,7 @@ from collections.abc import Mapping
 import torch
 from torch.fx import Node
 
-from coreai_opt._utils.export_utils import (
-    COREML_SUPPORTED_ACTIVATION_DTYPES,
-    COREML_SUPPORTED_WEIGHT_DTYPES,
-)
+from coreai_opt._utils.export_utils import validate_coreml_compatibility
 from coreai_opt._utils.fx_utils import get_node_type as _get_node_type
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
@@ -28,7 +25,6 @@ from coreai_opt._utils.torch_utils import (
     is_float4_dtype as _is_float4_dtype,
     sanitize_module_name as _sanitize_module_name,
 )
-from coreai_opt.common import CoreMLExportError
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
     canonicalize_qparam_shape as _canonicalize_qparam_shape,
@@ -45,7 +41,6 @@ from coreai_opt.quantization._graph._utils import (
     resolve_attr,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
-from coreai_opt.quantization.spec.granularity import PerBlockGranularity
 
 logger = logging.getLogger(__name__)
 
@@ -503,23 +498,17 @@ def _process_mil_activation_quantization(
 
     Converts activation FakeQuantize modules to Sequential modules containing
     quantize and dequantize operations that CoreMLTools can understand.
-    Supports both per-tensor (quantize_per_tensor) and per-channel
-    (quantize_per_channel) quantization based on the granularity axis.
-    Buffers are stored inside the modules.
+    Buffers are stored inside the modules. By the time this runs, CoreML
+    export compatibility has already been validated, so only per-tensor
+    activation granularity ever reaches here.
 
     Args:
         model: The graph module being modified
         fake_quant_node: The fake quantization node to process
         fake_quant_mod: The fake quantization module
 
-    Raises:
-        ValueError: If the granularity is per-block (not supported for MIL
-            activation export).
-
     """
     _validate_qformulation_for_mil_export(fake_quant_mod)
-    if isinstance(fake_quant_mod.granularity, PerBlockGranularity):
-        raise ValueError("MIL export does not support per-block granularity for activations.")
 
     scale, zero_point, _ = _extract_quantization_params(fake_quant_mod)
     converted_dtype, converted_zero_point = _convert_dtype_for_torch_quantize(
@@ -599,22 +588,22 @@ def prepare_for_mil_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule:
         msg = "Model contains no fake quantization nodes"
         raise ValueError(msg)
 
-    # CoreML does not support certain dtypes. Fail fast before mutating the
-    # graph below.
+    # Fail fast if model is not coreml-exportable
     for fake_quant_node, fake_quant_mod in fake_quant_nodes:
         node_id = str(fake_quant_node.target)
         if _is_weight_fake_quant(fake_quant_node, fake_quant_mod):
-            if fake_quant_mod.dtype not in COREML_SUPPORTED_WEIGHT_DTYPES:
-                raise CoreMLExportError(
-                    fake_quant_mod.dtype,
-                    f"weight quantizer '{node_id}'",
-                )
+            validate_coreml_compatibility(
+                CompressionTargetTensor.WEIGHT,
+                fake_quant_mod.dtype,
+                f"weight quantizer '{node_id}'",
+            )
         else:
-            if fake_quant_mod.dtype not in COREML_SUPPORTED_ACTIVATION_DTYPES:
-                raise CoreMLExportError(
-                    fake_quant_mod.dtype,
-                    f"activation quantizer '{node_id}'",
-                )
+            validate_coreml_compatibility(
+                CompressionTargetTensor.ACTIVATION,
+                fake_quant_mod.dtype,
+                f"activation quantizer '{node_id}'",
+                fake_quant_mod.granularity,
+            )
 
     # Process all fake quantization nodes
     for fake_quant_node, fake_quant_mod in fake_quant_nodes:
