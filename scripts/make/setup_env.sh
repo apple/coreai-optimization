@@ -127,6 +127,7 @@ show_help() {
     echo ""
     echo "Environment variables:"
     echo "  VENV                Virtual environment name, overrides --venv (default: .venv)"
+    echo "  TORCH_GROUP         Torch dependency group to pin; source of truth for torch pinning"
     echo ""
     echo "Available dependency groups: $AVAILABLE_GROUPS"
     echo "Conflicting groups (excluded from --all-groups): ${CONFLICTING_GROUPS[*]}"
@@ -135,8 +136,8 @@ show_help() {
     echo "  $0 --python-version 3.11                               # Setup with dev group only"
     echo "  $0 --python-version 3.11 --with-docs                   # Setup with dev and docs groups"
     echo "  $0 --python-version 3.11 --all-groups                                    # Setup with all non-conflicting groups"
-    echo "  $0 --python-version 3.11 --all-groups --with-torch_2_11                   # Setup with all groups and torch 2.11"
-    echo "  $0 --python-version 3.11 --all-groups --with-torch_2_8                    # Setup with all groups and torch 2.8"
+    echo "  TORCH_GROUP=torch_2_11 $0 --python-version 3.11 --all-groups             # Setup with all groups and torch 2.11"
+    echo "  TORCH_GROUP=torch_2_8 $0 --python-version 3.11 --all-groups              # Setup with all groups and torch 2.8"
     echo "  $0 --python-version 3.11 --venv .venv-exp              # Setup with custom venv name"
     echo "  $0 --python-version 3.11 --with-docs --venv .venv-exp  # Setup with docs group and custom venv name"
     echo "  $0 --python-version 3.12                               # Setup with Python 3.12"
@@ -222,12 +223,28 @@ validate_groups() {
 # Validate dependency group names early
 [[ ${#EXTRA_GROUPS[@]} -gt 0 ]] && validate_groups "${EXTRA_GROUPS[@]}"
 [[ ${#EXCLUDE_GROUPS[@]} -gt 0 ]] && validate_groups "${EXCLUDE_GROUPS[@]}"
+[[ -n "${TORCH_GROUP:-}" ]] && validate_groups "$TORCH_GROUP"
 
 # Check for conflicts between --with-<group> and --without-<group>
 if [[ ${#EXTRA_GROUPS[@]} -gt 0 && ${#EXCLUDE_GROUPS[@]} -gt 0 ]]; then
     for GROUP in "${EXTRA_GROUPS[@]}"; do
         if [[ " ${EXCLUDE_GROUPS[*]} " == *" ${GROUP} "* ]]; then
             echo "Error: Group '$GROUP' cannot be both included (--with-$GROUP) and excluded (--without-$GROUP)"
+            exit 1
+        fi
+    done
+fi
+
+# TORCH_GROUP (env var) is the single source of truth for torch pinning; a
+# --with-<torch_2_*> flag that disagrees with it is almost certainly a
+# mistake (e.g. TORCH_GROUP left set from a prior `make` invocation) rather
+# than an intentional double-specification, so fail loudly instead of
+# leaving it to a raw `uv` conflicting-groups resolver error.
+if [[ -n "${TORCH_GROUP:-}" ]]; then
+    for GROUP in "${EXTRA_GROUPS[@]:-}"; do
+        if [[ " ${CONFLICTING_GROUPS[*]} " == *" ${GROUP} "* && "$GROUP" != "$TORCH_GROUP" ]]; then
+            echo "Error: --with-$GROUP conflicts with TORCH_GROUP=$TORCH_GROUP." >&2
+            echo "TORCH_GROUP is the source of truth; unset it or set it to '$GROUP' instead." >&2
             exit 1
         fi
     done
@@ -267,22 +284,33 @@ if [[ "$ENSURE_MODE" == "true" ]] && [ -f "$VENV/bin/python" ]; then
         for GROUP in "${EXTRA_GROUPS[@]}"; do
             case "$GROUP" in
             docs) IMPORT_STMTS+="; import sphinx" ;;
-            torch_2_8 | torch_2_9 | torch_2_10 | torch_2_11)
-                IMPORT_STMTS+="; import torchao"
-                EXPECTED_TORCH="$(group_torch_pin "$GROUP")"
-                # These groups always pin torch, so an empty result means the
-                # pyproject parse regressed — fail loudly instead of silently
-                # skipping the version check (which would reintroduce the bug).
-                if [[ -z "$EXPECTED_TORCH" ]]; then
-                    echo "Error: could not parse a torch pin for group '$GROUP' in $PYPROJECT_TOML" >&2
-                    exit 1
-                fi
-                IMPORT_STMTS+="; import torch; assert torch.__version__.split('+')[0] == '$EXPECTED_TORCH'"
-                ;;
             rio) IMPORT_STMTS+="; import turi_lightning" ;;
             tamm-export) IMPORT_STMTS+="; import tamm_export" ;;
             esac
         done
+    fi
+
+    # TORCH_GROUP is the single source of truth for torch pinning; fall back
+    # to a --with-torch_2_* flag for direct, non-Make invocations. Checked
+    # unconditionally rather than only when present in EXTRA_GROUPS, since
+    # TORCH_GROUP drives the sync regardless of what's in EXTRA_GROUPS.
+    EXPECTED_GROUP="${TORCH_GROUP:-}"
+    if [[ -z "$EXPECTED_GROUP" ]]; then
+        for GROUP in "${EXTRA_GROUPS[@]:-}"; do
+            [[ " ${CONFLICTING_GROUPS[*]} " == *" ${GROUP} "* ]] && EXPECTED_GROUP="$GROUP"
+        done
+    fi
+    if [[ -n "$EXPECTED_GROUP" ]]; then
+        IMPORT_STMTS+="; import torchao"
+        EXPECTED_TORCH="$(group_torch_pin "$EXPECTED_GROUP")"
+        # These groups always pin torch, so an empty result means the
+        # pyproject parse regressed — fail loudly instead of silently
+        # skipping the version check (which would reintroduce the bug).
+        if [[ -z "$EXPECTED_TORCH" ]]; then
+            echo "Error: could not parse a torch pin for '$EXPECTED_GROUP' in $PYPROJECT_TOML" >&2
+            exit 1
+        fi
+        IMPORT_STMTS+="; import torch; assert torch.__version__.split('+')[0] == '$EXPECTED_TORCH'"
     fi
 
     if "$VENV/bin/python" -c "$IMPORT_STMTS" 2>/dev/null; then
@@ -324,9 +352,14 @@ echo "[2/3] Installing dependencies..."
 SYNC_CMD=(uv sync --active)
 if [[ "$ALL_GROUPS" == "true" ]]; then
     SYNC_CMD+=(--all-groups)
-    # Exclude conflicting groups unless explicitly requested via --with-*
+    # Exclude conflicting torch groups other than the one TORCH_GROUP or
+    # --with-<group> selects, so --all-groups doesn't trip the mutual
+    # -conflicts declaration in pyproject.toml.
     for GROUP in "${CONFLICTING_GROUPS[@]}"; do
-        if [[ ! " ${EXTRA_GROUPS[*]:-} " == *" ${GROUP} "* ]]; then
+        GROUP_REQUESTED=false
+        [[ "$GROUP" == "${TORCH_GROUP:-}" ]] && GROUP_REQUESTED=true
+        [[ " ${EXTRA_GROUPS[*]:-} " == *" ${GROUP} "* ]] && GROUP_REQUESTED=true
+        if [[ "$GROUP_REQUESTED" == "false" ]]; then
             SYNC_CMD+=(--no-group "$GROUP")
         fi
     done
@@ -334,6 +367,15 @@ elif [[ ${#EXTRA_GROUPS[@]} -gt 0 ]]; then
     for GROUP in "${EXTRA_GROUPS[@]}"; do
         SYNC_CMD+=(--group "$GROUP")
     done
+fi
+# TORCH_GROUP is the single source of truth for torch pinning: fold it in
+# unless --all-groups already swept it up or a --with-<group> above already
+# requested it explicitly (the earlier guard ensures no disagreement).
+TORCH_GROUP_ALREADY_SYNCED=false
+[[ "$ALL_GROUPS" == "true" ]] && TORCH_GROUP_ALREADY_SYNCED=true
+[[ " ${EXTRA_GROUPS[*]:-} " == *" ${TORCH_GROUP:-} "* ]] && TORCH_GROUP_ALREADY_SYNCED=true
+if [[ -n "${TORCH_GROUP:-}" && "$TORCH_GROUP_ALREADY_SYNCED" == "false" ]]; then
+    SYNC_CMD+=(--group "$TORCH_GROUP")
 fi
 # Apply explicit group exclusions (e.g., --without-coreai)
 if [[ ${#EXCLUDE_GROUPS[@]} -gt 0 ]]; then

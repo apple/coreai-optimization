@@ -53,10 +53,15 @@ VENV_HIGHEST_TORCH ?= .venv-highest-torch
 VENV_LOWEST_TORCH ?= .venv-lowest-torch
 VENV_TUTORIAL ?= .venv-tutorial
 
-# Torch dependency group (pyproject.toml [dependency-groups]) that
-# `test-smoke` installs; override to smoke test against a different pinned
-# torch minor version, e.g. `make test-smoke TORCH_GROUP=torch_2_8`.
+# Torch dependency group (pyproject.toml [dependency-groups]) that every
+# environment-building target (env, test, test-smoke, docs, ...) pins to.
+# Single source of truth for which torch/torchao/torchvision triple
+# setup_env.sh installs; override e.g. `make test-fast TORCH_GROUP=torch_2_8`.
+# test-highest-pytorch/test-lowest-pytorch/env-highest-torch lock this to a
+# specific group via `export TORCH_GROUP=... &&` at the top of their recipe,
+# so their name stays a promise regardless of a command-line value.
 TORCH_GROUP ?= torch_2_11
+export TORCH_GROUP
 
 # Documentation directory. Defaults to $(MAKEFILE_DIR)docs so the same recipe
 # works in both contexts:
@@ -181,7 +186,8 @@ env: _maybe_patch_pyproject
 
 # Set up development environment with latest supported PyTorch version
 env-highest-torch: _maybe_patch_pyproject
-	@$(SETUP_ENV) --venv $(VENV_HIGHEST_TORCH) --python-version $(PYTHON_VERSION) --with-torch_2_11
+	@export TORCH_GROUP=torch_2_11 && \
+	$(SETUP_ENV) --venv $(VENV_HIGHEST_TORCH) --python-version $(PYTHON_VERSION)
 	@$(call write_active_venv,$(VENV_HIGHEST_TORCH))
 
 # Set up environment for running tutorials (quantization notebook)
@@ -250,20 +256,22 @@ test-smoke:
 # Run tests on lowest supported PyTorch version (pass PYTEST_ARGS for custom flags)
 test-lowest-pytorch:
 	@echo "Running tests on lowest PyTorch version supported..."
-	@$(call use_env,VENV_LOWEST_TORCH,--with-torch_2_8) && \
-		echo "Testing with lowest supported PyTorch versions" && \
-		uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
-		$(RUN_TESTS) $(PYTEST_ARGS) && \
-		echo "All tests passed!"
+	@export TORCH_GROUP=torch_2_8 && \
+	$(call use_env,VENV_LOWEST_TORCH) && \
+	echo "Testing with lowest supported PyTorch versions" && \
+	uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
+	$(RUN_TESTS) $(PYTEST_ARGS) && \
+	echo "All tests passed!"
 
 # Run tests on highest supported PyTorch version (pass PYTEST_ARGS for custom flags)
 test-highest-pytorch:
 	@echo "Running tests on highest PyTorch version supported..."
-	@$(call use_env,VENV_HIGHEST_TORCH,--with-torch_2_11) && \
-		echo "Testing with latest supported PyTorch versions" && \
-		uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
-		$(RUN_TESTS) $(PYTEST_ARGS) && \
-		echo "All tests passed!"
+	@export TORCH_GROUP=torch_2_11 && \
+	$(call use_env,VENV_HIGHEST_TORCH) && \
+	echo "Testing with latest supported PyTorch versions" && \
+	uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
+	$(RUN_TESTS) $(PYTEST_ARGS) && \
+	echo "All tests passed!"
 
 # Run tutorial notebook tests
 test-tutorials:
