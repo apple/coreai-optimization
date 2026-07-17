@@ -34,11 +34,7 @@ from ci.nox.utils import (  # noqa: E402
 options.default_venv_backend = "uv"
 options.error_on_missing_interpreters = True
 
-# Pins the torch minor version smoke tests install, one of the torch_2_*
-# dependency groups in pyproject.toml — TORCH_GROUP is the project-wide
-# source of truth (see Makefile), exported by `make test-smoke` and set per
-# job by the CI matrix (ci.yaml); defaults to the newest supported.
-TORCH_GROUP = os.environ.get("TORCH_GROUP", "torch_2_11")
+TORCH_GROUP = os.environ.get("TORCH_GROUP")
 
 
 @session(
