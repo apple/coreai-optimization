@@ -76,7 +76,7 @@ def _assert_coreml_rejects_unsupported_lut(
     model.eval()
     palettizer = KMeansPalettizer(model, config)
     palettizer.prepare((input_data,))
-    export_utils.assert_coreml_finalize_rejects_unsupported_dtype(palettizer)
+    export_utils.assert_coreml_finalize_rejects(palettizer)
 
 
 def _skip_heavy_mnist_configs(config: ParametrizedPalettConfigs) -> None:
