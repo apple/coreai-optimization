@@ -55,11 +55,6 @@ VENV_TUTORIAL ?= .venv-tutorial
 
 # Torch dependency group (pyproject.toml [dependency-groups]) that every
 # environment-building target (env, test, test-smoke, docs, ...) pins to.
-# Single source of truth for which torch/torchao/torchvision triple
-# setup_env.sh installs; override e.g. `make test-fast TORCH_GROUP=torch_2_8`.
-# test-highest-pytorch/test-lowest-pytorch/env-highest-torch lock this to a
-# specific group via `export TORCH_GROUP=... &&` at the top of their recipe,
-# so their name stays a promise regardless of a command-line value.
 TORCH_GROUP ?= torch_2_11
 export TORCH_GROUP
 
