@@ -63,15 +63,17 @@ def _has_float_lut(config: ParametrizedPalettConfigs) -> bool:
     return config.lut_qspec is not None and config.lut_qspec.dtype.is_floating_point
 
 
-def _assert_coreml_rejects_unsupported_lut(
+def _assert_coreml_rejects(
     model: torch.nn.Module,
     input_data: torch.Tensor,
     config: KMeansPalettizerConfig,
 ) -> None:
-    """Assert finalize(CoreML) rejects an unsupported LUT dtype.
+    """Assert finalize(CoreML) rejects an unsupported palettization config.
 
-    CoreML/MIL does not support FP or INT2 LUT quantization, so finalize must raise
-    rather than emit an invalid model.
+    CoreML/MIL rejects certain LUT dtypes and certain combinations of
+    palettization features (vector palettization, LUT quantization,
+    per-channel scale), so finalize must raise rather than emit an invalid
+    model.
     """
     model.eval()
     palettizer = KMeansPalettizer(model, config)
@@ -95,32 +97,17 @@ def _skip_heavy_mnist_configs(config: ParametrizedPalettConfigs) -> None:
             pytest.skip(f"MNIST only tests lut_qspec with int8 and float8_e4m3fn, got {dtype}")
 
 
-def _skip_unsupported_mil_configs(
-    backend: ExportBackend,
-    config: ParametrizedPalettConfigs,
-) -> None:
-    """Skip CoreML configs with unsupported feature combinations."""
-    if backend != ExportBackend.CoreML:
-        return
-
+def _has_unsupported_mil_combo(config: ParametrizedPalettConfigs) -> bool:
+    """Whether the config combines >=2 of {vector palettization, LUT
+    quantization, per-channel scale} -- verified to be the exact set
+    CoreML/MIL cannot export: any single one of these works in isolation, but
+    combining two or more fails with a rank-mismatch, missing-vector_axis, or
+    LUT-divisibility error depending on the pair.
+    """
     is_vector = config.cluster_dim > 1
     has_lut_quant = config.lut_qspec is not None
     has_pcs = config.enable_per_channel_scale
-
-    # Vector palettization + LUT quantization
-    if is_vector and has_lut_quant:
-        # TODO: add CoreML export support for palettization combos.
-        pytest.skip("CoreML export not supported for vector palettization + LUT quantization.")
-
-    # Vector palettization + per-channel scale
-    if is_vector and has_pcs:
-        # TODO: add CoreML export support for palettization combos.
-        pytest.skip("CoreML export not supported for vector palettization + per-channel scale.")
-
-    # LUT quantization + per-channel scale
-    if has_lut_quant and has_pcs:
-        # TODO: add CoreML export support for palettization combos.
-        pytest.skip("CoreML export not supported for LUT quantization + per-channel scale.")
+    return sum([is_vector, has_lut_quant, has_pcs]) >= 2
 
 
 @pytest.mark.parametrize("backend", [ExportBackend.CoreML, ExportBackend.CoreAI])
@@ -134,11 +121,12 @@ def test_simple_model_export(
     config = parametrized_palett_config.config
     granularity = parametrized_palett_config.granularity
 
-    if backend == ExportBackend.CoreML and _has_float_lut(parametrized_palett_config):
-        _assert_coreml_rejects_unsupported_lut(simple_conv_linear_model, simple_model_input, config)
+    if backend == ExportBackend.CoreML and (
+        _has_float_lut(parametrized_palett_config)
+        or _has_unsupported_mil_combo(parametrized_palett_config)
+    ):
+        _assert_coreml_rejects(simple_conv_linear_model, simple_model_input, config)
         return
-
-    _skip_unsupported_mil_configs(backend, parametrized_palett_config)
 
     if (
         backend == ExportBackend.CoreML
@@ -175,11 +163,12 @@ def test_mnist_export(
     config = parametrized_palett_config.config
     granularity = parametrized_palett_config.granularity
 
-    if backend == ExportBackend.CoreML and _has_float_lut(parametrized_palett_config):
-        _assert_coreml_rejects_unsupported_lut(custom_test_mnist_model, mnist_example_input, config)
+    if backend == ExportBackend.CoreML and (
+        _has_float_lut(parametrized_palett_config)
+        or _has_unsupported_mil_combo(parametrized_palett_config)
+    ):
+        _assert_coreml_rejects(custom_test_mnist_model, mnist_example_input, config)
         return
-
-    _skip_unsupported_mil_configs(backend, parametrized_palett_config)
 
     # The MNIST model has 6 weight-bearing layers (conv1, conv2, conv_transpose1,
     # conv_transpose2, dense1, dense2). For axis=1 with group_size=2, conv1's
