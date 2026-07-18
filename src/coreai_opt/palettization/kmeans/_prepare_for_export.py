@@ -14,7 +14,7 @@ import torch.nn.utils.parametrize as P
 from coreai_opt._utils.export_utils import (
     clear_parametrization_original as _clear_parametrization_original,
     prepare_mmap_dir as _prepare_mmap_dir,
-    validate_coreml_compatibility,
+    validate_coreml_palettization_compatibility,
 )
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
@@ -22,7 +22,6 @@ from coreai_opt._utils.torch_utils import (
     mmap_module_state_dict as _mmap_module_state_dict,
 )
 from coreai_opt.common import ExportBackend
-from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.palettization.spec.fake_palettize import (
     _FakePalettizeImplBase,
 )
@@ -430,12 +429,16 @@ def prepare_for_mil_export(model: nn.Module) -> nn.Module:
             continue
         for param_name, parametrizations in module.parametrizations.items():
             _, fake_palett_mod = _find_fake_palett_parametrization(parametrizations)
-            if fake_palett_mod is not None and fake_palett_mod.lut_qspec is not None:
-                validate_coreml_compatibility(
-                    CompressionTargetTensor.LUT,
-                    fake_palett_mod.lut_qspec.dtype,
-                    f"LUT of parameter '{param_name}' of module '{module_name}'",
-                )
+            if fake_palett_mod is None:
+                continue
+
+            context = f"parameter '{param_name}' of module '{module_name}'"
+            validate_coreml_palettization_compatibility(
+                fake_palett_mod.cluster_dim,
+                fake_palett_mod.lut_qspec,
+                fake_palett_mod.enable_per_channel_scale,
+                context,
+            )
 
     _process_weight_palettization(model, backend=ExportBackend.CoreML)
 
