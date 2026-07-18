@@ -170,6 +170,13 @@ class _MagnitudePruneImpl(PruneImplBase):
         Channel importance is measured by L1 norm. The least-important
         channels are pruned entirely.
         """
+        if not (-weight.ndim <= axis < weight.ndim):
+            raise ValueError(
+                f"Invalid axis. Should be in range [{-weight.ndim}, {weight.ndim}), but got {axis}"
+            )
+        if axis < 0:
+            axis += weight.ndim
+
         num_channels = weight.shape[axis]
         num_prune = math.floor(num_channels * sparsity)
 

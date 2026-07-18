@@ -369,7 +369,8 @@ class TestMagnitudePruner:
         )
         assert torch.equal(model.weight.detach(), expected)
 
-    def test_channel_structured_conv2d(self) -> None:
+    @pytest.mark.parametrize("axis", [0, -4])
+    def test_channel_structured_conv2d(self, axis: int) -> None:
         """Channel-structured pruning on Conv2d zeros entire output filters."""
         torch.manual_seed(42)
         model = nn.Conv2d(3, 8, kernel_size=3, bias=False)
@@ -379,7 +380,7 @@ class TestMagnitudePruner:
                 op_state_spec={
                     "weight": PruningSpec(
                         target_sparsity=0.5,
-                        pruning_scheme=ChannelStructured(axis=0),
+                        pruning_scheme=ChannelStructured(axis=axis),
                     )
                 }
             )
@@ -394,6 +395,72 @@ class TestMagnitudePruner:
         for i in range(8):
             filt = weight[i]
             assert filt.eq(0).all() or filt.ne(0).all(), f"Filter {i} is partially pruned"
+
+    @pytest.mark.parametrize("target_sparsity", [0.5, 0.75])
+    @pytest.mark.parametrize(
+        "negative_axis,positive_axis",
+        [(-1, 1), (-2, 0)],
+        ids=["last-dim", "first-dim"],
+    )
+    def test_channel_structured_negative_axis(
+        self, negative_axis: int, positive_axis: int, target_sparsity: float
+    ) -> None:
+        """A negative axis prunes the same channels as its positive equivalent."""
+
+        def prune_along(axis: int) -> torch.Tensor:
+            model = nn.Linear(4, 4, bias=False)
+            with torch.no_grad():
+                model.weight.copy_(
+                    torch.tensor(
+                        [
+                            [1.0, 2.0, 3.0, 4.0],
+                            [5.0, 6.0, 7.0, 8.0],
+                            [9.0, 10.0, 11.0, 12.0],
+                            [13.0, 14.0, 15.0, 16.0],
+                        ]
+                    )
+                )
+
+            config = MagnitudePrunerConfig(
+                global_config=ModuleMagnitudePrunerConfig(
+                    op_state_spec={
+                        "weight": PruningSpec(
+                            target_sparsity=target_sparsity,
+                            pruning_scheme=ChannelStructured(axis=axis),
+                        )
+                    }
+                )
+            )
+            pruner = MagnitudePruner(model, config)
+            pruner.prepare((torch.randn(1, 4),))
+            return model.weight.detach()
+
+        pruned = prune_along(negative_axis)
+        assert torch.equal(pruned, prune_along(positive_axis))
+
+        # L1 norms increase with index along both axes, so the highest indices survive.
+        num_keep = 4 - int(4 * target_sparsity)
+        kept = [i for i in range(4) if pruned.select(positive_axis, i).ne(0).any()]
+        assert kept == list(range(4 - num_keep, 4))
+
+    @pytest.mark.parametrize("axis", [-3, 2], ids=["below-range", "above-range"])
+    def test_channel_structured_axis_out_of_range(self, axis: int) -> None:
+        """An axis outside [-ndim, ndim) raises ValueError."""
+        model = nn.Linear(4, 4, bias=False)
+        config = MagnitudePrunerConfig(
+            global_config=ModuleMagnitudePrunerConfig(
+                op_state_spec={
+                    "weight": PruningSpec(
+                        target_sparsity=0.5,
+                        pruning_scheme=ChannelStructured(axis=axis),
+                    )
+                }
+            )
+        )
+        pruner = MagnitudePruner(model, config)
+
+        with pytest.raises(ValueError, match="Invalid axis"):
+            pruner.prepare((torch.randn(1, 4),))
 
     def test_linear_unstructured_conv2d_channel_structured(self) -> None:
         """Apply unstructured to Linear and channel-structured to Conv2d in same model."""
