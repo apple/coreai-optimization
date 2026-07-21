@@ -9,7 +9,9 @@ from pathlib import Path
 import torch
 
 from coreai_opt._utils.torch_utils import is_tensor_on_cpu
-from coreai_opt.common import ExportBackend
+from coreai_opt.common import CoreMLExportError, ExportBackend
+from coreai_opt.config.spec import CompressionTargetTensor
+from coreai_opt.quantization.spec.granularity import PerTensorGranularity, QuantizationGranularity
 
 COREML_SUPPORTED_WEIGHT_DTYPES: frozenset[torch.dtype] = frozenset(
     {
@@ -33,6 +35,47 @@ COREML_SUPPORTED_LUT_DTYPES: frozenset[torch.dtype] = frozenset(
         torch.uint8,
     }
 )
+
+COREML_SUPPORTED_ACTIVATION_GRANULARITIES: frozenset[type[QuantizationGranularity]] = frozenset(
+    {PerTensorGranularity}
+)
+
+_COREML_SUPPORTED_DTYPES_BY_TARGET: dict[CompressionTargetTensor, frozenset[torch.dtype]] = {
+    CompressionTargetTensor.WEIGHT: COREML_SUPPORTED_WEIGHT_DTYPES,
+    CompressionTargetTensor.ACTIVATION: COREML_SUPPORTED_ACTIVATION_DTYPES,
+    CompressionTargetTensor.LUT: COREML_SUPPORTED_LUT_DTYPES,
+}
+
+
+def validate_coreml_compatibility(
+    target: CompressionTargetTensor,
+    dtype: torch.dtype,
+    context: str,
+    granularity: QuantizationGranularity | None = None,
+) -> None:
+    """Raise CoreMLExportError if this weight/activation/LUT config isn't CoreML-exportable.
+
+    Centralizes every reason CoreML export can reject a quantization config, so
+    new restrictions are added here once rather than at each call site.
+
+    Args:
+        target (CompressionTargetTensor): Which tensor category is being checked.
+        dtype (torch.dtype): The quantization dtype to validate.
+        context (str): Human-readable description of what's being checked, used
+            in the error message (e.g. "weight 'conv.weight' of module 'conv'").
+        granularity (QuantizationGranularity | None): The quantization
+            granularity, if applicable. Only checked for ACTIVATION — CoreML
+            only supports per-tensor activation quantization.
+
+    Raises:
+        CoreMLExportError: If the dtype or granularity isn't supported.
+    """
+    if dtype not in _COREML_SUPPORTED_DTYPES_BY_TARGET[target]:
+        raise CoreMLExportError.from_dtype(dtype, context)
+    if target == CompressionTargetTensor.ACTIVATION and not isinstance(
+        granularity, tuple(COREML_SUPPORTED_ACTIVATION_GRANULARITIES)
+    ):
+        raise CoreMLExportError.from_config(granularity, context)
 
 
 def validate_mmap_backend_and_device(

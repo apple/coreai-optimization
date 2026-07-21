@@ -29,9 +29,10 @@ from tests.test_utils.general import verify_snr_psnr as _verify_snr_psnr
 if platform.system() == "Darwin":
     from coreai.runtime import ComputeUnitKind, SpecializationOptions
 
-# Substring of the dtype guard message raised by the CoreML export validation. Shared so
-# test files asserting the rejection don't drift from one another.
-COREML_DTYPE_REJECTION_MATCH = "CoreML export does not support"
+# Substring of the guard message raised by CoreML export validation (dtype or
+# granularity/config rejection). Shared so test files asserting the rejection
+# don't drift from one another.
+COREML_REJECTION_MATCH = "CoreML export does not support"
 
 # Compute unit selection driven by the --compute-unit-kind pytest option (see
 # tests/conftest.py). Default is "interpreter" so a plain `pytest` run uses the
@@ -87,17 +88,18 @@ def _get_test_specialization_options() -> "SpecializationOptions | None":
     raise ValueError(msg)
 
 
-def assert_coreml_finalize_rejects_unsupported_dtype(finalizer: Any) -> None:
-    """Assert ``finalizer.finalize(backend=CoreML)`` rejects an unsupported dtype.
+def assert_coreml_finalize_rejects(finalizer: Any) -> None:
+    """Assert ``finalizer.finalize(backend=CoreML)`` rejects an unsupported config.
 
     CoreML does not support FP4, FP8, INT2, or UINT2 quantization or
-    palettization dtypes, so finalize must raise a ``CoreMLExportError`` rather
-    than emit an invalid model.
+    palettization dtypes, nor per-channel/per-block activation quantization
+    granularity, so finalize must raise a ``CoreMLExportError`` rather than
+    emit an invalid model.
 
     Args:
         finalizer (Any): A prepared ``Quantizer`` or ``KMeansPalettizer``.
     """
-    with pytest.raises(CoreMLExportError, match=COREML_DTYPE_REJECTION_MATCH):
+    with pytest.raises(CoreMLExportError, match=COREML_REJECTION_MATCH):
         finalizer.finalize(backend=ExportBackend.CoreML)
 
 

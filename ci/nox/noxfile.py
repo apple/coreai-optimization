@@ -34,8 +34,14 @@ from ci.nox.utils import (  # noqa: E402
 options.default_venv_backend = "uv"
 options.error_on_missing_interpreters = True
 
+TORCH_GROUP = os.environ.get("TORCH_GROUP")
 
-@session(python=get_supported_python_versions(), uv_extras=["coreai"], uv_groups=["test"])
+
+@session(
+    python=get_supported_python_versions(),
+    uv_extras=["coreai"],
+    uv_groups=["test", TORCH_GROUP],
+)
 def smoke_tests(session: Session) -> None:
     """Smoke test the package build and coreai_opt imports and basic functionality.
 

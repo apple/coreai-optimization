@@ -183,6 +183,19 @@ class ParametrizedQuantConfigs:
             else False
         )
 
+    @property
+    def has_per_channel_activation_granularity(self) -> bool:
+        """Check if activation quantization in this config uses PerChannelGranularity.
+
+        Returns:
+            True if activation quantization is enabled and per-channel
+
+        """
+        if not self.eager.global_config:
+            return False
+        act_qspec = self.eager.global_config.op_input_spec.get("*")
+        return act_qspec is not None and isinstance(act_qspec.granularity, PerChannelGranularity)
+
     def skip_if_unsupported(
         self,
         mode: Literal["eager", "graph"],
