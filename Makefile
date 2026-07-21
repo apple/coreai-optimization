@@ -259,18 +259,18 @@ test-smoke:
 	echo "All smoke tests passed!"
 
 # Run tests on lowest supported PyTorch version (pass PYTEST_ARGS for custom flags)
-test-lowest-pytorch:
+test-lowest-pytorch: env-lowest-torch
 	@echo "Running tests on lowest PyTorch version supported..."
-	@TORCH_GROUP=$(LOWEST_TORCH_GROUP) $(call use_env,VENV_LOWEST_TORCH) && \
+	@source $(VENV_LOWEST_TORCH)/bin/activate && \
 	echo "Testing with lowest supported PyTorch versions" && \
 	uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
 	$(RUN_TESTS) $(PYTEST_ARGS) && \
 	echo "All tests passed!"
 
 # Run tests on highest supported PyTorch version (pass PYTEST_ARGS for custom flags)
-test-highest-pytorch:
+test-highest-pytorch: env-highest-torch
 	@echo "Running tests on highest PyTorch version supported..."
-	@TORCH_GROUP=$(HIGHEST_TORCH_GROUP) $(call use_env,VENV_HIGHEST_TORCH) && \
+	@source $(VENV_HIGHEST_TORCH)/bin/activate && \
 	echo "Testing with latest supported PyTorch versions" && \
 	uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
 	$(RUN_TESTS) $(PYTEST_ARGS) && \
