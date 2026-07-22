@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-.PHONY: _maybe_patch_pyproject all api-list build check clean distclean distclean-all docs docs-clean docs-open env env-all env-docs env-highest-torch env-lowest-torch env-tutorial render-api-index set-auto-venv test test-cov test-fast test-highest-pytorch test-lowest-pytorch test-slow test-smoke test-tutorials version
+.PHONY: _maybe_patch_pyproject all api-list build build-dev check clean distclean distclean-all docs docs-clean docs-open env env-all env-docs env-highest-torch env-lowest-torch env-tutorial render-api-index set-auto-venv test test-cov test-fast test-highest-pytorch test-lowest-pytorch test-slow test-smoke test-tutorials version
 
 SHELL := /bin/bash
 
@@ -63,6 +63,13 @@ LOWEST_TORCH_GROUP := torch_2_8
 # environment-building target (env, test, test-smoke, docs, ...) pins to.
 TORCH_GROUP ?= $(HIGHEST_TORCH_GROUP)
 export TORCH_GROUP
+
+# Optional path to a pre-built distribution (wheel or sdist) for `test-smoke` to
+# install instead of building from source; consumed by the nox smoke session via
+# $SMOKE_TEST_DIST (empty = build from source). Exported like TORCH_GROUP so it
+# reaches the nox subprocess.
+SMOKE_TEST_DIST ?=
+export SMOKE_TEST_DIST
 
 # Documentation directory. Defaults to $(MAKEFILE_DIR)docs so the same recipe
 # works in both contexts:
@@ -174,7 +181,7 @@ endif
 # =============================================================================
 
 # Default target - run full workflow
-all: clean distclean-all env-all check test-lowest-pytorch test-highest-pytorch build
+all: clean distclean-all env-all check test-lowest-pytorch test-highest-pytorch build-dev
 
 # =============================================================================
 # Environment Setup
@@ -210,8 +217,17 @@ env-all: _maybe_patch_pyproject
 # Build
 # =============================================================================
 
-# Build package
+# Build the canonical, publishable distribution (wheel + sdist) via the uv build
+# frontend. `--no-sources` ignores [tool.uv.sources], so the artifact doesn't
+# depend on uv-specific index overrides — the recommended way to build for
+# publication. This is what the release workflow runs.
 build:
+	@uv build --no-sources
+
+# Build the development distribution with build.py (standard version; build.py
+# also supports a PEP 440 .dev version via --dev). Used by contributors and the
+# smoke tests.
+build-dev:
 	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/build.py
 
 # =============================================================================
@@ -252,6 +268,9 @@ test-slow:
 
 # Run smoke tests only (pass PYTEST_ARGS for custom flags, e.g., make test-smoke PYTEST_ARGS="--junitxml=results.xml").
 # Pass TORCH_GROUP to smoke test against a specific torch version (default: HIGHEST_TORCH_GROUP).
+# Pass SMOKE_TEST_DIST=<path to a .whl or .tar.gz> to smoke test a pre-built
+# distribution instead of building one from source (used by the release
+# workflow to test the exact artifact being published).
 test-smoke:
 	@$(call use_env,VENV) && \
 	echo "Running smoke tests..." && \
