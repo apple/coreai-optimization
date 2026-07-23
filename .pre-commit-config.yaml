@@ -307,6 +307,20 @@ repos:
 
   - repo: local
     hooks:
+      - id: check-internal-import-aliases
+        name: Check `_`-prefix aliasing of internal imports
+        description: |
+          Enforce code_style_guide.md §3.3: public modules must alias symbols
+          imported from private modules with a `_` prefix; private modules must
+          not. Fails the commit and reports each violation with a suggested fix;
+          it does not edit files — run the script with `--fix` to apply fixes.
+        entry: python scripts/pre_commit/check_internal_import_aliases.py
+        language: system
+        types: [python]
+        exclude: ^tests/
+
+  - repo: local
+    hooks:
       - id: towncrier-check
         name: Check changelog fragments (towncrier)
         entry: scripts/pre_commit/towncrier_check.sh

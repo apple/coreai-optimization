@@ -21,6 +21,7 @@ This guide documents coding conventions and best practices for the Core AI Optim
     - [Why this matters](#why-this-matters)
     - [Best practice](#best-practice)
     - [When to use this pattern](#when-to-use-this-pattern)
+    - [Enforcement](#enforcement)
   - [3.4 Import Examples](#34-import-examples)
 - [4. Type Annotations](#4-type-annotations)
   - [4.1 When to Annotate](#41-when-to-annotate)
@@ -329,6 +330,17 @@ from proj_pkg.api import private_helper  # ✗ AttributeError - not accessible
 #### When to use this pattern
 
 - When importing project-internal symbols into public modules to prevent unintended re-export
+
+#### Enforcement
+
+The pre-commit hook `check-internal-import-aliases` (defined in `.pre-commit-config.yaml`, implemented at `scripts/pre_commit/check_internal_import_aliases.py`) enforces this rule. On commit it **fails** when it finds a violation and prints each one with a suggested fix, but it does not edit files — so the commit is blocked until the imports are corrected. Fix them by hand, or run the script with `--fix` to apply the fixable ones automatically:
+
+- Add the missing `_` alias in public modules.
+- Remove the unnecessary `_` alias in private modules.
+- Rename every reference to the bound name in the same file so the rewrite leaves the module compiling.
+- Report (without fixing) when the bound name is shadowed inside a function scope (rare) — resolve those by hand.
+
+Fixing is a separate, opt-in step rather than an automatic commit-time rewrite: auto-editing on commit would interleave this hook's changes with those of the formatting/linting hooks, making them hard to review or revert. Run `python scripts/pre_commit/check_internal_import_aliases.py --fix` (optionally with specific paths) to fix everything in one go, then review and commit the changes.
 
 ### 3.4 Import Examples
 
