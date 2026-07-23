@@ -23,20 +23,11 @@ logger = logging.getLogger(__name__)
 _TORCHAO_DISALLOWED_NODE_KWARG_TYPES = (torch.fx.Node, torch.Tensor)
 
 
-# Aten ops that alter channel axis semantics, making per-channel/per-block granularity
-# invalid for shared observers. These ops remap or collapse dimensions so the
-# channel axis in the input has no meaningful counterpart in the output; also
-# includes pooling ops (max/avg/adaptive-avg pool, mean), which preserve rank but
-# can shrink the specific axis a per-channel granularity points at (see
-# force_per_tensor_for_channel_altering_ops for how this is handled precisely).
-_CHANNEL_ALTERING_ATEN_OPS = {
-    torch.ops.aten.flatten.using_ints,
-    torch.ops.aten.reshape.default,
-    torch.ops.aten.permute.default,
-    torch.ops.aten.transpose.int,
-    torch.ops.aten.t.default,
-    torch.ops.aten.view.default,
-    torch.ops.aten.unsqueeze.default,
+# Ops that only resize dimensions in place: they never reorder which physical
+# dimension sits at a given axis, so the only way they can invalidate a
+# shared per-channel axis is by changing that axis's size (e.g. a spatial
+# axis shrunk by a stride>1 pool). See _shared_granularity_axis_is_safe.
+_AXIS_RESIZING_ATEN_OPS = {
     torch.ops.aten.max_pool1d.default,
     torch.ops.aten.max_pool2d.default,
     torch.ops.aten.max_pool3d.default,
@@ -51,6 +42,32 @@ _CHANNEL_ALTERING_ATEN_OPS = {
     # AdaptiveAvgPool), so it needs the same axis-size-mismatch protection.
     torch.ops.aten.mean.dim,
 }
+
+# Ops that only reorder dimensions: they never change a dimension's size, so
+# the only way they can invalidate a shared per-channel axis is by moving a
+# different physical dimension into that position. See
+# _shared_granularity_axis_is_safe.
+_AXIS_REORDERING_ATEN_OPS = {
+    torch.ops.aten.transpose.int,
+    torch.ops.aten.t.default,
+    torch.ops.aten.permute.default,
+}
+
+# Aten ops that alter channel axis semantics, making per-channel/per-block
+# granularity invalid for shared observers: the two categories above, plus
+# ops that remap or collapse dimensions outright (flatten, reshape, view,
+# unsqueeze), for which no single per-op safety condition holds — see
+# force_per_tensor_for_channel_altering_ops.
+_CHANNEL_ALTERING_ATEN_OPS = (
+    _AXIS_RESIZING_ATEN_OPS
+    | _AXIS_REORDERING_ATEN_OPS
+    | {
+        torch.ops.aten.flatten.using_ints,
+        torch.ops.aten.reshape.default,
+        torch.ops.aten.view.default,
+        torch.ops.aten.unsqueeze.default,
+    }
+)
 
 
 def resolve_attr(model: GraphModule, target: str) -> torch.Tensor:
@@ -251,19 +268,24 @@ def _shared_granularity_axis_is_safe(
     granularity shared across ``op_node``; unproven cases default to unsafe.
 
     Per-channel activation quantization on a shared observer is assumed
-    unsafe by default — every branch below must explicitly prove safety to
-    return True, rather than assume safety and look for reasons to reject
-    it. This fail-safe direction matters because a new channel-altering op
-    that this function doesn't yet know how to reason about should silently
-    fall back to per-tensor (safe, if imprecise), not silently stay
-    per-channel (fast, but potentially wrong or crashing).
+    unsafe by default. Each op category below has exactly one condition
+    under which it stops being safe, checked directly against that
+    category rather than composing generic checks that apply to every op:
+
+    - axis-resizing ops (pooling, mean) never reorder dimensions, so
+      they're unsafe only if the axis's size changes.
+    - axis-reordering ops (transpose, t, permute) never resize dimensions,
+      so they're unsafe only if the axis is moved to a different position.
+    - anything else (flatten, reshape, view, unsqueeze, or a future op not
+      yet categorized) has no known single condition to check, so it's
+      always unsafe.
     """
     granularity = fake_quant.granularity
     # No axis to violate — trivially safe.
     if isinstance(granularity, PerTensorGranularity):
         return True
     # Anything other than PerChannelGranularity (e.g. PerBlockGranularity)
-    # has no proof below, so it's not safe.
+    # has no condition checked below, so it's not safe.
     if not isinstance(granularity, PerChannelGranularity):
         return False
 
@@ -271,34 +293,29 @@ def _shared_granularity_axis_is_safe(
     input_shape = input_fq_node.all_input_nodes[0].meta["val"].shape
     # Rank changed (e.g. flatten): positional axis comparison is meaningless,
     # since broadcasting aligns dims from the trailing side, not by raw
-    # index, so there's no proof to offer here.
+    # index, so there's no condition to check here.
     if len(input_shape) != len(output_shape):
         return False
     axis = QuantizationGranularity._resolve_axis(granularity, len(input_shape))
     if axis is None:
         return False
 
-    # Proof 1: the op doesn't relabel which physical dimension sits at
-    # `axis` (e.g. transpose/permute swapping it with another axis of the
-    # same size would pass a size check below despite being wrong).
-    if not _op_preserves_axis_identity(op_node, axis):
-        return False
-    # Proof 2: the op doesn't change that dimension's size (e.g. pooling
-    # shrinking a spatial axis).
-    return input_shape[axis] == output_shape[axis]
+    if op_node.target in _AXIS_RESIZING_ATEN_OPS:
+        return input_shape[axis] == output_shape[axis]
+    if op_node.target in _AXIS_REORDERING_ATEN_OPS:
+        return _op_preserves_axis_identity(op_node, axis)
+    # flatten/reshape/view/unsqueeze, or an unrecognized future op: no known
+    # single condition to prove safety, so default to unsafe.
+    return False
 
 
 def _op_preserves_axis_identity(op_node: Node, axis: int) -> bool:
     """Return True if ``op_node`` never moves the physical dimension at
     ``axis`` to a different position between its input and output.
 
-    Ops that only shrink/grow dimensions in place (pooling, mean, etc.)
-    always preserve axis identity — they're not in the branches below, so
-    they fall through to True. Ops that reorder dimensions (transpose,
-    permute, t) must be checked explicitly: a dimension that gets moved
-    can coincidentally have the same size as whatever replaces it, which
-    would otherwise pass a pure size check while quietly applying the wrong
-    per-index scale.
+    Only called for ops in ``_AXIS_REORDERING_ATEN_OPS`` (transpose, t,
+    permute); the three branches below cover exactly those ops, so the
+    trailing fallback is unreachable in practice.
     """
     if op_node.target == torch.ops.aten.transpose.int:
         _, dim0, dim1 = op_node.args
