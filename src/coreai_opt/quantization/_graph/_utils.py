@@ -194,19 +194,14 @@ def restore_kwargs(graph: torch.fx.Graph, saved_kwargs: dict[str, dict[str, Any]
 
 
 def force_per_tensor_for_channel_altering_ops(model: GraphModule) -> None:
-    """Force per-tensor granularity on shared fake quantize modules adjacent to
-    channel-altering ops (flatten, reshape, transpose, permute, etc.).
+    """Force per-tensor granularity on shared fake quantize modules where the
+    channel-altering op they straddle (flatten, reshape, transpose, permute,
+    pooling, etc.) invalidates the shared axis.
 
     These ops change tensor dimensions, making per-channel/per-block axis
     semantics invalid when the input and output quantizers are the same shared
     object. When the quantizers are separate objects, their granularity is left
     unchanged since each side has independent axis semantics.
-
-    For ``PerChannelGranularity``, the op's input/output shapes (from
-    ``node.meta["val"]``) are compared at the resolved axis: forcing only
-    happens if that axis's size actually differs. Any other non-per-tensor
-    granularity (e.g. ``PerBlockGranularity``, whose axis semantics this
-    function can't generically verify) is forced unconditionally.
 
     This pass runs after prepare_qat_pt2e when fake quantize modules are fully
     instantiated.
@@ -281,12 +276,23 @@ def _shared_granularity_axis_is_unsafe(
 
 def _force_fake_quant_to_per_tensor(fake_quant: FakeQuantizeImplBase, op_node: Node) -> None:
     """Update a fake quantize module's granularity to per-tensor if needed."""
-    if isinstance(fake_quant.granularity, PerTensorGranularity):
+    granularity = fake_quant.granularity
+    if isinstance(granularity, PerTensorGranularity):
         return
-    logger.info(
-        "Forcing per-tensor granularity for fake quantize adjacent to %s (was %s)",
+    if isinstance(granularity, PerChannelGranularity):
+        detail = (
+            ": this op changes the size of the quantization axis between its "
+            "input and output, so a per-channel scale can't fit both sides. "
+            "To keep per-channel activation quantization here, choose a "
+            "different axis that this op leaves unchanged."
+        )
+    else:
+        detail = ""
+    logger.warning(
+        "Forcing per-tensor granularity for the shared observer around '%s' (was %s)%s",
         op_node.name,
-        fake_quant.granularity,
+        granularity,
+        detail,
     )
     fake_quant.granularity = PerTensorGranularity()
 
