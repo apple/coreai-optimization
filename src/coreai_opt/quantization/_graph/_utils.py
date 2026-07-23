@@ -238,40 +238,46 @@ def force_per_tensor_for_channel_altering_ops(model: GraphModule) -> None:
             input_fq_node = input_fq_nodes_by_id.get(id(output_fq))
             if input_fq_node is None:
                 continue
-            if _shared_granularity_axis_is_unsafe(output_fq, input_fq_node, node):
+            if not _shared_granularity_axis_is_safe(output_fq, input_fq_node, node):
                 _force_fake_quant_to_per_tensor(output_fq, node)
 
 
-def _shared_granularity_axis_is_unsafe(
+def _shared_granularity_axis_is_safe(
     fake_quant: FakeQuantizeImplBase,
     input_fq_node: Node,
     op_node: Node,
 ) -> bool:
-    """Return True if ``fake_quant``'s granularity is unsafe to keep shared
-    across ``op_node``.
+    """Return True only if it's proven safe to keep ``fake_quant``'s
+    granularity shared across ``op_node``; unproven cases default to unsafe.
+
+    Per-channel activation quantization on a shared observer is assumed
+    unsafe by default — every branch below must explicitly prove safety to
+    return True, rather than assume safety and look for reasons to reject
+    it. This fail-safe direction matters because a new channel-altering op
+    that this function doesn't yet know how to reason about should silently
+    fall back to per-tensor (safe, if imprecise), not silently stay
+    per-channel (fast, but potentially wrong or crashing).
     """
     granularity = fake_quant.granularity
-    # PerTensorGranularity has no axis, so it's always safe (nothing to force).
+    # No axis to violate — trivially safe.
     if isinstance(granularity, PerTensorGranularity):
-        return False
-    # Any other granularity (e.g. PerBlockGranularity) can't be generically
-    # verified below, so it's treated as unsafe. PerChannelGranularity is
-    # safe specifically when the op leaves the resolved axis's dimension
-    # size unchanged between input and output, checked via shape metadata.
-    if not isinstance(granularity, PerChannelGranularity):
         return True
+    # Anything other than PerChannelGranularity (e.g. PerBlockGranularity)
+    # has no proof below, so it's not safe.
+    if not isinstance(granularity, PerChannelGranularity):
+        return False
 
     output_shape = op_node.meta["val"].shape
     input_shape = input_fq_node.all_input_nodes[0].meta["val"].shape
+    # Rank changed (e.g. flatten): positional axis comparison is meaningless,
+    # since broadcasting aligns dims from the trailing side, not by raw
+    # index, so there's no proof to offer here.
     if len(input_shape) != len(output_shape):
-        # Rank changed (e.g. flatten): positional axis comparison is
-        # meaningless, since broadcasting aligns dims from the trailing side,
-        # not by raw index. Always unsafe.
-        return True
+        return False
     axis = QuantizationGranularity._resolve_axis(granularity, len(input_shape))
     if axis is None:
-        return True
-    return input_shape[axis] != output_shape[axis]
+        return False
+    return input_shape[axis] == output_shape[axis]
 
 
 def _force_fake_quant_to_per_tensor(fake_quant: FakeQuantizeImplBase, op_node: Node) -> None:
