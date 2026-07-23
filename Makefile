@@ -217,18 +217,23 @@ env-all: _maybe_patch_pyproject
 # Build
 # =============================================================================
 
-# Build the canonical, publishable distribution (wheel + sdist) via the uv build
-# frontend. `--no-sources` ignores [tool.uv.sources], so the artifact doesn't
-# depend on uv-specific index overrides — the recommended way to build for
-# publication. This is what the release workflow runs.
+# Build the canonical, publishable distribution (wheel + sdist): the on-tree
+# version with any `.dev` suffix stripped (e.g. 0.2.2.dev0 -> 0.2.2), via
+# `uv build --no-sources`. `--no-sources` ignores [tool.uv.sources], so the
+# artifact doesn't depend on uv-specific index overrides — the recommended way
+# to build for publication. This is what the release workflow runs. Routed
+# through build.py (like build-dev) so both targets share one code path; set
+# COREAI_OPT_VERSION_EXTENSION to insert an extra release segment (see
+# RELEASE.md).
 build:
-	@uv build --no-sources
+	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/build.py --no-sources
 
-# Build the development distribution with build.py (standard version; build.py
-# also supports a PEP 440 .dev version via --dev). Used by contributors and the
-# smoke tests.
+# Build a development distribution with build.py: the release base with a
+# unique, timestamped PEP 440 dev suffix (e.g. 0.2.2.dev202607231430+abc1234).
+# Used by contributors, the smoke tests, and the nightly pipeline. Set
+# DEV_VERSION=... to use an exact version instead.
 build-dev:
-	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/build.py
+	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/build.py --dev
 
 # =============================================================================
 # Code Quality
@@ -326,9 +331,12 @@ distclean-all:
 set-auto-venv:
 	@$(SCRIPTS)/make/set_auto_venv.sh $(DEFAULT_VENV) $(SHELL_RC)
 
-# Show current version
+# Show the development version carried on the tree (e.g. 0.2.2.dev0). Reads
+# _about.py as plain text (no torch import needed), so no venv is required —
+# stdlib-only, like _maybe_patch_pyproject. Works for a repo that vendors this
+# one via COREAI_OPT_VERSION_EXTENSION (e.g. printing 0.2.2.1.dev0).
 version:
-	@python -c "exec(open('$(MAKEFILE_DIR)src/coreai_opt/_about.py').read()); print(__version__)"
+	@python3 $(SCRIPTS)/make/print_version.py
 
 # =============================================================================
 # Documentation

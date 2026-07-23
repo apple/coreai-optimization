@@ -5,6 +5,12 @@
 
 """
 Version information for coreai_opt package.
+
+``main`` carries the next planned release with a ``.dev0`` suffix (e.g.
+``0.2.2.dev0``). A clean release is cut on a release branch by dropping the
+``.dev`` suffix and tagging. Keep this a plain string literal so setuptools can
+read it via ``ast.literal_eval`` at build time without importing the package
+(which would pull in torch).
 """
 
-__version__ = "0.2.1"
+__version__ = "0.2.2.dev0"
