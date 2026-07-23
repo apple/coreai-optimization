@@ -25,7 +25,10 @@ _TORCHAO_DISALLOWED_NODE_KWARG_TYPES = (torch.fx.Node, torch.Tensor)
 
 # Aten ops that alter channel axis semantics, making per-channel/per-block granularity
 # invalid for shared observers. These ops remap or collapse dimensions so the
-# channel axis in the input has no meaningful counterpart in the output.
+# channel axis in the input has no meaningful counterpart in the output; also
+# includes pooling ops (max/avg/adaptive-avg pool, mean), which preserve rank but
+# can shrink the specific axis a per-channel granularity points at (see
+# force_per_tensor_for_channel_altering_ops for how this is handled precisely).
 _CHANNEL_ALTERING_ATEN_OPS = {
     torch.ops.aten.flatten.using_ints,
     torch.ops.aten.reshape.default,
@@ -34,6 +37,19 @@ _CHANNEL_ALTERING_ATEN_OPS = {
     torch.ops.aten.t.default,
     torch.ops.aten.view.default,
     torch.ops.aten.unsqueeze.default,
+    torch.ops.aten.max_pool1d.default,
+    torch.ops.aten.max_pool2d.default,
+    torch.ops.aten.max_pool3d.default,
+    torch.ops.aten.avg_pool1d.default,
+    torch.ops.aten.avg_pool2d.default,
+    torch.ops.aten.avg_pool3d.default,
+    torch.ops.aten.adaptive_avg_pool1d.default,
+    torch.ops.aten.adaptive_avg_pool2d.default,
+    torch.ops.aten.adaptive_avg_pool3d.default,
+    # AvgPoolPattern also registers "mean" as a shared-observer op (some global
+    # average pooling is traced as x.mean(dim=[...]) rather than AvgPool/
+    # AdaptiveAvgPool), so it needs the same axis-size-mismatch protection.
+    torch.ops.aten.mean.dim,
 }
 
 
