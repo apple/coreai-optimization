@@ -16,6 +16,7 @@ from coreai_opt._utils.torch_utils import (
     mmap_module_state_dict,
     move_model_to_eval,
     move_model_to_train,
+    normalize_axis,
 )
 
 
@@ -91,6 +92,29 @@ class TestNormalizeModuleFqn:
     def test_normalize_module_fqn(raw: str, expected: str) -> None:
         """Verify various path formats are normalized correctly."""
         assert normalize_module_fqn(raw) == expected
+
+
+class TestNormalizeAxis:
+    """Test normalize_axis resolution of negative axes."""
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("axis", "ndim", "expected"),
+        [
+            (0, 2, 0),
+            (1, 2, 1),
+            (-1, 2, 1),
+            (-2, 2, 0),
+            (-4, 4, 0),
+            (-1, 1, 0),
+            # Out of range passes through unchanged; the caller validates.
+            (-5, 2, -3),
+            (3, 2, 3),
+        ],
+    )
+    def test_resolves_to_non_negative(axis: int, ndim: int, expected: int) -> None:
+        """A negative axis resolves to its non-negative equivalent."""
+        assert normalize_axis(axis, ndim) == expected
 
 
 class TestMmapModuleStateDict:
