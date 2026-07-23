@@ -264,6 +264,51 @@ class SimplePoolModel(nn.Module):
         return torch.randn(2, 3, *_POOL_SPATIAL_SHAPE[dim])
 
 
+class SimpleConcatTransposeModel(nn.Module):
+    """Model where a transpose swaps two equal-size axes before feeding concat.
+
+    Concat (a SharedObserverModulePattern, like MaxPool) ties both of its
+    inputs to the same observer object, so the transpose branch's own output
+    observer ends up being the exact same object as its input observer -
+    even though transpose itself isn't independently registered as a shared
+    observer op. Because the conv output is square (H == W), a per-channel
+    axis on one of the swapped spatial dims has the SAME size on both sides
+    of the transpose, despite pointing at a different physical dimension
+    (height vs. width) - a coincidental size match that must not be read as
+    "safe to share".
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.conv = torch.nn.Conv2d(3, 4, 3, padding=1, bias=False)
+
+    def forward(self, x):
+        x = self.conv(x)  # (N, 4, 8, 8) - square spatial dims
+        xt = torch.transpose(x, 2, 3)  # swap H and W; shape unchanged
+        return torch.cat([x, xt], dim=1)
+
+
+class SimpleConcatPermuteModel(nn.Module):
+    """Model where a permute swaps two equal-size axes before feeding concat.
+
+    Same hazard as SimpleConcatTransposeModel, via permute instead of
+    transpose: permute(0, 1, 3, 2) leaves axes 0 and 1 (batch, channel)
+    mapped to themselves, but swaps axes 2 and 3 (height, width) with each
+    other. Since the conv output is square, axes 2 and 3 have matching sizes
+    on both sides of the permute despite being different physical
+    dimensions.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.conv = torch.nn.Conv2d(3, 4, 3, padding=1, bias=False)
+
+    def forward(self, x):
+        x = self.conv(x)  # (N, 4, 8, 8) - square spatial dims
+        xt = x.permute(0, 1, 3, 2)  # swap H and W; shape unchanged
+        return torch.cat([x, xt], dim=0)  # concat along batch, not channel/spatial
+
+
 class SimpleCatModel(nn.Module):
     """Simple model with concat operation."""
 
@@ -1625,6 +1670,108 @@ class TestAnnotationPatternRegistry:
 
         # Final linear output quantizer is not associated with the others
         assert prepared_model.activation_post_process_0 != prepared_model.activation_post_process_3
+
+    def test_shared_observer_forces_per_tensor_when_transpose_swaps_equal_size_axes(self, caplog):
+        """
+        A per-channel axis that transpose swaps with another axis of the SAME
+        size must be forced to per-tensor even though the sizes match on both
+        sides - a size match is not proof the axis is untouched, since
+        transpose can relabel which physical dimension sits at that index.
+        Concat pulls the transpose branch into sharing its observer with the
+        untransposed branch (see SimpleConcatTransposeModel), so this is
+        exactly the shared-observer hazard force_per_tensor_for_channel_altering_ops
+        exists to catch.
+        """
+        model = SimpleConcatTransposeModel()
+        inp = torch.randn(2, 3, 8, 8)
+
+        per_channel_activation_spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerChannelGranularity(axis=2),
+            fake_quantize_cls="default",
+            qparam_calculator_cls="default",
+            range_calculator_cls="minmax",
+        )
+
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec=None,
+                op_input_spec={"*": per_channel_activation_spec},
+                op_output_spec={"*": per_channel_activation_spec},
+            ),
+        )
+
+        quantizer = Quantizer(model, config)
+        with caplog.at_level(logging.WARNING):
+            prepared_model = quantizer.prepare(example_inputs=(inp,))
+
+        transpose_node = [
+            node for node in prepared_model.graph.nodes if "transpose" in str(node.target)
+        ][0]
+        input_fq = getattr(prepared_model, transpose_node.all_input_nodes[0].name)
+        output_fq = getattr(prepared_model, list(transpose_node.users.keys())[0].name)
+
+        # Shared observer: transpose's input and output are the same object,
+        # because concat ties both of its inputs to one shared observer.
+        assert input_fq is output_fq
+
+        # Sizes match on both sides (8 == 8), but the axis was swapped
+        # (height on input, width on output) - must still be forced.
+        assert isinstance(input_fq.granularity, PerTensorGranularity)
+
+    @pytest.mark.parametrize(
+        ("axis", "expected_granularity"),
+        [
+            (1, PerChannelGranularity),  # channel: permute(0,1,3,2) leaves it alone
+            (2, PerTensorGranularity),  # height: swapped with width by the permute
+            (3, PerTensorGranularity),  # width: swapped with height by the permute
+        ],
+        ids=["axis_untouched_by_permute", "axis_swapped_to_3", "axis_swapped_to_2"],
+    )
+    def test_shared_observer_permute_axis_identity(self, axis, expected_granularity):
+        """
+        permute(0, 1, 3, 2) leaves axes 0 and 1 mapped to themselves but
+        swaps axes 2 and 3 with each other. A per-channel axis on the
+        untouched channel dimension should survive sharing with permute's
+        output; a per-channel axis on either swapped spatial dimension must
+        be forced to per-tensor, even though both have equal size (8 == 8)
+        on a square conv output - a size match alone doesn't prove the axis
+        wasn't relabeled.
+        """
+        model = SimpleConcatPermuteModel()
+        inp = torch.randn(2, 3, 8, 8)
+
+        per_channel_activation_spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerChannelGranularity(axis=axis),
+            fake_quantize_cls="default",
+            qparam_calculator_cls="default",
+            range_calculator_cls="minmax",
+        )
+
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec=None,
+                op_input_spec={"*": per_channel_activation_spec},
+                op_output_spec={"*": per_channel_activation_spec},
+            ),
+        )
+
+        quantizer = Quantizer(model, config)
+        prepared_model = quantizer.prepare(example_inputs=(inp,))
+
+        permute_node = [
+            node for node in prepared_model.graph.nodes if "permute" in str(node.target)
+        ][0]
+        input_fq = getattr(prepared_model, permute_node.all_input_nodes[0].name)
+        output_fq = getattr(prepared_model, list(permute_node.users.keys())[0].name)
+
+        # Shared observer: permute's input and output are the same object,
+        # because concat ties both of its inputs to one shared observer.
+        assert input_fq is output_fq
+        assert isinstance(input_fq.granularity, expected_granularity)
 
     def test_no_quantization_config(self):
         """Test that no fake quantize is inserted when no config is provided."""
