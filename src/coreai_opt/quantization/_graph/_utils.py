@@ -10,7 +10,11 @@ import torch
 from torch.fx import GraphModule, Node
 
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
-from coreai_opt.quantization.spec.granularity import PerTensorGranularity
+from coreai_opt.quantization.spec.granularity import (
+    PerChannelGranularity,
+    PerTensorGranularity,
+    QuantizationGranularity,
+)
 
 logger = logging.getLogger(__name__)
 # torchao < 0.16.0 does not allow kwargs for annotated nodes during prepare_qat_pt2e call
@@ -182,6 +186,12 @@ def force_per_tensor_for_channel_altering_ops(model: GraphModule) -> None:
     object. When the quantizers are separate objects, their granularity is left
     unchanged since each side has independent axis semantics.
 
+    For ``PerChannelGranularity``, the op's input/output shapes (from
+    ``node.meta["val"]``) are compared at the resolved axis: forcing only
+    happens if that axis's size actually differs. Any other non-per-tensor
+    granularity (e.g. ``PerBlockGranularity``, whose axis semantics this
+    function can't generically verify) is forced unconditionally.
+
     This pass runs after prepare_qat_pt2e when fake quantize modules are fully
     instantiated.
 
@@ -194,13 +204,14 @@ def force_per_tensor_for_channel_altering_ops(model: GraphModule) -> None:
         if node.op != "call_function" or node.target not in _CHANNEL_ALTERING_ATEN_OPS:
             continue
 
-        # Collect input and output fake quantize modules
-        input_fqs: list[FakeQuantizeImplBase] = []
+        # Collect input fake quantize modules, keyed by id, alongside the graph
+        # node that feeds each one (needed to read the pre-op input shape).
+        input_fq_nodes_by_id: dict[int, Node] = {}
         for input_node in node.all_input_nodes:
             if input_node.op == "call_module":
                 mod = modules.get(str(input_node.target))
                 if isinstance(mod, FakeQuantizeImplBase):
-                    input_fqs.append(mod)
+                    input_fq_nodes_by_id[id(mod)] = input_node
 
         output_fqs: list[FakeQuantizeImplBase] = []
         for user_node in node.users:
@@ -212,10 +223,44 @@ def force_per_tensor_for_channel_altering_ops(model: GraphModule) -> None:
         # Only force per-tensor when input and output quantizers are the same
         # shared object — meaning they share observer parameters across the
         # channel-altering op, which breaks axis semantics.
-        input_fq_ids = {id(fq) for fq in input_fqs}
         for output_fq in output_fqs:
-            if id(output_fq) in input_fq_ids:
+            input_fq_node = input_fq_nodes_by_id.get(id(output_fq))
+            if input_fq_node is None:
+                continue
+            if _shared_granularity_axis_is_unsafe(output_fq, input_fq_node, node):
                 _force_fake_quant_to_per_tensor(output_fq, node)
+
+
+def _shared_granularity_axis_is_unsafe(
+    fake_quant: FakeQuantizeImplBase,
+    input_fq_node: Node,
+    op_node: Node,
+) -> bool:
+    """Return True if ``fake_quant``'s granularity is unsafe to keep shared
+    across ``op_node``.
+    """
+    granularity = fake_quant.granularity
+    # PerTensorGranularity has no axis, so it's always safe (nothing to force).
+    if isinstance(granularity, PerTensorGranularity):
+        return False
+    # Any other granularity (e.g. PerBlockGranularity) can't be generically
+    # verified below, so it's treated as unsafe. PerChannelGranularity is
+    # safe specifically when the op leaves the resolved axis's dimension
+    # size unchanged between input and output, checked via shape metadata.
+    if not isinstance(granularity, PerChannelGranularity):
+        return True
+
+    output_shape = op_node.meta["val"].shape
+    input_shape = input_fq_node.all_input_nodes[0].meta["val"].shape
+    if len(input_shape) != len(output_shape):
+        # Rank changed (e.g. flatten): positional axis comparison is
+        # meaningless, since broadcasting aligns dims from the trailing side,
+        # not by raw index. Always unsafe.
+        return True
+    axis = QuantizationGranularity._resolve_axis(granularity, len(input_shape))
+    if axis is None:
+        return True
+    return input_shape[axis] != output_shape[axis]
 
 
 def _force_fake_quant_to_per_tensor(fake_quant: FakeQuantizeImplBase, op_node: Node) -> None:
