@@ -11,6 +11,7 @@ input/output specifications to ensure fake quantize layers are inserted correctl
 in different parts of the model.
 """
 
+import logging
 from unittest.mock import Mock
 
 import pytest
@@ -212,6 +213,55 @@ class SimpleFlattenModel(nn.Module):
         x = self.flatten(x)
         x = self.linear(x)
         return x
+
+
+_POOL_CONV_CLS = {1: torch.nn.Conv1d, 2: torch.nn.Conv2d, 3: torch.nn.Conv3d}
+_POOL_SPATIAL_SHAPE = {1: (8,), 2: (8, 8), 3: (8, 8, 8)}
+_POOL_CLS = {
+    "max": {1: torch.nn.MaxPool1d, 2: torch.nn.MaxPool2d, 3: torch.nn.MaxPool3d},
+    "avg": {1: torch.nn.AvgPool1d, 2: torch.nn.AvgPool2d, 3: torch.nn.AvgPool3d},
+    "adaptive_avg": {
+        1: torch.nn.AdaptiveAvgPool1d,
+        2: torch.nn.AdaptiveAvgPool2d,
+        3: torch.nn.AdaptiveAvgPool3d,
+    },
+}
+
+
+def _build_pool(pool_type: str, dim: int) -> nn.Module:
+    pool_cls = _POOL_CLS[pool_type][dim]
+    if pool_type == "adaptive_avg":
+        # AdaptiveAvgPool takes an output size, not a kernel/stride; 4 is half
+        # of _POOL_SPATIAL_SHAPE's 8, matching stride-2 max/avg pool's shrink.
+        return pool_cls((4,) * dim)
+    return pool_cls(2, stride=2)
+
+
+class SimplePoolModel(nn.Module):
+    """Simple model with a pool that shrinks its spatial dimensions.
+
+    Parametrized over ``pool_type`` ("max", "avg", "adaptive_avg") and ``dim``
+    (1, 2, or 3) to exercise MaxPool/AvgPool/AdaptiveAvgPool 1d/2d/3d.
+    """
+
+    def __init__(self, pool_type: str = "max", dim: int = 2):
+        super().__init__()
+        conv_cls = _POOL_CONV_CLS[dim]
+        kernel = (3,) * dim
+        padding = (1,) * dim
+        self.conv = conv_cls(3, 4, kernel, padding=padding, bias=False)
+        self.pool = _build_pool(pool_type, dim)
+        self.conv2 = conv_cls(4, 4, kernel, padding=padding, bias=False)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.pool(x)
+        x = self.conv2(x)
+        return x
+
+    @staticmethod
+    def example_input(dim: int = 2) -> torch.Tensor:
+        return torch.randn(2, 3, *_POOL_SPATIAL_SHAPE[dim])
 
 
 class SimpleCatModel(nn.Module):
@@ -1371,6 +1421,146 @@ class TestAnnotationPatternRegistry:
         linear_output_fq = getattr(prepared_model, linear_output_fq_node.name)
         assert isinstance(linear_output_fq.granularity, PerChannelGranularity)
         assert linear_output_fq.qparams_calculator.scale.numel() > 1
+
+    _POOL_ATEN_PREFIX = {"max": "max_pool", "avg": "avg_pool", "adaptive_avg": "adaptive_avg_pool"}
+
+    @pytest.mark.parametrize("dim", [1, 2, 3], ids=["1d", "2d", "3d"])
+    @pytest.mark.parametrize("pool_type", ["max", "avg", "adaptive_avg"])
+    def test_shared_observer_forces_per_tensor_for_pool_axis_that_shrinks(
+        self, caplog, pool_type, dim
+    ):
+        """
+        When per-channel activation granularity is configured on an axis whose
+        size a pool actually shrinks (e.g. the last spatial axis under a
+        stride-2/output-shrinking pool), the shared fake quantize module
+        spanning the pool's input and output should be forced to per-tensor
+        granularity, with a warning naming the op and axis. Conv activation
+        quantizers (separate objects) should remain per-channel.
+        """
+        model = SimplePoolModel(pool_type=pool_type, dim=dim)
+        inp = SimplePoolModel.example_input(dim=dim)
+        pool_target_name = f"{self._POOL_ATEN_PREFIX[pool_type]}{dim}d"
+
+        per_channel_activation_spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerChannelGranularity(axis=-1),
+            fake_quantize_cls="default",
+            qparam_calculator_cls="default",
+            range_calculator_cls="minmax",
+        )
+
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec=None,
+                op_input_spec={"*": per_channel_activation_spec},
+                op_output_spec={"*": per_channel_activation_spec},
+            ),
+        )
+
+        quantizer = Quantizer(model, config)
+        with caplog.at_level(logging.WARNING):
+            prepared_model = quantizer.prepare(example_inputs=(inp,))
+
+        pool_node = [
+            node for node in prepared_model.graph.nodes if pool_target_name in str(node.target)
+        ][0]
+        input_fq_name = pool_node.all_input_nodes[0].name
+        output_fq_name = list(pool_node.users.keys())[0].name
+
+        input_fq = getattr(prepared_model, input_fq_name)
+        output_fq = getattr(prepared_model, output_fq_name)
+
+        # Shared observer: input and output should be the same object
+        assert input_fq is output_fq
+
+        # The shared fake quantize should have been forced to per-tensor
+        assert isinstance(input_fq.granularity, PerTensorGranularity)
+
+        # A warning naming the op and the unsafe axis should have been logged.
+        assert any(
+            pool_target_name in record.message and "axis" in record.message.lower()
+            for record in caplog.records
+        )
+
+        # Run a forward pass to initialize observer parameters, then verify
+        # the scale is a scalar (numel == 1), confirming per-tensor behavior.
+        prepared_model.eval()
+        with torch.no_grad():
+            prepared_model(inp)
+        assert input_fq.qparams_calculator.scale.numel() == 1
+
+        # Conv activation quantizers (separate objects, not shared across the
+        # pool) should remain per-channel.
+        conv_node = [node for node in prepared_model.graph.nodes if node.name == f"conv{dim}d"][0]
+        conv_input_fq_node = [
+            n for n in conv_node.all_input_nodes if "activation_post_process" in n.name
+        ][0]
+        conv_input_fq = getattr(prepared_model, conv_input_fq_node.name)
+        assert isinstance(conv_input_fq.granularity, PerChannelGranularity)
+        assert conv_input_fq.qparams_calculator.scale.numel() > 1
+
+    @pytest.mark.parametrize("dim", [1, 2, 3], ids=["1d", "2d", "3d"])
+    @pytest.mark.parametrize("pool_type", ["max", "avg", "adaptive_avg"])
+    def test_shared_observer_preserves_per_channel_for_pool_axis_that_is_invariant(
+        self, caplog, pool_type, dim
+    ):
+        """
+        When per-channel activation granularity is configured on an axis whose
+        size a pool leaves unchanged (the channel axis: pooling never changes
+        channel count), the shared fake quantize module spanning the pool's
+        input and output should remain per-channel, and no warning should be
+        logged.
+        """
+        model = SimplePoolModel(pool_type=pool_type, dim=dim)
+        inp = SimplePoolModel.example_input(dim=dim)
+        pool_target_name = f"{self._POOL_ATEN_PREFIX[pool_type]}{dim}d"
+
+        per_channel_activation_spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerChannelGranularity(axis=1),
+            fake_quantize_cls="default",
+            qparam_calculator_cls="default",
+            range_calculator_cls="minmax",
+        )
+
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec=None,
+                op_input_spec={"*": per_channel_activation_spec},
+                op_output_spec={"*": per_channel_activation_spec},
+            ),
+        )
+
+        quantizer = Quantizer(model, config)
+        with caplog.at_level(logging.WARNING):
+            prepared_model = quantizer.prepare(example_inputs=(inp,))
+
+        pool_node = [
+            node for node in prepared_model.graph.nodes if pool_target_name in str(node.target)
+        ][0]
+        input_fq_name = pool_node.all_input_nodes[0].name
+        output_fq_name = list(pool_node.users.keys())[0].name
+
+        input_fq = getattr(prepared_model, input_fq_name)
+        output_fq = getattr(prepared_model, output_fq_name)
+
+        # Shared observer: input and output should be the same object
+        assert input_fq is output_fq
+
+        # The shared fake quantize should remain per-channel: axis=1 (channel)
+        # is invariant across pooling, so the buffer shape is safe on both
+        # calls and there's no need to downgrade.
+        assert isinstance(input_fq.granularity, PerChannelGranularity)
+
+        # No warning should have been logged for this safe axis.
+        assert not any(pool_target_name in record.message for record in caplog.records)
+
+        prepared_model.eval()
+        with torch.no_grad():
+            prepared_model(inp)
+        assert input_fq.qparams_calculator.scale.numel() > 1
 
     def test_cat(self):
         """
