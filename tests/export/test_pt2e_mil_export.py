@@ -11,6 +11,7 @@ import torch
 from coreai_opt import ExportBackend
 from coreai_opt.quantization import ModuleQuantizerConfig, Quantizer, QuantizerConfig
 from coreai_opt.quantization.spec import (
+    PerBlockGranularity,
     PerChannelGranularity,
     PerTensorGranularity,
     QuantizationGranularity,
@@ -28,11 +29,43 @@ from tests.fixtures.quantization import (
     COREML_WEIGHT_REJECT_DTYPES,
     make_quant_config,
 )
-from tests.test_utils.general import SNRBelowThresholdError
 
 from . import export_utils
 
 # TODO: migrate to using conftest.py for fixtures.
+
+
+def _build_simple_model_quant_config(
+    weight_dtype: torch.dtype,
+    weight_granularity: QuantizationGranularity,
+    act_granularity: QuantizationGranularity,
+    qscheme: QuantizationScheme,
+) -> QuantizerConfig:
+    """Build a QuantizerConfig for the simple conv/linear model's weight and activations."""
+    weight_qspec = QuantizationSpec(
+        dtype=weight_dtype,
+        qscheme=qscheme,
+        granularity=weight_granularity,
+        fake_quantize_cls=_DefaultFakeQuantizeImpl,
+        qparam_calculator_cls=StaticQParamsCalculator,
+        range_calculator_cls=MinMaxRangeCalculator,
+    )
+    activation_qspec = QuantizationSpec(
+        dtype=torch.uint8,
+        qscheme=qscheme,
+        granularity=act_granularity,
+        fake_quantize_cls=_DefaultFakeQuantizeImpl,
+        qparam_calculator_cls=MovingAverageQParamsCalculator,
+        range_calculator_cls=MinMaxRangeCalculator,
+    )
+    return QuantizerConfig(
+        global_config=ModuleQuantizerConfig(
+            op_state_spec={"weight": weight_qspec},
+            op_input_spec={"*": activation_qspec},
+            op_output_spec={"*": activation_qspec},
+        ),
+    )
+
 
 _test_params = (
     [
@@ -42,13 +75,7 @@ _test_params = (
     ]
     + [
         # uint8 weights with per-channel (axis=0) granularity
-        (torch.uint8, PerChannelGranularity(axis=0), PerChannelGranularity(axis=0), qscheme)
-        for qscheme in QuantizationScheme
-    ]
-    + [
-        # uint8 weights with per-channel (axis=0) granularity and per-channel activations
-        # with negative axis
-        (torch.uint8, PerChannelGranularity(axis=0), PerChannelGranularity(axis=-1), qscheme)
+        (torch.uint8, PerChannelGranularity(axis=0), PerTensorGranularity(), qscheme)
         for qscheme in QuantizationScheme
     ]
     + [
@@ -62,20 +89,8 @@ _test_params = (
         for qscheme in QuantizationScheme
     ]
     + [
-        # int8 weights with per-channel (axis=1) and per-channel activations with
-        # negative axis
-        (torch.int8, PerChannelGranularity(axis=1), PerChannelGranularity(axis=-1), qscheme)
-        for qscheme in QuantizationScheme
-    ]
-    + [
         # int4 weights with per-channel (axis=1) - low-bit with per-channel
         (torch.int4, PerChannelGranularity(axis=1), PerTensorGranularity(), qscheme)
-        for qscheme in QuantizationScheme
-    ]
-    + [
-        # int4 weights with per-channel (axis=1) - low-bit with per-channel and per-channel
-        # activations with negative axis
-        (torch.int4, PerChannelGranularity(axis=1), PerChannelGranularity(axis=-1), qscheme)
         for qscheme in QuantizationScheme
     ]
     + [
@@ -98,31 +113,10 @@ _test_ids = [
     for dtype, wg, ag, qscheme in _test_params
 ]
 
-# Mark known failing cases as xfail
-_test_params_with_xfail: list = []
-for params in _test_params:
-    dtype, wg, ag, qscheme = params
-    # Per-channel activation with negative axis has SNR below threshold.
-    # TODO: SNR below threshold for per-channel activation with negative axis on CoreML export.
-    if isinstance(ag, PerChannelGranularity) and ag.axis is not None and ag.axis < 0:
-        _test_params_with_xfail.append(
-            pytest.param(
-                *params,
-                # TODO: SNR below threshold for per-channel activation with negative axis
-                # on CoreML export.
-                marks=pytest.mark.xfail(
-                    raises=SNRBelowThresholdError,
-                    reason="SNR below threshold for per-channel activation with negative axis.",
-                ),
-            ),
-        )
-    else:
-        _test_params_with_xfail.append(params)
-
 
 @pytest.mark.parametrize(
     ("weight_dtype", "weight_granularity", "act_granularity", "qscheme"),
-    _test_params_with_xfail,
+    _test_params,
     ids=_test_ids,
 )
 def test_simple_model_export(
@@ -137,28 +131,8 @@ def test_simple_model_export(
     model = simple_conv_linear_model
     model.eval()
 
-    weight_qspec = QuantizationSpec(
-        dtype=weight_dtype,
-        qscheme=qscheme,
-        granularity=weight_granularity,
-        fake_quantize_cls=_DefaultFakeQuantizeImpl,
-        qparam_calculator_cls=StaticQParamsCalculator,
-        range_calculator_cls=MinMaxRangeCalculator,
-    )
-    activation_qspec = QuantizationSpec(
-        dtype=torch.uint8,
-        qscheme=qscheme,
-        granularity=act_granularity,
-        fake_quantize_cls=_DefaultFakeQuantizeImpl,
-        qparam_calculator_cls=MovingAverageQParamsCalculator,
-        range_calculator_cls=MinMaxRangeCalculator,
-    )
-    config = QuantizerConfig(
-        global_config=ModuleQuantizerConfig(
-            op_state_spec={"weight": weight_qspec},
-            op_input_spec={"*": activation_qspec},
-            op_output_spec={"*": activation_qspec},
-        ),
+    config = _build_simple_model_quant_config(
+        weight_dtype, weight_granularity, act_granularity, qscheme
     )
     quantizer = Quantizer(model, config)
     prepared_model = quantizer.prepare((simple_model_input,))
@@ -179,6 +153,57 @@ def test_simple_model_export(
         export_backend=ExportBackend.CoreML,
         prepared_model_output=prepared_model_output,
     )
+
+
+# CoreML export rejects per-channel and per-block activation quantization outright,
+# regardless of axis, dtype, or qscheme: a downstream coremltools MIL pass can
+# silently corrupt it.
+_perchannel_act_reject_params = [
+    (
+        torch.uint8,
+        PerChannelGranularity(axis=0),
+        PerChannelGranularity(axis=0),
+        QuantizationScheme.SYMMETRIC,
+    ),
+    (
+        torch.int8,
+        PerChannelGranularity(axis=1),
+        PerChannelGranularity(axis=-1),
+        QuantizationScheme.ASYMMETRIC,
+    ),
+    (
+        torch.int8,
+        PerTensorGranularity(),
+        PerBlockGranularity(axis=1, block_size=2),
+        QuantizationScheme.SYMMETRIC,
+    ),
+]
+_perchannel_act_reject_ids = ["axis0--symmetric", "axis-1--asymmetric", "per-block--symmetric"]
+
+
+@pytest.mark.parametrize(
+    ("weight_dtype", "weight_granularity", "act_granularity", "qscheme"),
+    _perchannel_act_reject_params,
+    ids=_perchannel_act_reject_ids,
+)
+def test_simple_model_export_rejects_perchannel_activation(
+    simple_conv_linear_model: torch.nn.Module,
+    simple_model_input: torch.Tensor,
+    weight_dtype: torch.dtype,
+    weight_granularity: QuantizationGranularity,
+    act_granularity: QuantizationGranularity,
+    qscheme: QuantizationScheme,
+) -> None:
+    """Per-channel activation quantization must be rejected on CoreML export."""
+    model = simple_conv_linear_model
+    model.eval()
+
+    config = _build_simple_model_quant_config(
+        weight_dtype, weight_granularity, act_granularity, qscheme
+    )
+    quantizer = Quantizer(model, config)
+    quantizer.prepare((simple_model_input,))
+    export_utils.assert_coreml_finalize_rejects(quantizer)
 
 
 _mnist_test_params = [
@@ -322,20 +347,10 @@ def test_resnet_export(
     )
 
 
-# Per-channel activation axis test params for GatedMLPModel.
-_gated_mlp_test_params = [
-    (act_gran, qscheme)
-    for act_gran in [
-        PerTensorGranularity(),
-        PerChannelGranularity(axis=0),
-        PerChannelGranularity(axis=1),
-        PerChannelGranularity(axis=2),
-        PerChannelGranularity(axis=-1),
-        PerChannelGranularity(axis=-2),
-        PerChannelGranularity(axis=-3),
-    ]
-    for qscheme in QuantizationScheme
-]
+# Activation granularity test params for GatedMLPModel. CoreML export rejects
+# PerChannelGranularity activations outright (see test_gated_mlp_export_rejects_
+# perchannel_activation below), so only PerTensorGranularity actually exports here.
+_gated_mlp_test_params = [(PerTensorGranularity(), qscheme) for qscheme in QuantizationScheme]
 
 _gated_mlp_test_ids = [
     f"ag:{ag.__class__.__name__.replace('Granularity', '')}--"
@@ -345,24 +360,11 @@ _gated_mlp_test_ids = [
 ]
 
 
-@pytest.mark.parametrize(
-    ("act_granularity", "qscheme"),
-    _gated_mlp_test_params,
-    ids=_gated_mlp_test_ids,
-)
-def test_gated_mlp_export(
-    gated_mlp_model: torch.nn.Module,
-    gated_mlp_model_input: torch.Tensor,
+def _build_gated_mlp_quant_config(
     act_granularity: QuantizationGranularity,
     qscheme: QuantizationScheme,
-) -> None:
-    """Test PT2E CoreML export with per-channel activation quantization axes.
-    Uses GatedMLPModel (uniform rank-3 activations throughout the model) to
-    test per-channel activation quantization across all valid axis values.
-    """
-    model = gated_mlp_model
-    model.eval()
-
+) -> QuantizerConfig:
+    """Build a QuantizerConfig for GatedMLPModel's weight and activations."""
     weight_qspec = QuantizationSpec(
         dtype=torch.int8,
         qscheme=qscheme,
@@ -379,13 +381,31 @@ def test_gated_mlp_export(
         qparam_calculator_cls=MovingAverageQParamsCalculator,
         range_calculator_cls=MinMaxRangeCalculator,
     )
-    config = QuantizerConfig(
+    return QuantizerConfig(
         global_config=ModuleQuantizerConfig(
             op_state_spec={"weight": weight_qspec},
             op_input_spec={"*": activation_qspec},
             op_output_spec={"*": activation_qspec},
         ),
     )
+
+
+@pytest.mark.parametrize(
+    ("act_granularity", "qscheme"),
+    _gated_mlp_test_params,
+    ids=_gated_mlp_test_ids,
+)
+def test_gated_mlp_export(
+    gated_mlp_model: torch.nn.Module,
+    gated_mlp_model_input: torch.Tensor,
+    act_granularity: QuantizationGranularity,
+    qscheme: QuantizationScheme,
+) -> None:
+    """Test PT2E CoreML export with per-tensor activation quantization."""
+    model = gated_mlp_model
+    model.eval()
+
+    config = _build_gated_mlp_quant_config(act_granularity, qscheme)
     quantizer = Quantizer(model, config)
     prepared_model = quantizer.prepare((gated_mlp_model_input,))
 
@@ -407,6 +427,37 @@ def test_gated_mlp_export(
     )
 
 
+# CoreML export rejects per-channel and per-block activation quantization outright,
+# regardless of axis: a downstream coremltools MIL pass can silently corrupt it.
+_gated_mlp_reject_params = [
+    (PerChannelGranularity(axis=0), QuantizationScheme.SYMMETRIC),
+    (PerChannelGranularity(axis=-1), QuantizationScheme.ASYMMETRIC),
+    (PerBlockGranularity(axis=1, block_size=2), QuantizationScheme.SYMMETRIC),
+]
+_gated_mlp_reject_ids = ["axis0--symmetric", "axis-1--asymmetric", "per-block--symmetric"]
+
+
+@pytest.mark.parametrize(
+    ("act_granularity", "qscheme"),
+    _gated_mlp_reject_params,
+    ids=_gated_mlp_reject_ids,
+)
+def test_gated_mlp_export_rejects_perchannel_activation(
+    gated_mlp_model: torch.nn.Module,
+    gated_mlp_model_input: torch.Tensor,
+    act_granularity: QuantizationGranularity,
+    qscheme: QuantizationScheme,
+) -> None:
+    """Per-channel activation quantization must be rejected regardless of axis."""
+    model = gated_mlp_model
+    model.eval()
+
+    config = _build_gated_mlp_quant_config(act_granularity, qscheme)
+    quantizer = Quantizer(model, config)
+    quantizer.prepare((gated_mlp_model_input,))
+    export_utils.assert_coreml_finalize_rejects(quantizer)
+
+
 # Unsupported dtypes (FP4, FP8, INT2, UINT2) must be rejected on CoreML export;
 # finalize must reject them. Dtype lists and the config builder live in conftest
 # (shared with the eager tests).
@@ -422,7 +473,7 @@ def test_unsupported_weight_quant_coreml_export_rejected(
     model.eval()
     quantizer = Quantizer(model, config)
     quantizer.prepare((simple_model_input,))
-    export_utils.assert_coreml_finalize_rejects_unsupported_dtype(quantizer)
+    export_utils.assert_coreml_finalize_rejects(quantizer)
 
 
 @pytest.mark.parametrize("act_dtype", COREML_ACT_REJECT_DTYPES)
@@ -437,4 +488,4 @@ def test_unsupported_activation_quant_coreml_export_rejected(
     model.eval()
     quantizer = Quantizer(model, config)
     quantizer.prepare((simple_model_input,))
-    export_utils.assert_coreml_finalize_rejects_unsupported_dtype(quantizer)
+    export_utils.assert_coreml_finalize_rejects(quantizer)

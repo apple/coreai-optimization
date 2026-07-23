@@ -17,15 +17,11 @@ from typing import Any
 import torch.nn.utils.parametrize as P
 from torch import nn
 
-from coreai_opt._utils.export_utils import (
-    COREML_SUPPORTED_ACTIVATION_DTYPES,
-    COREML_SUPPORTED_WEIGHT_DTYPES,
-)
+from coreai_opt._utils.export_utils import validate_coreml_compatibility
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
 from coreai_opt._utils.torch_utils import (
     get_parent_module_and_attr_name as _get_parent_module_and_attr_name,
 )
-from coreai_opt.common import CoreMLExportError
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
     convert_dtype_for_torch_quantize as _convert_dtype_for_torch_quantize,
@@ -35,7 +31,6 @@ from coreai_opt.quantization._export_utils import (
     validate_qformulation_for_mil_export as _validate_qformulation_for_mil_export,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
-from coreai_opt.quantization.spec.granularity import PerBlockGranularity
 
 
 def _process_weight_quantization(
@@ -96,22 +91,16 @@ def _process_activation_quantization(
 ) -> None:
     """Process activation quantization by replacing with Sequential quantize/dequantize.
 
-    Supports both per-tensor and per-channel quantization based on the
-    granularity axis of the fake quantization module.
+    By the time this runs, CoreML export compatibility has already been
+    validated, so only per-tensor activation granularity ever reaches here.
 
     Args:
         parent_module: The parent module containing the fake quantizer
         attr_name: The attribute name of the fake quantizer in the parent
         fake_quant_mod: The fake quantization module to replace
 
-    Raises:
-        ValueError: If the granularity is per-block (not supported for MIL
-            activation export).
-
     """
     _validate_qformulation_for_mil_export(fake_quant_mod)
-    if isinstance(fake_quant_mod.granularity, PerBlockGranularity):
-        raise ValueError("MIL export does not support per-block granularity for activations.")
 
     scale, zero_point, _ = _extract_quantization_params(fake_quant_mod)
     converted_dtype, converted_zero_point = _convert_dtype_for_torch_quantize(
@@ -151,24 +140,24 @@ def prepare_for_mil_export(model: nn.Module) -> nn.Module:
     """
     processed_fq_ids: set[int] = set()
 
-    # CoreML does not support certain dtypes (FP4, FP8, INT2, UINT2). Fail fast
-    # before mutating the model below.
+    # Fail fast if model is not coreml-exportable
     for module_name, module in model.named_modules():
         if P.is_parametrized(module):
             for param_name, parametrizations in module.parametrizations.items():
                 for p in parametrizations:
-                    if (
-                        _is_module_fake_quant_target(p, CompressionTargetTensor.WEIGHT)
-                        and p.dtype not in COREML_SUPPORTED_WEIGHT_DTYPES
-                    ):
-                        raise CoreMLExportError(
-                            p.dtype, f"weight '{param_name}' of module '{module_name}'"
+                    if _is_module_fake_quant_target(p, CompressionTargetTensor.WEIGHT):
+                        validate_coreml_compatibility(
+                            CompressionTargetTensor.WEIGHT,
+                            p.dtype,
+                            f"weight '{param_name}' of module '{module_name}'",
                         )
-        if (
-            _is_module_fake_quant_target(module, CompressionTargetTensor.ACTIVATION)
-            and module.dtype not in COREML_SUPPORTED_ACTIVATION_DTYPES
-        ):
-            raise CoreMLExportError(module.dtype, f"activation quantizer of module '{module_name}'")
+        if _is_module_fake_quant_target(module, CompressionTargetTensor.ACTIVATION):
+            validate_coreml_compatibility(
+                CompressionTargetTensor.ACTIVATION,
+                module.dtype,
+                f"activation quantizer of module '{module_name}'",
+                module.granularity,
+            )
 
     for name, module in list(model.named_modules()):
         # Handle weight quantization parametrizations
