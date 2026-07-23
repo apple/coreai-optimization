@@ -314,8 +314,10 @@ def _op_preserves_axis_identity(op_node: Node, axis: int) -> bool:
     ``axis`` to a different position between its input and output.
 
     Only called for ops in ``_AXIS_REORDERING_ATEN_OPS`` (transpose, t,
-    permute); the three branches below cover exactly those ops, so the
-    trailing fallback is unreachable in practice.
+    permute), which the three branches below exhaustively cover. The
+    trailing fallback defaults to False rather than True, consistent with
+    this module's fail-safe default: a reordering op this function doesn't
+    yet know how to analyze should never be assumed identity-preserving.
     """
     if op_node.target == torch.ops.aten.transpose.int:
         _, dim0, dim1 = op_node.args
@@ -331,7 +333,7 @@ def _op_preserves_axis_identity(op_node: Node, axis: int) -> bool:
     if op_node.target == torch.ops.aten.permute.default:
         _, dims = op_node.args
         return dims[axis] == axis
-    return True
+    return False
 
 
 def _force_fake_quant_to_per_tensor(fake_quant: FakeQuantizeImplBase, op_node: Node) -> None:
