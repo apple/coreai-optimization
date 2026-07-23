@@ -23,7 +23,7 @@ from coreai_opt._utils.config_utils import ConfigLevel as _ConfigLevel
 from coreai_opt._utils.export_utils import (
     validate_mmap_backend_and_device as _validate_mmap_backend_and_device,
 )
-from coreai_opt._utils.torch_utils import get_module_name
+from coreai_opt._utils.torch_utils import get_module_name as _get_module_name
 from coreai_opt.common import ExportBackend
 from coreai_opt.quantization._eager import EagerQuantizer as _EagerQuantizer
 from coreai_opt.quantization._graph import GraphQuantizer as _GraphQuantizer
@@ -287,7 +287,7 @@ class Quantizer(_BaseQuantizer):
             self._quantizer._model.apply(fn)
             return
 
-        prefix = get_module_name(self._quantizer._model, module)
+        prefix = _get_module_name(self._quantizer._model, module)
         if prefix is None:
             raise ValueError(f"Module {module} is not a submodule of the prepared model.")
 

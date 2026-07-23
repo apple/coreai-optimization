@@ -12,15 +12,13 @@ import torch.nn as nn
 import torch.nn.utils.parametrize as P
 
 from coreai_opt._utils.export_utils import (
-    clear_parametrization_original as _clear_parametrization_original,
-    prepare_mmap_dir as _prepare_mmap_dir,
+    clear_parametrization_original,
+    prepare_mmap_dir,
     validate_coreml_palettization_compatibility,
 )
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
-from coreai_opt._utils.torch_utils import (
-    mmap_module_state_dict as _mmap_module_state_dict,
-)
+from coreai_opt._utils.torch_utils import mmap_module_state_dict
 from coreai_opt.common import ExportBackend
 from coreai_opt.palettization.spec.fake_palettize import (
     _FakePalettizeImplBase,
@@ -282,11 +280,11 @@ def _insert_mlir_custom_op(
         # drop the leading dot in that case so we don't write ".weight.safetensors".
         stem = f"{module_name}.{param_name}" if module_name else param_name
         path = Path(mmap_dir) / f"{stem}.safetensors"
-        _mmap_module_state_dict(mlir_palett_mod, path)
+        mmap_module_state_dict(mlir_palett_mod, path)
 
     # Replace _FakePalettizeImplBase
     module.parametrizations[param_name][fake_palett_idx] = mlir_palett_mod
-    _clear_parametrization_original(module, param_name)
+    clear_parametrization_original(module, param_name)
 
 
 def _find_fake_palett_parametrization(
@@ -361,7 +359,7 @@ def _process_weight_palettization(
             it via mmap, so large-model finalization does not hold full
             palettized weights in RAM. Only honored for the CoreAI backend.
     """
-    _prepare_mmap_dir(mmap_dir)
+    prepare_mmap_dir(mmap_dir)
 
     for module_name, module in model.named_modules():
         if not P.is_parametrized(module):

@@ -11,7 +11,7 @@ from typing import Any, TypeVar, cast
 import torch.nn.functional as F
 
 from coreai_opt._utils.insertion.torch_function import (
-    BaseSupportedOpsRegistry,
+    BaseSupportedOpsRegistry as _BaseSupportedOpsRegistry,
 )
 from coreai_opt.palettization.kmeans.kmeans_support_mixins import (
     _ConvPalettizationMixin,
@@ -24,7 +24,7 @@ from coreai_opt.palettization.kmeans.kmeans_support_mixins import (
 _T = TypeVar("_T")
 
 
-class _KMeansPalettizerSupportedOpsRegistry(BaseSupportedOpsRegistry):
+class _KMeansPalettizerSupportedOpsRegistry(_BaseSupportedOpsRegistry):
     """
     Registry for KMeans palettization operations.
 

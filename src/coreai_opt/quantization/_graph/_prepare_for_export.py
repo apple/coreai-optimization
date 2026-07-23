@@ -18,23 +18,20 @@ import torch
 from torch.fx import Node
 
 from coreai_opt._utils.export_utils import validate_coreml_compatibility
-from coreai_opt._utils.fx_utils import get_node_type as _get_node_type
+from coreai_opt._utils.fx_utils import get_node_type
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
-from coreai_opt._utils.torch_utils import (
-    is_float4_dtype as _is_float4_dtype,
-    sanitize_module_name as _sanitize_module_name,
-)
+from coreai_opt._utils.torch_utils import is_float4_dtype, sanitize_module_name
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
-    canonicalize_qparam_shape as _canonicalize_qparam_shape,
-    convert_dtype_for_torch_quantize as _convert_dtype_for_torch_quantize,
-    create_mil_act_quant_seq as _create_mil_act_quant_seq,
-    extract_quantization_params as _extract_quantization_params,
-    pack_fp4_to_float4tensor as _pack_fp4_to_float4tensor,
-    select_export_qparams_by_formulation as _select_export_qparams_by_formulation,
-    validate_fp4_export as _validate_fp4_export,
-    validate_qformulation_for_mil_export as _validate_qformulation_for_mil_export,
+    canonicalize_qparam_shape,
+    convert_dtype_for_torch_quantize,
+    create_mil_act_quant_seq,
+    extract_quantization_params,
+    pack_fp4_to_float4tensor,
+    select_export_qparams_by_formulation,
+    validate_fp4_export,
+    validate_qformulation_for_mil_export,
 )
 from coreai_opt.quantization._graph._utils import (
     remove_fake_quant_module,
@@ -266,7 +263,7 @@ def _process_mlir_weight_quantization(
         raise ValueError(f"Expected get_attr node for weight quantization, got {input_node.op}")
 
     # Extract and prepare quantization parameters
-    scale, zero_point, minval = _extract_quantization_params(fake_quant_mod)
+    scale, zero_point, minval = extract_quantization_params(fake_quant_mod)
     # Cast scale and minval to appropriate dtype for MLIR backend inference
     _compute_dtype_for_export = fake_quant_mod.qparams_calculator._compute_dtype_for_export
     scale = scale.to(dtype=_compute_dtype_for_export)
@@ -279,12 +276,12 @@ def _process_mlir_weight_quantization(
 
     # Drop one of the offsets so that the export
     # module / runtime selects the right dequant path.
-    zero_point, minval = _select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
+    zero_point, minval = select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
 
     # Convert to export dtypes for MLIR ops
-    if _is_float4_dtype(fake_quant_mod.dtype):
-        _validate_fp4_export(fake_quant_mod, quantized_data)
-        quantized_data = _pack_fp4_to_float4tensor(quantized_data)
+    if is_float4_dtype(fake_quant_mod.dtype):
+        validate_fp4_export(fake_quant_mod, quantized_data)
+        quantized_data = pack_fp4_to_float4tensor(quantized_data)
     if fake_quant_mod.qparams_calculator.scale_dtype == torch.float8_e8m0fnu:
         scale = scale.to(torch.float8_e8m0fnu)
 
@@ -338,7 +335,7 @@ def _process_mlir_activation_quantization(
         node: The fake quantization node to replace
         fake_quant_mod: The fake quantization module
     """
-    if _is_float4_dtype(fake_quant_mod.dtype):
+    if is_float4_dtype(fake_quant_mod.dtype):
         raise ValueError("FP4 activation quantization is not supported for MLIR export.")
 
     def _import_coreai_custom_ops():
@@ -353,11 +350,11 @@ def _process_mlir_activation_quantization(
         raise ValueError(f"Node {node} has no input arguments")
 
     # Extract and prepare quantization parameters
-    scale, zero_point, minval = _extract_quantization_params(fake_quant_mod)
+    scale, zero_point, minval = extract_quantization_params(fake_quant_mod)
 
     # Drop the offset the active formulation doesn't consume so the runtime op
     # selects the right dequant path.
-    zero_point, minval = _select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
+    zero_point, minval = select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
 
     # Cast scale and minval to appropriate dtype for MLIR backend inference
     _compute_dtype_for_export = fake_quant_mod.qparams_calculator._compute_dtype_for_export
@@ -370,11 +367,11 @@ def _process_mlir_activation_quantization(
 
     # Canonicalize scale/zero_point/minval to 0-D (per-tensor) or 1-D (per-channel)
     granularity = fake_quant_mod.granularity
-    scale = _canonicalize_qparam_shape(scale, granularity)
+    scale = canonicalize_qparam_shape(scale, granularity)
     if zero_point is not None:
-        zero_point = _canonicalize_qparam_shape(zero_point, granularity)
+        zero_point = canonicalize_qparam_shape(zero_point, granularity)
     if minval is not None:
-        minval = _canonicalize_qparam_shape(minval, granularity)
+        minval = canonicalize_qparam_shape(minval, granularity)
 
     # Register buffers and get buffer names
     base_name = node.name.replace(".", "_")
@@ -456,9 +453,9 @@ def _process_mil_weight_quantization(
         modules: Mapping of module names to modules
 
     """
-    _validate_qformulation_for_mil_export(fake_quant_mod)
+    validate_qformulation_for_mil_export(fake_quant_mod)
     # Extract quantization parameters
-    scale, zero_point, _ = _extract_quantization_params(fake_quant_mod)
+    scale, zero_point, _ = extract_quantization_params(fake_quant_mod)
     module_name, param_name = _get_weight_input_names(fake_quant_node, fake_quant_mod)
 
     # Get the module that owns the weight parameter
@@ -508,10 +505,10 @@ def _process_mil_activation_quantization(
         fake_quant_mod: The fake quantization module
 
     """
-    _validate_qformulation_for_mil_export(fake_quant_mod)
+    validate_qformulation_for_mil_export(fake_quant_mod)
 
-    scale, zero_point, _ = _extract_quantization_params(fake_quant_mod)
-    converted_dtype, converted_zero_point = _convert_dtype_for_torch_quantize(
+    scale, zero_point, _ = extract_quantization_params(fake_quant_mod)
+    converted_dtype, converted_zero_point = convert_dtype_for_torch_quantize(
         fake_quant_mod.dtype,
         zero_point,
     )
@@ -519,7 +516,7 @@ def _process_mil_activation_quantization(
     # Use non-negative axis for export (None for per-tensor)
     axis = fake_quant_mod.qparams_calculator._resolved_axis
 
-    sequential_module = _create_mil_act_quant_seq(
+    sequential_module = create_mil_act_quant_seq(
         scale=scale,
         zero_point=converted_zero_point,
         dtype=converted_dtype,
@@ -527,7 +524,7 @@ def _process_mil_activation_quantization(
     )
 
     # Add Sequential module to the model
-    module_name = f"{MIL_ACT_QUANT_MODULE_PREFIX}{_sanitize_module_name(fake_quant_node.name)}"
+    module_name = f"{MIL_ACT_QUANT_MODULE_PREFIX}{sanitize_module_name(fake_quant_node.name)}"
     model.add_module(module_name, sequential_module)
 
     # Replace fake quant node with call_module to the Sequential
@@ -732,7 +729,7 @@ def _move_cache_dequant_to_output(
     for op_node in model.graph.nodes:
         if op_node.op != "call_function":
             continue
-        if _get_node_type(op_node, warn_on_failure=False) != op_type:
+        if get_node_type(op_node, warn_on_failure=False) != op_type:
             continue
 
         if len(op_node.all_input_nodes) <= quant_input_idx:

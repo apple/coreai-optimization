@@ -19,16 +19,14 @@ from torch import nn
 
 from coreai_opt._utils.export_utils import validate_coreml_compatibility
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
-from coreai_opt._utils.torch_utils import (
-    get_parent_module_and_attr_name as _get_parent_module_and_attr_name,
-)
+from coreai_opt._utils.torch_utils import get_parent_module_and_attr_name
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
-    convert_dtype_for_torch_quantize as _convert_dtype_for_torch_quantize,
-    create_mil_act_quant_seq as _create_mil_act_quant_seq,
-    extract_quantization_params as _extract_quantization_params,
-    is_module_fake_quant_target as _is_module_fake_quant_target,
-    validate_qformulation_for_mil_export as _validate_qformulation_for_mil_export,
+    convert_dtype_for_torch_quantize,
+    create_mil_act_quant_seq,
+    extract_quantization_params,
+    is_module_fake_quant_target,
+    validate_qformulation_for_mil_export,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
 
@@ -46,8 +44,8 @@ def _process_weight_quantization(
         fake_quant_param: The fake quantization parametrization to process
 
     """
-    _validate_qformulation_for_mil_export(fake_quant_param)
-    scale, zero_point, _ = _extract_quantization_params(fake_quant_param)
+    validate_qformulation_for_mil_export(fake_quant_param)
+    scale, zero_point, _ = extract_quantization_params(fake_quant_param)
 
     # Remove parametrization but keep fake-quantized weights
     P.remove_parametrizations(
@@ -100,10 +98,10 @@ def _process_activation_quantization(
         fake_quant_mod: The fake quantization module to replace
 
     """
-    _validate_qformulation_for_mil_export(fake_quant_mod)
+    validate_qformulation_for_mil_export(fake_quant_mod)
 
-    scale, zero_point, _ = _extract_quantization_params(fake_quant_mod)
-    converted_dtype, converted_zero_point = _convert_dtype_for_torch_quantize(
+    scale, zero_point, _ = extract_quantization_params(fake_quant_mod)
+    converted_dtype, converted_zero_point = convert_dtype_for_torch_quantize(
         fake_quant_mod.dtype,
         zero_point,
     )
@@ -111,7 +109,7 @@ def _process_activation_quantization(
     # Use non-negative axis for export (None for per-tensor)
     axis = fake_quant_mod.qparams_calculator._resolved_axis
 
-    replacement_module = _create_mil_act_quant_seq(
+    replacement_module = create_mil_act_quant_seq(
         scale=scale,
         zero_point=converted_zero_point,
         dtype=converted_dtype,
@@ -145,13 +143,13 @@ def prepare_for_mil_export(model: nn.Module) -> nn.Module:
         if P.is_parametrized(module):
             for param_name, parametrizations in module.parametrizations.items():
                 for p in parametrizations:
-                    if _is_module_fake_quant_target(p, CompressionTargetTensor.WEIGHT):
+                    if is_module_fake_quant_target(p, CompressionTargetTensor.WEIGHT):
                         validate_coreml_compatibility(
                             CompressionTargetTensor.WEIGHT,
                             p.dtype,
                             f"weight '{param_name}' of module '{module_name}'",
                         )
-        if _is_module_fake_quant_target(module, CompressionTargetTensor.ACTIVATION):
+        if is_module_fake_quant_target(module, CompressionTargetTensor.ACTIVATION):
             validate_coreml_compatibility(
                 CompressionTargetTensor.ACTIVATION,
                 module.dtype,
@@ -164,7 +162,7 @@ def prepare_for_mil_export(model: nn.Module) -> nn.Module:
         if P.is_parametrized(module):
             for param_name, parametrizations in list(module.parametrizations.items()):
                 for p in parametrizations:
-                    if not _is_module_fake_quant_target(p, CompressionTargetTensor.WEIGHT):
+                    if not is_module_fake_quant_target(p, CompressionTargetTensor.WEIGHT):
                         continue
 
                     if _mark_if_not_already_processed(p, processed_fq_ids):
@@ -173,11 +171,11 @@ def prepare_for_mil_export(model: nn.Module) -> nn.Module:
                     _process_weight_quantization(module, param_name, p)
 
         # Handle activation quantization modules
-        if _is_module_fake_quant_target(module, CompressionTargetTensor.ACTIVATION):
+        if is_module_fake_quant_target(module, CompressionTargetTensor.ACTIVATION):
             if _mark_if_not_already_processed(module, processed_fq_ids):
                 continue
 
-            parent_module, attr_name = _get_parent_module_and_attr_name(model, name)
+            parent_module, attr_name = get_parent_module_and_attr_name(model, name)
             _process_activation_quantization(parent_module, attr_name, module)
 
     # Register metadata version

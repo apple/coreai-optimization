@@ -17,7 +17,7 @@ from typing import Any, Final, NamedTuple
 import torch
 import torch.nn.utils.parametrize as P
 
-from coreai_opt._utils.version_utils import version_ge as _version_ge
+from coreai_opt._utils.version_utils import version_ge
 
 logger = logging.getLogger(__name__)
 
@@ -424,7 +424,7 @@ def export_model(
             exported_program = torch.export.export(
                 model, example_inputs, dynamic_shapes=dynamic_shapes
             )
-            if _version_ge(torch, "2.9"):
+            if version_ge(torch, "2.9"):
                 exported_model = exported_program.module(check_guards=False)
             else:
                 exported_model = exported_program.module()
