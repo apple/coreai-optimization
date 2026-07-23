@@ -277,7 +277,44 @@ def _shared_granularity_axis_is_safe(
     axis = QuantizationGranularity._resolve_axis(granularity, len(input_shape))
     if axis is None:
         return False
+
+    # Proof 1: the op doesn't relabel which physical dimension sits at
+    # `axis` (e.g. transpose/permute swapping it with another axis of the
+    # same size would pass a size check below despite being wrong).
+    if not _op_preserves_axis_identity(op_node, axis):
+        return False
+    # Proof 2: the op doesn't change that dimension's size (e.g. pooling
+    # shrinking a spatial axis).
     return input_shape[axis] == output_shape[axis]
+
+
+def _op_preserves_axis_identity(op_node: Node, axis: int) -> bool:
+    """Return True if ``op_node`` never moves the physical dimension at
+    ``axis`` to a different position between its input and output.
+
+    Ops that only shrink/grow dimensions in place (pooling, mean, etc.)
+    always preserve axis identity — they're not in the branches below, so
+    they fall through to True. Ops that reorder dimensions (transpose,
+    permute, t) must be checked explicitly: a dimension that gets moved
+    can coincidentally have the same size as whatever replaces it, which
+    would otherwise pass a pure size check while quietly applying the wrong
+    per-index scale.
+    """
+    if op_node.target == torch.ops.aten.transpose.int:
+        _, dim0, dim1 = op_node.args
+        ndim = len(op_node.meta["val"].shape)
+        # Convert negative axis to positive axis by adding ndim
+        if dim0 < 0:
+            dim0 += ndim
+        if dim1 < 0:
+            dim1 += ndim
+        return axis not in (dim0, dim1)
+    if op_node.target == torch.ops.aten.t.default:
+        return axis not in (0, 1)
+    if op_node.target == torch.ops.aten.permute.default:
+        _, dims = op_node.args
+        return dims[axis] == axis
+    return True
 
 
 def _force_fake_quant_to_per_tensor(fake_quant: FakeQuantizeImplBase, op_node: Node) -> None:
@@ -287,10 +324,12 @@ def _force_fake_quant_to_per_tensor(fake_quant: FakeQuantizeImplBase, op_node: N
         return
     if isinstance(granularity, PerChannelGranularity):
         detail = (
-            ": this op changes the size of the quantization axis between its "
-            "input and output, so a per-channel scale can't fit both sides. "
-            "To keep per-channel activation quantization here, choose a "
-            "different axis that this op leaves unchanged."
+            ": this op either changes the size of the quantization axis "
+            "between its input and output, or moves it to a different "
+            "physical dimension (e.g. via transpose/permute), so a "
+            "per-channel scale can't safely apply to both sides. To keep "
+            "per-channel activation quantization here, choose a different "
+            "axis that this op leaves untouched."
         )
     else:
         detail = ""
