@@ -95,6 +95,25 @@ SHELL_RC ?=
 # internal-only venv defaults.
 ENV_ALL_EXTRAS ?= true
 
+# Extra `uv pip install` arguments, applied to a venv after it is synced and to
+# each nox session venv (see ci/nox/noxfile.py). Use it to swap a dependency
+# version for one run without editing pyproject.toml or the lockfile — for
+# example a scheduled job testing against newer upstream builds. Empty (the
+# default) changes nothing.
+POST_INSTALL_PIP_ARGS ?=
+export POST_INSTALL_PIP_ARGS
+
+# Re-apply POST_INSTALL_PIP_ARGS to the venv at $(1).
+#
+# setup_env.sh already does this, so only use it when a recipe installs more
+# packages afterwards that could pull the old version back in (see env-all).
+# Expands to `true` when unset. The empty check uses `$(if ...)` instead of a
+# shell `[ -n "..." ]` test because the args contain their own quotes.
+# Usage: $(call post_install_pip,VENV_PATH)
+define post_install_pip
+$(if $(POST_INSTALL_PIP_ARGS),echo "Applying POST_INSTALL_PIP_ARGS to $(1)" && source $(1)/bin/activate && uv pip install $(POST_INSTALL_PIP_ARGS),true)
+endef
+
 # Local wheelhouse for pre-release wheels not yet on an index.
 # Exported so every recipe-level uv invocation (uv lock, uv sync, uv venv)
 # resolves matching packages from disk without an index lookup. The wildcard
@@ -212,6 +231,7 @@ env-all: _maybe_patch_pyproject
 	@$(SETUP_ENV) --venv $(VENV) --python-version $(PYTHON_VERSION) --all-groups
 	@$(call write_active_venv,$(VENV))
 	@$(ENV_ALL_EXTRAS)
+	@$(call post_install_pip,$(VENV))
 
 # =============================================================================
 # Build
@@ -277,19 +297,24 @@ test-smoke:
 	uv run --no-sync --active nox -f $(MAKEFILE_DIR)ci/nox/noxfile.py -s smoke_tests -- $(PYTEST_ARGS) && \
 	echo "All smoke tests passed!"
 
-# Run tests on lowest supported PyTorch version (pass PYTEST_ARGS for custom flags)
-test-lowest-pytorch: env-lowest-torch
+# Run tests on lowest supported PyTorch version (pass PYTEST_ARGS for custom flags).
+# TORCH_GROUP is already exported, so setting it per target is enough for
+# use_env to pick the right torch build. Use `=`, not `:=`: an including
+# Makefile may change HIGHEST_TORCH_GROUP after this file is read.
+test-lowest-pytorch: TORCH_GROUP = $(LOWEST_TORCH_GROUP)
+test-lowest-pytorch:
 	@echo "Running tests on lowest PyTorch version supported..."
-	@source $(VENV_LOWEST_TORCH)/bin/activate && \
+	@$(call use_env,VENV_LOWEST_TORCH) && \
 	echo "Testing with lowest supported PyTorch versions" && \
 	uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
 	$(RUN_TESTS) $(PYTEST_ARGS) && \
 	echo "All tests passed!"
 
 # Run tests on highest supported PyTorch version (pass PYTEST_ARGS for custom flags)
-test-highest-pytorch: env-highest-torch
+test-highest-pytorch: TORCH_GROUP = $(HIGHEST_TORCH_GROUP)
+test-highest-pytorch:
 	@echo "Running tests on highest PyTorch version supported..."
-	@source $(VENV_HIGHEST_TORCH)/bin/activate && \
+	@$(call use_env,VENV_HIGHEST_TORCH) && \
 	echo "Testing with latest supported PyTorch versions" && \
 	uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
 	$(RUN_TESTS) $(PYTEST_ARGS) && \
