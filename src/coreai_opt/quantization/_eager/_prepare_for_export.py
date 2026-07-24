@@ -28,6 +28,7 @@ from coreai_opt.quantization._export_utils import (
     validate_fp4_export,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
+from coreai_opt.quantization.spec.granularity import PerBlockGranularity
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,10 @@ def _process_activation_quantization(model: nn.Module):
         ):
             if is_float4_dtype(module.dtype):
                 raise ValueError("FP4 activation quantization is not supported for MLIR export.")
+            if isinstance(module.granularity, PerBlockGranularity):
+                raise ValueError(
+                    "MLIR export does not support per-block granularity for activations."
+                )
             modules_to_replace.append((name, module))
 
     # Replace each FakeQuantizeImplBase module

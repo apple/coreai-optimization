@@ -25,6 +25,7 @@ from coreai_opt.quantization import (
 from coreai_opt.quantization._graph.quantizer import GraphQuantizer
 from coreai_opt.quantization.config.quantization_config import QATSchedule
 from coreai_opt.quantization.spec import (
+    PerBlockGranularity,
     PerTensorGranularity,
     QuantizationScheme,
     default_activation_quantization_spec,
@@ -533,6 +534,43 @@ class TestDynamicActivationQuantization:
 
         assert moving_avg_fq.observer_enabled.item() == 0
         assert dynamic_fq.observer_enabled.item() == 1
+
+
+class TestPerBlockActivationQuantization:
+    """Per-block activation quantization is supported for prepare/simulation but
+    is not exportable."""
+
+    def _make_per_block_activation_config(self, execution_mode: str) -> QuantizerConfig:
+        return QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={
+                    "weight": QuantizationSpec(
+                        dtype=torch.int8,
+                        qscheme=QuantizationScheme.SYMMETRIC,
+                        granularity=PerTensorGranularity(),
+                    )
+                },
+                op_input_spec={
+                    "*": QuantizationSpec(
+                        dtype=torch.int8,
+                        qscheme=QuantizationScheme.SYMMETRIC,
+                        granularity=PerBlockGranularity(axis=-1, block_size=16),
+                    )
+                },
+                op_output_spec=None,
+            ),
+        ).set_execution_mode(execution_mode)
+
+    @pytest.mark.parametrize("backend", [ExportBackend.CoreAI, ExportBackend.CoreML])
+    def test_finalize_rejects_per_block_activation(self, execution_mode, backend):
+        config = self._make_per_block_activation_config(execution_mode)
+        quantizer = Quantizer(SimpleLinearModel(), config)
+
+        prepared_model = quantizer.prepare((torch.randn(4, 64),))
+        prepared_model(torch.randn(4, 64))
+
+        with pytest.raises(Exception, match=r"[Pp]er-?[Bb]lock ?[Gg]ranularity"):
+            quantizer.finalize(prepared_model, backend=backend)
 
 
 class TestSharedWeightQuantization:

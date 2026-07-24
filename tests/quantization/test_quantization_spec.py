@@ -253,8 +253,6 @@ def test_invalid_qformulation_string():
             },
         ),
         ("per_block", {"axis": 1, "block_size": 0}),
-        ("per_block", {"axis": 2, "block_size": 5}),
-        ("per_block", {"axis": 3, "block_size": 5}),
         (
             "per_block",
             {
@@ -302,6 +300,12 @@ def test_invalid_axis_block_size(granularity_type, granularity_params):
         ("per_block", {"axis": 1, "block_size": 3}, (7, 3), (1, 3)),
         ("per_block", {"axis": 0, "block_size": 4}, (8, 16, 3), (4, 1, 3)),
         ("per_block", {"axis": 1, "block_size": 8}, (7, 16, 3, 3), (1, 8, 3, 3)),
+        # Per block - block axis >= 2 and negative axes (e.g. activation blocking
+        # along the last / reduction axis). Leading dims collapse to 1.
+        ("per_block", {"axis": 2, "block_size": 16}, (1, 10, 32), (1, 1, 16)),
+        ("per_block", {"axis": -1, "block_size": 16}, (1, 10, 32), (1, 1, 16)),
+        ("per_block", {"axis": -1, "block_size": 4}, (10, 20), (1, 4)),
+        ("per_block", {"axis": -2, "block_size": 5}, (10, 20), (5, 1)),
         ("per_block", {"axis": None, "block_size": (2,)}, (10,), (2,)),
         (
             "per_block",
@@ -338,6 +342,9 @@ def test_get_block_size_valid_conditions(
         ("per_channel", {"axis": -3}, (5, 10)),
         # Per block - axis out of bounds
         ("per_block", {"axis": 1, "block_size": 3}, (5,)),
+        ("per_block", {"axis": 2, "block_size": 5}, (10, 20)),
+        ("per_block", {"axis": 3, "block_size": 5}, (8, 16, 3)),
+        ("per_block", {"axis": -3, "block_size": 4}, (10, 20)),
         # Per block - None axis with integer block_size
         ("per_block", {"axis": None, "block_size": 5}, (10, 20)),
         # Per block - integer axis with list block_size

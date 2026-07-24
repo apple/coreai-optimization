@@ -168,9 +168,11 @@ class PerBlockGranularity(QuantizationGranularity):
     This applies quantization to blocks of values within the tensor. Supports two modes:
 
     1. Single-axis mode: Quantize blocks along one specific axis
-       (no blocking for axis>=2)
 
-       - ``axis``: The axis to create blocks (0 or 1)
+       - ``axis``: The axis to create blocks. May be negative (Python-style
+         indexing). For weight quantization this is typically ``0`` or ``1``
+         (the channel axes); for activation quantization it is commonly the
+         last / reduction axis (e.g. ``-1``).
        - ``block_size``: Integer specifying block size for that axis
 
     2. Multi-axis mode: Create blocks across multiple axes simultaneously
@@ -208,7 +210,7 @@ class PerBlockGranularity(QuantizationGranularity):
          - [4, 16, 3, KW]
     """
 
-    axis: Annotated[int, Field(ge=0, le=1)] | None = None
+    axis: int | None = None
     block_size: Annotated[int, Field(gt=0)] | tuple[Annotated[int, Field(gt=0)] | Literal[-1], ...]
 
     def _get_block_size(self, block_sizes_list: list[int]) -> list[int]:
@@ -252,24 +254,31 @@ class PerBlockGranularity(QuantizationGranularity):
         if self.axis is None:
             raise ValueError("axis must be specified when block_size is an int")
 
-        if self.axis >= len(block_sizes_list):
+        # Resolve negative (Python-style) axis to a non-negative index using the
+        # tensor rank. This allows activation quantization to target the last /
+        # reduction axis via axis=-1 regardless of the tensor's rank.
+        rank = len(block_sizes_list)
+        axis = self.axis + rank if self.axis < 0 else self.axis
+
+        if axis < 0 or axis >= rank:
             raise ValueError(
-                f"axis {self.axis} is out of bounds for tensor of rank {len(block_sizes_list)}"
+                f"axis {self.axis} is out of bounds for tensor of rank {rank}. "
+                f"Allowed axis range is [{-rank}, {rank})"
             )
 
-        if block_sizes_list[self.axis] % self.block_size != 0:
+        if block_sizes_list[axis] % self.block_size != 0:
             raise _BlockSizeMismatchError(
-                f"Tensor size {block_sizes_list[self.axis]} along axis {self.axis} "
+                f"Tensor size {block_sizes_list[axis]} along axis {axis} "
                 f"is not divisible by block size {self.block_size}"
             )
 
-        # For integer block_size, only process the first two dimensions
-        # (which would be input and output channel axis in no particular order)
-        # Set the specified axis to block_size, set the other dimension (0 or 1) to 1
-        # Leave all higher dimensions (index 2+) unchanged
-        block_sizes_list[self.axis] = self.block_size
-        for axis, _ in enumerate(block_sizes_list[:2]):
-            if axis != self.axis:
-                block_sizes_list[axis] = 1
+        # Set the specified axis to block_size, and set the other channel axis
+        # (the one of {0, 1} that is not the block axis) to 1 so that it is
+        # quantized per-slice. Any remaining higher dimensions (index 2+) are
+        # left unchanged.
+        block_sizes_list[axis] = self.block_size
+        for i, _ in enumerate(block_sizes_list[:2]):
+            if i != axis:
+                block_sizes_list[i] = 1
 
         return block_sizes_list
