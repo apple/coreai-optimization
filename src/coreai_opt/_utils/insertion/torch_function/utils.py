@@ -16,7 +16,7 @@ from torch.fx.node import map_aggregate
 from torch.fx.operator_schemas import create_type_hint, normalize_function
 
 from coreai_opt._utils.config_utils import get_last_matching_spec
-from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
+from coreai_opt._utils.spec_utils import PartialConstructor
 from coreai_opt.config.spec import CompressionSimulatorBase
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,7 @@ def any_tensor_optimizable(args: list[Any], kwargs: dict[str, Any]) -> bool:
 def get_optimizer_from_components_dict(
     func: Callable,
     tensor_identifiers: int | str | list[int | str],
-    components_dict: Mapping[int | str, _PartialConstructor | None],
+    components_dict: Mapping[int | str, PartialConstructor | None],
 ) -> tuple[CompressionSimulatorBase | None, bool]:
     """Return the appropriate optimizer from ``components_dict``.
 

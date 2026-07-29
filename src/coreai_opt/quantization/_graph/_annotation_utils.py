@@ -26,20 +26,17 @@ from torchao.quantization.pt2e.quantizer import (
 )
 from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 
-from coreai_opt._utils.config_utils import (
-    ALL_TENSORS as _ALL_TENSORS,
-    ConfigLevel as _ConfigLevel,
-    get_last_matching_spec,
-)
+from coreai_opt._utils.config_utils import ALL_TENSORS, ConfigLevel, get_last_matching_spec
 from coreai_opt._utils.fx_utils import (
     get_local_state_name,
     get_module_boundary_nodes,
     is_coreai_compressed_state_node,
 )
 from coreai_opt._utils.python_utils import get_fn_arg_names
-from coreai_opt._utils.version_utils import version_ge as _version_ge
+from coreai_opt._utils.version_utils import version_ge
 from coreai_opt.config.compression_config import ModuleConfigDict
 from coreai_opt.config.spec import CompressionTargetTensor
+from coreai_opt.quantization._graph._utils import get_source_module_name
 from coreai_opt.quantization.config import ModuleQuantizerConfig
 from coreai_opt.quantization.config.quantization_config import (
     _ACTIVATION_SPEC_DICT,
@@ -108,7 +105,7 @@ def _get_aten_graph_module_for_pattern(
         )
 
     exported_program = torch.export.export(pattern, example_inputs, kwargs, strict=False)
-    if _version_ge(torch, "2.9"):
+    if version_ge(torch, "2.9"):
         aten_pattern = exported_program.module(check_guards=False)
     else:
         aten_pattern = exported_program.module()
@@ -948,8 +945,40 @@ def _propagate_output_qspec(
 
 
 def _get_call_function_node_from_partition(partition: SourcePartition) -> torch.fx.Node:
-    """Return the first call_function node in the partition."""
-    return [node for node in partition.nodes if node.op == "call_function"][0]
+    """
+    Given a partition, return the call function node associated with the partition.
+
+    We expect there to be only one call function node in the partition.
+    """
+    call_function_nodes = [node for node in partition.nodes if node.op == "call_function"]
+    if len(call_function_nodes) != 1:
+        # torch.export's insert_deferred_runtime_asserts synthesizes one SymInt mul per
+        # shape-runtime assertion, all sharing one torch_fn tag, so several can collapse
+        # into a single partition. They carry no tensor value to annotate, so picking any
+        # one of them is safe here; downstream floating-point filtering no-ops on SymInt.
+        if call_function_nodes and all(
+            isinstance(node.meta.get("val"), torch.SymInt) for node in call_function_nodes
+        ):
+            return call_function_nodes[0]
+
+        module_names = {
+            name
+            for node in call_function_nodes
+            if (name := get_source_module_name(node)) is not None
+        }
+        module_hint = ""
+        if module_names:
+            module_hint = (
+                f"\nSource module(s): {', '.join(sorted(module_names))}. "
+                f"Consider excluding this module from quantization via "
+                f"module_name_configs."
+            )
+        error_msg = (
+            f"Expected exactly 1 call function node in source partition but got "
+            f"{call_function_nodes}.{module_hint}"
+        )
+        raise RuntimeError(error_msg)
+    return call_function_nodes[0]
 
 
 def match_pattern_with_sequential_partitions(
@@ -1204,7 +1233,7 @@ def annotate_module_level_specs(
             by the full state name.
         model: Model to annotate.
     """
-    for config_level in [_ConfigLevel.MODULE_TYPE, _ConfigLevel.MODULE_NAME]:
+    for config_level in [ConfigLevel.MODULE_TYPE, ConfigLevel.MODULE_NAME]:
         for module_name, module_config in module_configs[config_level].items():
             if _module_config_has_module_level_input_output_spec(module_config):
                 _annotate_nodes_for_module_level_input_output_spec(
@@ -1282,7 +1311,7 @@ def _match_and_annotate_state_node(
     Given a state node, check if any of the module_configs have applicable
     module_state_specs and apply if so.
     """
-    for level in _ConfigLevel.priority_order():
+    for level in ConfigLevel.priority_order():
         # Reversed is needed because two different modules may have shared params where
         # both module configs are setting module_state_spec for the param using their
         # respective local names for the same parameter.
@@ -1355,8 +1384,8 @@ def _get_spec_from_spec_dict(
     for i in identifier:
         if i in spec_dict:
             return (True, spec_dict[i])
-    if _ALL_TENSORS in spec_dict:
-        return (True, spec_dict[_ALL_TENSORS])
+    if ALL_TENSORS in spec_dict:
+        return (True, spec_dict[ALL_TENSORS])
     return (False, None)
 
 

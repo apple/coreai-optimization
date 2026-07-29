@@ -9,12 +9,12 @@ import torch
 import torch.nn as nn
 from torchao.quantization.quant_primitives import _get_reduction_params
 
-from coreai_opt._utils.registry_utils import ClassRegistryMixin
+from coreai_opt._utils.registry_utils import ClassRegistryMixin as _ClassRegistryMixin
 
 from .granularity import QuantizationGranularity
 
 
-class RangeCalculatorBase(ClassRegistryMixin, nn.Module):
+class RangeCalculatorBase(_ClassRegistryMixin, nn.Module):
     """
     Base class and registry for classes used to compute the range
     of a given tensor.

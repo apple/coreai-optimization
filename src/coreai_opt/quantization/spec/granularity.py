@@ -11,11 +11,11 @@ from typing import Annotated, Any, Literal
 import torch
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
-from coreai_opt._utils.registry_utils import ConfigRegistryMixin
+from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegistryMixin
 from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 
 
-class QuantizationGranularity(BaseModel, ConfigRegistryMixin):
+class QuantizationGranularity(BaseModel, _ConfigRegistryMixin):
     """
     Base class for quantization granularity specifications.
     """

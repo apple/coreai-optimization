@@ -11,10 +11,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
-from coreai_opt._utils.registry_utils import ConfigRegistryMixin
+from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegistryMixin
 
 
-class PruningScheme(BaseModel, ConfigRegistryMixin):
+class PruningScheme(BaseModel, _ConfigRegistryMixin):
     """Base class for pruning scheme specifications.
 
     A pruning scheme defines the structural pattern of sparsity applied

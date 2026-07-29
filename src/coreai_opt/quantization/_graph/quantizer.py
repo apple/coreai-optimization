@@ -40,29 +40,19 @@ from torchao.quantization.pt2e.quantizer import (
 )
 from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 
-from coreai_opt._utils.config_utils import (
-    ALL_TENSORS as _ALL_TENSORS,
-    ConfigLevel as _ConfigLevel,
-)
-from coreai_opt._utils.fx_utils import (
-    get_node_type as _get_node_type,
-    normalize_module_fqn,
-)
-from coreai_opt._utils.torch_utils import (
-    export_model as _export_model,
-    move_model_to_eval,
-    move_model_to_train,
-)
-from coreai_opt._utils.version_utils import version_ge as _version_ge
+from coreai_opt._utils.config_utils import ALL_TENSORS, ConfigLevel
+from coreai_opt._utils.fx_utils import get_node_type, normalize_module_fqn
+from coreai_opt._utils.torch_utils import export_model, move_model_to_eval, move_model_to_train
+from coreai_opt._utils.version_utils import version_ge
 from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleConfigDict, _build_module_alias_map
 from coreai_opt.quantization._axis_defaults import (
     apply_weight_axis_defaults_graph as _apply_weight_axis_defaults,
-    validate_activation_axes as _validate_activation_axes,
+    validate_activation_axes,
 )
 from coreai_opt.quantization._fake_quant_utils import (
-    disable_activation_fake_quant as _disable_activation_fake_quant,
-    enable_weight_fake_quant as _enable_weight_fake_quant,
+    disable_activation_fake_quant,
+    enable_weight_fake_quant,
 )
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
@@ -78,32 +68,29 @@ from coreai_opt.quantization.spec.fake_quantize import (
 
 from ._annotation_config import AnnotationConfig, AnnotationContext
 from ._annotation_pattern_registry import (
-    AnnotatorMatchInfo as _AnnotatorMatchInfo,
-    SharedObserverModulePattern as _SharedObserverModulePattern,
+    AnnotatorMatchInfo,
+    SharedObserverModulePattern,
     _AnnotationPatternRegistry,
     _make_kv_cache_update_pattern,
 )
 from ._annotation_utils import (
     _get_input_qspec_map,
     adjust_output_qspec_for_qscheme_and_propagate,
-    annotate_module_level_specs as _annotate_module_level_specs,
+    annotate_module_level_specs,
     is_node_annotated,
 )
-from ._conv_bn_utils import (
-    fold_conv_bn_weights as _fold_conv_bn_weights,
-    remove_conv_bn_zeros_like_dtype as _remove_conv_bn_zeros_like_dtype,
-)
+from ._conv_bn_utils import fold_conv_bn_weights, remove_conv_bn_zeros_like_dtype
 from ._prepare_for_export import (
     _move_cache_dequant_to_output,
     prepare_for_mil_export,
     prepare_for_mlir_export,
 )
 from ._utils import (
-    force_per_tensor_for_channel_altering_ops as _force_per_tensor_for_channel_altering_ops,
-    get_source_module_name as _get_source_module_name,
-    remove_fake_quant_nodes as _remove_fake_quant_nodes,
-    restore_kwargs as _restore_kwargs,
-    strip_non_aten_metadata_kwargs as _strip_non_aten_metadata_kwargs,
+    force_per_tensor_for_channel_altering_ops,
+    get_source_module_name,
+    remove_fake_quant_nodes,
+    restore_kwargs,
+    strip_non_aten_metadata_kwargs,
 )
 
 logger = logging.getLogger(__name__)
@@ -160,7 +147,7 @@ class _RankedAnnotation(NamedTuple):
 
     node: torch.fx.Node
     config: OpQuantizerConfig
-    match: _AnnotatorMatchInfo
+    match: AnnotatorMatchInfo
     priority: int
 
 
@@ -232,7 +219,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         shared_observer_annotators = [
             a_class
             for a_class in self._all_patterns()
-            if issubclass(a_class, _SharedObserverModulePattern)
+            if issubclass(a_class, SharedObserverModulePattern)
         ]
         shared_observer_nodes = set()
         for annotator in shared_observer_annotators:
@@ -285,7 +272,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
                 context,
             )
 
-        _annotate_module_level_specs(
+        annotate_module_level_specs(
             self._module_configs, self._module_name_to_state_names_map, model
         )
 
@@ -316,7 +303,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         for node in model.graph.nodes:
             if node.op != "call_function":
                 continue
-            op_type = _get_node_type(node, warn_on_failure=False)
+            op_type = get_node_type(node, warn_on_failure=False)
             kc = self._kv_cache_quant_configs.get(op_type)
             if kc is None:
                 continue
@@ -331,13 +318,13 @@ class _AnnotationHandler(TorchPT2EQuantizer):
     def _match_all_annotators(
         self,
         model: torch.fx.GraphModule,
-    ) -> dict[torch.fx.Node, list[_AnnotatorMatchInfo]]:
+    ) -> dict[torch.fx.Node, list[AnnotatorMatchInfo]]:
         """
         Given an exported model, use all registered annotators to match nodes in the
         model. Build a dictionary mapping nodes to _AnnotatorMatchInfo objects
         containing information about matched patterns.
         """
-        node_to_annotator_match_info_dict: dict[torch.fx.Node, list[_AnnotatorMatchInfo]] = {}
+        node_to_annotator_match_info_dict: dict[torch.fx.Node, list[AnnotatorMatchInfo]] = {}
         for annotator_class in self._all_patterns():
             # Match patterns for this annotator across entire model
             annotator_node_match_dict = annotator_class._match_all_patterns(model)
@@ -356,8 +343,8 @@ class _AnnotationHandler(TorchPT2EQuantizer):
     def _sort_nodes_in_annotation_order(
         self,
         model: torch.fx.GraphModule,
-        node_to_annotator_match_info_dict: dict[torch.fx.Node, list[_AnnotatorMatchInfo]],
-    ) -> list[tuple[torch.fx.Node, OpQuantizerConfig, _AnnotatorMatchInfo]]:
+        node_to_annotator_match_info_dict: dict[torch.fx.Node, list[AnnotatorMatchInfo]],
+    ) -> list[tuple[torch.fx.Node, OpQuantizerConfig, AnnotatorMatchInfo]]:
         """
         Produce a list of tuples of (node, config to apply, annotator match info) which
         will later be iterated to annotate matches.
@@ -376,7 +363,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         )
 
         nodes_with_annotation_match_info: list[
-            tuple[torch.fx.Node, OpQuantizerConfig, _AnnotatorMatchInfo]
+            tuple[torch.fx.Node, OpQuantizerConfig, AnnotatorMatchInfo]
         ] = []
         for config_level_node_dict in config_level_node_dicts:
             for op_config_level in _OpConfigLevel.priority_order():
@@ -391,7 +378,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
     def _get_config_level_node_dicts(
         self,
         model: torch.fx.GraphModule,
-        node_to_annotator_match_info_dict: dict[torch.fx.Node, list[_AnnotatorMatchInfo]],
+        node_to_annotator_match_info_dict: dict[torch.fx.Node, list[AnnotatorMatchInfo]],
     ) -> tuple[NodeConfigDict, NodeConfigDict, NodeConfigDict]:
         """
         Create and return three dicts corresponding to config levels for mapping nodes
@@ -411,9 +398,9 @@ class _AnnotationHandler(TorchPT2EQuantizer):
 
         # Precompute {canonical_key: insertion_index} once per config level so that
         # _set_config_to_use_for_node can look up a key's priority in O(1)
-        config_key_index: dict[_ConfigLevel, dict[object, int]] = {
+        config_key_index: dict[ConfigLevel, dict[object, int]] = {
             level: {key: idx for idx, key in enumerate(self._module_configs[level].keys())}
-            for level in (_ConfigLevel.MODULE_NAME, _ConfigLevel.MODULE_TYPE)
+            for level in (ConfigLevel.MODULE_NAME, ConfigLevel.MODULE_TYPE)
         }
 
         # Iterating through the nodes in topological ordering guarantees that when
@@ -426,8 +413,8 @@ class _AnnotationHandler(TorchPT2EQuantizer):
                 if self._set_config_to_use_for_node(
                     node,
                     module_name_node_config_dict,
-                    _ConfigLevel.MODULE_NAME,
-                    config_key_index[_ConfigLevel.MODULE_NAME],
+                    ConfigLevel.MODULE_NAME,
+                    config_key_index[ConfigLevel.MODULE_NAME],
                 ):
                     continue
 
@@ -435,14 +422,14 @@ class _AnnotationHandler(TorchPT2EQuantizer):
                 if self._set_config_to_use_for_node(
                     node,
                     module_type_node_config_dict,
-                    _ConfigLevel.MODULE_TYPE,
-                    config_key_index[_ConfigLevel.MODULE_TYPE],
+                    ConfigLevel.MODULE_TYPE,
+                    config_key_index[ConfigLevel.MODULE_TYPE],
                 ):
                     continue
 
                 # Take a shortcut for global since the config will be the same for all
                 # other modules (no need to name match).
-                global_config = list(self._module_configs[_ConfigLevel.GLOBAL].values())[0]
+                global_config = list(self._module_configs[ConfigLevel.GLOBAL].values())[0]
 
                 config, op_config_level = self._get_config_for_node(node, global_config)
                 # GLOBAL level has a single config, so priority is trivially 0.
@@ -456,7 +443,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         self,
         node: torch.fx.Node,
         node_config_dict: NodeConfigDict,
-        config_level: _ConfigLevel,
+        config_level: ConfigLevel,
         config_key_index: dict[object, int],
     ) -> bool:
         """
@@ -468,7 +455,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         within-level priority during the sort phase: lower index = higher
         precedence.
         """
-        qualified_name = _get_source_module_name(node)
+        qualified_name = get_source_module_name(node)
         if qualified_name is None:
             return False
 
@@ -505,7 +492,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
 
         # Check for op_type match
         for op_type, op_type_config in reversed(module_level_config.op_type_config.items()):
-            node_type = _get_node_type(node)
+            node_type = get_node_type(node)
             if node_type is not None and op_type == node_type:
                 return op_type_config, _OpConfigLevel.OP_TYPE
 
@@ -521,8 +508,8 @@ class _AnnotationHandler(TorchPT2EQuantizer):
     def _expand_and_sort_nodes_for_pattern_length(
         self,
         node_to_config_dict: dict[torch.fx.Node, _NodePriorityConfig],
-        node_to_annotator_match_info_dict: dict[torch.fx.Node, list[_AnnotatorMatchInfo]],
-    ) -> list[tuple[torch.fx.Node, OpQuantizerConfig, _AnnotatorMatchInfo]]:
+        node_to_annotator_match_info_dict: dict[torch.fx.Node, list[AnnotatorMatchInfo]],
+    ) -> list[tuple[torch.fx.Node, OpQuantizerConfig, AnnotatorMatchInfo]]:
         """
         Return a list of lists consisting of (node, config, annotator match info).
 
@@ -725,7 +712,7 @@ class GraphQuantizer(_BaseQuantizer):
         # identification.
         for spec in specs_to_check_for_index_or_wildcard:
             for key in spec:
-                if isinstance(key, str) and key != _ALL_TENSORS:
+                if isinstance(key, str) and key != ALL_TENSORS:
                     error_msg = (
                         "Only integer indices or '*' are supported for op and module "
                         f"input and output specs currently. Got {spec}"
@@ -736,7 +723,7 @@ class GraphQuantizer(_BaseQuantizer):
         # valid)
         for spec in specs_to_check_for_zero_or_wildcard:
             for key in spec:
-                if key not in [_ALL_TENSORS, 0]:
+                if key not in [ALL_TENSORS, 0]:
                     error_msg = (
                         "op_output_qspec currently supports setting for '*' or 0 "
                         f"tensor only. Got {spec}"
@@ -855,7 +842,7 @@ class GraphQuantizer(_BaseQuantizer):
             matched = [
                 n
                 for n in exported_model.graph.nodes
-                if n.op == "call_function" and _get_node_type(n, warn_on_failure=False) == op
+                if n.op == "call_function" and get_node_type(n, warn_on_failure=False) == op
             ]
             if not matched:
                 raise ValueError(
@@ -975,7 +962,7 @@ class GraphQuantizer(_BaseQuantizer):
                 preserved_attrs[attr] = getattr(self._model, attr)
 
         # Export the model to FX GraphModule
-        exported_model = _export_model(
+        exported_model = export_model(
             self._model, example_inputs, dynamic_shapes, export_with_no_grad
         )
 
@@ -986,15 +973,15 @@ class GraphQuantizer(_BaseQuantizer):
         # torchao < 0.16.0 asserts annotated nodes have empty kwargs,
         # so we strip metadata kwargs from non-aten nodes before and restore after.
 
-        torchao_requires_empty_kwargs = not _version_ge(torchao, "0.16.0")
+        torchao_requires_empty_kwargs = not version_ge(torchao, "0.16.0")
         if torchao_requires_empty_kwargs:
-            saved_kwargs = _strip_non_aten_metadata_kwargs(exported_model.graph)
+            saved_kwargs = strip_non_aten_metadata_kwargs(exported_model.graph)
         try:
             prepared_model = prepare_qat_pt2e(exported_model, quantizer)
         except Exception as e:
             raise type(e)(f"prepare_qat_pt2e call failed, with error: {e}") from e
         if torchao_requires_empty_kwargs:
-            _restore_kwargs(prepared_model.graph, saved_kwargs)
+            restore_kwargs(prepared_model.graph, saved_kwargs)
 
         # Apply post-processing fixes to the prepared model
         self._postprocess_prepared_model(prepared_model)
@@ -1173,8 +1160,8 @@ class GraphQuantizer(_BaseQuantizer):
         # Enable observers; keep weight FQ on, disable activation FQ so observers
         # see the effect of quantized weights on activation ranges.
         self._model.apply(enable_observer)
-        self._model.apply(_enable_weight_fake_quant)
-        self._model.apply(_disable_activation_fake_quant)
+        self._model.apply(enable_weight_fake_quant)
+        self._model.apply(disable_activation_fake_quant)
 
         # Move model to eval mode and save original state
         with move_model_to_eval(self._model):
@@ -1284,7 +1271,7 @@ class GraphQuantizer(_BaseQuantizer):
             # (e.g. when the FQ feeds directly into the graph output node).
             source = None
             for neighbor in list(node.users) + list(node.args):
-                source = _get_source_module_name(neighbor)
+                source = get_source_module_name(neighbor)
                 if source is not None:
                     break
             if source is not None:
@@ -1304,17 +1291,17 @@ class GraphQuantizer(_BaseQuantizer):
                 prepare_qat_pt2e().
         """
         # Fix dtype in Conv+BN decomposition for non-float32 models
-        _remove_conv_bn_zeros_like_dtype(model)
+        remove_conv_bn_zeros_like_dtype(model)
 
         # Channel-altering ops (flatten, reshape, transpose, etc.) share observers
         # with their inputs but invalidate axis semantics, so per-channel/per-block
         # granularity is mathematically incorrect. Force per-tensor.
-        _force_per_tensor_for_channel_altering_ops(model)
+        force_per_tensor_for_channel_altering_ops(model)
 
         # Apply weight axis defaults for per channel and per block quantization
         _apply_weight_axis_defaults(model)
 
-        _validate_activation_axes(model)
+        validate_activation_axes(model)
 
     @staticmethod
     def _remove_disabled_fake_quant_nodes(model: torch.fx.GraphModule) -> None:
@@ -1327,7 +1314,7 @@ class GraphQuantizer(_BaseQuantizer):
                 if isinstance(mod, FakeQuantizeImplBase) and mod.is_disabled():
                     disabled_fq_nodes.add(node)
         if disabled_fq_nodes:
-            _remove_fake_quant_nodes(model, disabled_fq_nodes)
+            remove_fake_quant_nodes(model, disabled_fq_nodes)
 
     @staticmethod
     def _attach_preserved_attrs_to_model(
@@ -1359,4 +1346,4 @@ class GraphQuantizer(_BaseQuantizer):
 
         """
         # Apply conv+bn folding
-        return _fold_conv_bn_weights(model)
+        return fold_conv_bn_weights(model)

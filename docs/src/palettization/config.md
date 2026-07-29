@@ -116,7 +116,7 @@ op_config = OpKMeansPalettizerConfig(
 
 ## Examples
 
-Several examples below configure specific module types or module names. To determine these for your model, use {class}`~coreai_opt.inspection.ModelInspector` with `execution_mode="eager"` — see [Inspecting Model Structure](../utils/model_inspection.md). Palettization supports eager mode only.
+Several examples below configure specific module types or module names. To determine these for your model, use {class}`~coreai_opt.inspection.ModelInspector` with `execution_mode="eager"` — see [Inspecting Model Structure](../debugging/model_inspection.md). Palettization supports eager mode only.
 
 ### Apply 4-bit palettization globally, 8-bit to linear layers
 

@@ -13,17 +13,17 @@ from typing import Any, cast
 import numpy as np
 
 from coreai_opt.coreai_utils._coreai_imports import (
-    AIProgram,
-    DenseElementsAttr,
-    DenseResourceElementsAttr,
-    FloatAttr,
-    InsertionPoint,
-    IntegerType,
-    RankedTensorType,
-    WalkResult,
+    AIProgram as _AIProgram,
+    DenseElementsAttr as _DenseElementsAttr,
+    DenseResourceElementsAttr as _DenseResourceElementsAttr,
+    FloatAttr as _FloatAttr,
+    InsertionPoint as _InsertionPoint,
+    IntegerType as _IntegerType,
+    RankedTensorType as _RankedTensorType,
+    WalkResult as _WalkResult,
     _get_constant_value_as_np_array,
-    compression_types,
-    coreai,
+    compression_types as _compression_types,
+    coreai as _coreai,
 )
 from coreai_opt.coreai_utils._utils.graph_utils import (
     _apply_compression_transform,
@@ -53,7 +53,7 @@ _VALID_PALETTIZE_NBITS: frozenset[int] = frozenset({1, 2, 3, 4, 6, 8})
 
 
 def sparsify_weights(
-    coreai_program: AIProgram,
+    coreai_program: _AIProgram,
     target_sparsity: float | None = 0.5,
     block_size: int | None = None,
     n_m_ratio: tuple[int, int] | None = None,
@@ -61,7 +61,7 @@ def sparsify_weights(
     palettize_nbits: int | None = None,
     weight_num_threshold: int = 1024,
     in_place: bool = False,
-) -> AIProgram:
+) -> _AIProgram:
     """Sparsify weights in a Core AI AIProgram (MLIR<CoreAI> IR) by using Core AI ops.
 
     Walks through the IR and sparsifies each coreai.constant op that needs to be
@@ -172,7 +172,7 @@ def sparsify_weights(
              ──> coreai.build_sparse_with_bitmask -> coreai.sparse_with_bitmask_to_dense -> output
         """
         if not _should_compress_op(op, weight_num_threshold, _OPS_WEIGHT_NEED_COMPRESSION):
-            return WalkResult.ADVANCE
+            return _WalkResult.ADVANCE
 
         const_weight: Any = op
         weight = _get_constant_value_as_np_array(const_weight)
@@ -209,7 +209,7 @@ def sparsify_weights(
                     "Cannot perform sparsification on %s. Skipped this op.",
                     const_weight.name,
                 )
-                return WalkResult.ADVANCE
+                return _WalkResult.ADVANCE
         except ImportError:
             raise
         except Exception as e:
@@ -219,9 +219,9 @@ def sparsify_weights(
                 const_weight.name,
                 e,
             )
-            return WalkResult.ADVANCE
+            return _WalkResult.ADVANCE
 
-        with const_weight.context, const_weight.location, InsertionPoint(const_weight):
+        with const_weight.context, const_weight.location, _InsertionPoint(const_weight):
             require_dequantization = False
 
             if palettize_nbits is not None:
@@ -254,7 +254,7 @@ def sparsify_weights(
                     indices_reshaped = lut_params.indices.reshape(original_shape)
                     indices = _create_constant_value_from_np_array(
                         indices_reshaped,
-                        IntegerType.get_unsigned(palettize_nbits),
+                        _IntegerType.get_unsigned(palettize_nbits),
                     )
 
                     lut_data = lut_params.lut.astype(sparse_params.nonzero_data.dtype)
@@ -265,10 +265,10 @@ def sparsify_weights(
 
                     vector_axis = _create_constant_value_from_np_array(
                         np.int16(0),
-                        IntegerType.get_signed(16),
+                        _IntegerType.get_signed(16),
                     )
 
-                    nonzero_data_const = coreai.lut_to_dense(
+                    nonzero_data_const = _coreai.lut_to_dense(
                         indices=indices,
                         lut=lut,
                         axis=vector_axis,
@@ -290,12 +290,14 @@ def sparsify_weights(
 
                     quant_block_sizes = [0] * len(sparse_params.nonzero_data.shape)
                     if quantize_dtype.is_int():
-                        quantize_dtype_builtin = compression_types.string_to_builtin(quantize_dtype)
+                        quantize_dtype_builtin = _compression_types.string_to_builtin(
+                            quantize_dtype
+                        )
                         ref_mlir_type = _get_string_to_mlir_type()[quantize_dtype]
                         quantized_mlir_type = (
-                            IntegerType.get_signed(ref_mlir_type.width)
+                            _IntegerType.get_signed(ref_mlir_type.width)
                             if ref_mlir_type.is_signed
-                            else IntegerType.get_unsigned(ref_mlir_type.width)
+                            else _IntegerType.get_unsigned(ref_mlir_type.width)
                         )
                         quant_params = _compute_qparams_by_dtype(
                             sparse_params.nonzero_data,
@@ -317,7 +319,7 @@ def sparsify_weights(
                             "Failed to compute quantization parameters for %s. Skipped this op.",
                             const_weight.name,
                         )
-                        return WalkResult.ADVANCE
+                        return _WalkResult.ADVANCE
 
                     quantized_data, scale, zero_point = quant_params
                     if zero_point is None:
@@ -343,13 +345,13 @@ def sparsify_weights(
                             quantized_mlir_type,
                         )
                     else:
-                        quantized_tensor_type = RankedTensorType.get(
+                        quantized_tensor_type = _RankedTensorType.get(
                             list(quantized_data.shape), fp8_mlir_type
                         )
                         nonzero_data_const = cast(
                             "Any",
-                            coreai.ConstantOp(
-                                value=DenseResourceElementsAttr.get_from_buffer(
+                            _coreai.ConstantOp(
+                                value=_DenseResourceElementsAttr.get_from_buffer(
                                     quantized_data, "dense_resource", quantized_tensor_type
                                 )
                             ).result,
@@ -360,10 +362,10 @@ def sparsify_weights(
                         )
                         zero_point_const = cast(
                             "Any",
-                            coreai.ConstantOp(
-                                value=DenseElementsAttr.get_splat(
-                                    RankedTensorType.get(target_shape, fp8_mlir_type),
-                                    FloatAttr.get(fp8_mlir_type, 0.0),
+                            _coreai.ConstantOp(
+                                value=_DenseElementsAttr.get_splat(
+                                    _RankedTensorType.get(target_shape, fp8_mlir_type),
+                                    _FloatAttr.get(fp8_mlir_type, 0.0),
                                 )
                             ).result,
                         )
@@ -376,16 +378,16 @@ def sparsify_weights(
 
             mask = _create_constant_value_from_np_array(
                 sparse_params.mask,
-                IntegerType.get_unsigned(1),
+                _IntegerType.get_unsigned(1),
             )
-            sparse_tensor = coreai.build_sparse_with_bitmask(
+            sparse_tensor = _coreai.build_sparse_with_bitmask(
                 values=nonzero_data_const,
                 bitmask=mask,
             )
-            compressed_weight = coreai.sparse_with_bitmask_to_dense(sparse_tensor)
+            compressed_weight = _coreai.sparse_with_bitmask_to_dense(sparse_tensor)
 
             if require_dequantization:
-                compressed_weight = coreai.blockwise_shift_scale(
+                compressed_weight = _coreai.blockwise_shift_scale(
                     data=compressed_weight,
                     scale=scale_const,
                     offset1=zero_point_const,
@@ -397,7 +399,7 @@ def sparsify_weights(
 
         const_weight.result.replace_all_uses_with(compressed_weight)
 
-        return WalkResult.ADVANCE
+        return _WalkResult.ADVANCE
 
     return _apply_compression_transform(
         coreai_program,

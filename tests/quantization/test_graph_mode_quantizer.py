@@ -184,6 +184,20 @@ class TestGraphModeQuantizer:
         output = prepared_model(simple_model_input)
         assert output.shape == (1, 10)
 
+    def test_export_error_message_contains_hints(self, basic_config):
+        """Test that export failure error messages contain debugging hints."""
+
+        class DataDependentModel(nn.Module):
+            def forward(self, x):
+                if x.sum() > 0:
+                    return x * 2
+                return x * 3
+
+        model = DataDependentModel()
+        quantizer = Quantizer(model, basic_config)
+        with pytest.raises(RuntimeError, match="Debugging hints"):
+            quantizer.prepare(example_inputs=(torch.randn(2, 2),))
+
     def test_finalize_with_none_model_arg(
         self, simple_conv_linear_model, basic_config, simple_model_input
     ):

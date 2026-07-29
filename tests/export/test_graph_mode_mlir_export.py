@@ -181,16 +181,6 @@ def test_mnist_export(
 
     has_act_quant = parametrized_quant_config_mlir.has_activation_quantization
 
-    # Per-channel activation axis=-1 causes shape mismatch during quantization
-    parametrized_quant_config_mlir.skip_if_unsupported(
-        "graph",
-        ExportBackend.CoreAI,
-        unsupported_configs={"act_granularity_axis": -1},
-        reason="RuntimeError: tensor size mismatch at "
-        "non-singleton dimension during per-channel activation quantization "
-        "with pooling layers",
-    )
-
     _run_graph_mode_mlir_export_test(
         model=custom_test_mnist_model,
         input_data=mnist_example_input,
