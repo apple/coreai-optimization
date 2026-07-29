@@ -52,17 +52,17 @@ jobs:
         # The published version comes from src/coreai_opt/_about.py, not the tag.
         # Fail early if they disagree so we never publish a mismatched/duplicate
         # version (PyPI uploads are immutable and cannot be overwritten).
-        # `print_version.py --release` computes the version exactly as the
+        # `make version` computes the version exactly as the
         # `make build` step below does, so this guard can't drift from what
         # actually gets published.
         # Skipped on manual dry runs, where the ref is a branch, not a vX.Y.Z tag.
-        # Run via uv (installed above) so the interpreter satisfies
-        # requires-python whatever the runner image ships; see the Makefile's
-        # `version` target.
+        # The target runs `uv run --no-project` internally, so uv (installed
+        # above) supplies an interpreter satisfying requires-python whatever the
+        # runner image ships; see the Makefile's `version` target.
         if: github.event_name == 'push'
         run: |
           tag="${GITHUB_REF_NAME}"
-          version="$(uv run --no-config --no-project --python '>=3.11' scripts/make/print_version.py --release)"
+          version="$(make version)"
           echo "tag=${tag}  package version=${version}"
           if [ "${tag}" != "v${version}" ]; then
             echo "::error::Tag ${tag} does not match package version v${version} (src/coreai_opt/_about.py). Update latest_released_version so the release it implies matches the tag."

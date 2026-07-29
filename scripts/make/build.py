@@ -14,11 +14,9 @@ Usage:
                               version. Called by `make build-dev`.
 
 ``_about.py`` stores ``latest_released_version`` (the last tagged release) by
-hand; ``__version__`` is computed from it — add one to its last number, add
-``.dev0``. This script computes the version to build from
-``latest_released_version``, not from the on-tree ``__version__`` (which must
-never be treated as already released), writes it into ``_about.py``, builds,
-then restores the file. A repo that uses this one as a submodule (building
+hand; ``__version__`` names the release the tree is working toward. This
+script takes the version to build from ``__version__``, writes it into
+``_about.py``, builds, then restores the file. A repo that uses this one as a submodule (building
 one combined wheel) can add its own extra number to the version with
 ``COREAI_OPT_VERSION_EXTENSION``; see
 ``scripts/release/release_utils.next_release_base``.
@@ -89,7 +87,9 @@ def main() -> None:
     repo_root = _find_repo_root(Path(__file__))
 
     about = read_about(repo_root)
-    release_base = next_release_base(about.latest_released_version, get_version_extension())
+    release_base = next_release_base(
+        about.latest_released_version, about.version, get_version_extension()
+    )
     build_version = resolve_build_version(
         release_base,
         dev=args.dev,

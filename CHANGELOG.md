@@ -25,5 +25,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of `coreai-opt`. See the [GitHub Releases](https://github.com/apple/coreai-optimization/releases/) page for release notes.
 
-[0.2.1]: https://github.com/apple/coreai-optimization/releases/tag/v0.2.1
-[0.2.0]: https://github.com/apple/coreai-optimization/releases/tag/v0.2.0
+[0.2.0]: https://github.com/apple/coreai-optimization/commits/v0.2.0/
+[0.2.1]: https://github.com/apple/coreai-optimization/compare/v0.2.0...v0.2.1/
