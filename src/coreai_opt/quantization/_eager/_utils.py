@@ -11,8 +11,8 @@ from coreai_opt._utils.insertion.torch_function.registered_optimizers_tracker im
     RegisteredOptimizersTracker,
 )
 from coreai_opt._utils.torch_utils import (
-    get_parent_module_and_attr_name as _get_parent_module_and_attr_name,
-    remove_compression_parametrizations as _remove_compression_parametrizations,
+    get_parent_module_and_attr_name,
+    remove_compression_parametrizations,
 )
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
@@ -71,7 +71,7 @@ def remove_fake_quant_modules(
         int: Number of modules removed.
 
     """
-    num_removed = _remove_compression_parametrizations(model, modules_to_remove)
+    num_removed = remove_compression_parametrizations(model, modules_to_remove)
 
     # Remove activation FQ standalone modules
     ids_to_remove = {id(m) for m in modules_to_remove}
@@ -81,7 +81,7 @@ def remove_fake_quant_modules(
             and module.quantization_target == CompressionTargetTensor.ACTIVATION
             and id(module) in ids_to_remove
         ):
-            parent_module, attr_name = _get_parent_module_and_attr_name(model, name)
+            parent_module, attr_name = get_parent_module_and_attr_name(model, name)
             delattr(parent_module, attr_name)
             num_removed += 1
 

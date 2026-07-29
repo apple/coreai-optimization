@@ -13,7 +13,7 @@ from typing import Any, ClassVar, NamedTuple
 import torch
 import torch.nn as nn
 
-from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
+from coreai_opt._utils.spec_utils import PartialConstructor
 from coreai_opt._utils.torch_utils import NamedModule
 from coreai_opt.config.spec import CompressionSimulatorBase
 
@@ -129,7 +129,7 @@ class StateSpecResolver:
         func: Callable,
         state_tensor: torch.Tensor,
         current_module: NamedModule,
-        components_dict: Mapping[int | str, _PartialConstructor | None],
+        components_dict: Mapping[int | str, PartialConstructor | None],
     ) -> None:
         """Resolve and cache the optimizer for ``state_tensor`` at the current call site.
 
@@ -197,7 +197,7 @@ class StateSpecResolver:
         self,
         func: Callable,
         state_tensor: torch.Tensor,
-        components_dict: Mapping[int | str, _PartialConstructor | None],
+        components_dict: Mapping[int | str, PartialConstructor | None],
     ) -> CompressionSimulatorBase | None:
         """Look up the ``op_state_spec`` optimizer using all local names for ``state_tensor``."""
         local_state_names = self.get_all_local_names(state_tensor)

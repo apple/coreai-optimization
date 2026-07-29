@@ -28,7 +28,10 @@ from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.config.spec.base import CompressionSpec
 from coreai_opt.pruning.spec import PruneImplBase
 
-from ._prepare_for_export import prepare_for_mil_export, prepare_for_mlir_export
+from ._prepare_for_export import (
+    prepare_for_mil_export as _prepare_for_mil_export,
+    prepare_for_mlir_export as _prepare_for_mlir_export,
+)
 from .base_pruner import _BasePruner
 from .config import MagnitudePrunerConfig
 from .supported_ops_registry import _PrunerSupportedOpsRegistry
@@ -162,10 +165,10 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
                 pass
 
             case ExportBackend.CoreAI:
-                model = prepare_for_mlir_export(model)
+                model = _prepare_for_mlir_export(model)
 
             case ExportBackend.CoreML:
-                model = prepare_for_mil_export(model)
+                model = _prepare_for_mil_export(model)
 
             case _:
                 raise ValueError(f"Unsupported backend: {backend}")

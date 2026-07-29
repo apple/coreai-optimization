@@ -26,18 +26,14 @@ from torchao.quantization.pt2e.quantizer import (
 )
 from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 
-from coreai_opt._utils.config_utils import (
-    ALL_TENSORS as _ALL_TENSORS,
-    ConfigLevel as _ConfigLevel,
-    get_last_matching_spec,
-)
+from coreai_opt._utils.config_utils import ALL_TENSORS, ConfigLevel, get_last_matching_spec
 from coreai_opt._utils.fx_utils import (
     get_local_state_name,
     get_module_boundary_nodes,
     is_coreai_compressed_state_node,
 )
 from coreai_opt._utils.python_utils import get_fn_arg_names
-from coreai_opt._utils.version_utils import version_ge as _version_ge
+from coreai_opt._utils.version_utils import version_ge
 from coreai_opt.config.compression_config import ModuleConfigDict
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._graph._utils import get_source_module_name
@@ -109,7 +105,7 @@ def _get_aten_graph_module_for_pattern(
         )
 
     exported_program = torch.export.export(pattern, example_inputs, kwargs, strict=False)
-    if _version_ge(torch, "2.9"):
+    if version_ge(torch, "2.9"):
         aten_pattern = exported_program.module(check_guards=False)
     else:
         aten_pattern = exported_program.module()
@@ -1237,7 +1233,7 @@ def annotate_module_level_specs(
             by the full state name.
         model: Model to annotate.
     """
-    for config_level in [_ConfigLevel.MODULE_TYPE, _ConfigLevel.MODULE_NAME]:
+    for config_level in [ConfigLevel.MODULE_TYPE, ConfigLevel.MODULE_NAME]:
         for module_name, module_config in module_configs[config_level].items():
             if _module_config_has_module_level_input_output_spec(module_config):
                 _annotate_nodes_for_module_level_input_output_spec(
@@ -1315,7 +1311,7 @@ def _match_and_annotate_state_node(
     Given a state node, check if any of the module_configs have applicable
     module_state_specs and apply if so.
     """
-    for level in _ConfigLevel.priority_order():
+    for level in ConfigLevel.priority_order():
         # Reversed is needed because two different modules may have shared params where
         # both module configs are setting module_state_spec for the param using their
         # respective local names for the same parameter.
@@ -1388,8 +1384,8 @@ def _get_spec_from_spec_dict(
     for i in identifier:
         if i in spec_dict:
             return (True, spec_dict[i])
-    if _ALL_TENSORS in spec_dict:
-        return (True, spec_dict[_ALL_TENSORS])
+    if ALL_TENSORS in spec_dict:
+        return (True, spec_dict[ALL_TENSORS])
     return (False, None)
 
 

@@ -11,6 +11,7 @@ import torch
 from coreai_opt._utils.torch_utils import is_tensor_on_cpu
 from coreai_opt.common import CoreMLExportError, ExportBackend
 from coreai_opt.config.spec import CompressionTargetTensor
+from coreai_opt.quantization.spec import QuantizationSpec
 from coreai_opt.quantization.spec.granularity import PerTensorGranularity, QuantizationGranularity
 
 COREML_SUPPORTED_WEIGHT_DTYPES: frozenset[torch.dtype] = frozenset(
@@ -76,6 +77,52 @@ def validate_coreml_compatibility(
         granularity, tuple(COREML_SUPPORTED_ACTIVATION_GRANULARITIES)
     ):
         raise CoreMLExportError.from_config(granularity, context)
+
+
+def validate_coreml_palettization_compatibility(
+    cluster_dim: int,
+    lut_qspec: QuantizationSpec | None,
+    enable_per_channel_scale: bool,
+    context: str,
+) -> None:
+    """Raise CoreMLExportError if this palettization config isn't CoreML-exportable.
+
+    Checks the LUT dtype (delegating to validate_coreml_compatibility) and
+    whether the config combines multiple features CoreML/MIL export cannot yet
+    fuse into a single compatible op chain: CoreML export supports at most one
+    of {vector palettization, LUT quantization, per-channel scale} at a time;
+    combining any two hits an unsupported CoreML/MIL op configuration
+    (mismatched tensor ranks, or `lut_to_dense` divisibility errors).
+
+    Args:
+        cluster_dim (int): Palettization cluster dimension; > 1 indicates
+            vector palettization.
+        lut_qspec (QuantizationSpec | None): LUT quantization spec, or None if
+            the LUT is not quantized.
+        enable_per_channel_scale (bool): Whether per-channel scaling is enabled.
+        context (str): Human-readable description of what's being checked.
+
+    Raises:
+        CoreMLExportError: If the LUT dtype isn't supported, or if two or more
+            of the three features above are combined.
+    """
+    if lut_qspec is not None:
+        validate_coreml_compatibility(
+            CompressionTargetTensor.LUT, lut_qspec.dtype, f"LUT of {context}"
+        )
+
+    active_features = []
+    if cluster_dim > 1:
+        active_features.append("cluster_dim")
+    if lut_qspec is not None:
+        active_features.append("lut_qspec")
+    if enable_per_channel_scale:
+        active_features.append("enable_per_channel_scale")
+
+    if len(active_features) >= 2:
+        raise CoreMLExportError(
+            f"CoreML export does not support {' + '.join(active_features)} on {context}."
+        )
 
 
 def validate_mmap_backend_and_device(

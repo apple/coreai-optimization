@@ -20,16 +20,12 @@ from torchao.quantization.pt2e import (
     enable_observer,
 )
 
-from coreai_opt._utils.config_utils import (
-    ALL_TENSORS as _ALL_TENSORS,
-)
-from coreai_opt._utils.eager_utils import (
-    EagerCompressionComponentBuilderMixin as _EagerCompressionComponentBuilderMixin,
-)
+from coreai_opt._utils.config_utils import ALL_TENSORS
+from coreai_opt._utils.eager_utils import EagerCompressionComponentBuilderMixin
 from coreai_opt._utils.insertion.torch_function import (
     TorchFunctionEagerHandler,
 )
-from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
+from coreai_opt._utils.spec_utils import PartialConstructor
 from coreai_opt._utils.torch_utils import move_model_to_eval, move_model_to_train
 from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleCompressionConfig
@@ -37,11 +33,11 @@ from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.config.spec.base import CompressionSpec
 from coreai_opt.quantization._axis_defaults import (
     apply_weight_axis_defaults_eager as _apply_weight_axis_defaults,
-    validate_activation_axes as _validate_activation_axes,
+    validate_activation_axes,
 )
 from coreai_opt.quantization._fake_quant_utils import (
-    disable_activation_fake_quant as _disable_activation_fake_quant,
-    enable_weight_fake_quant as _enable_weight_fake_quant,
+    disable_activation_fake_quant,
+    enable_weight_fake_quant,
 )
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
@@ -54,19 +50,15 @@ from coreai_opt.quantization.spec.fake_quantize import (
     FakeQuantizeImplBase,
 )
 
-from ._prepare_for_export import (
-    prepare_for_mlir_export as _prepare_for_mlir_export,
-)
-from ._prepare_for_mil_export import (
-    prepare_for_mil_export as _prepare_for_mil_export,
-)
+from ._prepare_for_export import prepare_for_mlir_export
+from ._prepare_for_mil_export import prepare_for_mil_export
 from ._utils import remove_act_fq_from_reference_tracker, remove_fake_quant_modules
 from .supported_ops_registry import (
     EagerQuantizerSupportedOpsRegistry,
 )
 
 
-class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
+class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
     """Eager mode quantization-aware training (QAT) quantizer.
 
     Uses `__torch_function__` to trace model execution and insert fake quantizers
@@ -163,7 +155,7 @@ class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
         # identification.
         for spec in op_input_specs_to_check + op_output_specs_to_check:
             for key in spec:
-                if isinstance(key, str) and key != _ALL_TENSORS:
+                if isinstance(key, str) and key != ALL_TENSORS:
                     error_msg = (
                         "Only integer indices or '*' are supported for op_input_spec "
                         f"and op_output_spec currently. Got {spec}"
@@ -232,7 +224,7 @@ class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
             model (nn.Module): The model after eager prepare().
         """
         _apply_weight_axis_defaults(model)
-        _validate_activation_axes(model)
+        validate_activation_axes(model)
 
     def finalize(
         self,
@@ -282,9 +274,9 @@ class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
             case ExportBackend._TORCH:
                 finalized_model = model
             case ExportBackend.CoreAI:
-                finalized_model = _prepare_for_mlir_export(model, mmap_dir=mmap_dir)
+                finalized_model = prepare_for_mlir_export(model, mmap_dir=mmap_dir)
             case ExportBackend.CoreML:
-                finalized_model = _prepare_for_mil_export(model)
+                finalized_model = prepare_for_mil_export(model)
             case _:
                 msg = f"Unsupported backend {backend}"
                 raise ValueError(msg)
@@ -315,8 +307,8 @@ class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
             )
         with move_model_to_eval(self._model):
             self._model.apply(enable_observer)
-            self._model.apply(_enable_weight_fake_quant)
-            self._model.apply(_disable_activation_fake_quant)
+            self._model.apply(enable_weight_fake_quant)
+            self._model.apply(disable_activation_fake_quant)
             try:
                 yield
             finally:
@@ -405,5 +397,5 @@ class EagerQuantizer(_BaseQuantizer, _EagerCompressionComponentBuilderMixin):
         spec: CompressionSpec | None,
         target: CompressionTargetTensor,
         module_config: ModuleCompressionConfig,
-    ) -> _PartialConstructor | None:
+    ) -> PartialConstructor | None:
         return QuantizationComponentFactory.construct_partial(spec=spec, target=target)

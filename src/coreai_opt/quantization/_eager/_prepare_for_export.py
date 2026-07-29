@@ -12,23 +12,20 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.parametrize as P
 
-from coreai_opt._utils.export_utils import (
-    clear_parametrization_original as _clear_parametrization_original,
-    prepare_mmap_dir as _prepare_mmap_dir,
-)
+from coreai_opt._utils.export_utils import clear_parametrization_original, prepare_mmap_dir
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.torch_utils import (
-    get_parent_module_and_attr_name as _get_parent_module_and_attr_name,
-    is_float4_dtype as _is_float4_dtype,
-    mmap_module_state_dict as _mmap_module_state_dict,
+    get_parent_module_and_attr_name,
+    is_float4_dtype,
+    mmap_module_state_dict,
 )
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
-    canonicalize_qparam_shape as _canonicalize_qparam_shape,
-    extract_quantization_params as _extract_quantization_params,
-    pack_fp4_to_float4tensor as _pack_fp4_to_float4tensor,
-    select_export_qparams_by_formulation as _select_export_qparams_by_formulation,
-    validate_fp4_export as _validate_fp4_export,
+    canonicalize_qparam_shape,
+    extract_quantization_params,
+    pack_fp4_to_float4tensor,
+    select_export_qparams_by_formulation,
+    validate_fp4_export,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
 
@@ -49,7 +46,7 @@ def _add_weight_dequantization_parametrization(
     """
 
     # Extract and prepare quantization parameters
-    scale, zero_point, minval = _extract_quantization_params(fake_quant_mod)
+    scale, zero_point, minval = extract_quantization_params(fake_quant_mod)
 
     # Cast scale and minval to appropriate dtype for MLIR backend inference
     _compute_dtype_for_export = fake_quant_mod.qparams_calculator._compute_dtype_for_export
@@ -62,11 +59,11 @@ def _add_weight_dequantization_parametrization(
 
     # Drop one of the offsets so that the export
     # module / runtime selects the right dequant path.
-    zero_point, minval = _select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
+    zero_point, minval = select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
 
-    if _is_float4_dtype(fake_quant_mod.dtype):
-        _validate_fp4_export(fake_quant_mod, quantized_data)
-        quantized_data = _pack_fp4_to_float4tensor(quantized_data)
+    if is_float4_dtype(fake_quant_mod.dtype):
+        validate_fp4_export(fake_quant_mod, quantized_data)
+        quantized_data = pack_fp4_to_float4tensor(quantized_data)
     if fake_quant_mod.qparams_calculator.scale_dtype == torch.float8_e8m0fnu:
         output_dtype = _compute_dtype_for_export
         scale = scale.to(torch.float8_e8m0fnu)
@@ -89,10 +86,10 @@ def _add_weight_dequantization_parametrization(
     if mmap_dir is not None:
         stem = f"{module_name}.{param_name}" if module_name else param_name
         path = Path(mmap_dir) / f"{stem}.safetensors"
-        _mmap_module_state_dict(weight_dequant_mod, path)
+        mmap_module_state_dict(weight_dequant_mod, path)
 
     module.parametrizations[param_name][fake_quant_idx] = weight_dequant_mod
-    _clear_parametrization_original(module, param_name)
+    clear_parametrization_original(module, param_name)
     return weight_dequant_mod
 
 
@@ -113,7 +110,7 @@ def _process_weight_quantization(model: nn.Module, mmap_dir: str | PathLike[str]
             directory and reload it via mmap, so large-model finalization does
             not hold full quantized weights in RAM.
     """
-    _prepare_mmap_dir(mmap_dir)
+    prepare_mmap_dir(mmap_dir)
 
     # Lazy import: coreai_torch is required for MLIR export
     def _import_coreai_torch_modules():
@@ -156,7 +153,7 @@ def _process_weight_quantization(model: nn.Module, mmap_dir: str | PathLike[str]
                 # Shared FakeQuantize across modules (e.g. weight tying): reuse
                 # the same dequant module so post-finalize sharing is preserved.
                 module.parametrizations[param_name][fake_quant_idx] = cached
-                _clear_parametrization_original(module, param_name)
+                clear_parametrization_original(module, param_name)
                 continue
 
             weight_dequant_mod = _add_weight_dequantization_parametrization(
@@ -200,18 +197,18 @@ def _process_activation_quantization(model: nn.Module):
         if isinstance(module, FakeQuantizeImplBase) and module.quantization_target in (
             CompressionTargetTensor.ACTIVATION,
         ):
-            if _is_float4_dtype(module.dtype):
+            if is_float4_dtype(module.dtype):
                 raise ValueError("FP4 activation quantization is not supported for MLIR export.")
             modules_to_replace.append((name, module))
 
     # Replace each FakeQuantizeImplBase module
     for name, fake_quant_module in modules_to_replace:
         # Extract quantization parameters
-        scale, zero_point, minval = _extract_quantization_params(fake_quant_module)
+        scale, zero_point, minval = extract_quantization_params(fake_quant_module)
 
         # Drop one of the offsets so that the export
         # module / runtime selects the right dequant path.
-        zero_point, minval = _select_export_qparams_by_formulation(
+        zero_point, minval = select_export_qparams_by_formulation(
             fake_quant_module, zero_point, minval
         )
 
@@ -226,11 +223,11 @@ def _process_activation_quantization(model: nn.Module):
 
         # Canonicalize scale/zero_point/minval to 0-D (per-tensor) or 1-D (per-channel)
         granularity = fake_quant_module.granularity
-        scale = _canonicalize_qparam_shape(scale, granularity)
+        scale = canonicalize_qparam_shape(scale, granularity)
         if zero_point is not None:
-            zero_point = _canonicalize_qparam_shape(zero_point, granularity)
+            zero_point = canonicalize_qparam_shape(zero_point, granularity)
         if minval is not None:
-            minval = _canonicalize_qparam_shape(minval, granularity)
+            minval = canonicalize_qparam_shape(minval, granularity)
 
         axis = fake_quant_module.qparams_calculator._resolved_axis
         axis = axis if axis is not None else 0
@@ -277,7 +274,7 @@ def _process_activation_quantization(model: nn.Module):
         )
 
         # Replace the module in the model
-        parent_module, attr_name = _get_parent_module_and_attr_name(model, name)
+        parent_module, attr_name = get_parent_module_and_attr_name(model, name)
         setattr(parent_module, attr_name, replacement_module)
 
 

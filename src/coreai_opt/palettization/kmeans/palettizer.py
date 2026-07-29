@@ -45,7 +45,10 @@ from coreai_opt.palettization.spec.fake_palettize import (
     _enable_observer,
 )
 
-from ._prepare_for_export import prepare_for_mil_export, prepare_for_mlir_export
+from ._prepare_for_export import (
+    prepare_for_mil_export as _prepare_for_mil_export,
+    prepare_for_mlir_export as _prepare_for_mlir_export,
+)
 from .kmeans_fake_palettize import _KMeansFakePalettize
 from .supported_ops_registry import _KMeansPalettizerSupportedOpsRegistry
 
@@ -405,10 +408,10 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 pass
 
             case ExportBackend.CoreAI:
-                finalized_model = prepare_for_mlir_export(finalized_model, mmap_dir=mmap_dir)
+                finalized_model = _prepare_for_mlir_export(finalized_model, mmap_dir=mmap_dir)
 
             case ExportBackend.CoreML:
-                finalized_model = prepare_for_mil_export(finalized_model)
+                finalized_model = _prepare_for_mil_export(finalized_model)
 
             case _:
                 msg = f"Unsupported backend: {backend}"

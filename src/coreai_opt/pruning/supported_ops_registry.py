@@ -7,10 +7,12 @@
 
 import torch.nn.functional as F
 
-from coreai_opt._utils.insertion.torch_function import BaseSupportedOpsRegistry
+from coreai_opt._utils.insertion.torch_function import (
+    BaseSupportedOpsRegistry as _BaseSupportedOpsRegistry,
+)
 
 
-class _PrunerSupportedOpsRegistry(BaseSupportedOpsRegistry):
+class _PrunerSupportedOpsRegistry(_BaseSupportedOpsRegistry):
     """Registry of operations that support pruning."""
 
 
