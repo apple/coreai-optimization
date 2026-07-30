@@ -2,9 +2,9 @@
 
 ## What is `coreai-opt`?
 
-`coreai-opt` is a Python library for compressing PyTorch models for deployment on Apple Silicon. It allows you to apply compression-based optimizations (such as quantization or palettization) to any PyTorch model, producing a transformed PyTorch model that can be converted to a Core AI model and run with the [Core AI](https://developer.apple.com/documentation/coreai) framework.
+`coreai-opt` is a Python library for compressing PyTorch models for deployment on Apple silicon. It applies compression-based optimizations (such as quantization or palettization) to any PyTorch model, producing a transformed PyTorch model that can be converted to a Core AI model and run with the [Core AI](https://developer.apple.com/documentation/coreai) framework. For an overview of the Core AI ecosystem and how coreai-opt fits in, see [What is Core AI?](#what-is-core-ai).
 
-Model compression can help reduce the memory footprint of your model (disk size and at runtime), reduce inference latency, reduce power consumption, or optimize them all at once.
+Model compression can help reduce the memory footprint of a model (disk size and at runtime), reduce inference latency, reduce power consumption, or optimize them all at once.
 
 ```{mermaid}
 flowchart LR
@@ -20,11 +20,11 @@ flowchart LR
 
 `coreai-opt` is built around the following ideas:
 
-- **PyTorch native.** All APIs operate on PyTorch models. Compression is another transformation in your PyTorch workflow. The output of every compressor is itself a PyTorch model that can be validated, fine-tuned, and exported like any other model.
+- **PyTorch native.** All APIs operate on PyTorch models. Compression is another transformation in a PyTorch workflow. The output of every compressor is itself a PyTorch model that can be validated, fine-tuned, and exported like any other model.
 
 - **Integrates with existing PyTorch code.** Adding post-training compression, calibration-based, or compression-aware training to an existing PyTorch pipeline takes a few additional lines of code. All three use the same compressor object.
 
-- **Aligned with Apple Silicon.** Default configurations and the majority of the available optimization options align with what the [Core AI](https://developer.apple.com/documentation/coreai) runtime executes efficiently, on one or many of the Apple Silicon platforms. Compressed PyTorch models can be seamlessly converted to `.aimodel` for deployment via Core AI.
+- **Aligned with Apple silicon.** Default configurations and the majority of the available optimization options align with what the [Core AI](https://developer.apple.com/documentation/coreai) runtime executes efficiently, on one or many of the Apple silicon platforms. Compressed PyTorch models can be seamlessly converted to `.aimodel` for deployment via Core AI.
 
 ## Types of compression
 
@@ -44,9 +44,9 @@ The process of applying compression to a model typically involves the following 
 
 - **Calibration-based compression**: Post-training compression with calibration data. Often used when quantizing activations. A small amount of representative data (e.g. ~128 samples) lets compressors observe activation ranges and weight sensitivities.
 
-- **Fine-tuning-based compression**: Compression-aware fine-tuning (e.g. quantization-aware training) with full training data. The compressor is integrated into your training loop so the model adapts to compression error as it trains. The most time-intensive workflow, but typically the only way to recover accuracy at the most aggressive compression ratios for weights (4 bits and below), and/or for models that are sensitive to activation quantization.
+- **Fine-tuning-based compression**: Compression-aware fine-tuning (e.g. quantization-aware training) with full training data. The compressor is integrated into the training loop so the model adapts to compression error as it trains. The most time-intensive workflow, but typically the only way to recover accuracy at the most aggressive compression ratios for weights (4 bits and below), and/or for models that are sensitive to activation quantization.
 
-`coreai-opt`'s APIs allow you to easily move from one stage to the next while evaluating accuracy after each stage and escalating to a more expensive workflow only when needed.
+`coreai-opt`'s APIs make it straightforward to move from one stage to the next while evaluating accuracy after each stage and escalating to a more expensive workflow only when needed.
 
 ## Getting started
 
