@@ -10,6 +10,7 @@ This module defines nox sessions to test the coreai-opt package against:
 """
 
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -41,6 +42,12 @@ TORCH_GROUP = os.environ.get("TORCH_GROUP")
 # artifact that will be uploaded to PyPI is what gets tested. Relative paths are
 # resolved against the working directory (the project root, set just below).
 SMOKE_TEST_DIST = os.environ.get("SMOKE_TEST_DIST")
+
+# Extra `uv pip install` arguments, applied to the session venv after the
+# package under test is installed. Use it to swap a dependency version for one
+# run without editing pyproject.toml or the lockfile. Split with shlex so
+# quoted version specifiers stay in one piece. Unset means do nothing.
+POST_INSTALL_PIP_ARGS = os.environ.get("POST_INSTALL_PIP_ARGS")
 
 
 @session(
@@ -88,6 +95,11 @@ def smoke_tests(session: Session) -> None:
     # setuptools is needed by torch.utils.cpp_extension (used by PT2E quantization);
     # required on Python 3.12+ where distutils was removed from stdlib.
     session.install("setuptools")
+
+    # Last, so it replaces any version the installed package pinned.
+    if POST_INSTALL_PIP_ARGS:
+        session.log(f"Applying POST_INSTALL_PIP_ARGS: {POST_INSTALL_PIP_ARGS}")
+        session.install(*shlex.split(POST_INSTALL_PIP_ARGS))
 
     session.log("Running smoke tests")
 

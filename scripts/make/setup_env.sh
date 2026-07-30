@@ -261,6 +261,26 @@ if ! command -v uv &>/dev/null; then
     exit 1
 fi
 
+# Install POST_INSTALL_PIP_ARGS into the venv, if it is set.
+#
+# Use it to swap a dependency version for one run without editing
+# pyproject.toml or the lockfile; only the venv changes. Called from both exits
+# below, so it runs whether or not a sync was needed. Unset means do nothing.
+#
+# `eval` is needed because the arguments contain their own quotes.
+apply_post_install_pip_args() {
+    [[ -n "${POST_INSTALL_PIP_ARGS:-}" ]] || return 0
+    echo ""
+    echo "=========================================="
+    echo "Applying POST_INSTALL_PIP_ARGS"
+    echo "=========================================="
+    echo "Venv: $VENV"
+    echo "Args: $POST_INSTALL_PIP_ARGS"
+    echo ""
+    source "$VENV/bin/activate"
+    eval "uv pip install $POST_INSTALL_PIP_ARGS"
+}
+
 # --ensure mode: skip setup if venv exists and required deps are already installed.
 # This is the fast path called by Make targets to avoid re-running full setup.
 if [[ "$ENSURE_MODE" == "true" ]] && [ -f "$VENV/bin/python" ]; then
@@ -299,6 +319,7 @@ if [[ "$ENSURE_MODE" == "true" ]] && [ -f "$VENV/bin/python" ]; then
     fi
 
     if "$VENV/bin/python" -c "$IMPORT_STMTS" 2>/dev/null; then
+        apply_post_install_pip_args
         exit 0
     fi
 
@@ -368,6 +389,8 @@ if [[ ${#EXCLUDE_GROUPS[@]} -gt 0 ]]; then
 fi
 echo "Running: ${SYNC_CMD[*]}"
 "${SYNC_CMD[@]}"
+
+apply_post_install_pip_args
 
 echo ""
 echo "[3/3] Installing hook dependencies and configuring pre-commit hooks..."

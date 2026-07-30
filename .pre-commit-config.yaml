@@ -321,6 +321,20 @@ repos:
 
   - repo: local
     hooks:
+      - id: check-about-version
+        name: Check _about.py version fields
+        description: |
+          Check that _about.py's latest_released_version matches the repo's
+          latest release tag, and that __version__ is its last number plus
+          one, plus .dev0. Catches a release candidate that looks like a
+          release has already shipped when it hasn't.
+        entry: python scripts/pre_commit/check_about_version.py
+        language: system
+        files: (^|/)_about\.py$
+        pass_filenames: false
+
+  - repo: local
+    hooks:
       - id: towncrier-check
         name: Check changelog fragments (towncrier)
         entry: scripts/pre_commit/towncrier_check.sh
