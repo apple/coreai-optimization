@@ -340,7 +340,7 @@ def _process_mlir_activation_quantization(
         raise ValueError("FP4 activation quantization is not supported for MLIR export.")
 
     if isinstance(fake_quant_mod.granularity, PerBlockGranularity):
-        raise ValueError("MLIR export does not support per-block granularity for activations.")
+        raise ValueError("MLIR export does not support PerBlockGranularity on activations.")
 
     def _import_coreai_custom_ops():
         import coreai_torch._compression.custom_layers  # noqa: PLC0415, F401

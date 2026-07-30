@@ -16,6 +16,7 @@ import torch
 import torch.nn as nn
 
 from coreai_opt import ExportBackend
+from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization import (
     ModuleQuantizerConfig,
     QuantizationSpec,
@@ -540,26 +541,86 @@ class TestPerBlockActivationQuantization:
     """Per-block activation quantization is supported for prepare/simulation but
     is not exportable."""
 
-    def _make_per_block_activation_config(self, execution_mode: str) -> QuantizerConfig:
+    class _TwoConvModel(nn.Module):
+        def __init__(self, channels: int = 32) -> None:
+            super().__init__()
+            self.conv1 = nn.Conv2d(channels, channels, 3, padding=1)
+            self.conv2 = nn.Conv2d(channels, channels, 3, padding=1)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return self.conv2(self.conv1(x))
+
+    @staticmethod
+    def _make_per_block_activation_config(
+        execution_mode: str, weight_axis: int = 1, activation_axis: int = -1
+    ) -> QuantizerConfig:
         return QuantizerConfig(
             global_config=ModuleQuantizerConfig(
                 op_state_spec={
                     "weight": QuantizationSpec(
                         dtype=torch.int8,
                         qscheme=QuantizationScheme.SYMMETRIC,
-                        granularity=PerTensorGranularity(),
+                        granularity=PerBlockGranularity(axis=weight_axis, block_size=16),
                     )
                 },
                 op_input_spec={
                     "*": QuantizationSpec(
                         dtype=torch.int8,
                         qscheme=QuantizationScheme.SYMMETRIC,
-                        granularity=PerBlockGranularity(axis=-1, block_size=16),
+                        granularity=PerBlockGranularity(axis=activation_axis, block_size=16),
                     )
                 },
                 op_output_spec=None,
             ),
         ).set_execution_mode(execution_mode)
+
+    @pytest.mark.parametrize(
+        "weight_axis,expected_weight_scale_shape,activation_axis,expected_activation_scale_shape",
+        [
+            (1, (32, 2, 1, 1), 1, (1, 2, 16, 16)),
+            (0, (2, 32, 1, 1), -1, (1, 32, 16, 1)),
+        ],
+    )
+    def test_per_block_scale_shape(
+        self,
+        execution_mode,
+        weight_axis,
+        expected_weight_scale_shape,
+        activation_axis,
+        expected_activation_scale_shape,
+    ):
+        """Weight and Activations should use respective logic for block_size"""
+        config = self._make_per_block_activation_config(
+            execution_mode, weight_axis, activation_axis
+        )
+
+        example_input = torch.randn(1, 32, 16, 16)
+        quantizer = Quantizer(self._TwoConvModel(), config)
+        prepared_model = quantizer.prepare((example_input,))
+        prepared_model(example_input)
+
+        act_scale_shapes = {
+            tuple(m.calculate_qparams()[0].shape)
+            for m in prepared_model.modules()
+            if isinstance(m, FakeQuantizeImplBase)
+            and m.quantization_target == CompressionTargetTensor.ACTIVATION
+            and not m.is_disabled()
+        }
+        assert act_scale_shapes == {expected_activation_scale_shape}, (
+            f"Expected activation scale shape {expected_activation_scale_shape}, "
+            f"got {act_scale_shapes}"
+        )
+
+        weight_scale_shapes = {
+            tuple(m.calculate_qparams()[0].shape)
+            for m in prepared_model.modules()
+            if isinstance(m, FakeQuantizeImplBase)
+            and m.quantization_target == CompressionTargetTensor.WEIGHT
+            and not m.is_disabled()
+        }
+        assert weight_scale_shapes == {expected_weight_scale_shape}, (
+            f"Expected weight scale shape {expected_weight_scale_shape}, got {weight_scale_shapes}"
+        )
 
     @pytest.mark.parametrize("backend", [ExportBackend.CoreAI, ExportBackend.CoreML])
     def test_finalize_rejects_per_block_activation(self, execution_mode, backend):
@@ -569,7 +630,7 @@ class TestPerBlockActivationQuantization:
         prepared_model = quantizer.prepare((torch.randn(4, 64),))
         prepared_model(torch.randn(4, 64))
 
-        with pytest.raises(Exception, match=r"[Pp]er-?[Bb]lock ?[Gg]ranularity"):
+        with pytest.raises(Exception, match="does not support PerBlockGranularity on activation"):
             quantizer.finalize(prepared_model, backend=backend)
 
 

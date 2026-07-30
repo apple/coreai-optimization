@@ -201,9 +201,7 @@ def _process_activation_quantization(model: nn.Module):
             if is_float4_dtype(module.dtype):
                 raise ValueError("FP4 activation quantization is not supported for MLIR export.")
             if isinstance(module.granularity, PerBlockGranularity):
-                raise ValueError(
-                    "MLIR export does not support per-block granularity for activations."
-                )
+                raise ValueError("MLIR export does not support PerBlockGranularity on activations.")
             modules_to_replace.append((name, module))
 
     # Replace each FakeQuantizeImplBase module

@@ -35,12 +35,17 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
     """
 
     @classmethod
-    def create_range_calculator(cls, spec: QuantizationSpec) -> RangeCalculatorBase:
+    def create_range_calculator(
+        cls,
+        spec: QuantizationSpec,
+        quantization_target: CompressionTargetTensor = CompressionTargetTensor.WEIGHT,
+    ) -> RangeCalculatorBase:
         """
         Create a RangeCalculatorBase instance from a QuantizationSpec.
 
         Args:
             spec: QuantizationSpec instance containing configuration
+            quantization_target: The target tensor for quantization (weight/activation).
 
         Returns:
             RangeCalculatorBase instance configured from the spec
@@ -48,6 +53,7 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
         # Standard arguments for range calculator
         common_args = {
             "granularity": spec.granularity,
+            "quantization_target": quantization_target,
         }
 
         # Automatically detect and include any extra arguments
@@ -96,7 +102,7 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
             )
 
         # Create range calculator first
-        range_calculator = cls.create_range_calculator(spec)
+        range_calculator = cls.create_range_calculator(spec, quantization_target)
 
         # Standard arguments for qparams calculator
         common_args = {

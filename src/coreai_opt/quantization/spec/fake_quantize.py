@@ -359,7 +359,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
 
         This function quantizes the values in tensor but keeps the quantized tensor dtype in FP.
         """
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -384,7 +384,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         output_dtype: torch.dtype,
     ) -> torch.Tensor:
         """Integer dequantization. See :func:`_dequantize_int` for the math."""
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -406,7 +406,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         """
         Floating-point quantization: cast_to_low_precision(clamp(input / scale, min, max))
         """
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -427,7 +427,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         output_dtype: torch.dtype,
     ) -> torch.Tensor:
         """Floating-point dequantization: input * scale"""
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -449,7 +449,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
 
         Dispatches to the int or float fused STE class based on self.dtype.
         """
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
