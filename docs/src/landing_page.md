@@ -2,14 +2,20 @@
 
 ## What Is Core AI?
 
-Core AI is Apple's framework for on-device machine learning. The Core AI ecosystem provides tools for every stage of the workflow — from ready-to-use models and optimization through conversion, debugging, and on-device execution.
+Core AI is a set of technologies for deploying machine learning models on Apple hardware, covering the full model deployment lifecycle: from model optimization and conversion, to debugging, to integration into your app. Models run entirely on device on Apple Silicon, with no server required.
 
 ```{image} _images/core-ai-ecosystem.png
 :alt: Diagram of the Core AI ecosystem. At the top, Core AI Models provides ready-to-use models and examples. Core AI Optimization and Core AI PyTorch Extensions prepare models for deployment, producing a .aimodel file. Core AI Debugger and Xcode support integration and debugging. Core AI Framework runs models on device.
 :align: center
 ```
 
-`coreai-opt` is the optimization step in this pipeline. It compresses PyTorch models before they are converted to `.aimodel` format, producing models that are smaller and faster to run with Core AI Framework.
+The Core AI ecosystem consists of the following components:
+
+- Convert PyTorch models to the Core AI model format (`.aimodel`) using [Core AI PyTorch Extensions](https://github.com/apple/coreai-torch)
+- Compress models with quantization, palettization, and pruning using [Core AI Optimization](https://github.com/apple/coreai-optimization)
+- Load and run models in your app with the [Core AI Framework](https://developer.apple.com/documentation/coreai)
+- Inspect, debug, and profile models using Core AI Debugger
+- Get popular open-source non-LLM and LLM models, with conversion, re-authoring, and optimization scripts, along with Swift app integration code using [Core AI Models](https://github.com/apple/coreai-models)
 
 ## What is `coreai-opt`?
 
