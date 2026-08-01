@@ -11,6 +11,7 @@ from torch.fx import GraphModule, Node
 
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
 from coreai_opt.quantization.spec.granularity import (
+    PerBlockGranularity,
     PerChannelGranularity,
     PerTensorGranularity,
     QuantizationGranularity,
@@ -267,8 +268,8 @@ def _shared_granularity_axis_is_safe(
     """Return True only if it's proven safe to keep ``fake_quant``'s
     granularity shared across ``op_node``; unproven cases default to unsafe.
 
-    Per-channel activation quantization on a shared observer is assumed
-    unsafe by default. Each op category below has exactly one condition
+    Per-channel and per-block activation quantization on a shared observer are
+    assumed unsafe by default. Each op category below has exactly one condition
     under which it stops being safe, checked directly against that
     category rather than composing generic checks that apply to every op:
 
@@ -284,10 +285,6 @@ def _shared_granularity_axis_is_safe(
     # No axis to violate — trivially safe.
     if isinstance(granularity, PerTensorGranularity):
         return True
-    # Anything other than PerChannelGranularity (e.g. PerBlockGranularity)
-    # has no condition checked below, so it's not safe.
-    if not isinstance(granularity, PerChannelGranularity):
-        return False
 
     output_shape = op_node.meta["val"].shape
     input_shape = input_fq_node.all_input_nodes[0].meta["val"].shape
@@ -296,14 +293,19 @@ def _shared_granularity_axis_is_safe(
     # index, so there's no condition to check here.
     if len(input_shape) != len(output_shape):
         return False
-    axis = QuantizationGranularity._resolve_axis(granularity, len(input_shape))
-    if axis is None:
-        return False
+
+    if isinstance(granularity, PerBlockGranularity):
+        axes: tuple[int, ...] = tuple(range(len(input_shape)))
+    else:
+        axis = QuantizationGranularity._resolve_axis(granularity, len(input_shape))
+        if axis is None:
+            return False
+        axes = (axis,)
 
     if op_node.target in _AXIS_RESIZING_ATEN_OPS:
-        return input_shape[axis] == output_shape[axis]
+        return all(input_shape[a] == output_shape[a] for a in axes)
     if op_node.target in _AXIS_REORDERING_ATEN_OPS:
-        return _op_preserves_axis_identity(op_node, axis)
+        return all(_op_preserves_axis_identity(op_node, a) for a in axes)
     # flatten/reshape/view/unsqueeze, or an unrecognized future op: no known
     # single condition to prove safety, so default to unsafe.
     return False

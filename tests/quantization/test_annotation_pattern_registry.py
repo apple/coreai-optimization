@@ -37,6 +37,7 @@ from coreai_opt.quantization._graph._annotation_utils import (
 )
 from coreai_opt.quantization.config import OpQuantizerConfig
 from coreai_opt.quantization.spec import (
+    PerBlockGranularity,
     PerChannelGranularity,
     PerTensorGranularity,
     QuantizationScheme,
@@ -228,29 +229,36 @@ _POOL_CLS = {
 }
 
 
-def _build_pool(pool_type: str, dim: int) -> nn.Module:
+def _build_pool(pool_type: str, dim: int, preserve_shape: bool = False) -> nn.Module:
     pool_cls = _POOL_CLS[pool_type][dim]
     if pool_type == "adaptive_avg":
         # AdaptiveAvgPool takes an output size, not a kernel/stride; 4 is half
         # of _POOL_SPATIAL_SHAPE's 8, matching stride-2 max/avg pool's shrink.
-        return pool_cls((4,) * dim)
+        # Asking for the input's own size keeps every dimension intact instead.
+        output_size = _POOL_SPATIAL_SHAPE[dim] if preserve_shape else (4,) * dim
+        return pool_cls(output_size)
+    if preserve_shape:
+        # A 3-wide window with stride 1 and padding 1 leaves every spatial dimension the same size.
+        return pool_cls(3, stride=1, padding=1)
     return pool_cls(2, stride=2)
 
 
 class SimplePoolModel(nn.Module):
-    """Simple model with a pool that shrinks its spatial dimensions.
+    """Simple model with a pool between two convs.
 
     Parametrized over ``pool_type`` ("max", "avg", "adaptive_avg") and ``dim``
-    (1, 2, or 3) to exercise MaxPool/AvgPool/AdaptiveAvgPool 1d/2d/3d.
+    (1, 2, or 3) to exercise MaxPool/AvgPool/AdaptiveAvgPool 1d/2d/3d. The pool
+    shrinks its spatial dimensions by default; ``preserve_shape=True`` keeps them
+    the same size.
     """
 
-    def __init__(self, pool_type: str = "max", dim: int = 2):
+    def __init__(self, pool_type: str = "max", dim: int = 2, preserve_shape: bool = False):
         super().__init__()
         conv_cls = _POOL_CONV_CLS[dim]
         kernel = (3,) * dim
         padding = (1,) * dim
         self.conv = conv_cls(3, 4, kernel, padding=padding, bias=False)
-        self.pool = _build_pool(pool_type, dim)
+        self.pool = _build_pool(pool_type, dim, preserve_shape=preserve_shape)
         self.conv2 = conv_cls(4, 4, kernel, padding=padding, bias=False)
 
     def forward(self, x):
@@ -1393,20 +1401,29 @@ class TestAnnotationPatternRegistry:
         for node in prepared_model.graph.nodes:
             assert "activation_post_process" not in node.name
 
-    def test_shared_observer_forces_per_tensor_for_flatten(self):
+    @pytest.mark.parametrize(
+        "granularity",
+        [
+            PerChannelGranularity(axis=0),
+            PerBlockGranularity(axis=0, block_size=2),
+        ],
+        ids=["per_channel", "per_block"],
+    )
+    def test_shared_observer_forces_per_tensor_for_flatten(self, granularity):
         """
-        When per-channel activation granularity is used globally, shared observer
-        ops that alter channel semantics (e.g., flatten) should have their shared
-        fake quantize modules forced to per-tensor granularity. The conv and linear
-        activation quantizers (which are separate objects) should remain per-channel.
+        When an axis-carrying activation granularity is used globally, shared
+        observer ops that alter channel semantics (e.g., flatten) should have their
+        shared fake quantize modules forced to per-tensor granularity. The conv and
+        linear activation quantizers (which are separate objects) should keep their
+        configured granularity.
         """
         model = SimpleFlattenModel()
         inp = torch.randn(2, 3, 2, 2)
 
-        per_channel_activation_spec = QuantizationSpec(
+        activation_spec = QuantizationSpec(
             dtype=torch.int8,
             qscheme=QuantizationScheme.SYMMETRIC,
-            granularity=PerChannelGranularity(axis=0),
+            granularity=granularity,
             fake_quantize_cls="default",
             qparam_calculator_cls="default",
             range_calculator_cls="minmax",
@@ -1415,8 +1432,8 @@ class TestAnnotationPatternRegistry:
         config = QuantizerConfig(
             global_config=ModuleQuantizerConfig(
                 op_state_spec=None,
-                op_input_spec={"*": per_channel_activation_spec},
-                op_output_spec={"*": per_channel_activation_spec},
+                op_input_spec={"*": activation_spec},
+                op_output_spec={"*": activation_spec},
             ),
         )
 
@@ -1449,14 +1466,15 @@ class TestAnnotationPatternRegistry:
             prepared_model(inp)
         assert input_fq.qparams_calculator.scale.numel() == 1
 
-        # Conv input and linear output fake quantizers should remain per-channel
-        # since they are separate objects (not shared across a shape-destroying op).
+        # Conv input and linear output fake quantizers should keep their configured
+        # granularity since they are separate objects (not shared across a
+        # shape-destroying op).
         conv_node = [node for node in prepared_model.graph.nodes if node.name == "conv2d"][0]
         conv_input_fq_node = [
             n for n in conv_node.all_input_nodes if "activation_post_process" in n.name
         ][0]
         conv_input_fq = getattr(prepared_model, conv_input_fq_node.name)
-        assert isinstance(conv_input_fq.granularity, PerChannelGranularity)
+        assert isinstance(conv_input_fq.granularity, type(granularity))
         assert conv_input_fq.qparams_calculator.scale.numel() > 1
 
         linear_node = [node for node in prepared_model.graph.nodes if node.name == "linear"][0]
@@ -1464,32 +1482,40 @@ class TestAnnotationPatternRegistry:
             n for n in linear_node.users if "activation_post_process" in n.name
         ][0]
         linear_output_fq = getattr(prepared_model, linear_output_fq_node.name)
-        assert isinstance(linear_output_fq.granularity, PerChannelGranularity)
+        assert isinstance(linear_output_fq.granularity, type(granularity))
         assert linear_output_fq.qparams_calculator.scale.numel() > 1
 
     _POOL_ATEN_PREFIX = {"max": "max_pool", "avg": "avg_pool", "adaptive_avg": "adaptive_avg_pool"}
 
     @pytest.mark.parametrize("dim", [1, 2, 3], ids=["1d", "2d", "3d"])
     @pytest.mark.parametrize("pool_type", ["max", "avg", "adaptive_avg"])
+    @pytest.mark.parametrize(
+        "granularity",
+        [
+            PerChannelGranularity(axis=-1),
+            PerBlockGranularity(axis=-1, block_size=2),
+        ],
+        ids=["per_channel", "per_block"],
+    )
     def test_shared_observer_forces_per_tensor_for_pool_axis_that_shrinks(
-        self, caplog, pool_type, dim
+        self, caplog, pool_type, dim, granularity
     ):
         """
-        When per-channel activation granularity is configured on an axis whose
+        When activation granularity is configured on an axis whose
         size a pool actually shrinks (e.g. the last spatial axis under a
         stride-2/output-shrinking pool), the shared fake quantize module
         spanning the pool's input and output should be forced to per-tensor
         granularity, with a warning naming the op and axis. Conv activation
-        quantizers (separate objects) should remain per-channel.
+        quantizers (separate objects) should keep their configured granularity.
         """
         model = SimplePoolModel(pool_type=pool_type, dim=dim)
         inp = SimplePoolModel.example_input(dim=dim)
         pool_target_name = f"{self._POOL_ATEN_PREFIX[pool_type]}{dim}d"
 
-        per_channel_activation_spec = QuantizationSpec(
+        activation_spec = QuantizationSpec(
             dtype=torch.int8,
             qscheme=QuantizationScheme.SYMMETRIC,
-            granularity=PerChannelGranularity(axis=-1),
+            granularity=granularity,
             fake_quantize_cls="default",
             qparam_calculator_cls="default",
             range_calculator_cls="minmax",
@@ -1498,8 +1524,8 @@ class TestAnnotationPatternRegistry:
         config = QuantizerConfig(
             global_config=ModuleQuantizerConfig(
                 op_state_spec=None,
-                op_input_spec={"*": per_channel_activation_spec},
-                op_output_spec={"*": per_channel_activation_spec},
+                op_input_spec={"*": activation_spec},
+                op_output_spec={"*": activation_spec},
             ),
         )
 
@@ -1536,13 +1562,13 @@ class TestAnnotationPatternRegistry:
         assert input_fq.qparams_calculator.scale.numel() == 1
 
         # Conv activation quantizers (separate objects, not shared across the
-        # pool) should remain per-channel.
+        # pool) should keep their configured granularity.
         conv_node = [node for node in prepared_model.graph.nodes if node.name == f"conv{dim}d"][0]
         conv_input_fq_node = [
             n for n in conv_node.all_input_nodes if "activation_post_process" in n.name
         ][0]
         conv_input_fq = getattr(prepared_model, conv_input_fq_node.name)
-        assert isinstance(conv_input_fq.granularity, PerChannelGranularity)
+        assert isinstance(conv_input_fq.granularity, type(granularity))
         assert conv_input_fq.qparams_calculator.scale.numel() > 1
 
     @pytest.mark.parametrize("dim", [1, 2, 3], ids=["1d", "2d", "3d"])
@@ -1606,6 +1632,67 @@ class TestAnnotationPatternRegistry:
         with torch.no_grad():
             prepared_model(inp)
         assert input_fq.qparams_calculator.scale.numel() > 1
+
+    @pytest.mark.parametrize("dim", [1, 2, 3], ids=["1d", "2d", "3d"])
+    @pytest.mark.parametrize("pool_type", ["max", "avg", "adaptive_avg"])
+    def test_shared_observer_preserves_per_block_when_pool_preserves_shape(
+        self, caplog, pool_type, dim
+    ):
+        """
+        A per-block scale stays valid across a shared observer when the pool leaves
+        every dimension the same size, so output should be not forced to per-tensor.
+        """
+        model = SimplePoolModel(pool_type=pool_type, dim=dim, preserve_shape=True)
+        inp = SimplePoolModel.example_input(dim=dim)
+        pool_target_name = f"{self._POOL_ATEN_PREFIX[pool_type]}{dim}d"
+
+        # Block along the last axis (size 8) so every activation in the model,
+        # including the 3-channel input, is divisible by the block size.
+        per_block_activation_spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerBlockGranularity(axis=-1, block_size=2),
+            fake_quantize_cls="default",
+            qparam_calculator_cls="default",
+            range_calculator_cls="minmax",
+        )
+
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec=None,
+                op_input_spec={"*": per_block_activation_spec},
+                op_output_spec={"*": per_block_activation_spec},
+            ),
+        )
+
+        quantizer = Quantizer(model, config)
+        with caplog.at_level(logging.WARNING):
+            prepared_model = quantizer.prepare(example_inputs=(inp,))
+
+        pool_node = [
+            node for node in prepared_model.graph.nodes if pool_target_name in str(node.target)
+        ][0]
+        input_fq = getattr(prepared_model, pool_node.all_input_nodes[0].name)
+        output_fq = getattr(prepared_model, list(pool_node.users.keys())[0].name)
+
+        # Shared observer: input and output should be the same object
+        assert input_fq is output_fq
+
+        # Nothing was resized or moved, so per-block must survive.
+        assert isinstance(input_fq.granularity, PerBlockGranularity)
+
+        # No warning should have been logged for this safe op.
+        assert not any(pool_target_name in record.message for record in caplog.records)
+
+        prepared_model.eval()
+        with torch.no_grad():
+            prepared_model(inp)
+
+        # One scale entry per position on every axis except the blocked last one,
+        # which holds 8 / 2 blocks. The pooled tensor is (2, 4, *spatial).
+        spatial = _POOL_SPATIAL_SHAPE[dim]
+        expected_scale_shape = (2, 4, *spatial[:-1], spatial[-1] // 2)
+        assert tuple(input_fq.qparams_calculator.scale.shape) == expected_scale_shape
 
     def test_cat(self):
         """
@@ -1671,9 +1758,19 @@ class TestAnnotationPatternRegistry:
         # Final linear output quantizer is not associated with the others
         assert prepared_model.activation_post_process_0 != prepared_model.activation_post_process_3
 
-    def test_shared_observer_forces_per_tensor_when_transpose_swaps_equal_size_axes(self, caplog):
+    @pytest.mark.parametrize(
+        "granularity",
+        [
+            PerChannelGranularity(axis=2),
+            PerBlockGranularity(axis=2, block_size=2),
+        ],
+        ids=["per_channel", "per_block"],
+    )
+    def test_shared_observer_forces_per_tensor_when_transpose_swaps_equal_size_axes(
+        self, caplog, granularity
+    ):
         """
-        A per-channel axis that transpose swaps with another axis of the SAME
+        An axis that transpose swaps with another axis of the SAME
         size must be forced to per-tensor even though the sizes match on both
         sides - a size match is not proof the axis is untouched, since
         transpose can relabel which physical dimension sits at that index.
@@ -1685,10 +1782,10 @@ class TestAnnotationPatternRegistry:
         model = SimpleConcatTransposeModel()
         inp = torch.randn(2, 3, 8, 8)
 
-        per_channel_activation_spec = QuantizationSpec(
+        activation_spec = QuantizationSpec(
             dtype=torch.int8,
             qscheme=QuantizationScheme.SYMMETRIC,
-            granularity=PerChannelGranularity(axis=2),
+            granularity=granularity,
             fake_quantize_cls="default",
             qparam_calculator_cls="default",
             range_calculator_cls="minmax",
@@ -1697,8 +1794,8 @@ class TestAnnotationPatternRegistry:
         config = QuantizerConfig(
             global_config=ModuleQuantizerConfig(
                 op_state_spec=None,
-                op_input_spec={"*": per_channel_activation_spec},
-                op_output_spec={"*": per_channel_activation_spec},
+                op_input_spec={"*": activation_spec},
+                op_output_spec={"*": activation_spec},
             ),
         )
 
@@ -1721,15 +1818,26 @@ class TestAnnotationPatternRegistry:
         assert isinstance(input_fq.granularity, PerTensorGranularity)
 
     @pytest.mark.parametrize(
-        ("axis", "expected_granularity"),
+        ("granularity", "expected_granularity"),
         [
-            (1, PerChannelGranularity),  # channel: permute(0,1,3,2) leaves it alone
-            (2, PerTensorGranularity),  # height: swapped with width by the permute
-            (3, PerTensorGranularity),  # width: swapped with height by the permute
+            # channel: permute(0,1,3,2) leaves it alone
+            (PerChannelGranularity(axis=1), PerChannelGranularity),
+            # height: swapped with width by the permute
+            (PerChannelGranularity(axis=2), PerTensorGranularity),
+            # width: swapped with height by the permute
+            (PerChannelGranularity(axis=3), PerTensorGranularity),
+            # Same untouched channel axis as the first row, but a per-block scale
+            # also spans axes 2 and 3, which the permute swaps.
+            (PerBlockGranularity(axis=1, block_size=2), PerTensorGranularity),
         ],
-        ids=["axis_untouched_by_permute", "axis_swapped_to_3", "axis_swapped_to_2"],
+        ids=[
+            "per_channel_axis_untouched_by_permute",
+            "per_channel_axis_swapped_to_3",
+            "per_channel_axis_swapped_to_2",
+            "per_block_axis_untouched_but_scale_spans_swapped_axes",
+        ],
     )
-    def test_shared_observer_permute_axis_identity(self, axis, expected_granularity):
+    def test_shared_observer_permute_axis_identity(self, granularity, expected_granularity):
         """
         permute(0, 1, 3, 2) leaves axes 0 and 1 mapped to themselves but
         swaps axes 2 and 3 with each other. A per-channel axis on the
@@ -1738,14 +1846,18 @@ class TestAnnotationPatternRegistry:
         be forced to per-tensor, even though both have equal size (8 == 8)
         on a square conv output - a size match alone doesn't prove the axis
         wasn't relabeled.
+
+        Per-block granularity on that same untouched channel axis must still be
+        forced, because its scale carries one entry per position on every other
+        axis - including the two the permute swaps.
         """
         model = SimpleConcatPermuteModel()
         inp = torch.randn(2, 3, 8, 8)
 
-        per_channel_activation_spec = QuantizationSpec(
+        activation_spec = QuantizationSpec(
             dtype=torch.int8,
             qscheme=QuantizationScheme.SYMMETRIC,
-            granularity=PerChannelGranularity(axis=axis),
+            granularity=granularity,
             fake_quantize_cls="default",
             qparam_calculator_cls="default",
             range_calculator_cls="minmax",
@@ -1754,8 +1866,8 @@ class TestAnnotationPatternRegistry:
         config = QuantizerConfig(
             global_config=ModuleQuantizerConfig(
                 op_state_spec=None,
-                op_input_spec={"*": per_channel_activation_spec},
-                op_output_spec={"*": per_channel_activation_spec},
+                op_input_spec={"*": activation_spec},
+                op_output_spec={"*": activation_spec},
             ),
         )
 

@@ -1423,29 +1423,52 @@ class TestFP4MLIRExportValidation:
 class TestBlockSizeMismatchSkipGraphMode:
     """Test that non-divisible block sizes produce a warning and skip quantization in graph mode."""
 
-    def test_non_divisible_block_size_warns_and_skips(self, caplog):
-        """Graph mode: non-divisible layer gets FQ disabled and removed, divisible stays."""
-        # out_features=1000: 1000 % 32 != 0 → FQ disabled and removed
-        # out_features=1024: 1024 % 32 == 0 → FQ stays enabled
+    @pytest.mark.parametrize(
+        ("target", "expected_fq_count"),
+        [
+            # Weights: only Linear(1000, 1024)'s weight is divisible on axis 0.
+            ("weight", 1),
+            # Activations: the 768-wide input and 1024-wide output survive; the
+            # 1000-wide tensor between the two linears does not.
+            ("activation", 2),
+        ],
+    )
+    def test_non_divisible_block_size_warns_and_skips(self, caplog, target, expected_fq_count):
+        """Graph mode: non-divisible tensors get their FQ disabled and removed,
+        divisible ones stay. Applies to weights and activations alike."""
+        # 768 % 32 == 0 and 1024 % 32 == 0, but 1000 % 32 != 0
         model = torch.nn.Sequential(
             torch.nn.Linear(768, 1000),
             torch.nn.Linear(1000, 1024),
         )
         example_inputs = (torch.randn(1, 768),)
 
-        weight_spec = QuantizationSpec(
-            dtype="int8",
-            qscheme="symmetric",
-            granularity=PerBlockGranularity(axis=0, block_size=32),
-        )
-        config = QuantizerConfig(
-            global_config=ModuleQuantizerConfig(
-                op_state_spec={"weight": weight_spec},
+        if target == "weight":
+            # axis 0 is out_features: 1000 is not divisible, 1024 is.
+            spec = QuantizationSpec(
+                dtype="int8",
+                qscheme="symmetric",
+                granularity=PerBlockGranularity(axis=0, block_size=32),
+            )
+            module_config = ModuleQuantizerConfig(
+                op_state_spec={"weight": spec},
                 op_input_spec=None,
                 op_output_spec=None,
-            ),
-            execution_mode="graph",
-        )
+            )
+        else:
+            # The last axis carries the feature dim for every activation here.
+            spec = QuantizationSpec(
+                dtype="int8",
+                qscheme="symmetric",
+                granularity=PerBlockGranularity(axis=-1, block_size=32),
+            )
+            module_config = ModuleQuantizerConfig(
+                op_state_spec=None,
+                op_input_spec={"*": spec},
+                op_output_spec={"*": spec},
+            )
+
+        config = QuantizerConfig(global_config=module_config, execution_mode="graph")
 
         quantizer = Quantizer(model, config)
 
@@ -1455,14 +1478,17 @@ class TestBlockSizeMismatchSkipGraphMode:
         assert prepared_model is not None
         assert any("Skipping quantization" in msg for msg in caplog.messages)
 
-        # Only the second Linear (out_features=1024) is compatible with block_size=32
         fq_modules = [m for m in prepared_model.modules() if isinstance(m, FakeQuantizeImplBase)]
         assert all(not m.is_disabled() for m in fq_modules), (
             "Disabled FQ modules should be removed during prepare()"
         )
-        assert len(fq_modules) == 1, (
-            f"Expected 1 enabled FQ module (for divisible layer), got {len(fq_modules)}"
+        assert len(fq_modules) == expected_fq_count, (
+            f"Expected {expected_fq_count} enabled FQ module(s) for the divisible "
+            f"tensors, got {len(fq_modules)}"
         )
+
+        # The graph must still be runnable after the disabled nodes were removed.
+        assert prepared_model(*example_inputs).shape == (1, 1024)
 
     @pytest.mark.parametrize(
         "backend",
