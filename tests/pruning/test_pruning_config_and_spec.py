@@ -15,7 +15,9 @@ from coreai_opt.pruning.config import (
     OpMagnitudePrunerConfig,
 )
 from coreai_opt.pruning.spec import (
+    BlockStructured,
     ChannelStructured,
+    NMStructured,
     PruneImplBase,
     PruningScheme,
     PruningSpec,
@@ -23,6 +25,7 @@ from coreai_opt.pruning.spec import (
     _MagnitudePruneImpl,
     default_weight_pruning_spec,
 )
+from coreai_opt.pruning.spec.errors import _BlockSizeMismatchError
 
 
 class TestPruningSpec:
@@ -42,8 +45,17 @@ class TestPruningSpec:
             (0.75, Unstructured()),
             (0.5, ChannelStructured(axis=0)),
             (0.9, ChannelStructured(axis=1)),
+            (0.5, BlockStructured(axis=0, block_size=2)),
+            (0.9, NMStructured(axis=0, n=1, m=4)),
         ],
-        ids=["25%-unstructured", "75%-unstructured", "50%-channel-ax0", "90%-channel-ax1"],
+        ids=[
+            "25%-unstructured",
+            "75%-unstructured",
+            "50%-channel-ax0",
+            "90%-channel-ax1",
+            "50%-block-ax0",
+            "90%-nm-ax0",
+        ],
     )
     def test_custom_spec(self, target_sparsity: float, pruning_scheme: PruningScheme) -> None:
         """Custom spec values are accepted and stored correctly."""
@@ -92,6 +104,74 @@ class TestPruningSpec:
         spec = PruningSpec(pruning_scheme=scheme_dict)
         assert isinstance(spec.pruning_scheme, expected_type)
         assert spec.pruning_scheme.axis == expected_axis
+
+    @pytest.mark.parametrize(
+        "scheme_dict,expected_axis,expected_block_size",
+        [
+            ({"type": "block_structured", "axis": 0, "block_size": 2}, 0, 2),
+            ({"type": "block_structured", "axis": 1, "block_size": 4}, 1, 4),
+        ],
+        ids=["block-ax0-size2", "block-ax1-size4"],
+    )
+    def test_block_structured_round_trip(
+        self, scheme_dict: dict, expected_axis: int, expected_block_size: int
+    ) -> None:
+        """BlockStructured constructed from dict resolves correctly."""
+        spec = PruningSpec(pruning_scheme=scheme_dict)
+        assert isinstance(spec.pruning_scheme, BlockStructured)
+        assert spec.pruning_scheme.axis == expected_axis
+        assert spec.pruning_scheme.block_size == expected_block_size
+
+    @pytest.mark.parametrize(
+        "scheme_dict,expected_axis,expected_n,expected_m",
+        [
+            ({"type": "n_m_structured", "axis": 0, "n": 1, "m": 4}, 0, 1, 4),
+            ({"type": "n_m_structured", "axis": 1, "n": 2, "m": 8}, 1, 2, 8),
+        ],
+        ids=["nm-ax0-1of4", "nm-ax1-2of8"],
+    )
+    def test_nm_structured_round_trip(
+        self, scheme_dict: dict, expected_axis: int, expected_n: int, expected_m: int
+    ) -> None:
+        """NMStructured constructed from dict resolves correctly."""
+        spec = PruningSpec(pruning_scheme=scheme_dict)
+        assert isinstance(spec.pruning_scheme, NMStructured)
+        assert spec.pruning_scheme.axis == expected_axis
+        assert spec.pruning_scheme.n == expected_n
+        assert spec.pruning_scheme.m == expected_m
+
+    def test_block_structured_invalid_block_size_raises(self) -> None:
+        """block_size <= 0 raises ValueError at construction time."""
+        with pytest.raises(ValueError):
+            BlockStructured(axis=0, block_size=0)
+
+    def test_block_structured_not_divisible_raises_via_spec(self) -> None:
+        """A tensor size not divisible by block_size raises _BlockSizeMismatchError."""
+        scheme = BlockStructured(axis=0, block_size=2)
+        with pytest.raises(_BlockSizeMismatchError):
+            scheme.compute_mask(torch.randn(5, 4), sparsity=0.5)
+
+    def test_nm_structured_not_divisible_raises_via_spec(self) -> None:
+        """A tensor size not divisible by m raises _BlockSizeMismatchError."""
+        scheme = NMStructured(axis=0, n=1, m=4)
+        with pytest.raises(_BlockSizeMismatchError):
+            scheme.compute_mask(torch.randn(5, 4), sparsity=0.0)
+
+    @pytest.mark.parametrize(
+        "n,m",
+        [(4, 4), (5, 4)],
+        ids=["n-equal-m", "n-greater-than-m"],
+    )
+    def test_nm_structured_invalid_n_m_raises_via_spec(self, n: int, m: int) -> None:
+        """n >= m raises ValueError, including when constructed via dict through the spec."""
+        with pytest.raises(ValueError, match="must be less than"):
+            PruningSpec(pruning_scheme={"type": "n_m_structured", "n": n, "m": m})
+
+    def test_nm_structured_n_zero_valid_construction(self) -> None:
+        """n=0 is a valid degenerate configuration regardless of m."""
+        scheme = NMStructured(n=0, m=4)
+        assert scheme.n == 0
+        assert scheme.m == 4
 
     def test_pruning_algo_round_trip(self) -> None:
         """Default pruning_algo string resolves to the class object."""

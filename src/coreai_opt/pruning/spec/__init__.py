@@ -6,11 +6,13 @@
 """Pruning spec components: specs, schemes, and parametrizations."""
 
 from .prune import PruneImplBase, _MagnitudePruneImpl
-from .scheme import ChannelStructured, PruningScheme, Unstructured
+from .scheme import BlockStructured, ChannelStructured, NMStructured, PruningScheme, Unstructured
 from .spec import PruningSpec, default_weight_pruning_spec
 
 __all__ = [
+    "BlockStructured",
     "ChannelStructured",
+    "NMStructured",
     "PruneImplBase",
     "PruningScheme",
     "PruningSpec",

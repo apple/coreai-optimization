@@ -11,7 +11,13 @@ import pytest
 
 from coreai_opt import ExportBackend
 from coreai_opt.pruning import MagnitudePrunerConfig, ModuleMagnitudePrunerConfig, PruningSpec
-from coreai_opt.pruning.spec import ChannelStructured, PruningScheme, Unstructured
+from coreai_opt.pruning.spec import (
+    BlockStructured,
+    ChannelStructured,
+    NMStructured,
+    PruningScheme,
+    Unstructured,
+)
 
 
 @dataclass
@@ -21,7 +27,8 @@ class ParametrizedPruneConfigs:
     Attributes:
         config: MagnitudePrunerConfig instance.
         target_sparsity: Target sparsity fraction.
-        pruning_scheme: PruningScheme instance (Unstructured or ChannelStructured).
+        pruning_scheme: PruningScheme instance (Unstructured, ChannelStructured,
+            BlockStructured, or NMStructured).
         backend: Export backend (CoreML or CoreAI).
     """
 
@@ -53,7 +60,12 @@ class ParametrizedPruneConfigs:
     params=[
         (target_sparsity, pruning_scheme, backend)
         for target_sparsity in [0.25, 0.5, 0.75]
-        for pruning_scheme in [Unstructured(), ChannelStructured(axis=0)]
+        for pruning_scheme in [
+            Unstructured(),
+            ChannelStructured(axis=0),
+            BlockStructured(axis=0, block_size=2),
+            NMStructured(axis=0, n=1, m=2),
+        ]
         for backend in [ExportBackend.CoreML, ExportBackend.CoreAI]
     ],
     ids=lambda p: f"sparsity:{p[0]}-scheme:{p[1].__class__.__name__}-backend:{p[2].value}",
