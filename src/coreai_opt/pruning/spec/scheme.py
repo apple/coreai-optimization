@@ -152,9 +152,8 @@ class BlockStructured(PruningScheme):
     (``ChannelStructured`` is equivalent to ``block_size=1``, ranked by L1
     norm — the two remain separate registered schemes).
 
-    Unlike Phoenix's reference implementation, a tensor whose size along
-    ``axis`` is not evenly divisible by ``block_size`` raises an error
-    instead of being padded.
+    The size of ``weight`` along ``axis`` must be evenly divisible by
+    ``block_size``.
     """
 
     axis: int = Field(default=0, description="Axis along which blocks are formed.")
@@ -209,9 +208,7 @@ class NMStructured(PruningScheme):
     overrides the base class directly and **ignores** its ``sparsity``
     argument.
 
-    Unlike Phoenix's reference implementation, a tensor whose size along
-    ``axis`` is not evenly divisible by ``m`` raises an error instead of
-    being padded.
+    The size of ``weight`` along ``axis`` must be evenly divisible by ``m``.
     """
 
     axis: int = Field(default=0, description="Axis along which N:M groups are formed.")
