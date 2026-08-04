@@ -12,6 +12,7 @@ import torch
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegistryMixin
+from coreai_opt._utils.torch_utils import normalize_axis as _normalize_axis
 from coreai_opt.config.spec import CompressionTargetTensor as _CompressionTargetTensor
 from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 
@@ -123,9 +124,7 @@ class QuantizationGranularity(BaseModel, _ConfigRegistryMixin):
         axis = granularity.axis
         if axis is None:
             return None
-        if axis < 0:
-            axis += tensor_ndim
-        return axis
+        return _normalize_axis(axis, tensor_ndim)
 
 
 @QuantizationGranularity.register("per_tensor")

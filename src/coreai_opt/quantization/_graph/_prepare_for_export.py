@@ -137,12 +137,11 @@ def _get_weight_input_names(
 
     Returns:
         Tuple of (module_name, param_name)
-        - module_name: e.g., "conv", "layer1.0"
+        - module_name: e.g., "conv", "layer1.0", or "" for a root-module parameter
         - param_name: e.g., "weight", "bias"
 
     Raises:
         ValueError: If node is not a weight quantization node
-        ValueError: If weight target path is invalid
 
     """
     if not _is_weight_fake_quant(fake_quant_node, module):
@@ -154,13 +153,10 @@ def _get_weight_input_names(
     # Extract module and parameter name from target path
     # e.g., "conv.weight" -> ("conv", "weight")
     # e.g., "layer1.0.weight" -> ("layer1.0", "weight")
+    # e.g., "weight" -> ("", "weight") for a parameter on the root module
     target_path = str(input_node.target)
     last_dot_idx = target_path.rfind(".")
-    if last_dot_idx == -1:
-        msg = f"Invalid weight target path: {target_path}"
-        raise ValueError(msg)
-
-    module_name = target_path[:last_dot_idx]
+    module_name = target_path[:last_dot_idx] if last_dot_idx != -1 else ""
     param_name = target_path[last_dot_idx + 1 :]
 
     return module_name, param_name

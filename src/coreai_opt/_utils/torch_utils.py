@@ -71,6 +71,23 @@ def flatten_tensors_to_list(obj: Any) -> list[torch.Tensor]:
     return []
 
 
+def normalize_axis(axis: int, ndim: int) -> int:
+    """Resolve a negative axis against a tensor rank.
+
+    A non-negative axis is returned unchanged. The caller must validate the range,
+    since an axis below ``-ndim`` stays negative here.
+
+    Args:
+        axis (int): Axis in standard Python style indexing.
+        ndim (int): Rank of the tensor the axis refers to.
+
+    Returns:
+        int: ``axis + ndim`` when axis is negative, otherwise axis unchanged.
+
+    """
+    return axis + ndim if axis < 0 else axis
+
+
 def get_module_name(model: torch.nn.Module, module: torch.nn.Module) -> str | None:
     """Find the fully qualified name of a module within a model.
 
