@@ -47,7 +47,6 @@ uv.lock
 *.nc
 .python-version
 /.tox
-deps/
 scratch/
 /local_stash
 /model_weights

@@ -29,6 +29,7 @@ examples/model_examples
 
 quantization/index
 palettization/index
+pruning/index
 ```
 
 ```{toctree}
@@ -38,10 +39,18 @@ palettization/index
 
 utils/joint_compression
 utils/mixed_precision
-utils/model_inspection
 utils/activation_comparison
 utils/casting
 utils/coreai_compression
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Debugging
+:hidden:
+
+debugging/model_inspection
+debugging/graph_mode_troubleshooting
 ```
 
 ```{toctree}

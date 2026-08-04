@@ -72,7 +72,13 @@ def _git(repo: Path, *args: str, year: int | None = None) -> None:
         stamp = f"{year}-06-15T12:00:00"
         env["GIT_AUTHOR_DATE"] = stamp
         env["GIT_COMMITTER_DATE"] = stamp
-    subprocess.run(["git", *args], cwd=repo, env=env, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", *args],
+        cwd=repo,
+        env=env,
+        check=True,
+        capture_output=True,
+    )
 
 
 # --- normalize -------------------------------------------------------------

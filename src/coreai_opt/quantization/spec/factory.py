@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
 from coreai_opt.config.spec import (
     CompressionComponentFactoryBase,
@@ -194,7 +196,6 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
         # Standard arguments that all fake quantizers need
         common_args = {
             "dtype": spec.dtype,
-            "qscheme": spec.qscheme,
             "qformulation": spec.qformulation,
             "granularity": spec.granularity,
             "target_dtype": spec.target_dtype,
@@ -210,6 +211,47 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
 
         # Create instance with all arguments
         return spec.fake_quantize_cls(**common_args, **extra_args)
+
+    @classmethod
+    def reconstruct_partial_qparams_calculator(
+        cls,
+        partial_ctr: _PartialConstructor,
+        **kwargs: Any,
+    ) -> _PartialConstructor:
+        """Return a new PartialConstructor whose qparams_calculator has attributes overridden.
+
+        The replacement wraps the existing ``qparams_calculator`` callable arg so that
+        each freshly constructed calculator has the given attributes set before it is
+        returned.  All overridden attributes (e.g. ``float_range``, ``qscheme``) are
+        plain instance attributes on ``QParamsCalculatorBase`` that are read lazily
+        during ``forward()``, so post-construction mutation is safe as long as no
+        forward pass has run yet.
+
+        Args:
+            partial_ctr: The existing fake-quantizer partial to update.
+            **kwargs: Attribute name/value pairs to set on the calculator instance.
+
+        Returns:
+            A new PartialConstructor whose qparams_calculator factory applies the
+            overrides.
+        """
+        old_factory = partial_ctr.callable_args.get("qparams_calculator")
+        if old_factory is None:
+            return partial_ctr
+
+        def _new_factory():
+            calculator: QParamsCalculatorBase = old_factory()
+            for attr, value in kwargs.items():
+                if not hasattr(calculator, attr):
+                    msg = (
+                        f"Cannot override unknown attribute '{attr}' on "
+                        f"{type(calculator).__name__}; expected an existing calculator attribute."
+                    )
+                    raise AttributeError(msg)
+                setattr(calculator, attr, value)
+            return calculator
+
+        return partial_ctr.with_callable_args(qparams_calculator=_new_factory)
 
     @classmethod
     def create_fake_quantizer_partial(
@@ -236,7 +278,6 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
         # (excluding qparams_calculator)
         common_args = {
             "dtype": spec.dtype,
-            "qscheme": spec.qscheme,
             "qformulation": spec.qformulation,
             "granularity": spec.granularity,
             "target_dtype": spec.target_dtype,

@@ -15,10 +15,11 @@ import torch
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from coreai_opt._utils.errors import _BlockSizeMismatchError
-from coreai_opt._utils.registry_utils import ConfigRegistryMixin
+from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegistryMixin
+from coreai_opt._utils.torch_utils import normalize_axis as _normalize_axis
 
 
-class PruningScheme(BaseModel, ConfigRegistryMixin):
+class PruningScheme(BaseModel, _ConfigRegistryMixin):
     """Base class for pruning scheme specifications.
 
     A pruning scheme defines the structural pattern of sparsity applied
@@ -117,12 +118,22 @@ class ChannelStructured(PruningScheme):
 
     Entire channels (slices along ``axis``) are pruned or kept together.
     Channel importance is determined by L1 norm of each channel.
+
+    Note:
+        ``axis`` can be negatively indexed as per standard Python style indexing.
     """
 
     axis: int = Field(default=0, description="Axis along which channels are pruned.")
 
     def _compute_mask(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
-        num_channels = weight.shape[self.axis]
+        if not (-weight.ndim <= self.axis < weight.ndim):
+            raise ValueError(
+                f"Invalid axis. Should be in range [{-weight.ndim}, {weight.ndim}), "
+                f"but got {self.axis}"
+            )
+        axis = _normalize_axis(self.axis, weight.ndim)
+
+        num_channels = weight.shape[axis]
         num_prune = math.floor(num_channels * sparsity)
 
         if num_prune == 0:
@@ -130,7 +141,7 @@ class ChannelStructured(PruningScheme):
         if num_prune >= num_channels:
             return torch.zeros_like(weight)
 
-        reduce_dims = [d for d in range(weight.ndim) if d != self.axis]
+        reduce_dims = [d for d in range(weight.ndim) if d != axis]
         channel_norms = weight.abs().sum(dim=reduce_dims)
 
         num_keep = num_channels - num_prune
@@ -139,7 +150,7 @@ class ChannelStructured(PruningScheme):
         channel_mask[keep_indices] = 1.0
 
         shape = [1] * weight.ndim
-        shape[self.axis] = num_channels
+        shape[axis] = num_channels
         return channel_mask.view(shape).expand_as(weight)
 
 

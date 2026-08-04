@@ -16,13 +16,8 @@ from torch.fx.passes.utils.source_matcher_utils import SourcePartition
 from coreai_opt._utils.registry_utils import ClassRegistryMixin
 
 from . import _annotation_utils
-from ._annotation_config import (
-    AnnotationConfig as _AnnotationConfig,
-    AnnotationContext as _AnnotationContext,
-)
-from ._annotation_utils import (
-    OpsListPattern as _OpsListPattern,
-)
+from ._annotation_config import AnnotationConfig, AnnotationContext
+from ._annotation_utils import OpsListPattern
 
 # Generic type variable for match results
 MatchType = TypeVar("MatchType")
@@ -38,7 +33,7 @@ MatchType = TypeVar("MatchType")
 # 3. Annotation pass context. Holds pass-invariant inputs the annotator may
 #    need (the model's module-name-to-state-names map and the set of shared
 #    observer nodes computed at the start of this annotation pass).
-AnnotatorFunc: TypeAlias = Callable[[MatchType, _AnnotationConfig, _AnnotationContext], Any]
+AnnotatorFunc: TypeAlias = Callable[[MatchType, AnnotationConfig, AnnotationContext], Any]
 
 
 @dataclass(frozen=True)
@@ -56,7 +51,7 @@ class AnnotatorMatchInfo(Generic[MatchType]):
     pattern_length: int
 
 
-def _get_all_patterns_with_activations_appended(starting_pattern: _OpsListPattern):
+def _get_all_patterns_with_activations_appended(starting_pattern: OpsListPattern):
     """
     Given a starting ops list pattern, return a new list of patterns containing the
     combination of the starting pattern with all activation types appended to the
@@ -67,19 +62,19 @@ def _get_all_patterns_with_activations_appended(starting_pattern: _OpsListPatter
         _annotation_utils._supported_activations
         + _annotation_utils._supported_activations_no_inplace
     ):
-        patterns.append(_OpsListPattern(starting_pattern.pattern + [act_fn.__name__]))
+        patterns.append(OpsListPattern(starting_pattern.pattern + [act_fn.__name__]))
     return patterns
 
 
 def _get_all_patterns_from_base_ops(
     base_ops: set[str], use_act: bool = False
-) -> list[_OpsListPattern]:
+) -> list[OpsListPattern]:
     patterns = []
     for base_op in base_ops:
         if use_act:
-            patterns.extend(_get_all_patterns_with_activations_appended(_OpsListPattern([base_op])))
+            patterns.extend(_get_all_patterns_with_activations_appended(OpsListPattern([base_op])))
         else:
-            patterns.append(_OpsListPattern([base_op]))
+            patterns.append(OpsListPattern([base_op]))
     return patterns
 
 
@@ -96,7 +91,7 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
     """
 
     # Class-level cache for patterns
-    _patterns: list[torch.fx.GraphModule | _OpsListPattern] | None = None
+    _patterns: list[torch.fx.GraphModule | OpsListPattern] | None = None
 
     @classmethod
     @abstractmethod
@@ -111,7 +106,7 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
         raise NotImplementedError
 
     @classmethod
-    def get_patterns(cls) -> list[torch.fx.GraphModule | _OpsListPattern]:
+    def get_patterns(cls) -> list[torch.fx.GraphModule | OpsListPattern]:
         """
         Returns a cached list of graph modules representing the patterns
         this annotator can match. Patterns are generated once and cached.
@@ -146,7 +141,7 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
         pattern_len = 0
         # Account for AnnotationPattern classes using get_sequential_partition with a
         # list of types.
-        if isinstance(pattern, _OpsListPattern):
+        if isinstance(pattern, OpsListPattern):
             return len(pattern.pattern)
         for node in pattern.graph.nodes:
             # Sanity check to make sure we account for all node.op types
@@ -170,7 +165,7 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
 
     @classmethod
     @abstractmethod
-    def generate_patterns(cls) -> list[torch.fx.GraphModule | _OpsListPattern]:
+    def generate_patterns(cls) -> list[torch.fx.GraphModule | OpsListPattern]:
         """
         Generate the patterns for this annotator. Called once and cached.
 
@@ -183,7 +178,7 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
     @classmethod
     @abstractmethod
     def match_single_pattern(
-        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | _OpsListPattern
+        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
     ) -> dict[torch.fx.Node, MatchType]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
@@ -274,7 +269,7 @@ class WeightedModulePattern(BaseAnnotationPattern[InternalMatch]):
 
     @classmethod
     def match_single_pattern(
-        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | _OpsListPattern
+        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
     ) -> dict[torch.fx.Node, InternalMatch]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
@@ -320,13 +315,13 @@ class NAryActPattern(BaseAnnotationPattern[tuple[SourcePartition]]):
 
     @classmethod
     def match_single_pattern(
-        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | _OpsListPattern
+        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
     ) -> dict[torch.fx.Node, tuple[SourcePartition]]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
         nodes to matches.
         """
-        if not isinstance(pattern, _OpsListPattern):
+        if not isinstance(pattern, OpsListPattern):
             error_msg = (
                 "NAryActPattern expects patterns of type _OpsListPattern, but "
                 f"got type {type(pattern)}.)"
@@ -372,13 +367,13 @@ class SharedObserverModulePattern(BaseAnnotationPattern[tuple[SourcePartition]])
 
     @classmethod
     def match_single_pattern(
-        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | _OpsListPattern
+        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
     ) -> dict[torch.fx.Node, tuple[SourcePartition]]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
         nodes to matches.
         """
-        if not isinstance(pattern, _OpsListPattern):
+        if not isinstance(pattern, OpsListPattern):
             error_msg = (
                 "SharedObserverModulePattern expects patterns of type "
                 f"_OpsListPattern, but got type {type(pattern)}.)"
@@ -680,7 +675,7 @@ class MatMulPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns matmul pattern."""
         return _get_all_patterns_from_base_ops({"matmul"})
 
@@ -692,7 +687,7 @@ class MatMulActPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns matmul act pattern."""
         return _get_all_patterns_from_base_ops({"matmul"}, use_act=True)
 
@@ -704,7 +699,7 @@ class AddPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns add pattern."""
         return _get_all_patterns_from_base_ops({"add", "add_"})
 
@@ -727,7 +722,7 @@ class MulPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns mul pattern."""
         return _get_all_patterns_from_base_ops({"mul", "mul_"})
 
@@ -750,7 +745,7 @@ class SubPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns sub pattern."""
         # Multiple types of sub need to be listed since torchao doesn't include sub in
         # pt2e.graph_utils._EQUIVALENT_TYPES dict
@@ -769,7 +764,7 @@ def _make_kv_cache_update_pattern(op_name: str) -> type[NAryActPattern]:
         """input -> kv-cache-update op -> output"""
 
         @classmethod
-        def generate_patterns(cls) -> list[_OpsListPattern]:
+        def generate_patterns(cls) -> list[OpsListPattern]:
             return _get_all_patterns_from_base_ops({op_name}, use_act=False)
 
     return KVCacheUpdatePattern

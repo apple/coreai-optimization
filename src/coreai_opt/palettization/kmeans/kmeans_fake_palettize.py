@@ -8,9 +8,9 @@ from collections.abc import Callable
 
 import numpy as np
 import torch
-from coremltools._deps import _kmeans1d
 
 from coreai_opt.config.spec import CompressionTargetTensor
+from coreai_opt.deps import _kmeans1d
 from coreai_opt.palettization.spec import (
     PalettizationGranularity,
     PerGroupedChannelGranularity,
@@ -202,9 +202,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             # float32, matching the block-weight handling in _cluster_weights_1d.
             if sensitivities.dtype == torch.bfloat16:
                 sensitivities = sensitivities.float()
-            sensitivities = self.reshape_strategy.reshape_for_kmeans(
-                sensitivities, axis
-            )
+            sensitivities = self.reshape_strategy.reshape_for_kmeans(sensitivities, axis)
             block_sensitivities = self.granularity.get_blocks_to_cluster(sensitivities)
         else:
             block_sensitivities = [None] * len(block_weights_to_cluster)
@@ -443,9 +441,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             and (np.max(block_weight_flatten)) <= np.finfo(np.float16).max
             and np.min(block_weight_flatten) >= np.finfo(np.float16).min
         ):
-            values, indices, counts = self._reduce_weights_to_cluster(
-                block_weight_flatten
-            )
+            values, indices, counts = self._reduce_weights_to_cluster(block_weight_flatten)
             num_clusters = min(len(values), num_clusters)
             if block_sensitivity_flatten is not None:
                 counts = np.bincount(indices, weights=block_sensitivity_flatten)
@@ -570,9 +566,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
 
             # Rounding
             scale = 10**self.rounding_precision
-            block_weight_flatten = (
-                np.round(block_weight_flatten.astype(np.float32) * scale) / scale
-            )
+            block_weight_flatten = np.round(block_weight_flatten.astype(np.float32) * scale) / scale
 
         # To speed up parallel kmeans, use numpy.unique instead of
         # torch.unique in multiprocessing setting.
@@ -610,9 +604,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         Also scale the parameter using the computed scales.
         """
         flattened_weight = weight.flatten(1)
-        per_channel_scale = torch.max(
-            torch.abs(flattened_weight), dim=1, keepdim=True
-        ).values
+        per_channel_scale = torch.max(torch.abs(flattened_weight), dim=1, keepdim=True).values
         # Handle zero scales
         per_channel_scale[per_channel_scale == 0] = 1
         scaled_weight = flattened_weight / per_channel_scale
@@ -622,9 +614,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
 
         return scaled_weight
 
-    def _unscale_by_per_channel_scale(
-        self, scaled_weight: torch.Tensor
-    ) -> torch.Tensor:
+    def _unscale_by_per_channel_scale(self, scaled_weight: torch.Tensor) -> torch.Tensor:
         """
         Re-scale the parameter back to its original range by multiplying
         per channel scales.

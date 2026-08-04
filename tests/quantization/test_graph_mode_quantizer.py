@@ -21,6 +21,7 @@ from coreai_opt import ExportBackend
 from coreai_opt._utils.metadata_utils import (
     STATE_DICT_METADATA_BUFFER_PREFIX as _COREML_BUFFER_PREFIX,
 )
+from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization import (
     ModuleQuantizerConfig,
     QuantizationSpec,
@@ -182,6 +183,20 @@ class TestGraphModeQuantizer:
         # Test that the prepared model can be called with original batch size
         output = prepared_model(simple_model_input)
         assert output.shape == (1, 10)
+
+    def test_export_error_message_contains_hints(self, basic_config):
+        """Test that export failure error messages contain debugging hints."""
+
+        class DataDependentModel(nn.Module):
+            def forward(self, x):
+                if x.sum() > 0:
+                    return x * 2
+                return x * 3
+
+        model = DataDependentModel()
+        quantizer = Quantizer(model, basic_config)
+        with pytest.raises(RuntimeError, match="Debugging hints"):
+            quantizer.prepare(example_inputs=(torch.randn(2, 2),))
 
     def test_finalize_with_none_model_arg(
         self, simple_conv_linear_model, basic_config, simple_model_input
@@ -374,11 +389,16 @@ class TestGraphModeQuantizer:
 
         # Test entering calibration mode
         with quantizer.calibration_mode():
-            # Verify that observers are enabled and fake quant is disabled
+            # Verify that observers are enabled. Weight FQ stays on so
+            # activation observers see the effect of quantized weights;
+            # activation FQ is disabled so observers collect raw stats.
             for _name, module in prepared_model.named_modules():
                 if isinstance(module, FakeQuantizeImplBase):
                     assert module.observer_enabled.item() == 1
-                    assert module.fake_quant_enabled.item() == 0
+                    expected_fq = (
+                        1 if module.quantization_target == CompressionTargetTensor.WEIGHT else 0
+                    )
+                    assert module.fake_quant_enabled.item() == expected_fq
 
         # # Verify that observers are disabled and fake quant is enabled on exit
         for _name, module in prepared_model.named_modules():
@@ -424,12 +444,15 @@ class TestGraphModeQuantizer:
 
         # Test calibration_mode with external prepared model
         with quantizer.calibration_mode(other_prepared_model):
-            # Verify that observers are enabled and fake quant is disabled
-            # on the external model
+            # Verify that observers are enabled on the external model. Weight FQ
+            # stays on; activation FQ is off.
             for _name, module in other_prepared_model.named_modules():
                 if isinstance(module, FakeQuantizeImplBase):
                     assert module.observer_enabled.item() == 1
-                    assert module.fake_quant_enabled.item() == 0
+                    expected_fq = (
+                        1 if module.quantization_target == CompressionTargetTensor.WEIGHT else 0
+                    )
+                    assert module.fake_quant_enabled.item() == expected_fq
 
             # The quantizer's internal model should be updated to the provided model
             assert quantizer._model is other_prepared_model
@@ -460,8 +483,10 @@ class TestGraphModeQuantizer:
         with quantizer.calibration_mode():
             prepared_out = prepared_model(simple_model_input_2)
             original_out = simple_conv_linear_model(simple_model_input_2)
-            # prepare model output should match base model, since fake quant is disabled
-            assert torch.equal(prepared_out, original_out)
+            # prepared model output should NOT match base model: weight fake
+            # quant stays on during calibration so activation observers see the
+            # effect of quantized weights. Only activation FQ is disabled.
+            assert not torch.equal(prepared_out, original_out)
 
         pre_finalize_out = prepared_model(simple_model_input_3)
 
@@ -1328,7 +1353,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerTensorGranularity(),
                 False,
-                "FP4 quantization requires PerBlockGranularity with block_size=32",
+                "FP4 quantization requires PerBlockGranularity",
                 id="per_tensor_granularity_rejected",
             ),
             pytest.param(
@@ -1336,7 +1361,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerBlockGranularity(axis=1, block_size=16),
                 False,
-                "FP4 quantization requires PerBlockGranularity with block_size=32",
+                r"FP4 export requires per-axis block sizes \(1, 32\) for a 2D weight",
                 id="wrong_block_size_rejected",
             ),
             pytest.param(
@@ -1352,7 +1377,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32, 5, 5),
                 PerBlockGranularity(axis=1, block_size=32),
                 False,
-                "FP4 weight quantization export is only supported for 2D weight tensors",
+                r"FP4 export requires per-axis block sizes \(1, 1, 1, 32\) for a 4D weight",
                 id="conv_layer_rejected",
             ),
         ],
@@ -1484,3 +1509,218 @@ class TestBlockSizeMismatchSkipGraphMode:
         # Finalize should raise since there are no FQ nodes to export
         with pytest.raises(ValueError, match="no fake quantization nodes"):
             quantizer.finalize(backend=backend)
+
+
+class TestFixedQParamsActivations:
+    """
+    Tests that activations with analytically known output ranges receive correct fixed qparams.
+    """
+
+    @staticmethod
+    def _assert_fq_properties(
+        fq: FakeQuantizeImplBase,
+        expected_qscheme: QuantizationScheme,
+        expected_float_range: tuple,
+        expected_scale: float,
+    ) -> None:
+        assert fq.qscheme == expected_qscheme
+        assert fq.qparams_calculator.qscheme == expected_qscheme
+        assert fq.qscheme == fq.qparams_calculator.qscheme
+        assert fq.qparams_calculator.float_range == expected_float_range
+        scale, _, _ = fq.calculate_qparams()
+        torch.testing.assert_close(scale, torch.full_like(scale, expected_scale))
+
+    @pytest.mark.parametrize(
+        "activation_fn, expected_qscheme, expected_float_range, expected_scale",
+        [
+            pytest.param(
+                torch.sigmoid,
+                QuantizationScheme.ASYMMETRIC,
+                (0.0, 1.0),
+                # Asymmetric [0, 1] over 255 int8 steps: scale = 1/255.
+                1.0 / 255.0,
+                id="sigmoid",
+            ),
+            pytest.param(
+                torch.tanh,
+                QuantizationScheme.SYMMETRIC,
+                (-1.0, 1.0),
+                # Symmetric [-1, 1] over 255 int8 steps: scale = 2/255.
+                2.0 / 255.0,
+                id="tanh",
+            ),
+            pytest.param(
+                nn.Hardtanh(-3.0, 3.0),
+                QuantizationScheme.SYMMETRIC,
+                (-3.0, 3.0),
+                # Symmetric [-3, 3] over 255 int8 steps: scale = 6/255.
+                6.0 / 255.0,
+                id="hardtanh_symmetric",
+            ),
+            pytest.param(
+                nn.Hardtanh(0.0, 6.0),
+                QuantizationScheme.ASYMMETRIC,
+                (0.0, 6.0),
+                # Asymmetric [0, 6] over 255 int8 steps: scale = 6/255.
+                6.0 / 255.0,
+                id="hardtanh_asymmetric",
+            ),
+        ],
+    )
+    def test_fixed_activation_qparams_stable_through_prepare_calibration_and_qat(
+        self,
+        activation_fn,
+        expected_qscheme,
+        expected_float_range,
+        expected_scale,
+    ):
+        """Fixed-range activation ops should get the correct qscheme and float_range,
+        with a scale that remains unchanged through calibration and QAT."""
+
+        class ActivationLinearActivation(nn.Module):
+            def __init__(self, fn):
+                super().__init__()
+                self.linear = nn.Linear(2, 2, bias=False)
+                self._fn = fn
+
+            def forward(self, x):
+                x = self.linear(x)
+                x = self._fn(x)
+                return x
+
+        torch.manual_seed(42)
+        model = ActivationLinearActivation(activation_fn).eval()
+        example_input = torch.randn(1, 2)
+
+        quantizer = Quantizer(model, QuantizerConfig())
+        prepared_model = quantizer.prepare((example_input,))
+
+        # Run one forward to initialize the qparams calculators.
+        prepared_model(example_input)
+
+        fq = prepared_model.activation_post_process_2
+
+        # After preparation.
+        self._assert_fq_properties(fq, expected_qscheme, expected_float_range, expected_scale)
+
+        # After calibration — qparams should be unchanged.
+        with quantizer.calibration_mode():
+            for _ in range(5):
+                prepared_model(torch.randn(1, 2))
+
+        self._assert_fq_properties(fq, expected_qscheme, expected_float_range, expected_scale)
+
+        # After QAT — qparams should still be unchanged.
+        optimizer = torch.optim.SGD(prepared_model.parameters(), lr=1e-3)
+        criterion = nn.MSELoss()
+        with quantizer.training_mode():
+            for _ in range(5):
+                x = torch.randn(1, 2)
+                optimizer.zero_grad()
+                loss = criterion(prepared_model(x), torch.zeros(1, 2))
+                loss.backward()
+                optimizer.step()
+
+        self._assert_fq_properties(fq, expected_qscheme, expected_float_range, expected_scale)
+
+    def test_relu_output_qparams(self):
+        """ReLU output fake quant should have ASYMMETRIC qscheme with float_range=(0, None).
+
+        The min is analytically pinned at 0 (zero_point stays at -128 across all phases),
+        while the max remains data-driven (float_range[1] is None).
+        """
+
+        class LinearRelu(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(2, 2, bias=False)
+
+            def forward(self, x):
+                return torch.relu(self.linear(x))
+
+        torch.manual_seed(42)
+        model = LinearRelu().eval()
+        example_input = torch.randn(1, 2)
+
+        quantizer = Quantizer(model, QuantizerConfig())
+        prepared_model = quantizer.prepare((example_input,))
+        prepared_model(example_input)
+
+        fq = prepared_model.activation_post_process_2
+
+        assert fq.qscheme == QuantizationScheme.ASYMMETRIC
+        assert fq.qparams_calculator.qscheme == QuantizationScheme.ASYMMETRIC
+        assert fq.qscheme == fq.qparams_calculator.qscheme
+        assert fq.qparams_calculator.float_range == (0.0, None)
+
+        # Min is pinned to 0 — zero_point should stay at -128 across all phases.
+        _, zp, _ = fq.calculate_qparams()
+        assert torch.all(zp == -128)
+
+        with quantizer.calibration_mode():
+            for _ in range(5):
+                prepared_model(torch.randn(1, 2))
+
+        _, zp, _ = fq.calculate_qparams()
+        assert torch.all(zp == -128)
+
+        optimizer = torch.optim.SGD(prepared_model.parameters(), lr=1e-3)
+        criterion = nn.MSELoss()
+        with quantizer.training_mode():
+            for _ in range(5):
+                x = torch.randn(1, 2)
+                optimizer.zero_grad()
+                loss = criterion(prepared_model(x), torch.zeros(1, 2))
+                loss.backward()
+                optimizer.step()
+
+        _, zp, _ = fq.calculate_qparams()
+        assert torch.all(zp == -128)
+
+    def test_relu_qparams_propagated_through_passthrough_ops(self):
+        """Relu's ASYMMETRIC qscheme and pinned-min float_range propagate through
+        passthrough ops (view, squeeze, unsqueeze) to the following quantizable op's input FQ."""
+
+        class LinearReluPassthroughLinear(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear1 = nn.Linear(2, 2, bias=False)
+                self.linear2 = nn.Linear(2, 2, bias=False)
+
+            def forward(self, x):
+                x = torch.relu(self.linear1(x))
+                x = x.view(1, 2)
+                x = x.squeeze(0)
+                x = x.unsqueeze(0)
+                return self.linear2(x)
+
+        torch.manual_seed(42)
+        model = LinearReluPassthroughLinear().eval()
+        example_input = torch.randn(1, 2)
+
+        quantizer = Quantizer(model, QuantizerConfig())
+        prepared_model = quantizer.prepare((example_input,))
+        prepared_model(example_input)
+
+        # Both relu's output FQ and linear2's input FQ (reached through the passthrough chain)
+        # should carry the relu-adjusted spec.
+        fqs_with_relu_range = [
+            (name, m)
+            for name, m in prepared_model.named_modules()
+            if isinstance(m, FakeQuantizeImplBase)
+            and getattr(m.qparams_calculator, "float_range", None) == (0.0, None)
+        ]
+        assert len(fqs_with_relu_range) == 2, (
+            f"Expected 2 FQ modules with float_range=(0.0, None) "
+            f"(relu output + linear2 input via passthrough propagation), "
+            f"got {len(fqs_with_relu_range)}: {[n for n, _ in fqs_with_relu_range]}"
+        )
+        for name, fq in fqs_with_relu_range:
+            assert fq.qscheme == QuantizationScheme.ASYMMETRIC, (
+                f"{name}: expected ASYMMETRIC qscheme"
+            )
+            assert fq.qparams_calculator.qscheme == QuantizationScheme.ASYMMETRIC, (
+                f"{name}: qparams_calculator qscheme mismatch"
+            )
+            _, zp, _ = fq.calculate_qparams()
+            assert torch.all(zp == -128), f"{name}: expected zero_point=-128"

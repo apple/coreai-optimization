@@ -20,7 +20,7 @@ import torch.nn.utils.parametrize as P
 from torch.overrides import TorchFunctionMode, _get_current_function_mode
 from torch.utils._pytree import tree_map
 
-from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
+from coreai_opt._utils.spec_utils import PartialConstructor
 from coreai_opt._utils.torch_utils import NamedModule
 from coreai_opt.config import CompressionConfig
 from coreai_opt.config.spec import CompressionSimulatorBase
@@ -65,6 +65,7 @@ class StateParametrizationInfo(NamedTuple):
     Records information for parametrizing a state including module to parametrize, state
     name to parametrize, and the optimizer to use.
     """
+
     module: torch.nn.Module
     state_name: str
     optimizer: torch.nn.Module
@@ -94,17 +95,13 @@ class ScopedEagerOptimizationModeBase(TorchFunctionMode, abc.ABC):
         for name, module in model.named_modules(remove_duplicate=True):
             # If there is no allow list or if the module is in the allow list,
             # register enter/exit hooks
-            if (hooks_allow_list is None or module in hooks_allow_list):
+            if hooks_allow_list is None or module in hooks_allow_list:
                 pre_hook = module.register_forward_pre_hook(self.enter_module(name))
-                hook = module.register_forward_hook(
-                    self.exit_module(name), always_call=True
-                )
+                hook = module.register_forward_hook(self.exit_module(name), always_call=True)
 
             # If the module is not in the allow list, register fallback enter/exit hooks
             else:
-                pre_hook = module.register_forward_pre_hook(
-                    self.fallback_enter_module(name)
-                )
+                pre_hook = module.register_forward_pre_hook(self.fallback_enter_module(name))
                 hook = module.register_forward_hook(
                     self.fallback_exit_module(name), always_call=True
                 )
@@ -122,9 +119,7 @@ class ScopedEagerOptimizationModeBase(TorchFunctionMode, abc.ABC):
         # entering/exiting logic should be avoided when calling a module from
         # __torch_function__ itself.
         if not isinstance(_get_current_function_mode(), self.__class__):
-            raise RuntimeError(
-                f"{self.__class__.__name__} is not at the top of the stack."
-            )
+            raise RuntimeError(f"{self.__class__.__name__} is not at the top of the stack.")
         return super().__exit__(exc_type, exc_val, exc_tb)
 
     @abc.abstractmethod
@@ -278,13 +273,12 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
             self.module_boundary_tracker.record_module_boundary_tensors(
                 current_named_module, inputs, "input"
             )
+
         return f
 
     def exit_module(self, name: str) -> Callable:
         def f(module: nn.Module, inputs: Any, outputs: Any) -> None:
-            assert (
-                self.parents[-1].name == name
-            ), f"{self.parents[-1].name} is not {name}."
+            assert self.parents[-1].name == name, f"{self.parents[-1].name} is not {name}."
             if self.current_module not in self.traversed_modules:
                 # No point in keeping track of module boundary tensors if it is an already traversed
                 # module, since repeated traversals will also be skipped during torch function
@@ -317,9 +311,10 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         #
         # The inner generator flattens this into (func_name, record) pairs so each
         # individual FunctionPreregistrationRecord is processed independently.
-        for module_name, module_funcs in (
-            self.preregistration_tracker.get_all_pending_registrations().items()
-        ):
+        for (
+            module_name,
+            module_funcs,
+        ) in self.preregistration_tracker.get_all_pending_registrations().items():
             for f_name, pending_record in (
                 (func_name, record)
                 for func_name, pending_records in module_funcs.items()
@@ -327,16 +322,12 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
             ):
                 # Resolve pending input registrations
                 resolved_inputs = self._resolve_pending_registrations(
-                    pending_record.function,
-                    pending_record.pending_inputs,
-                    boundary_type="input"
+                    pending_record.function, pending_record.pending_inputs, boundary_type="input"
                 )
 
                 # Resolve pending output registrations
                 resolved_outputs = self._resolve_pending_registrations(
-                    pending_record.function,
-                    pending_record.pending_outputs,
-                    boundary_type="output"
+                    pending_record.function, pending_record.pending_outputs, boundary_type="output"
                 )
 
                 self._register_resolved_optimizations(
@@ -348,7 +339,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         input_registrations: list[PendingOptimizerRegistration],
         output_registrations: list[PendingOptimizerRegistration],
         module_name: str,
-        func_name: str
+        func_name: str,
     ):
         """
         Given resolved input and output registrations for a function within a module, register
@@ -414,9 +405,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
 
         for pending in pending_registrations:
             pending = self._get_module_component_override_if_applicable(
-                func,
-                pending,
-                boundary_type
+                func, pending, boundary_type
             )
             resolved_registrations.append(pending)
         return resolved_registrations
@@ -425,7 +414,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         self,
         func: Callable,
         pending: PendingOptimizerRegistration,
-        boundary_type: Literal["input", "output"]
+        boundary_type: Literal["input", "output"],
     ) -> PendingOptimizerRegistration:
         """
         For a specific pending optimizer registration, check if the optimizer should be overridden
@@ -449,9 +438,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         # rules, inner module boundary specs will always have higher priority than outer module
         # boundary specs.
         for module_boundaries in module_boundaries_by_module:
-            module_components = self.module_components_dict.get(
-                module_boundaries[0].named_module
-            )
+            module_components = self.module_components_dict.get(module_boundaries[0].named_module)
             if module_components is None:
                 continue
 
@@ -461,8 +448,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
                 components_dict = module_components.module_output_components
 
             self._warn_on_multiple_specifications_for_same_tensor(
-                module_boundaries,
-                components_dict
+                module_boundaries, components_dict
             )
 
             # Check for module-level spec override for the corresponding input/output
@@ -470,7 +456,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
             override_optimizer, found = get_optimizer_from_components_dict(
                 func,
                 [module_boundary.index for module_boundary in module_boundaries],
-                components_dict
+                components_dict,
             )
 
             if found:
@@ -480,7 +466,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
     @staticmethod
     def _warn_on_multiple_specifications_for_same_tensor(
         module_boundaries: list[ModuleBoundaryInfo],
-        components_dict: Mapping[int | str, CompressionSimulatorBase | None]
+        components_dict: Mapping[int | str, CompressionSimulatorBase | None],
     ):
         """
         Given a list of module boundaries for a tensor, check whether multiple indices match
@@ -507,10 +493,9 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
                     logger.warning(warning_msg)
                     break
 
-
     @staticmethod
     def _split_module_boundary_info_list_by_module(
-        module_boundaries_for_tensor: list[ModuleBoundaryInfo]
+        module_boundaries_for_tensor: list[ModuleBoundaryInfo],
     ) -> list[list[ModuleBoundaryInfo]]:
         """
         Helper function to split the list of module_boundaries_for_tensor into a list of lists where
@@ -538,15 +523,13 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         for module in self.model.modules():
             for state_name, state in itertools.chain(
                 module.named_parameters(recurse=False, remove_duplicate=False),
-                module.named_buffers(recurse=False, remove_duplicate=False)
+                module.named_buffers(recurse=False, remove_duplicate=False),
             ):
                 optimizer = self.state_resolver.get_optimizer(state)
                 if optimizer:
-                    states_to_parametrize.append(StateParametrizationInfo(
-                        module,
-                        state_name,
-                        optimizer
-                    ))
+                    states_to_parametrize.append(
+                        StateParametrizationInfo(module, state_name, optimizer)
+                    )
 
         # Register all parametrizations
         for state_to_parametrize in states_to_parametrize:
@@ -554,7 +537,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
                 state_to_parametrize.module,
                 state_to_parametrize.state_name,
                 state_to_parametrize.optimizer,
-                unsafe=True
+                unsafe=True,
             )
 
     def _preregister_input_and_state_optimization(
@@ -573,8 +556,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         args, kwargs = normalize_args_kwargs(func, args, kwargs)
         pending_registrations: list[PendingOptimizerRegistration] = []
         for tensor_idx, (kwarg_name, tensor) in enumerate(
-            itertools.chain(((None, arg) for arg in args), kwargs.items()
-            )
+            itertools.chain(((None, arg) for arg in args), kwargs.items())
         ):
             components_dict = (
                 op_compression_components.op_state_components
@@ -613,8 +595,8 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         func_counter: int,
         tensor: torch.nn.Parameter | torch.Tensor,
         idx: int,
-        components_dict: Mapping[int | str, _PartialConstructor | None],
-        is_output: bool
+        components_dict: Mapping[int | str, PartialConstructor | None],
+        is_output: bool,
     ) -> None:
         """
         Check whether module_components is attempting to set a specific non-quantizable
@@ -679,10 +661,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
                 if re.fullmatch(op_name, func_name):
                     return op_name_config
             except re.error as e:
-                error_msg = (
-                    f"Invalid regex pattern '{op_name}' in op_name_config: "
-                    f"{op_name_config}"
-                )
+                error_msg = f"Invalid regex pattern '{op_name}' in op_name_config: {op_name_config}"
                 raise ValueError(error_msg) from e
 
         # Check for op_type match
@@ -706,7 +685,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         activation_type: Literal["input", "output"],
         tensor: torch.Tensor,
         tensor_idx: int,
-        components_dict: Mapping[int | str, _PartialConstructor | None],
+        components_dict: Mapping[int | str, PartialConstructor | None],
         kwarg_name: str | None = None,
     ) -> PendingOptimizerRegistration:
         """
@@ -733,14 +712,11 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
             optimizer_name = self._build_optimizer_name(
                 func_name,
                 self.optimization_type_name,
-                tensor_idx if kwarg_name is None else kwarg_name
+                tensor_idx if kwarg_name is None else kwarg_name,
             )
         else:
             optimizer_name = self._build_optimizer_name(
-                func_name,
-                self.optimization_type_name,
-                "output",
-                tensor_idx
+                func_name, self.optimization_type_name, "output", tensor_idx
             )
 
         return PendingOptimizerRegistration(
@@ -775,7 +751,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
                     output,
                     idx,
                     op_compression_components.op_output_components,
-                    True
+                    True,
                 )
                 continue
 
@@ -791,11 +767,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         return pending_registrations
 
     def __torch_function__(
-        self,
-        func: Callable,
-        types: list,
-        args: tuple = (),
-        kwargs: dict | None = None
+        self, func: Callable, types: list, args: tuple = (), kwargs: dict | None = None
     ) -> Any:
         if kwargs is None:
             kwargs = {}
@@ -880,8 +852,7 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
         reference_tracker: RegisteredOptimizersTracker,
     ) -> None:
         hooks_allow_list = [
-            module for name, module in model.named_modules()
-            if reference_tracker.has_module(name)
+            module for name, module in model.named_modules() if reference_tracker.has_module(name)
         ]
 
         super().__init__(
@@ -1024,11 +995,7 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
         return f
 
     def _apply_activation_optimizer_if_exists(
-        self,
-        func: Callable,
-        func_counter: int,
-        value: Any,
-        *name_parts: str | int
+        self, func: Callable, func_counter: int, value: Any, *name_parts: str | int
     ) -> tuple[torch.Tensor, str | None]:
         """Apply activation optimizer to a single tensor.
 
@@ -1043,9 +1010,7 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
             else (value, None)
         """
         optimizer_name = self._build_optimizer_name(
-            get_func_name(func, func_counter),
-            self.optimization_type_name,
-            *name_parts
+            get_func_name(func, func_counter), self.optimization_type_name, *name_parts
         )
         if hasattr(self.current_module, optimizer_name):
             optimizer = self.current_module.get_submodule(optimizer_name)
@@ -1055,17 +1020,15 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
     def _input_optimization(
         self, func: Callable, func_counter, args: tuple, kwargs: dict
     ) -> tuple[tuple, dict, list[str]]:
-        """ Handle optimizing input activations of func. """
+        """Handle optimizing input activations of func."""
         inputs_quantized: list[str] = []
         normalized_args, normalized_kwargs = normalize_args_kwargs(func, args, kwargs)
         mutable_args = list(normalized_args)
 
         # Process positional arguments
         for idx in range(len(mutable_args)):
-            mutable_args[idx], optimizer_name = (
-                self._apply_activation_optimizer_if_exists(
-                    func, func_counter, mutable_args[idx], idx
-                )
+            mutable_args[idx], optimizer_name = self._apply_activation_optimizer_if_exists(
+                func, func_counter, mutable_args[idx], idx
             )
             if optimizer_name is not None:
                 inputs_quantized.append(optimizer_name)
@@ -1081,9 +1044,7 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
                 inputs_quantized.append(optimizer_name)
 
         args_to_return, kwargs_to_return = self._get_args_kwargs_to_return(
-            args,
-            mutable_args,
-            normalized_kwargs
+            args, mutable_args, normalized_kwargs
         )
         return args_to_return, kwargs_to_return, inputs_quantized
 
@@ -1101,8 +1062,7 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
         num_args_in_normalized_kwargs = len(args) - len(mutable_args)
         normalized_kwargs_list = list(normalized_kwargs.items())
         return_args = (
-            mutable_args +
-            [v for (_, v) in normalized_kwargs_list][:num_args_in_normalized_kwargs]
+            mutable_args + [v for (_, v) in normalized_kwargs_list][:num_args_in_normalized_kwargs]
         )
         return_kwargs = dict(normalized_kwargs_list[num_args_in_normalized_kwargs:])
         return tuple(return_args), return_kwargs
@@ -1110,7 +1070,7 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
     def _output_optimization(
         self, func: Callable, func_counter: int, outputs: torch.Tensor | tuple
     ) -> tuple[torch.Tensor | tuple, list[str]]:
-        """ Handle optimizing output activations of func. """
+        """Handle optimizing output activations of func."""
         # Handle both single tensor and tuple inputs
         outputs_quantized: list[str] = []
         was_single_tensor = not isinstance(outputs, tuple)
@@ -1121,10 +1081,8 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
 
         # Process all outputs
         for idx in range(len(mutable_outputs)):
-            mutable_outputs[idx], optimizer_name = (
-                self._apply_activation_optimizer_if_exists(
-                    func, func_counter, mutable_outputs[idx], "output", idx
-                )
+            mutable_outputs[idx], optimizer_name = self._apply_activation_optimizer_if_exists(
+                func, func_counter, mutable_outputs[idx], "output", idx
             )
             if optimizer_name is not None:
                 outputs_quantized.append(optimizer_name)
@@ -1132,26 +1090,17 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
         outputs = tuple(mutable_outputs)
         # Return in the same format as input
         return (
-            (outputs[0], outputs_quantized)
-            if was_single_tensor
-            else (outputs, outputs_quantized)
+            (outputs[0], outputs_quantized) if was_single_tensor else (outputs, outputs_quantized)
         )
 
     def __torch_function__(
-        self,
-        func: Callable,
-        types: list,
-        args: tuple = (),
-        kwargs: dict | None = None
+        self, func: Callable, types: list, args: tuple = (), kwargs: dict | None = None
     ) -> Any:
         if kwargs is None:
             kwargs = {}
 
         func_base_name = get_func_base_name(func)
-        if not self.reference_tracker.has_function(
-            self.current_module_name,
-            func_base_name
-        ):
+        if not self.reference_tracker.has_function(self.current_module_name, func_base_name):
             # Functions like detach() can appear here when not seen earlier, if the
             # model was run with no_grad() for instance. If a function was not seen
             # earlier, simply shortcut and return without quantizing.
@@ -1170,13 +1119,8 @@ class ActivationEagerOptimizationHandler(ScopedEagerOptimizationModeBase):
             )
             out = func(*args, **kwargs)
             # Apply output optimization
-            out, outputs_quantized = self._output_optimization(
-                func, func_counter, out
-            )
+            out, outputs_quantized = self._output_optimization(func, func_counter, out)
             self.registered_optimizers_tracker.record_registration(
-                self.current_module_name,
-                func_base_name,
-                inputs_quantized,
-                outputs_quantized
+                self.current_module_name, func_base_name, inputs_quantized, outputs_quantized
             )
             return out

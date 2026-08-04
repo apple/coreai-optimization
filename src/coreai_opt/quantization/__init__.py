@@ -15,6 +15,7 @@ from .spec import (  # noqa: I001
 # Import config after spec to avoid circular imports
 from .config import (
     ExecutionMode,
+    InvalidExecutionModeError,
     ModuleQuantizerConfig,
     QuantizerConfig,
 )
@@ -22,6 +23,7 @@ from .quantizer import Quantizer
 
 __all__ = [
     "ExecutionMode",
+    "InvalidExecutionModeError",
     "ModuleQuantizerConfig",
     "QuantizationSpec",
     "Quantizer",

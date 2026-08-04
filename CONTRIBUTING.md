@@ -22,8 +22,8 @@ The API surface is intentionally limited. This keeps the library reliable, well-
 Set up the environment as described in [README.md](README.md#getting-started). Then, from the activated venv:
 
 ```shell
-# Build the package.
-make build
+# Build the package (development build).
+make build-dev
 
 # Build the documentation.
 make docs

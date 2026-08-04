@@ -53,9 +53,9 @@ prepared_model = quantizer.prepare(example_inputs)
 
 Calibration is necessary when activation quantization is enabled. In order to determine proper quantization parameters for activation quantizers, representative data must be passed through the prepared model in the `calibration_mode()` context.
 
-Inside `calibration_mode()`, fake quantization is disabled and observers track tensor ranges seen at each activation quantizer.
-Each forward pass updates the activation scales without introducing quantization noise into the output.
-On exit, observers are disabled and fake quantization is re-enabled.
+Inside `calibration_mode()`, activation fake quantization is disabled while weight fake quantization stays on, and observers track tensor ranges seen at each activation quantizer.
+Each forward pass updates the activation scales using activations produced with quantized weights upstream, without injecting activation quantization noise into the observed values.
+On exit, observers are disabled and activation fake quantization is re-enabled.
 
 ```python
 with quantizer.calibration_mode():

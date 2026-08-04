@@ -10,7 +10,11 @@ import torch
 from torch.fx import GraphModule, Node
 
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
-from coreai_opt.quantization.spec.granularity import PerTensorGranularity
+from coreai_opt.quantization.spec.granularity import (
+    PerChannelGranularity,
+    PerTensorGranularity,
+    QuantizationGranularity,
+)
 
 logger = logging.getLogger(__name__)
 # torchao < 0.16.0 does not allow kwargs for annotated nodes during prepare_qat_pt2e call
@@ -19,18 +23,51 @@ logger = logging.getLogger(__name__)
 _TORCHAO_DISALLOWED_NODE_KWARG_TYPES = (torch.fx.Node, torch.Tensor)
 
 
-# Aten ops that alter channel axis semantics, making per-channel/per-block granularity
-# invalid for shared observers. These ops remap or collapse dimensions so the
-# channel axis in the input has no meaningful counterpart in the output.
-_CHANNEL_ALTERING_ATEN_OPS = {
-    torch.ops.aten.flatten.using_ints,
-    torch.ops.aten.reshape.default,
-    torch.ops.aten.permute.default,
+# Ops that only resize dimensions in place: they never reorder which physical
+# dimension sits at a given axis, so the only way they can invalidate a
+# shared per-channel axis is by changing that axis's size (e.g. a spatial
+# axis shrunk by a stride>1 pool). See _shared_granularity_axis_is_safe.
+_AXIS_RESIZING_ATEN_OPS = {
+    torch.ops.aten.max_pool1d.default,
+    torch.ops.aten.max_pool2d.default,
+    torch.ops.aten.max_pool3d.default,
+    torch.ops.aten.avg_pool1d.default,
+    torch.ops.aten.avg_pool2d.default,
+    torch.ops.aten.avg_pool3d.default,
+    torch.ops.aten.adaptive_avg_pool1d.default,
+    torch.ops.aten.adaptive_avg_pool2d.default,
+    torch.ops.aten.adaptive_avg_pool3d.default,
+    # AvgPoolPattern also registers "mean" as a shared-observer op (some global
+    # average pooling is traced as x.mean(dim=[...]) rather than AvgPool/
+    # AdaptiveAvgPool), so it needs the same axis-size-mismatch protection.
+    torch.ops.aten.mean.dim,
+}
+
+# Ops that only reorder dimensions: they never change a dimension's size, so
+# the only way they can invalidate a shared per-channel axis is by moving a
+# different physical dimension into that position. See
+# _shared_granularity_axis_is_safe.
+_AXIS_REORDERING_ATEN_OPS = {
     torch.ops.aten.transpose.int,
     torch.ops.aten.t.default,
-    torch.ops.aten.view.default,
-    torch.ops.aten.unsqueeze.default,
+    torch.ops.aten.permute.default,
 }
+
+# Aten ops that alter channel axis semantics, making per-channel/per-block
+# granularity invalid for shared observers: the two categories above, plus
+# ops that remap or collapse dimensions outright (flatten, reshape, view,
+# unsqueeze), for which no single per-op safety condition holds — see
+# force_per_tensor_for_channel_altering_ops.
+_CHANNEL_ALTERING_ATEN_OPS = (
+    _AXIS_RESIZING_ATEN_OPS
+    | _AXIS_REORDERING_ATEN_OPS
+    | {
+        torch.ops.aten.flatten.using_ints,
+        torch.ops.aten.reshape.default,
+        torch.ops.aten.view.default,
+        torch.ops.aten.unsqueeze.default,
+    }
+)
 
 
 def resolve_attr(model: GraphModule, target: str) -> torch.Tensor:
@@ -174,8 +211,9 @@ def restore_kwargs(graph: torch.fx.Graph, saved_kwargs: dict[str, dict[str, Any]
 
 
 def force_per_tensor_for_channel_altering_ops(model: GraphModule) -> None:
-    """Force per-tensor granularity on shared fake quantize modules adjacent to
-    channel-altering ops (flatten, reshape, transpose, permute, etc.).
+    """Force per-tensor granularity on shared fake quantize modules where the
+    channel-altering op they straddle (flatten, reshape, transpose, permute,
+    pooling, etc.) invalidates the shared axis.
 
     These ops change tensor dimensions, making per-channel/per-block axis
     semantics invalid when the input and output quantizers are the same shared
@@ -194,13 +232,14 @@ def force_per_tensor_for_channel_altering_ops(model: GraphModule) -> None:
         if node.op != "call_function" or node.target not in _CHANNEL_ALTERING_ATEN_OPS:
             continue
 
-        # Collect input and output fake quantize modules
-        input_fqs: list[FakeQuantizeImplBase] = []
+        # Collect input fake quantize modules, keyed by id, alongside the graph
+        # node that feeds each one (needed to read the pre-op input shape).
+        input_fq_nodes_by_id: dict[int, Node] = {}
         for input_node in node.all_input_nodes:
             if input_node.op == "call_module":
                 mod = modules.get(str(input_node.target))
                 if isinstance(mod, FakeQuantizeImplBase):
-                    input_fqs.append(mod)
+                    input_fq_nodes_by_id[id(mod)] = input_node
 
         output_fqs: list[FakeQuantizeImplBase] = []
         for user_node in node.users:
@@ -212,20 +251,112 @@ def force_per_tensor_for_channel_altering_ops(model: GraphModule) -> None:
         # Only force per-tensor when input and output quantizers are the same
         # shared object — meaning they share observer parameters across the
         # channel-altering op, which breaks axis semantics.
-        input_fq_ids = {id(fq) for fq in input_fqs}
         for output_fq in output_fqs:
-            if id(output_fq) in input_fq_ids:
+            input_fq_node = input_fq_nodes_by_id.get(id(output_fq))
+            if input_fq_node is None:
+                continue
+            if not _shared_granularity_axis_is_safe(output_fq, input_fq_node, node):
                 _force_fake_quant_to_per_tensor(output_fq, node)
+
+
+def _shared_granularity_axis_is_safe(
+    fake_quant: FakeQuantizeImplBase,
+    input_fq_node: Node,
+    op_node: Node,
+) -> bool:
+    """Return True only if it's proven safe to keep ``fake_quant``'s
+    granularity shared across ``op_node``; unproven cases default to unsafe.
+
+    Per-channel activation quantization on a shared observer is assumed
+    unsafe by default. Each op category below has exactly one condition
+    under which it stops being safe, checked directly against that
+    category rather than composing generic checks that apply to every op:
+
+    - axis-resizing ops (pooling, mean) never reorder dimensions, so
+      they're unsafe only if the axis's size changes.
+    - axis-reordering ops (transpose, t, permute) never resize dimensions,
+      so they're unsafe only if the axis is moved to a different position.
+    - anything else (flatten, reshape, view, unsqueeze, or a future op not
+      yet categorized) has no known single condition to check, so it's
+      always unsafe.
+    """
+    granularity = fake_quant.granularity
+    # No axis to violate — trivially safe.
+    if isinstance(granularity, PerTensorGranularity):
+        return True
+    # Anything other than PerChannelGranularity (e.g. PerBlockGranularity)
+    # has no condition checked below, so it's not safe.
+    if not isinstance(granularity, PerChannelGranularity):
+        return False
+
+    output_shape = op_node.meta["val"].shape
+    input_shape = input_fq_node.all_input_nodes[0].meta["val"].shape
+    # Rank changed (e.g. flatten): positional axis comparison is meaningless,
+    # since broadcasting aligns dims from the trailing side, not by raw
+    # index, so there's no condition to check here.
+    if len(input_shape) != len(output_shape):
+        return False
+    axis = QuantizationGranularity._resolve_axis(granularity, len(input_shape))
+    if axis is None:
+        return False
+
+    if op_node.target in _AXIS_RESIZING_ATEN_OPS:
+        return input_shape[axis] == output_shape[axis]
+    if op_node.target in _AXIS_REORDERING_ATEN_OPS:
+        return _op_preserves_axis_identity(op_node, axis)
+    # flatten/reshape/view/unsqueeze, or an unrecognized future op: no known
+    # single condition to prove safety, so default to unsafe.
+    return False
+
+
+def _op_preserves_axis_identity(op_node: Node, axis: int) -> bool:
+    """Return True if ``op_node`` never moves the physical dimension at
+    ``axis`` to a different position between its input and output.
+
+    Only called for ops in ``_AXIS_REORDERING_ATEN_OPS`` (transpose, t,
+    permute), which the three branches below exhaustively cover. The
+    trailing fallback defaults to False rather than True, consistent with
+    this module's fail-safe default: a reordering op this function doesn't
+    yet know how to analyze should never be assumed identity-preserving.
+    """
+    if op_node.target == torch.ops.aten.transpose.int:
+        _, dim0, dim1 = op_node.args
+        ndim = len(op_node.meta["val"].shape)
+        # Convert negative axis to positive axis by adding ndim
+        if dim0 < 0:
+            dim0 += ndim
+        if dim1 < 0:
+            dim1 += ndim
+        return axis not in (dim0, dim1)
+    if op_node.target == torch.ops.aten.t.default:
+        return axis not in (0, 1)
+    if op_node.target == torch.ops.aten.permute.default:
+        _, dims = op_node.args
+        return dims[axis] == axis
+    return False
 
 
 def _force_fake_quant_to_per_tensor(fake_quant: FakeQuantizeImplBase, op_node: Node) -> None:
     """Update a fake quantize module's granularity to per-tensor if needed."""
-    if isinstance(fake_quant.granularity, PerTensorGranularity):
+    granularity = fake_quant.granularity
+    if isinstance(granularity, PerTensorGranularity):
         return
-    logger.info(
-        "Forcing per-tensor granularity for fake quantize adjacent to %s (was %s)",
+    if isinstance(granularity, PerChannelGranularity):
+        detail = (
+            ": this op either changes the size of the quantization axis "
+            "between its input and output, or moves it to a different "
+            "physical dimension (e.g. via transpose/permute), so a "
+            "per-channel scale can't safely apply to both sides. To keep "
+            "per-channel activation quantization here, choose a different "
+            "axis that this op leaves untouched."
+        )
+    else:
+        detail = ""
+    logger.warning(
+        "Forcing per-tensor granularity for the shared observer around '%s' (was %s)%s",
         op_node.name,
-        fake_quant.granularity,
+        granularity,
+        detail,
     )
     fake_quant.granularity = PerTensorGranularity()
 
