@@ -23,7 +23,13 @@ from coreai_opt.pruning.config import (
     OpMagnitudePrunerConfig,
     PolynomialDecaySchedule,
 )
-from coreai_opt.pruning.spec import ChannelStructured, PruneImplBase, Unstructured
+from coreai_opt.pruning.spec import (
+    BlockStructured,
+    ChannelStructured,
+    NMStructured,
+    PruneImplBase,
+    Unstructured,
+)
 
 
 @pytest.fixture
@@ -552,6 +558,181 @@ class TestMagnitudePruner:
         assert num_pruned == 3, (
             f"Expected exactly 3/5 channels pruned despite tied norms, got {num_pruned}"
         )
+
+    def test_block_structured_pruning_hand(self) -> None:
+        """Hand-written 8x4 tensor with block pruning (axis=0, block_size=2) at 50%.
+
+        Block magnitudes [5, 1, 4, 2] are interleaved so the two pruned blocks
+        (norms 1 and 2) are not contiguous — this keeps the case distinct from
+        plain channel-structured pruning of a contiguous leading/trailing slice.
+        """
+        model = nn.Linear(4, 8, bias=False)
+        with torch.no_grad():
+            model.weight.copy_(
+                torch.tensor(
+                    [
+                        [5.0, 5.0, 5.0, 5.0],
+                        [5.0, 5.0, 5.0, 5.0],
+                        [1.0, 1.0, 1.0, 1.0],
+                        [1.0, 1.0, 1.0, 1.0],
+                        [4.0, 4.0, 4.0, 4.0],
+                        [4.0, 4.0, 4.0, 4.0],
+                        [2.0, 2.0, 2.0, 2.0],
+                        [2.0, 2.0, 2.0, 2.0],
+                    ]
+                )
+            )
+
+        config = MagnitudePrunerConfig(
+            global_config=ModuleMagnitudePrunerConfig(
+                op_state_spec={
+                    "weight": PruningSpec(
+                        target_sparsity=0.5,
+                        pruning_scheme=BlockStructured(axis=0, block_size=2),
+                    )
+                }
+            )
+        )
+        pruner = MagnitudePruner(model, config)
+        pruner.prepare((torch.randn(1, 4),))
+
+        expected = torch.tensor(
+            [
+                [5.0, 5.0, 5.0, 5.0],
+                [5.0, 5.0, 5.0, 5.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [4.0, 4.0, 4.0, 4.0],
+                [4.0, 4.0, 4.0, 4.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+            ]
+        )
+        assert torch.equal(model.weight.detach(), expected)
+
+    def test_block_structured_non_leading_axis(self) -> None:
+        """Block pruning along axis=1 (input-feature dim) groups column pairs."""
+        model = nn.Linear(6, 4, bias=False)
+        with torch.no_grad():
+            model.weight.copy_(torch.tensor([[1.0, 1.0, 5.0, 5.0, 3.0, 3.0]]).expand(4, 6))
+
+        config = MagnitudePrunerConfig(
+            global_config=ModuleMagnitudePrunerConfig(
+                op_state_spec={
+                    "weight": PruningSpec(
+                        target_sparsity=0.4,
+                        pruning_scheme=BlockStructured(axis=1, block_size=2),
+                    )
+                }
+            )
+        )
+        pruner = MagnitudePruner(model, config)
+        pruner.prepare((torch.randn(1, 6),))
+
+        expected = torch.tensor([[0.0, 0.0, 5.0, 5.0, 3.0, 3.0]]).expand(4, 6)
+        assert torch.equal(model.weight.detach(), expected)
+
+    def test_block_structured_duplicate_norms(self) -> None:
+        """Blocks with tied L2 norms are still pruned to the exact target count.
+
+        Block magnitudes [1, 2, 2, 2, 5] (5 blocks of 2 rows each) at 60%
+        sparsity should prune exactly 3 of 5 blocks, despite the norm ties.
+        """
+        magnitudes = [1.0, 2.0, 2.0, 2.0, 5.0]
+        rows = [torch.full((4,), m) for m in magnitudes for _ in range(2)]
+        model = nn.Linear(4, 10, bias=False)
+        with torch.no_grad():
+            model.weight.copy_(torch.stack(rows))
+
+        config = MagnitudePrunerConfig(
+            global_config=ModuleMagnitudePrunerConfig(
+                op_state_spec={
+                    "weight": PruningSpec(
+                        target_sparsity=0.6,
+                        pruning_scheme=BlockStructured(axis=0, block_size=2),
+                    )
+                }
+            )
+        )
+        pruner = MagnitudePruner(model, config)
+        pruner.prepare((torch.randn(1, 4),))
+
+        weight = model.weight.detach()
+        num_pruned_blocks = sum(
+            1
+            for block_start in range(0, 10, 2)
+            if weight[block_start : block_start + 2].eq(0).all()
+        )
+        assert num_pruned_blocks == 3
+
+    def test_nm_structured_pruning_hand(self) -> None:
+        """NMStructured(n=2, m=4) enforces exact 2:4 sparsity per group, ignoring target_sparsity.
+
+        Each row is one group of 4 (axis=1): with strictly increasing values,
+        the 2 smallest elements per row are the exact ones zeroed.
+        """
+        model = nn.Linear(4, 8, bias=False)
+        original = torch.arange(1, 33, dtype=torch.float32).reshape(8, 4)
+        with torch.no_grad():
+            model.weight.copy_(original)
+
+        config = MagnitudePrunerConfig(
+            global_config=ModuleMagnitudePrunerConfig(
+                op_state_spec={
+                    "weight": PruningSpec(
+                        target_sparsity=0.9,
+                        pruning_scheme=NMStructured(axis=1, n=2, m=4),
+                    )
+                }
+            )
+        )
+        pruner = MagnitudePruner(model, config)
+        pruner.prepare((torch.randn(1, 4),))
+
+        expected = original.clone()
+        expected[:, :2] = 0.0
+        assert torch.equal(model.weight.detach(), expected)
+
+    def test_nm_structured_multi_group_per_axis_line(self) -> None:
+        """An 8-element axis with m=4, n=2 forms two independent groups per row."""
+        model = nn.Linear(8, 1, bias=False)
+        with torch.no_grad():
+            model.weight.copy_(torch.tensor([[4.0, 1.0, 3.0, 2.0, 8.0, 5.0, 7.0, 6.0]]))
+
+        config = MagnitudePrunerConfig(
+            global_config=ModuleMagnitudePrunerConfig(
+                op_state_spec={"weight": PruningSpec(pruning_scheme=NMStructured(axis=1, n=2, m=4))}
+            )
+        )
+        pruner = MagnitudePruner(model, config)
+        pruner.prepare((torch.randn(1, 8),))
+
+        # Group 1 = [4, 1, 3, 2]: two smallest (1, 2) zeroed -> keep 4, 3.
+        # Group 2 = [8, 5, 7, 6]: two smallest (5, 6) zeroed -> keep 8, 7.
+        expected = torch.tensor([[4.0, 0.0, 3.0, 0.0, 8.0, 0.0, 7.0, 0.0]])
+        assert torch.equal(model.weight.detach(), expected)
+
+    def test_nm_structured_n_zero_keeps_everything(self) -> None:
+        """NMStructured(n=0) is a degenerate no-op: the weight is left untouched."""
+        model = nn.Linear(8, 2, bias=False)
+        original = torch.arange(1, 17, dtype=torch.float32).reshape(2, 8)
+        with torch.no_grad():
+            model.weight.copy_(original)
+
+        config = MagnitudePrunerConfig(
+            global_config=ModuleMagnitudePrunerConfig(
+                op_state_spec={
+                    "weight": PruningSpec(
+                        target_sparsity=0.9,
+                        pruning_scheme=NMStructured(axis=1, n=0, m=4),
+                    )
+                }
+            )
+        )
+        pruner = MagnitudePruner(model, config)
+        pruner.prepare((torch.randn(1, 8),))
+
+        assert torch.equal(model.weight.detach(), original)
 
     def test_backprop_through_pruned_weights(self, linear_100x100_unique: nn.Linear) -> None:
         """Gradients flow through unpruned entries and are zero where the mask is zero."""

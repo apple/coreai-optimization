@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import math
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any
 
@@ -17,10 +16,9 @@ from coreai_opt._utils.spec_utils import (
     PartialConstructor as _PartialConstructor,
     with_args as _with_args,
 )
-from coreai_opt._utils.torch_utils import normalize_axis as _normalize_axis
 from coreai_opt.config.spec import CompressionSimulatorBase
 
-from .scheme import ChannelStructured, PruningScheme
+from .scheme import PruningScheme
 
 if TYPE_CHECKING:
     # Imported only for type checking — runtime would be a circular import via
@@ -117,10 +115,11 @@ class PruneImplBase(CompressionSimulatorBase):
 
 @PruneImplBase.register("default")
 class _MagnitudePruneImpl(PruneImplBase):
-    """Magnitude-based pruning supporting unstructured and channel-structured schemes.
+    """Magnitude-based pruning that delegates to the configured pruning scheme.
 
     Prunes a given tensor to target sparsity by zero-ing out the smallest-magnitude
-    elements until desired sparsity is achieved.
+    elements, per whatever structural pattern ``pruning_scheme`` defines (unstructured,
+    channel-structured, block-structured, N:M-structured, or future schemes).
     """
 
     @staticmethod
@@ -129,7 +128,7 @@ class _MagnitudePruneImpl(PruneImplBase):
         sparsity: float,
         pruning_scheme: PruningScheme,
     ) -> torch.Tensor:
-        """Compute a magnitude-based mask respecting the pruning scheme.
+        """Compute a magnitude-based mask by delegating to the pruning scheme.
 
         Args:
             weight (torch.Tensor): The weight tensor.
@@ -139,60 +138,4 @@ class _MagnitudePruneImpl(PruneImplBase):
         Returns:
             torch.Tensor: Binary mask (1 = keep, 0 = prune).
         """
-        if sparsity == 0.0:
-            return torch.ones_like(weight)
-        if sparsity >= 1.0:
-            return torch.zeros_like(weight)
-
-        # TODO: Replace this with generic abstractions
-        if isinstance(pruning_scheme, ChannelStructured):
-            return _MagnitudePruneImpl._compute_channel_mask(weight, sparsity, pruning_scheme.axis)
-        return _MagnitudePruneImpl._compute_unstructured_mask(weight, sparsity)
-
-    @staticmethod
-    def _compute_unstructured_mask(weight: torch.Tensor, sparsity: float) -> torch.Tensor:
-        """Element-wise magnitude pruning."""
-        num_elements = weight.numel()
-        num_keep = num_elements - math.floor(num_elements * sparsity)
-        abs_weight = weight.abs()
-        _, topk_indices = torch.topk(abs_weight.flatten(), num_keep)
-        mask = torch.zeros(num_elements, dtype=weight.dtype, device=weight.device)
-        mask[topk_indices] = 1.0
-        return mask.reshape(weight.shape)
-
-    @staticmethod
-    def _compute_channel_mask(
-        weight: torch.Tensor,
-        sparsity: float,
-        axis: int,
-    ) -> torch.Tensor:
-        """Channel-structured magnitude pruning along *axis*.
-
-        Channel importance is measured by L1 norm. The least-important
-        channels are pruned entirely.
-        """
-        if not (-weight.ndim <= axis < weight.ndim):
-            raise ValueError(
-                f"Invalid axis. Should be in range [{-weight.ndim}, {weight.ndim}), but got {axis}"
-            )
-        axis = _normalize_axis(axis, weight.ndim)
-
-        num_channels = weight.shape[axis]
-        num_prune = math.floor(num_channels * sparsity)
-
-        if num_prune == 0:
-            return torch.ones_like(weight)
-        if num_prune >= num_channels:
-            return torch.zeros_like(weight)
-
-        reduce_dims = [d for d in range(weight.ndim) if d != axis]
-        channel_norms = weight.abs().sum(dim=reduce_dims)
-
-        num_keep = num_channels - num_prune
-        _, keep_indices = torch.topk(channel_norms, num_keep, largest=True)
-        channel_mask = torch.zeros(num_channels, dtype=weight.dtype, device=weight.device)
-        channel_mask[keep_indices] = 1.0
-
-        shape = [1] * weight.ndim
-        shape[axis] = num_channels
-        return channel_mask.view(shape).expand_as(weight)
+        return pruning_scheme.compute_mask(weight, sparsity)
