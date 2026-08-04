@@ -15,6 +15,7 @@ import torch
 from torch.autograd import Function
 from torchao.quantization.pt2e import FakeQuantizeBase
 
+from coreai_opt._utils.errors import _BlockSizeMismatchError
 from coreai_opt._utils.spec_utils import (
     PartialConstructor as _PartialConstructor,
     with_args as _with_args,
@@ -27,7 +28,6 @@ from coreai_opt._utils.torch_utils import (
 )
 from coreai_opt.config.spec import CompressionSimulatorBase, CompressionTargetTensor
 from coreai_opt.quantization._utils import get_quantization_shapes as _get_quantization_shapes
-from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 
 from .granularity import QuantizationGranularity
 from .qformulation import QuantizationFormulation

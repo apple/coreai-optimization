@@ -9,6 +9,7 @@ import yaml
 from pydantic import ValidationError
 from torchao.quantization import MappingType as TorchAOMappingType
 
+from coreai_opt._utils.errors import _BlockSizeMismatchError
 from coreai_opt.quantization import QuantizationSpec
 from coreai_opt.quantization.spec import (
     PerBlockGranularity,
@@ -19,7 +20,6 @@ from coreai_opt.quantization.spec import (
     default_activation_quantization_spec,
     default_weight_quantization_spec,
 )
-from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 from coreai_opt.quantization.spec.fake_quantize import (
     _DefaultFakeQuantizeImpl,
 )

@@ -9,6 +9,7 @@ import pytest
 import torch
 import torch.nn as nn
 
+from coreai_opt._utils.errors import _BlockSizeMismatchError
 from coreai_opt.pruning.config import (
     MagnitudePrunerConfig,
     ModuleMagnitudePrunerConfig,
@@ -25,7 +26,6 @@ from coreai_opt.pruning.spec import (
     _MagnitudePruneImpl,
     default_weight_pruning_spec,
 )
-from coreai_opt.pruning.spec.errors import _BlockSizeMismatchError
 
 
 class TestPruningSpec:

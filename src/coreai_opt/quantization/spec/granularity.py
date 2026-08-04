@@ -11,8 +11,8 @@ from typing import Annotated, Any, Literal
 import torch
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
+from coreai_opt._utils.errors import _BlockSizeMismatchError
 from coreai_opt._utils.registry_utils import ConfigRegistryMixin
-from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 
 
 class QuantizationGranularity(BaseModel, ConfigRegistryMixin):

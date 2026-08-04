@@ -14,9 +14,8 @@ from typing import Any, Literal
 import torch
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
+from coreai_opt._utils.errors import _BlockSizeMismatchError
 from coreai_opt._utils.registry_utils import ConfigRegistryMixin
-
-from .errors import _BlockSizeMismatchError
 
 
 class PruningScheme(BaseModel, ConfigRegistryMixin):
