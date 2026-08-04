@@ -193,7 +193,9 @@ environments = [
 # malicious uploads time to be detected and yanked before they reach CI.
 # coreai-core/coreai-torch are exempted (false) so CI tests their latest releases.
 exclude-newer = "3 days"
-exclude-newer-package = { coreai-core = false, coreai-torch = false }
+# TEMPORARY: torchao 0.18.0 (released 2026-08-03) is still inside the 3-day
+# window. Remove this exemption once it ages out (2026-08-06) or before merge.
+exclude-newer-package = { coreai-core = false, coreai-torch = false, torchao = false }
 # Declare conflicting groups so uv does not error
 conflicts = [
     [
