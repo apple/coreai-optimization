@@ -48,7 +48,7 @@ dependencies = [
     # version >= 0.15.0 for torch version >= 2.9.0. Opting option 1.
     # These torch versions must be in bounds of torch_2_8, torch_2_9, torch_2_10, and torch_2_11
     "torch>=2.8.0,<=2.11.0",
-    "torchao>=0.15.0,<=0.17.0",
+    "torchao>=0.15.0,<=0.18.0",
     "tqdm>=4.65",
 ]
 [[project.authors]]
