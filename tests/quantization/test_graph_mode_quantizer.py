@@ -1369,7 +1369,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerBlockGranularity(axis=1, block_size=32),
                 True,
-                "FP4 activation quantization is not supported for MLIR export",
+                "Core AI export does not support FP4 activation quantization",
                 id="fp4_activation_rejected",
             ),
             pytest.param(

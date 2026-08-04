@@ -69,7 +69,6 @@ def test_fake_quant_dequant_no_reduction(qscheme, granularity, qformulation):
     qparam_calculator = StaticQParamsCalculator(range_calculator=range_calculator, **kwargs)
     fq = _DefaultFakeQuantizeImpl(
         qparams_calculator=qparam_calculator,
-        quantization_target=CompressionTargetTensor.WEIGHT,
         **kwargs,
     )
 
@@ -105,7 +104,6 @@ def test_set_granularity():
     qparam_calculator = StaticQParamsCalculator(range_calculator=range_calculator, **kwargs)
     fq = _DefaultFakeQuantizeImpl(
         qparams_calculator=qparam_calculator,
-        quantization_target=CompressionTargetTensor.WEIGHT,
         **kwargs,
     )
     x = torch.randn(2, 5)
@@ -189,7 +187,6 @@ class TestDefaultFakeQuantize:
         qparam_calculator = StaticQParamsCalculator(range_calculator=range_calculator, **kwargs)
         return _DefaultFakeQuantizeImpl(
             qparams_calculator=qparam_calculator,
-            quantization_target=CompressionTargetTensor.WEIGHT,
             **kwargs,
         )
 
