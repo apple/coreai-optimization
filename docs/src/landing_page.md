@@ -69,4 +69,4 @@ The Core AI ecosystem consists of the following components:
 - Compress models with quantization, palettization, and pruning using [Core AI Optimization](https://github.com/apple/coreai-optimization)
 - Load and run models in an app with the [Core AI Framework](https://developer.apple.com/documentation/coreai)
 - Inspect, debug, and profile models using [Core AI Debugger](https://developer.apple.com/documentation/coreai/inspecting-debugging-and-profiling-core-ai-models)
-- Get popular open-source models with conversion, optimization, and Swift app integration code using [Core AI Models](https://github.com/apple/coreai-models)
+- Get popular open-source models with scripts for conversion, re-authoring, and optimization — including LLMs compressed to ~4–5 bits using `coreai-opt` — plus AI skills that wrap `coreai-opt` workflows, using [Core AI Models](https://github.com/apple/coreai-models)
