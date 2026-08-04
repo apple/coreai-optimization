@@ -199,9 +199,11 @@ def _process_activation_quantization(model: nn.Module):
             CompressionTargetTensor.ACTIVATION,
         ):
             if is_float4_dtype(module.dtype):
-                raise ValueError("FP4 activation quantization is not supported for MLIR export.")
+                raise ValueError("Core AI export does not support FP4 activation quantization.")
             if isinstance(module.granularity, PerBlockGranularity):
-                raise ValueError("MLIR export does not support PerBlockGranularity on activations.")
+                raise ValueError(
+                    "Core AI export does not support PerBlockGranularity on activations."
+                )
             modules_to_replace.append((name, module))
 
     # Replace each FakeQuantizeImplBase module

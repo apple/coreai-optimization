@@ -208,7 +208,6 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
             "quant_min": spec.quant_min,
             "quant_max": spec.quant_max,
             "qparams_calculator": qparams_calculator,
-            "quantization_target": quantization_target,
             "n_bits": spec.n_bits,
         }
 
@@ -289,7 +288,6 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
             "target_dtype": spec.target_dtype,
             "quant_min": spec.quant_min,
             "quant_max": spec.quant_max,
-            "quantization_target": quantization_target,
             "n_bits": spec.n_bits,
         }
 

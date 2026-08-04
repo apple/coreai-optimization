@@ -67,9 +67,9 @@ class QuantizationGranularity(BaseModel, _ConfigRegistryMixin):
           size for that specific axis
 
         ``quantization_target`` distinguishes weight from activation tensors.
-        Only per-block granularity uses it (see
-        :meth:`PerBlockGranularity._handle_single_axis_block_size`); the other
-        granularities ignore it.
+        Only per-block granularity uses it, since the two targets collapse
+        different sets of non-blocked axes (see :class:`PerBlockGranularity`);
+        the other granularities ignore it.
 
         Example:
             - ``[10, 5, 2]`` with per-channel structuring on axis 1 results in
@@ -212,10 +212,15 @@ class PerBlockGranularity(QuantizationGranularity):
     ``Quantizer.prepare()`` automatically resolves the axis based on the module type
     for weight quantization.
 
-    Single-axis mode treats weights and activations differently. For weights only
-    the two leading channel axes participate in blocking, so trailing kernel
-    dimensions span a whole block. For activations every axis other than the block
-    axis gets its own scale.
+    Single-axis mode treats weights and activations differently:
+
+    - ``WEIGHT``: only the two leading channel axes take part. Whichever of them
+      is not the block axis collapses to ``1`` (one scale per slice), while
+      trailing dimensions — e.g. conv kernel dims — keep their full size, so each
+      block spans the whole kernel.
+    - ``ACTIVATION``: every axis other than the block axis collapses to ``1``, so
+      the scale holds one entry per block *and* per position along all the other
+      axes.
 
     .. list-table::
        :header-rows: 1
@@ -303,15 +308,20 @@ class PerBlockGranularity(QuantizationGranularity):
         block_sizes_list: list[int],
         quantization_target: _CompressionTargetTensor = _CompressionTargetTensor.WEIGHT,
     ) -> list[int]:
-        """Handle blocking when self.block_size is an integer"""
+        """Handle blocking when ``block_size`` is an integer.
+
+        ``axis`` may be negative and is resolved against the tensor rank.
+
+        ``quantization_target`` decides which of the non-blocked axes collapse to
+        ``1``: weights keep their trailing (e.g. kernel) dimensions whole, while
+        activations collapse every axis but the block axis. See the class
+        docstring for examples.
+        """
         # TODO: Logic to be added where if self.axis is None,
         #  we can figure out the optimal axis for the user
         if self.axis is None:
             raise ValueError("axis must be specified when block_size is an int")
 
-        # Resolve negative (Python-style) axis to a non-negative index using the
-        # tensor rank. This allows activation quantization to target the last /
-        # reduction axis via axis=-1 regardless of the tensor's rank.
         rank = len(block_sizes_list)
         axis = self.axis + rank if self.axis < 0 else self.axis
 
@@ -327,22 +337,7 @@ class PerBlockGranularity(QuantizationGranularity):
                 f"is not divisible by block size {self.block_size}"
             )
 
-        # How the non-block axes are treated depends on the quantization target,
-        #
-        # WEIGHT: only the two leading channel axes participate. The other
-        #   channel axis becomes 1 (one scale per slice) while any trailing
-        #   dimensions (index 2+, e.g. conv kernel dims) keep their full size so
-        #   each block spans the whole kernel.
-        #     [C_out, C_in, KH, KW], axis=0, block=16 -> [16, 1, KH, KW]
-        #
-        # ACTIVATION: blocking runs along a single axis and every other
-        #   dimension gets its own scale, so all non-block axes become 1.
-        #     [B, S, D],    axis=-1, block=16 -> [1, 1, 16]
-        #     [B, C, H, W], axis=1,  block=16 -> [1, 16, 1, 1]
-        if quantization_target == _CompressionTargetTensor.ACTIVATION:
-            collapse_upto = rank
-        else:
-            collapse_upto = 2
+        collapse_upto = rank if quantization_target == _CompressionTargetTensor.ACTIVATION else 2
 
         block_sizes_list[axis] = self.block_size
         for i, _ in enumerate(block_sizes_list[:collapse_upto]):

@@ -53,7 +53,6 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         quant_min: int | float,
         quant_max: int | float,
         qparams_calculator: QParamsCalculatorBase,
-        quantization_target: CompressionTargetTensor,
         n_bits: int | None = None,
         **kwargs,
     ):
@@ -65,7 +64,6 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         self.quant_min = quant_min
         self.quant_max = quant_max
         self.qparams_calculator = qparams_calculator
-        self.quantization_target = quantization_target
         self.register_buffer("_disabled", torch.tensor(False))
 
         # Infer n_bits from dtype if not provided
@@ -77,6 +75,11 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
     def qscheme(self) -> QuantizationScheme:
         """The quantization scheme, delegated to the qparams_calculator."""
         return self.qparams_calculator.qscheme
+
+    @property
+    def quantization_target(self) -> CompressionTargetTensor:
+        """Getter for quantization target."""
+        return self.qparams_calculator.quantization_target
 
     @property
     def granularity(self) -> QuantizationGranularity:
