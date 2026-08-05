@@ -47,8 +47,9 @@ dependencies = [
     # based on other package versions. We can either 1) add a stricter check to require the newer torchao
     # version for everyone, or 2) add a runtime check in src/coreai_opt/init.py to ensure torchao
     # version >= 0.15.0 for torch version >= 2.9.0. Opting option 1.
-    # These torch versions must be in bounds of torch_2_8, torch_2_9, torch_2_10, and torch_2_11
-    "torch>=2.8.0,<=2.11.0",
+    # These torch versions must be in bounds of torch_2_8, torch_2_9, torch_2_10, torch_2_11,
+    # torch_2_12, and torch_2_13
+    "torch>=2.8.0,<=2.13.0",
     "torchao>=0.15.0,<=0.18.0",
     "tqdm>=4.65",
 ]
@@ -142,6 +143,16 @@ torch_2_11 = [
     "torchao==0.18.0",
     "torchvision==0.26.0",
 ]
+torch_2_12 = [
+    "torch==2.12.1",
+    "torchao==0.18.0",
+    "torchvision==0.27.1",
+]
+torch_2_13 = [
+    "torch==2.13.0",
+    "torchao==0.18.0",
+    "torchvision==0.28.0",
+]
 torch_2_8 = [
     "torch==2.8.0",
     "torchao==0.15.0",
@@ -155,7 +166,7 @@ torch_2_9 = [
 # Since torch and torchao are project dependencies, we need to include torchvision in dev
 # This allows standard `make test` to find torchvision
 torchvision = [
-    "torchvision>=0.23.0,<=0.26.0",
+    "torchvision>=0.23.0,<=0.28.0",
 ]
 tutorial = [
     "ipykernel>=7.2.0",
@@ -183,7 +194,7 @@ version = { attr = "coreai_opt._about.__version__" }
 default-groups = [ "dev", "coreai", "coreml" ]
 index = [
     { explicit = true, name = "pytorch-cpu", url = "https://download.pytorch.org/whl/cpu" },
-    { explicit = true, name = "pytorch-cu128", url = "https://download.pytorch.org/whl/cu128" },
+    { explicit = true, name = "pytorch-cu129", url = "https://download.pytorch.org/whl/cu129" },
 ]
 # Only resolve for platforms where all dependencies (including coreai) exist
 environments = [
@@ -202,16 +213,18 @@ conflicts = [
         { group = "torch_2_9" },
         { group = "torch_2_10" },
         { group = "torch_2_11" },
+        { group = "torch_2_12" },
+        { group = "torch_2_13" },
     ],
 ]
 [tool.uv.sources]
 torch = [
     { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
-    { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'" },
 ]
 torchvision = [
     { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
-    { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'" },
 ]
 
 [tool.ruff]
