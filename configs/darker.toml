@@ -5,5 +5,5 @@ formatter = "ruff"
 # We concluded that 88 is too restrictive for some use cases, so we use 100
 # Darker should override tool.ruff, but does not
 line-length = 100
-revision = "main"
+revision = "origin/main..."
 target-version = "py311"

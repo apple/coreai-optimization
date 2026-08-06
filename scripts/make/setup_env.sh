@@ -59,8 +59,8 @@ fi
 #    - in_section && /^\[/: If we're in the section AND hit another section header (line starting with [)
 #      * exit: Stop processing (we've left the dependency-groups section)
 #    - in_section {print}: If we're in the section, print the line
-# 2. grep -E '^[a-z_-]+ = \[': Filter to lines that define groups
-#    - ^[a-z_-]+: Group name at start of line (lowercase letters, hyphens, underscores)
+# 2. grep -E '^[a-z0-9_-]+ = \[': Filter to lines that define groups
+#    - ^[a-z0-9_-]+: Group name at start of line (lowercase letters, digits, hyphens, underscores)
 #    - = \[: Followed by space, equals sign, space, opening bracket
 # 3. cut -d' ' -f1: Extract just the group name
 #    - -d' ': Use space as delimiter
@@ -75,7 +75,7 @@ AVAILABLE_GROUPS=$(
         in_section && /^\[/ { exit }
         in_section { print }
     ' "$PYPROJECT_TOML" |
-        grep -E '^[a-z_-]+ = \[' |
+        grep -E '^[a-z0-9_-]+ = \[' |
         cut -d' ' -f1 |
         tr '\n' ' '
 )
@@ -84,6 +84,20 @@ if [[ -z "$AVAILABLE_GROUPS" ]]; then
     echo "Error: Could not read dependency groups from $PYPROJECT_TOML"
     exit 1
 fi
+
+group_torch_pin() {
+    local group="$1"
+    awk -v group="$group" '
+        $0 ~ "^" group "[[:space:]]*=[[:space:]]*\\[" { in_group = 1; next }
+        in_group && /^\]/ { exit }
+        in_group && match($0, /"torch[[:space:]]*==[[:space:]]*[0-9][0-9.]*/) {
+            version = substr($0, RSTART, RLENGTH)
+            sub(/"torch[[:space:]]*==[[:space:]]*/, "", version)
+            print version
+            exit
+        }
+    ' "$PYPROJECT_TOML"
+}
 
 # Parse command line arguments
 VENV=".venv"
@@ -94,10 +108,8 @@ ALL_GROUPS=false
 ENSURE_MODE=false
 
 # Groups excluded from --all-groups due to mutual conflicts in pyproject.toml.
-# stable-coreai is omitted because it's in default-groups; use --without-stable-coreai
-# explicitly when a conflicting group (e.g. lowest_tested_torch) is requested.
 # tamm-export is omitted because it's opt-in only (never in default-groups or --all-groups).
-CONFLICTING_GROUPS=("highest_tested_torch" "latest-coreai" "lowest_tested_torch")
+CONFLICTING_GROUPS=("torch_2_8" "torch_2_9" "torch_2_10" "torch_2_11")
 
 show_help() {
     echo "Usage: $0 [OPTIONS]"
@@ -108,13 +120,14 @@ show_help() {
     echo "  --venv <name>          Virtual environment name (default: .venv)"
     echo "  --python-version <ver> Python version (required)"
     echo "  --with-<group>         Install additional dependency group (e.g., --with-docs, --with-turi)"
-    echo "  --without-<group>      Exclude a default dependency group (e.g., --without-stable-coreai)"
+    echo "  --without-<group>      Exclude a default dependency group (e.g., --without-coreai)"
     echo "  --all-groups           Install all non-conflicting dependency groups"
     echo "  --ensure               Quick check mode: skip setup if venv exists and deps are present"
     echo "  --help                 Show this help message"
     echo ""
     echo "Environment variables:"
     echo "  VENV                Virtual environment name, overrides --venv (default: .venv)"
+    echo "  TORCH_GROUP         Torch dependency group to pin; source of truth for torch pinning"
     echo ""
     echo "Available dependency groups: $AVAILABLE_GROUPS"
     echo "Conflicting groups (excluded from --all-groups): ${CONFLICTING_GROUPS[*]}"
@@ -123,8 +136,8 @@ show_help() {
     echo "  $0 --python-version 3.11                               # Setup with dev group only"
     echo "  $0 --python-version 3.11 --with-docs                   # Setup with dev and docs groups"
     echo "  $0 --python-version 3.11 --all-groups                                    # Setup with all non-conflicting groups"
-    echo "  $0 --python-version 3.11 --all-groups --with-highest_tested_torch        # Setup with all groups and highest torch"
-    echo "  $0 --python-version 3.11 --all-groups --with-lowest_tested_torch         # Setup with all groups and lowest torch"
+    echo "  TORCH_GROUP=torch_2_11 $0 --python-version 3.11 --all-groups             # Setup with all groups and torch 2.11"
+    echo "  TORCH_GROUP=torch_2_8 $0 --python-version 3.11 --all-groups              # Setup with all groups and torch 2.8"
     echo "  $0 --python-version 3.11 --venv .venv-exp              # Setup with custom venv name"
     echo "  $0 --python-version 3.11 --with-docs --venv .venv-exp  # Setup with docs group and custom venv name"
     echo "  $0 --python-version 3.12                               # Setup with Python 3.12"
@@ -183,6 +196,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ "$ENSURE_MODE" == true ]]; then
+    INSTALL_PRECOMMIT="${INSTALL_PRECOMMIT:-false}"
+else
+    INSTALL_PRECOMMIT="${INSTALL_PRECOMMIT:-true}"
+fi
+
 # Validate required arguments
 if [[ -z "$PYTHON_VERSION" ]]; then
     echo "Error: --python-version is required"
@@ -204,6 +223,7 @@ validate_groups() {
 # Validate dependency group names early
 [[ ${#EXTRA_GROUPS[@]} -gt 0 ]] && validate_groups "${EXTRA_GROUPS[@]}"
 [[ ${#EXCLUDE_GROUPS[@]} -gt 0 ]] && validate_groups "${EXCLUDE_GROUPS[@]}"
+[[ -n "${TORCH_GROUP:-}" ]] && validate_groups "$TORCH_GROUP"
 
 # Check for conflicts between --with-<group> and --without-<group>
 if [[ ${#EXTRA_GROUPS[@]} -gt 0 && ${#EXCLUDE_GROUPS[@]} -gt 0 ]]; then
@@ -241,27 +261,78 @@ if ! command -v uv &>/dev/null; then
     exit 1
 fi
 
+# Install POST_INSTALL_PIP_ARGS into the venv, if it is set.
+#
+# Use it to swap a dependency version for one run without editing
+# pyproject.toml or the lockfile; only the venv changes. Called from both exits
+# below, so it runs whether or not a sync was needed. Unset means do nothing.
+#
+# `eval` is needed because the arguments contain their own quotes.
+apply_post_install_pip_args() {
+    [[ -n "${POST_INSTALL_PIP_ARGS:-}" ]] || return 0
+    echo ""
+    echo "=========================================="
+    echo "Applying POST_INSTALL_PIP_ARGS"
+    echo "=========================================="
+    echo "Venv: $VENV"
+    echo "Args: $POST_INSTALL_PIP_ARGS"
+    echo ""
+    source "$VENV/bin/activate"
+    eval "uv pip install $POST_INSTALL_PIP_ARGS"
+}
+
 # --ensure mode: skip setup if venv exists and required deps are already installed.
 # This is the fast path called by Make targets to avoid re-running full setup.
 if [[ "$ENSURE_MODE" == "true" ]] && [ -f "$VENV/bin/python" ]; then
-    # Build a single Python command that checks all sentinel imports at once
     IMPORT_STMTS="import pytest"
     if [[ ${#EXTRA_GROUPS[@]} -gt 0 ]]; then
         for GROUP in "${EXTRA_GROUPS[@]}"; do
             case "$GROUP" in
             docs) IMPORT_STMTS+="; import sphinx" ;;
-            highest_tested_torch | lowest_tested_torch) IMPORT_STMTS+="; import torchao" ;;
             rio) IMPORT_STMTS+="; import turi_lightning" ;;
             tamm-export) IMPORT_STMTS+="; import tamm_export" ;;
             esac
         done
     fi
 
+    # TORCH_GROUP is the single source of truth for torch pinning; fall back
+    # to a --with-torch_2_* flag for direct, non-Make invocations. Checked
+    # unconditionally rather than only when present in EXTRA_GROUPS, since
+    # TORCH_GROUP drives the sync regardless of what's in EXTRA_GROUPS.
+    EXPECTED_GROUP="${TORCH_GROUP:-}"
+    if [[ -z "$EXPECTED_GROUP" ]]; then
+        for GROUP in "${EXTRA_GROUPS[@]:-}"; do
+            [[ " ${CONFLICTING_GROUPS[*]} " == *" ${GROUP} "* ]] && EXPECTED_GROUP="$GROUP"
+        done
+    fi
+    if [[ -n "$EXPECTED_GROUP" ]]; then
+        IMPORT_STMTS+="; import torchao"
+        EXPECTED_TORCH="$(group_torch_pin "$EXPECTED_GROUP")"
+        # These groups always pin torch, so an empty result means the
+        # pyproject parse regressed — fail loudly instead of silently
+        # skipping the version check (which would reintroduce the bug).
+        if [[ -z "$EXPECTED_TORCH" ]]; then
+            echo "Error: could not parse a torch pin for '$EXPECTED_GROUP' in $PYPROJECT_TOML" >&2
+            exit 1
+        fi
+        IMPORT_STMTS+="; import torch; assert torch.__version__.split('+')[0] == '$EXPECTED_TORCH'"
+    fi
+
     if "$VENV/bin/python" -c "$IMPORT_STMTS" 2>/dev/null; then
+        apply_post_install_pip_args
         exit 0
     fi
 
-    # Deps missing — fall through to full setup
+    # Deps missing or pinned torch mismatch — fall through to full setup.
+    # If a pinned-torch group expected a specific version, surface the mismatch
+    # so the rebuild isn't silent.
+    if [[ -n "${EXPECTED_TORCH:-}" ]]; then
+        ACTUAL_TORCH="$("$VENV/bin/python" -c \
+            "import torch; print(torch.__version__.split('+')[0])" 2>/dev/null || true)"
+        if [[ -n "$ACTUAL_TORCH" && "$ACTUAL_TORCH" != "$EXPECTED_TORCH" ]]; then
+            echo "Note: $VENV has torch $ACTUAL_TORCH, expected $EXPECTED_TORCH; rebuilding." >&2
+        fi
+    fi
 fi
 
 echo "=========================================="
@@ -287,9 +358,13 @@ echo "[2/3] Installing dependencies..."
 SYNC_CMD=(uv sync --active)
 if [[ "$ALL_GROUPS" == "true" ]]; then
     SYNC_CMD+=(--all-groups)
-    # Exclude conflicting groups unless explicitly requested via --with-*
+    # Exclude conflicting torch groups other than the one TORCH_GROUP or
+    # --with-<group> selects, so --all-groups doesn't try to sync every
+    # torch_2_* group at once. If both TORCH_GROUP and --with-<other-group>
+    # name different groups, neither gets excluded here and `uv sync` itself
+    # rejects the combination via its own conflicting-groups resolution.
     for GROUP in "${CONFLICTING_GROUPS[@]}"; do
-        if [[ ! " ${EXTRA_GROUPS[*]:-} " == *" ${GROUP} "* ]]; then
+        if [[ "$GROUP" != "${TORCH_GROUP:-}" ]] && [[ ! " ${EXTRA_GROUPS[*]:-} " == *" ${GROUP} "* ]]; then
             SYNC_CMD+=(--no-group "$GROUP")
         fi
     done
@@ -298,7 +373,15 @@ elif [[ ${#EXTRA_GROUPS[@]} -gt 0 ]]; then
         SYNC_CMD+=(--group "$GROUP")
     done
 fi
-# Apply explicit group exclusions (e.g., --without-stable-coreai)
+# TORCH_GROUP is the single source of truth for torch pinning: append it
+# unconditionally (already covered under --all-groups by not being
+# excluded above). A disagreeing --with-<other-torch-group> ends up as a
+# second, different --group flag here, which `uv sync` itself rejects via
+# its conflicting-groups resolution rather than a bespoke check.
+if [[ -n "${TORCH_GROUP:-}" && "$ALL_GROUPS" != "true" ]]; then
+    SYNC_CMD+=(--group "$TORCH_GROUP")
+fi
+# Apply explicit group exclusions (e.g., --without-coreai)
 if [[ ${#EXCLUDE_GROUPS[@]} -gt 0 ]]; then
     for GROUP in "${EXCLUDE_GROUPS[@]}"; do
         SYNC_CMD+=(--no-group "$GROUP")
@@ -307,12 +390,14 @@ fi
 echo "Running: ${SYNC_CMD[*]}"
 "${SYNC_CMD[@]}"
 
+apply_post_install_pip_args
+
 echo ""
-echo "[3/3] Configuring pre-commit hooks..."
+echo "[3/3] Installing hook dependencies and configuring pre-commit hooks..."
 if [[ "$VENV_PREEXISTED" == "true" ]]; then
     echo "Skipped (venv already exists, hooks already configured)"
 else
-    "$SCRIPTS_DIR/make/install_pre_commit_hooks.sh" "$COREAI_OPT_HOME"
+    INSTALL_PRECOMMIT="$INSTALL_PRECOMMIT" "$SCRIPTS_DIR/make/install_pre_commit_hooks.sh" "$COREAI_OPT_HOME"
 fi
 
 echo ""

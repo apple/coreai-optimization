@@ -17,12 +17,14 @@ from coreai_opt.quantization.spec.granularity import (
     PerTensorGranularity,
 )
 from coreai_opt.quantization.spec.qparams_calculator import (
+    DynamicQParamsCalculator,
     GlobalMinMaxQParamsCalculator,
     MovingAverageQParamsCalculator,
     QParamsCalculatorBase,
     StaticQParamsCalculator,
     _DefaultQParamsCalculator,
 )
+from coreai_opt.quantization.spec.qscheme import QuantizationScheme
 from coreai_opt.quantization.spec.range_calculator import (
     MinMaxRangeCalculator,
     RangeCalculatorBase,
@@ -36,7 +38,14 @@ from coreai_opt.quantization.spec.spec import (
 class TestQuantizationComponentFactory:
     """Test the QuantizationComponentFactory class"""
 
-    def test_create_range_calculator(self):
+    @pytest.mark.parametrize(
+        "quantization_target",
+        [
+            CompressionTargetTensor.WEIGHT,
+            CompressionTargetTensor.ACTIVATION,
+        ],
+    )
+    def test_create_range_calculator(self, quantization_target):
         """Test creating range calculator from spec"""
         spec = QuantizationSpec(
             dtype=torch.int8,
@@ -47,10 +56,11 @@ class TestQuantizationComponentFactory:
             range_calculator_cls=MinMaxRangeCalculator,
         )
 
-        range_calc = QuantizationComponentFactory.create_range_calculator(spec)
+        range_calc = QuantizationComponentFactory.create_range_calculator(spec, quantization_target)
 
         assert isinstance(range_calc, MinMaxRangeCalculator)
         assert range_calc.granularity == spec.granularity
+        assert range_calc.quantization_target == quantization_target
 
     @pytest.mark.parametrize(
         "range",
@@ -285,7 +295,6 @@ class TestExtraArgsSupport:
             def __init__(
                 self,
                 dtype,
-                qscheme,
                 qformulation,
                 granularity,
                 target_dtype,
@@ -298,7 +307,6 @@ class TestExtraArgsSupport:
             ):
                 super().__init__(
                     dtype,
-                    qscheme,
                     qformulation,
                     granularity,
                     target_dtype,
@@ -604,6 +612,52 @@ class TestPartialQuantizerSharing:
         assert fq_partial_out.dtype == x.dtype
         assert fq_direct_out.dtype == x.dtype
 
+    def test_reconstruct_partial_qparams_calculator(self):
+        """reconstruct_partial_qparams_calculator overrides attributes without mutating the original
+        partial.
+        """
+        spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme="symmetric",
+            granularity=PerTensorGranularity(),
+            qparam_calculator_cls=StaticQParamsCalculator,
+            range_calculator_cls=MinMaxRangeCalculator,
+        )
+        partial = QuantizationComponentFactory.create_fake_quantizer_partial(
+            spec, quantization_target=CompressionTargetTensor.WEIGHT
+        )
+
+        # Overriding a single attribute updates the constructed calculator.
+        updated_single = QuantizationComponentFactory.reconstruct_partial_qparams_calculator(
+            partial, qscheme=QuantizationScheme.ASYMMETRIC
+        )
+        fq = updated_single()
+        assert fq.qparams_calculator.qscheme == QuantizationScheme.ASYMMETRIC
+        # qscheme property on the fake quantizer delegates to the calculator
+        assert fq.qscheme == QuantizationScheme.ASYMMETRIC
+
+        # Overriding multiple attributes in one call updates all of them.
+        updated_multiple = QuantizationComponentFactory.reconstruct_partial_qparams_calculator(
+            partial,
+            qscheme=QuantizationScheme.ASYMMETRIC,
+            float_range=(0.0, 1.0),
+        )
+        fq = updated_multiple()
+        assert fq.qparams_calculator.qscheme == QuantizationScheme.ASYMMETRIC
+        assert fq.qparams_calculator.float_range == (0.0, 1.0)
+
+        # The original partial is unaffected by either override.
+        fq_original = partial()
+        assert fq_original.qparams_calculator.qscheme == QuantizationScheme.SYMMETRIC
+
+        # Each call to an updated partial creates an independent calculator with the override
+        # applied.
+        fq1 = updated_multiple()
+        fq2 = updated_multiple()
+        assert id(fq1.qparams_calculator) != id(fq2.qparams_calculator)
+        assert fq1.qparams_calculator.float_range == (0.0, 1.0)
+        assert fq2.qparams_calculator.float_range == (0.0, 1.0)
+
 
 class TestCompressionTargetTensorAttribute:
     """Test the quantization_target attribute functionality"""
@@ -677,16 +731,24 @@ class TestQParamCalculatorClassResolution:
         # The qparams_calculator should be StaticQParamsCalculator
         assert isinstance(fake_quantizer.qparams_calculator, StaticQParamsCalculator)
 
-    def test_resolution_in_fake_quantizer_activation(self):
+    @pytest.mark.parametrize(
+        "qparam_calculator_string,qparam_calculator_cls",
+        [
+            ("default", MovingAverageQParamsCalculator),
+            ("dynamic", DynamicQParamsCalculator),
+        ],
+    )
+    def test_resolution_in_fake_quantizer_activation(
+        self, qparam_calculator_string, qparam_calculator_cls
+    ):
         """Test marker resolution through full fake quantizer creation for activation"""
-        spec = QuantizationSpec(qparam_calculator_cls="default")
+        spec = QuantizationSpec(qparam_calculator_cls=qparam_calculator_string)
 
         fake_quantizer = QuantizationComponentFactory.create_fake_quantizer(
             spec, CompressionTargetTensor.ACTIVATION
         )
 
-        # The qparams_calculator should be MovingAverageQParamsCalculator
-        assert isinstance(fake_quantizer.qparams_calculator, MovingAverageQParamsCalculator)
+        assert isinstance(fake_quantizer.qparams_calculator, qparam_calculator_cls)
 
     def test_default_class_not_callable(self):
         """Test that the marker class raises an error if forward() is called"""
@@ -740,3 +802,26 @@ class TestQParamCalculatorClassResolution:
 
         assert isinstance(qparams_weight, GlobalMinMaxQParamsCalculator)
         assert isinstance(qparams_activation, GlobalMinMaxQParamsCalculator)
+
+    def test_resolution_for_dynamic_qparams(self):
+        """Test that 'dynamic' string resolves to DynamicQParamsCalculator"""
+        spec = QuantizationSpec(qparam_calculator_cls="dynamic")
+        assert spec.qparam_calculator_cls == DynamicQParamsCalculator
+
+        qparams_calc = QuantizationComponentFactory.create_qparams_calculator(
+            spec, CompressionTargetTensor.ACTIVATION
+        )
+        assert isinstance(qparams_calc, DynamicQParamsCalculator)
+
+    @pytest.mark.parametrize(
+        "target",
+        [CompressionTargetTensor.WEIGHT, CompressionTargetTensor.LUT],
+    )
+    def test_dynamic_rejected_for_non_activation(self, target):
+        """Test that 'dynamic' raises ValueError when used for weight/LUT targets"""
+        spec = QuantizationSpec(qparam_calculator_cls="dynamic")
+        with pytest.raises(
+            ValueError,
+            match="DynamicQParamsCalculator is only supported for activation",
+        ):
+            QuantizationComponentFactory.create_qparams_calculator(spec, target)

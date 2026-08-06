@@ -22,8 +22,8 @@ The API surface is intentionally limited. This keeps the library reliable, well-
 Set up the environment as described in [README.md](README.md#getting-started). Then, from the activated venv:
 
 ```shell
-# Build the package.
-make build
+# Build the package (development build).
+make build-dev
 
 # Build the documentation.
 make docs
@@ -69,6 +69,7 @@ Before pushing your changes, run these locally:
 - `make check` — full lint and `mypy` type-check pass
 - `make test` — full test suite (parallelized with `pytest-xdist`)
 - `make test-fast` — excludes tests marked `@pytest.mark.slow` for quicker iteration
+- `make test-smoke` — builds the package, installs it into a clean environment, and verifies that imports plus basic quantization and palettization work end to end
 
 A clean `make check` and `make test` are required before a pull request will be reviewed.
 

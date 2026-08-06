@@ -3,7 +3,9 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-.PHONY: _maybe_patch_pyproject all api-list build check clean distclean distclean-all docs docs-clean docs-open env env-all env-docs env-highest-torch env-latest-coreai env-tutorial set-auto-venv test test-coreai-compression test-cov test-export test-fast test-highest-pytorch test-lowest-pytorch test-slow version
+.PHONY: _maybe_patch_pyproject all api-list build build-dev check clean distclean distclean-all docs docs-clean docs-open env env-all env-docs env-highest-torch env-lowest-torch env-tutorial render-api-index set-auto-venv test test-cov test-fast test-highest-pytorch test-lowest-pytorch test-slow test-smoke test-tutorials version
+
+SHELL := /bin/bash
 
 # Directory holding this Makefile, derived from its own location so the same
 # recipes work in both contexts:
@@ -51,6 +53,24 @@ VENV_HIGHEST_TORCH ?= .venv-highest-torch
 VENV_LOWEST_TORCH ?= .venv-lowest-torch
 VENV_TUTORIAL ?= .venv-tutorial
 
+# The torch_2_* groups (pyproject.toml [dependency-groups]) currently at
+# each end of the supported range. Bump these two lines — nothing else —
+# when the project's torch version bounds change.
+HIGHEST_TORCH_GROUP := torch_2_11
+LOWEST_TORCH_GROUP := torch_2_8
+
+# Torch dependency group (pyproject.toml [dependency-groups]) that every
+# environment-building target (env, test, test-smoke, docs, ...) pins to.
+TORCH_GROUP ?= $(HIGHEST_TORCH_GROUP)
+export TORCH_GROUP
+
+# Optional path to a pre-built distribution (wheel or sdist) for `test-smoke` to
+# install instead of building from source; consumed by the nox smoke session via
+# $SMOKE_TEST_DIST (empty = build from source). Exported like TORCH_GROUP so it
+# reaches the nox subprocess.
+SMOKE_TEST_DIST ?=
+export SMOKE_TEST_DIST
+
 # Documentation directory. Defaults to $(MAKEFILE_DIR)docs so the same recipe
 # works in both contexts:
 #
@@ -74,6 +94,25 @@ SHELL_RC ?=
 # Defaults to a no-op; the internal Makefile overrides this to write
 # internal-only venv defaults.
 ENV_ALL_EXTRAS ?= true
+
+# Extra `uv pip install` arguments, applied to a venv after it is synced and to
+# each nox session venv (see ci/nox/noxfile.py). Use it to swap a dependency
+# version for one run without editing pyproject.toml or the lockfile — for
+# example a scheduled job testing against newer upstream builds. Empty (the
+# default) changes nothing.
+POST_INSTALL_PIP_ARGS ?=
+export POST_INSTALL_PIP_ARGS
+
+# Re-apply POST_INSTALL_PIP_ARGS to the venv at $(1).
+#
+# setup_env.sh already does this, so only use it when a recipe installs more
+# packages afterwards that could pull the old version back in (see env-all).
+# Expands to `true` when unset. The empty check uses `$(if ...)` instead of a
+# shell `[ -n "..." ]` test because the args contain their own quotes.
+# Usage: $(call post_install_pip,VENV_PATH)
+define post_install_pip
+$(if $(POST_INSTALL_PIP_ARGS),echo "Applying POST_INSTALL_PIP_ARGS to $(1)" && source $(1)/bin/activate && uv pip install $(POST_INSTALL_PIP_ARGS),true)
+endef
 
 # Local wheelhouse for pre-release wheels not yet on an index.
 # Exported so every recipe-level uv invocation (uv lock, uv sync, uv venv)
@@ -161,7 +200,7 @@ endif
 # =============================================================================
 
 # Default target - run full workflow
-all: clean distclean-all env-all check test-export test-lowest-pytorch test-highest-pytorch build
+all: clean distclean-all env-all check test-lowest-pytorch test-highest-pytorch build-dev
 
 # =============================================================================
 # Environment Setup
@@ -174,12 +213,13 @@ env: _maybe_patch_pyproject
 
 # Set up development environment with latest supported PyTorch version
 env-highest-torch: _maybe_patch_pyproject
-	@$(SETUP_ENV) --venv $(VENV_HIGHEST_TORCH) --python-version $(PYTHON_VERSION) --with-highest_tested_torch
+	@TORCH_GROUP=$(HIGHEST_TORCH_GROUP) $(SETUP_ENV) --venv $(VENV_HIGHEST_TORCH) --python-version $(PYTHON_VERSION)
 	@$(call write_active_venv,$(VENV_HIGHEST_TORCH))
 
-# Set up development environment with latest CoreAI for export testing
-env-latest-coreai: _maybe_patch_pyproject
-	@$(SETUP_ENV) --venv .venv_latest_coreai --python-version $(PYTHON_VERSION) --with-latest-coreai --without-stable-coreai
+# Set up development environment with lowest supported PyTorch version
+env-lowest-torch: _maybe_patch_pyproject
+	@TORCH_GROUP=$(LOWEST_TORCH_GROUP) $(SETUP_ENV) --venv $(VENV_LOWEST_TORCH) --python-version $(PYTHON_VERSION)
+	@$(call write_active_venv,$(VENV_LOWEST_TORCH))
 
 # Set up environment for running tutorials (quantization notebook)
 env-tutorial: _maybe_patch_pyproject
@@ -191,14 +231,29 @@ env-all: _maybe_patch_pyproject
 	@$(SETUP_ENV) --venv $(VENV) --python-version $(PYTHON_VERSION) --all-groups
 	@$(call write_active_venv,$(VENV))
 	@$(ENV_ALL_EXTRAS)
+	@$(call post_install_pip,$(VENV))
 
 # =============================================================================
 # Build
 # =============================================================================
 
-# Build package
+# Build the canonical, publishable distribution (wheel + sdist): the on-tree
+# version with any `.dev` suffix stripped (e.g. 0.2.2.dev0 -> 0.2.2), via
+# `uv build --no-sources`. `--no-sources` ignores [tool.uv.sources], so the
+# artifact doesn't depend on uv-specific index overrides — the recommended way
+# to build for publication. This is what the release workflow runs. Routed
+# through build.py (like build-dev) so both targets share one code path; set
+# COREAI_OPT_VERSION_EXTENSION to insert an extra release segment (see
+# RELEASE.md).
 build:
-	@$(call use_env,VENV) && uv run --active python $(SCRIPTS)/make/build.py
+	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/build.py --no-sources
+
+# Build a development distribution with build.py: the release base with a
+# unique, timestamped PEP 440 dev suffix (e.g. 0.2.2.dev202607231430+abc1234).
+# Used by contributors, the smoke tests, and the nightly pipeline. Set
+# DEV_VERSION=... to use an exact version instead.
+build-dev:
+	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/build.py --dev
 
 # =============================================================================
 # Code Quality
@@ -207,13 +262,13 @@ build:
 # Print public API surface (symbols declared in __all__ across all public packages).
 # Pass MODULE= to inspect a single module: make api-list MODULE=coreai_opt.quantization.spec.spec
 api-list:
-	@$(call use_env,VENV) && uv run --active python $(SCRIPTS)/make/print_api_list.py $(MODULE)
+	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/print_api_list.py $(MODULE)
 
 # Run linting and type checking.
 check:
 	@$(call use_env,VENV) && \
 	echo "Running linting and formatting checks..." && \
-	uv run --active pre-commit run --all-files && \
+	uv run --no-sync --active pre-commit run --all-files && \
 	echo "All checks passed!"
 
 # =============================================================================
@@ -236,31 +291,46 @@ test-fast:
 test-slow:
 	@$(MAKE) test PYTEST_ARGS="--marker slow"
 
-# Run export tests with latest CoreAI (pass PYTEST_ARGS for custom flags)
-test-export: env-latest-coreai
-	@$(SCRIPTS)/make/run_tests_on_latest_coreai.sh --path tests/export/ $(PYTEST_ARGS)
+# Run smoke tests only (pass PYTEST_ARGS for custom flags, e.g., make test-smoke PYTEST_ARGS="--junitxml=results.xml").
+# Pass TORCH_GROUP to smoke test against a specific torch version (default: HIGHEST_TORCH_GROUP).
+# Pass SMOKE_TEST_DIST=<path to a .whl or .tar.gz> to smoke test a pre-built
+# distribution instead of building one from source (used by the release
+# workflow to test the exact artifact being published).
+test-smoke:
+	@$(call use_env,VENV) && \
+	echo "Running smoke tests..." && \
+	uv run --no-sync --active nox -f $(MAKEFILE_DIR)ci/nox/noxfile.py -s smoke_tests -- $(PYTEST_ARGS) && \
+	echo "All smoke tests passed!"
 
-# Run coreai compression tests with latest CoreAI (pass PYTEST_ARGS for custom flags)
-test-coreai-compression: env-latest-coreai
-	@$(SCRIPTS)/make/run_tests_on_latest_coreai.sh --path tests/coreai_utils/ $(PYTEST_ARGS)
-
-# Run tests on lowest supported PyTorch version (pass PYTEST_ARGS for custom flags)
+# Run tests on lowest supported PyTorch version (pass PYTEST_ARGS for custom flags).
+# TORCH_GROUP is already exported, so setting it per target is enough for
+# use_env to pick the right torch build. Use `=`, not `:=`: an including
+# Makefile may change HIGHEST_TORCH_GROUP after this file is read.
+test-lowest-pytorch: TORCH_GROUP = $(LOWEST_TORCH_GROUP)
 test-lowest-pytorch:
 	@echo "Running tests on lowest PyTorch version supported..."
-	@$(call use_env,VENV_LOWEST_TORCH,--with-lowest_tested_torch --without-stable-coreai) && \
-		echo "Testing with lowest supported PyTorch versions" && \
-		uv run --active python $(SCRIPTS)/make/log_versions.py && \
-		$(RUN_TESTS) $(PYTEST_ARGS) && \
-		echo "All tests passed!"
+	@$(call use_env,VENV_LOWEST_TORCH) && \
+	echo "Testing with lowest supported PyTorch versions" && \
+	uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
+	$(RUN_TESTS) $(PYTEST_ARGS) && \
+	echo "All tests passed!"
 
 # Run tests on highest supported PyTorch version (pass PYTEST_ARGS for custom flags)
+test-highest-pytorch: TORCH_GROUP = $(HIGHEST_TORCH_GROUP)
 test-highest-pytorch:
 	@echo "Running tests on highest PyTorch version supported..."
-	@$(call use_env,VENV_HIGHEST_TORCH,--with-highest_tested_torch) && \
-		echo "Testing with latest supported PyTorch versions" && \
-		uv run --active python $(SCRIPTS)/make/log_versions.py && \
-		$(RUN_TESTS) $(PYTEST_ARGS) && \
-		echo "All tests passed!"
+	@$(call use_env,VENV_HIGHEST_TORCH) && \
+	echo "Testing with latest supported PyTorch versions" && \
+	uv run --no-sync --active python $(SCRIPTS)/make/log_versions.py && \
+	$(RUN_TESTS) $(PYTEST_ARGS) && \
+	echo "All tests passed!"
+
+# Run tutorial notebook tests
+test-tutorials:
+	@$(call use_env,VENV_TUTORIAL,--with-tutorial --with-test) && \
+	echo "Running tutorial notebook tests..." && \
+	$(RUN_TESTS) --path $(DOCS_DIR)/tests/test_tutorials.py $(PYTEST_ARGS) && \
+	echo "All tutorial tests passed!"
 
 # =============================================================================
 # Maintenance
@@ -286,9 +356,13 @@ distclean-all:
 set-auto-venv:
 	@$(SCRIPTS)/make/set_auto_venv.sh $(DEFAULT_VENV) $(SHELL_RC)
 
-# Show current version
+# Show the development version carried on the tree (e.g. 0.2.2.dev0), including
+# any COREAI_OPT_VERSION_EXTENSION (e.g. 0.2.2.1.dev0). Reads _about.py as plain
+# text, so no venv is needed — but `uv run --no-project` is still what guarantees
+# a >= 3.11 interpreter (a bare `python3` is 3.9 on stock macOS, and `python` may
+# not exist at all) without requiring `make env` first.
 version:
-	@python -c "exec(open('./src/coreai_opt/_about.py').read()); print(__version__)"
+	@uv run --no-config --no-project --python '>=3.11' $(SCRIPTS)/make/print_version.py
 
 # =============================================================================
 # Documentation
@@ -316,7 +390,7 @@ endif
 	@echo "==> [4/5] Setting up docs environment" && \
 		$(call use_env,VENV_DOCS,--with-docs) && \
 		echo "==> [5/5] Building documentation" && \
-		cd $(DOCS_DIR) && uv run --active sphinx-build -E -b html src build/html
+		cd $(DOCS_DIR) && uv run --no-sync --active sphinx-build -E -b html src build/html
 ifndef _DOCS_ALL
 	@echo ""
 	@echo "════════════════════════════════════════════════════════════════════"
@@ -326,6 +400,13 @@ endif
 # Remove documentation build artifacts and autosummary-generated stubs
 docs-clean:
 	@rm -rf $(DOCS_DIR)/build $(DOCS_DIR)/src/api/generated
+
+# Regenerate docs/src/api/index.md from the package tree.
+#
+# Runs the same generator `make docs` invokes during the Sphinx build, so the
+# API index can be refreshed on its own using the base dev env.
+render-api-index:
+	@$(call use_env,VENV) && uv run --no-sync --active python $(MAKEFILE_DIR)docs/scripts/generate_api_index.py
 
 # Build and open documentation in browser
 # Uses --serve so the docs are loaded over HTTP, not file:// — required for

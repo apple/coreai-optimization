@@ -83,3 +83,63 @@ def test_simple_model_weight_only_mil_export(
         export_backend=backend,
         prepared_model_output=prepared_model_output,
     )
+
+
+@pytest.mark.parametrize("dtype", ["int8", "uint8"])
+@pytest.mark.parametrize(
+    "granularity",
+    [
+        PerTensorGranularity(),
+        PerChannelGranularity(axis=0),
+        PerBlockGranularity(axis=0, block_size=2),
+    ],
+)
+def test_root_module_weight_only_mil_export(
+    dtype: str,
+    granularity: PerTensorGranularity | PerChannelGranularity | PerBlockGranularity,
+) -> None:
+    """Test weight-only quantization export to CoreML for a root-module weight.
+
+    A bare ``nn.Linear`` owns its weight directly, so the fake-quant input target is the
+    dot-less ``"weight"`` rather than ``"<submodule>.weight"``. The graph CoreML export
+    path rejected that with ``Invalid weight target path: weight`` instead of resolving it
+    to the root module.
+    """
+    model = torch.nn.Linear(8, 4)
+    model.eval()
+    model_input = torch.randn(2, 8)
+
+    config = QuantizerConfig(
+        global_config=ModuleQuantizerConfig(
+            op_state_spec={
+                "weight": QuantizationSpec(
+                    dtype=dtype,
+                    qscheme=QuantizationScheme.SYMMETRIC,
+                    granularity=granularity,
+                    fake_quantize_cls="default",
+                    qparam_calculator_cls="default",
+                    range_calculator_cls="minmax",
+                ),
+            },
+            op_input_spec=None,
+            op_output_spec=None,
+        ),
+    )
+
+    quantizer = Quantizer(model, config)
+    prepared_model = quantizer.prepare((model_input,))
+
+    with torch.no_grad():
+        prepared_model_output = prepared_model(model_input)
+
+    finalized_model = quantizer.finalize(backend=ExportBackend.CoreML)
+
+    export_utils.convert_and_verify(
+        finalized_model=finalized_model,
+        input_data=model_input,
+        expected_ops={
+            "constexpr_blockwise_shift_scale": 1,
+        },
+        export_backend=ExportBackend.CoreML,
+        prepared_model_output=prepared_model_output,
+    )

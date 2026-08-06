@@ -10,10 +10,10 @@ from abc import abstractmethod
 import torch
 import torch.nn as nn
 
-from coreai_opt._utils.registry_utils import ClassRegistryMixin
+from coreai_opt._utils.registry_utils import ClassRegistryMixin as _ClassRegistryMixin
 
 
-class CompressionSimulatorBase(ClassRegistryMixin, nn.Module):
+class CompressionSimulatorBase(_ClassRegistryMixin, nn.Module):
     """
     Abstract base class for compression simulators.
 

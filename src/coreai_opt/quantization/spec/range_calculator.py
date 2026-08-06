@@ -9,27 +9,34 @@ import torch
 import torch.nn as nn
 from torchao.quantization.quant_primitives import _get_reduction_params
 
-from coreai_opt._utils.registry_utils import ClassRegistryMixin
+from coreai_opt._utils.registry_utils import ClassRegistryMixin as _ClassRegistryMixin
+from coreai_opt.config.spec import CompressionTargetTensor as _CompressionTargetTensor
 
 from .granularity import QuantizationGranularity
 
 
-class RangeCalculatorBase(ClassRegistryMixin, nn.Module):
+class RangeCalculatorBase(_ClassRegistryMixin, nn.Module):
     """
     Base class and registry for classes used to compute the range
     of a given tensor.
     """
 
-    def __init__(self, granularity: QuantizationGranularity, **kwargs):
+    def __init__(
+        self,
+        granularity: QuantizationGranularity,
+        quantization_target: _CompressionTargetTensor = _CompressionTargetTensor.WEIGHT,
+        **kwargs,
+    ):
         super().__init__()
         self.granularity = granularity
+        self.quantization_target = quantization_target
 
     def _reshape_min_max(self, range_tensor: torch.Tensor, input_shape: torch.Size):
         """
         Reshape range_tensor to have the same number of dimensions as input shape,
         taking block size into account.
         """
-        block_size_list = self.granularity.get_block_size(input_shape)
+        block_size_list = self.granularity.get_block_size(input_shape, self.quantization_target)
 
         # While reducing, each dimension with block size other than 1 or the original
         # dimension size will be split into 2 dimensions of num_blocks and block_size.
@@ -42,10 +49,8 @@ class RangeCalculatorBase(ClassRegistryMixin, nn.Module):
         # 2 to get [1, 5, 1, 1].
         # In the end, each dimension in scale should have size equal to the number of
         # blocks for that dimension.
-        range_tensor_shape = \
-            [input_shape[i] // block_size_list[i] for i in range(len(input_shape))]
+        range_tensor_shape = [input_shape[i] // block_size_list[i] for i in range(len(input_shape))]
         return range_tensor.reshape(range_tensor_shape)
-
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute range statistics on an input and return the min/max bounds.
@@ -60,7 +65,6 @@ class RangeCalculatorBase(ClassRegistryMixin, nn.Module):
         min_tensor = self._reshape_min_max(min_tensor, x.shape)
         max_tensor = self._reshape_min_max(max_tensor, x.shape)
         return min_tensor, max_tensor
-
 
     @abstractmethod
     def _generate_min_max(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -79,12 +83,9 @@ class MinMaxRangeCalculator(RangeCalculatorBase):
     values of the tensor.
     """
 
-    def _generate_min_max(self, tensor: torch.Tensor) -> \
-            tuple[torch.Tensor, torch.Tensor]:
-        block_size_list = self.granularity.get_block_size(tensor.shape)
-        shape_for_reduction, reduction_dims = _get_reduction_params(
-            block_size_list, tensor.size()
-        )
+    def _generate_min_max(self, tensor: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        block_size_list = self.granularity.get_block_size(tensor.shape, self.quantization_target)
+        shape_for_reduction, reduction_dims = _get_reduction_params(block_size_list, tensor.size())
 
         # If tensor is already the shape required, no minmaxing is needed.
         if len(reduction_dims) == 0:

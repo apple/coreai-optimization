@@ -9,12 +9,12 @@ from typing import Annotated, Any, Literal
 import torch
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
-from coreai_opt._utils.registry_utils import ConfigRegistryMixin
+from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegistryMixin
 
 from .errors import _IncompatibleGranularityError
 
 
-class PalettizationGranularity(BaseModel, ConfigRegistryMixin):
+class PalettizationGranularity(BaseModel, _ConfigRegistryMixin):
     """
     Base class for palettization granularity specifications.
     """
@@ -118,7 +118,8 @@ class PerGroupedChannelGranularity(PalettizationGranularity):
 
     This applies palettization to a specific channel which is selected through the
     ``axis`` argument. ``axis`` defaults to ``None``, in which case the default
-    axis for the consuming op is used (e.g. 0 for ``Linear``/``Conv``).
+    axis for the consuming op is used (e.g. 0 for ``Linear``/``Conv``, 1 for
+    ``ConvTranspose``).
     """
 
     axis: Annotated[int | None, Field(default=None, ge=0, le=1)]

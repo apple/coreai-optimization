@@ -12,41 +12,47 @@ metadata from FX node attributes and metadata dictionaries.
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 
 import torch
 from torch.fx import Node
 
-from coreai_opt._utils.torch_utils import (
-    get_node_type as _get_node_type,
-    normalize_module_fqn as _normalize_module_fqn,
+from coreai_opt._utils.fx_utils import (
+    get_module_boundary_nodes,
+    get_node_type,
+    normalize_module_fqn,
 )
 from coreai_opt.base_model_compressor import _BaseModelCompressor
+from coreai_opt.quantization import Quantizer
+from coreai_opt.quantization._graph.quantizer import GraphQuantizer
 from coreai_opt.quantization.config.quantization_config import ExecutionMode
 
+from ._common import (
+    FORWARD_FUNCTION_NAME,
+    build_module_tree,
+    filter_module_tree,
+)
 from .types import (
-    ModelSummary as _ModelOpSummary,
-    ModuleContext as _ModuleContext,
-    ModuleInfo as _ModuleSummary,
-    OpInfo as _OpInfo,
-    SourceFrame as _SourceFrame,
+    BoundaryEdge,
+    InputEdge,
+    ModelSummary,
+    ModuleContext,
+    ModuleInfo,
+    OpInfo,
+    SourceFrame,
 )
 
-# The function name used to identify relevant source frames.
-# Only frames from ``forward`` methods are kept; all other frames
-# (framework dispatch, C++ internals, etc.) are discarded.
-_FORWARD_FUNCTION_NAME = "forward"
 
-
-def _extract_module_stack(node: Node) -> tuple[_ModuleContext, ...]:
+def _extract_module_stack(node: Node) -> tuple[ModuleContext, ...]:
     """Build the module nesting hierarchy from ``nn_module_stack`` metadata."""
     stack = node.meta.get("nn_module_stack", {})
     return tuple(
-        _ModuleContext(module_name=_normalize_module_fqn(module_fqn), module_type=module_type)
+        ModuleContext(module_name=normalize_module_fqn(module_fqn), module_type=module_type)
         for module_fqn, module_type in stack.values()
     )
 
 
-def _parse_stack_trace(stack_trace: str | None) -> tuple[_SourceFrame, ...]:
+def _parse_stack_trace(stack_trace: str | None) -> tuple[SourceFrame, ...]:
     """Parse the ``stack_trace`` metadata string into filtered source frames.
 
     The ``stack_trace`` stored in ``node.meta["stack_trace"]`` is a multi-line
@@ -61,7 +67,7 @@ def _parse_stack_trace(stack_trace: str | None) -> tuple[_SourceFrame, ...]:
     if not stack_trace:
         return ()
 
-    frames: list[_SourceFrame] = []
+    frames: list[SourceFrame] = []
     lines = stack_trace.strip().splitlines()
     # Lines come in pairs: the first is a location header of the form
     #   File "path/to/file.py", line 42, in forward
@@ -83,9 +89,9 @@ def _parse_stack_trace(stack_trace: str | None) -> tuple[_SourceFrame, ...]:
             if i + 1 < len(lines) and not lines[i + 1].strip().startswith("File "):
                 code_context = lines[i + 1].strip()
                 i += 1
-            if function_name == _FORWARD_FUNCTION_NAME:
+            if function_name == FORWARD_FUNCTION_NAME:
                 frames.append(
-                    _SourceFrame(
+                    SourceFrame(
                         filename=filename,
                         lineno=lineno,
                         function_name=function_name,
@@ -96,149 +102,140 @@ def _parse_stack_trace(stack_trace: str | None) -> tuple[_SourceFrame, ...]:
     return tuple(frames)
 
 
-def _get_or_create_child(
-    parent: _ModuleSummary, module_name: str, module_type: str
-) -> _ModuleSummary:
-    """Get an existing child module or create a new one."""
-    if module_name not in parent.child_modules:
-        parent.child_modules[module_name] = _ModuleSummary(
-            module_name=module_name,
-            module_type=module_type,
-            child_modules={},
-            ops=[],
-            input_ops=[],
-            output_ops=[],
-        )
-    return parent.child_modules[module_name]
+def _populate_boundary_ops_graph(
+    root: ModuleInfo,
+    model: torch.fx.GraphModule,
+    node_name_to_op_info: dict[str, OpInfo],
+) -> None:
+    """Populate input_ops and output_ops for all modules in topological order.
+
+    Reuses the method for which graph mode Quantizer uses to determine module
+    boundary inputs and outputs.
+    A single pass over model.graph.nodes buckets each node under every module
+    in its nn_module_stack. Per module, a node is an input_op if any of its
+    non-get_attr inputs falls outside the module's subtree, and an output_op if
+    any of its users falls outside the subtree.
+    """
+    module_to_nodes: defaultdict[str, list[Node]] = defaultdict(list)
+    for node in model.graph.nodes:
+        if node.op == "get_attr":
+            continue
+        for ctx in _extract_module_stack(node):
+            module_to_nodes[ctx.module_name].append(node)
+
+    def _recurse(module: ModuleInfo) -> None:
+        for child in module.child_modules.values():
+            _recurse(child)
+
+        subtree_nodes = module_to_nodes.get(module.module_name, [])
+        input_consumer_tuples, output_nodes = get_module_boundary_nodes(subtree_nodes)
+        # input_ops: keyed by spec index (enumerate position in input_consumer_tuples,
+        # which already excludes state nodes via is_coreai_compressed_state_node).
+        module.input_ops = {
+            idx: [
+                BoundaryEdge(
+                    op=node_name_to_op_info[consumer.name],
+                    index=consumer.all_input_nodes.index(external),
+                )
+            ]
+            for idx, (external, consumer) in enumerate(input_consumer_tuples)
+        }
+        # output_ops: keyed by spec index (enumerate position in output_nodes).
+        module.output_ops = {
+            idx: BoundaryEdge(
+                op=node_name_to_op_info[node.name],
+                # outputs is always {0: consumers} in graph mode (see phase 2), so this yields 0.
+                index=next(iter(node_name_to_op_info[node.name].outputs)),
+            )
+            for idx, node in enumerate(output_nodes)
+        }
+
+    _recurse(root)
 
 
-def _populate_boundary_ops(module: _ModuleSummary, get_attr_names: set[str]) -> None:
-    """Recursively populate ``input_ops`` and ``output_ops`` for a module tree."""
-    for child in module.child_modules.values():
-        _populate_boundary_ops(child, get_attr_names)
-
-    all_subtree_ops = module.all_ops()
-    subtree_op_names = {op.op_name for op in all_subtree_ops}
-    ignore_names = subtree_op_names | get_attr_names
-
-    module.input_ops = [
-        op for op in all_subtree_ops if any(inp.op_name not in ignore_names for inp in op.inputs)
-    ]
-    module.output_ops = [
-        op
-        for op in all_subtree_ops
-        if not op.outputs or any(out.op_name not in subtree_op_names for out in op.outputs)
-    ]
-
-
-def parse_ops_in_graph(model: torch.fx.GraphModule) -> _ModelOpSummary:
+def parse_ops_for_graph(
+    model: torch.fx.GraphModule,
+    compressor: type[_BaseModelCompressor] | None = None,
+) -> ModelSummary:
     """Discover all operations in a graph exported model.
 
     Args:
-        model: An exported ``torch.fx.GraphModule`` (from ``torch.export``).
+        model (torch.fx.GraphModule): An exported ``torch.fx.GraphModule``
+            (from ``torch.export``).
+        compressor (type[_BaseModelCompressor] | None): A compressor class to
+            filter ops to only those supported by that compression algorithm.
+            When ``None``, all ops are included.
 
     Returns:
-        A :class:`ModelSummary` with operations nested in a
-        :class:`ModuleInfo` tree mirroring the ``nn.Module`` hierarchy.
+        ModelSummary: Operations nested in a :class:`ModuleInfo` tree
+        mirroring the ``nn.Module`` hierarchy.
+
+    Raises:
+        ValueError: If *compressor* is not supported in graph mode.
     """
-    # Phase 1: Walk graph and create stub OpInfo (empty inputs/outputs) for every op node.
-    ops_by_name: dict[str, _OpInfo] = {}
-    get_attr_names: set[str] = set()
-    node_op_list: list[tuple[torch.fx.Node, _OpInfo]] = []
+    # Phase 1: Build OpInfo stubs (empty inputs/outputs) for every node.
+    node_name_to_op_info_dict: dict[str, OpInfo] = {}
+    node_op_list: list[tuple[torch.fx.Node, OpInfo]] = []
+    all_ops: list[OpInfo] = []
+    seen_op_names: set[str] = set()
+    root_module_type = ""
 
     for node in model.graph.nodes:
-        if node.op == "get_attr":
-            get_attr_names.add(node.name)
-
-        op_type = _get_node_type(node, warn_on_failure=False)
+        op_type = get_node_type(node, warn_on_failure=False)
         module_stack = _extract_module_stack(node)
         source_frames = _parse_stack_trace(node.meta.get("stack_trace"))
 
-        op_info = _OpInfo(
-            op_name=node.name,
+        # One time processing to fill in root_module_type
+        if not root_module_type:
+            for ctx in module_stack:
+                if ctx.module_name == "":
+                    root_module_type = ctx.module_type
+                    break
+
+        is_state = node.op == "get_attr"
+        op_info = OpInfo(
+            op_name=(node.target if is_state else node.name),
             op_type=op_type,
             module_stack=module_stack,
             source_frames=source_frames,
             inputs=(),
-            outputs=(),
+            outputs={},
+            is_state=is_state,
         )
-        ops_by_name[node.name] = op_info
+        node_name_to_op_info_dict[node.name] = op_info
         node_op_list.append((node, op_info))
+        assert op_info.op_name not in seen_op_names, f"duplicate op_name {op_info.op_name}"
+        seen_op_names.add(op_info.op_name)
+        all_ops.append(op_info)
 
-    # Phase 2: Fill in inputs/outputs and build the module tree.
-    root = _ModuleSummary(
-        module_name="",
-        module_type="",
-        child_modules={},
-        ops=[],
-        input_ops=[],
-        output_ops=[],
-    )
-
+    # Phase 2: Fill in op inputs/outputs.
     for node, op_info in node_op_list:
-        inputs = tuple(
-            ops_by_name[inp.name] for inp in node.all_input_nodes if inp.name in ops_by_name
+        # Graph mode: all outputs are at slot 0, so output_idx is always 0.
+        op_info.inputs = tuple(
+            InputEdge(op=node_name_to_op_info_dict[inp.name], output_idx=0)
+            for inp in node.all_input_nodes
+            if inp.name in node_name_to_op_info_dict
         )
-        outputs = tuple(ops_by_name[user.name] for user in node.users if user.name in ops_by_name)
-        op_info.inputs = inputs
-        op_info.outputs = outputs
+        # For graph mode, graph annotation has no concept of multiple outputs. Graph quantizer
+        # lumps them all as a single output index. Hardcode all outputs to index 0.
+        op_info.outputs = {
+            0: tuple(
+                node_name_to_op_info_dict[user.name]
+                for user in node.users
+                if user.name in node_name_to_op_info_dict
+            )
+        }
 
-        # Walk down the module stack, placing the op in the deepest module.
-        if op_info.module_stack:
-            current = root
-            for ctx in op_info.module_stack:
-                if ctx.module_name == "":
-                    # Root module — update type info
-                    if not root.module_type:
-                        root.module_type = ctx.module_type
-                    continue
-                current = _get_or_create_child(current, ctx.module_name, ctx.module_type)
+    # Phase 3: Build the module tree.
+    root = build_module_tree(root_module_type, all_ops)
+    _populate_boundary_ops_graph(root, model, node_name_to_op_info_dict)
 
-            current.ops.append(op_info)
+    if compressor is not None:
+        if issubclass(compressor, Quantizer):
+            compressible_names = GraphQuantizer.get_compressible_op_names(model)
+        else:
+            msg = f"No graph mode op filtering for compressor {compressor.__name__}."
+            raise ValueError(msg)
+        root = filter_module_tree(root, compressible_names)
 
-    _populate_boundary_ops(root, get_attr_names)
-    return _ModelOpSummary(model=root, mode=ExecutionMode.GRAPH)
-
-
-def _filter_module_tree(module: _ModuleSummary, keep_names: set[str]) -> _ModuleSummary:
-    """Recursively filter a ``ModuleInfo`` tree, keeping only matching ops."""
-    filtered_children = {
-        fqn: _filter_module_tree(child, keep_names) for fqn, child in module.child_modules.items()
-    }
-    filtered_ops = [op for op in module.ops if op.op_name in keep_names]
-
-    return _ModuleSummary(
-        module_name=module.module_name,
-        module_type=module.module_type,
-        child_modules=filtered_children,
-        ops=filtered_ops,
-        input_ops=module.input_ops,
-        output_ops=module.output_ops,
-    )
-
-
-def filter_by_compressor(
-    summary: _ModelOpSummary,
-    compressor: type[_BaseModelCompressor] | None,
-    gm: torch.fx.GraphModule,
-) -> _ModelOpSummary:
-    """Filter a summary to ops supported by the given compressor.
-
-    Uses FX graph pattern matching to determine which ops the compressor
-    can target.
-
-    Args:
-        summary: The full (unfiltered) op summary.
-        compressor: A compressor class. When ``None``, returns unchanged.
-        gm: The exported graph module, used for pattern matching.
-
-    Returns:
-        A filtered :class:`ModelSummary`.
-    """
-    if compressor is None:
-        return summary
-
-    compressible_names = compressor.get_compressible_op_names(gm, ExecutionMode.GRAPH)
-
-    filtered_root = _filter_module_tree(summary.model, compressible_names)
-    return _ModelOpSummary(model=filtered_root, mode=summary.mode)
+    return ModelSummary(model=root, mode=ExecutionMode.GRAPH)

@@ -10,7 +10,6 @@ from contextlib import contextmanager
 from os import PathLike
 from typing import Any
 
-import torch
 import torch.nn as nn
 from torch import fx
 from torchao.quantization.pt2e import (
@@ -24,17 +23,19 @@ from coreai_opt._utils.config_utils import ConfigLevel as _ConfigLevel
 from coreai_opt._utils.export_utils import (
     validate_mmap_backend_and_device as _validate_mmap_backend_and_device,
 )
-from coreai_opt._utils.torch_utils import get_module_name
+from coreai_opt._utils.torch_utils import get_module_name as _get_module_name
 from coreai_opt.common import ExportBackend
 from coreai_opt.quantization._eager import EagerQuantizer as _EagerQuantizer
 from coreai_opt.quantization._graph import GraphQuantizer as _GraphQuantizer
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config.quantization_config import (
     ExecutionMode,
+    InvalidExecutionModeError,
     QATSchedule,
     QuantizerConfig,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
+from coreai_opt.quantization.spec.qparams_calculator import StatelessQParamsCalculatorBase
 
 
 class Quantizer(_BaseQuantizer):
@@ -154,7 +155,7 @@ class Quantizer(_BaseQuantizer):
         elif execution_mode == ExecutionMode.EAGER:
             self._quantizer = _EagerQuantizer(model, config)
         else:
-            raise ValueError(f"Unsupported execution mode: {execution_mode}")
+            raise InvalidExecutionModeError(execution_mode)
 
         super().__init__(model, config)
 
@@ -179,32 +180,6 @@ class Quantizer(_BaseQuantizer):
     def _get_fake_quantize_modules(self) -> dict[str, list]:
         """Delegate to the underlying execution-mode quantizer."""
         return self._quantizer._get_fake_quantize_modules()
-
-    @classmethod
-    def get_compressible_op_names(
-        cls,
-        model: nn.Module | torch.fx.GraphModule,
-        execution_mode: ExecutionMode,
-    ) -> set[str]:
-        """Return op names in *model* that this quantizer can target.
-
-        Dispatches to the appropriate underlying quantizer based on
-        *execution_mode*.
-
-        Args:
-            model (nn.Module): The model to get compressible op names for.
-            execution_mode (ExecutionMode): The execution mode.
-
-        Returns:
-            set[str]: Op names that can be compressed via quantization.
-        """
-        if execution_mode == ExecutionMode.GRAPH:
-            return _GraphQuantizer.get_compressible_op_names(model)
-        if execution_mode == ExecutionMode.EAGER:
-            return _EagerQuantizer.get_compressible_op_names(model)
-
-        msg = f"Unknown execution_mode {execution_mode}. Expected 'graph' or 'eager'."
-        raise ValueError(msg)
 
     def _resolve_schedule(self, module_name: str) -> QATSchedule | None:
         """Look up the QAT schedule for a module via the config hierarchy."""
@@ -312,7 +287,7 @@ class Quantizer(_BaseQuantizer):
             self._quantizer._model.apply(fn)
             return
 
-        prefix = get_module_name(self._quantizer._model, module)
+        prefix = _get_module_name(self._quantizer._model, module)
         if prefix is None:
             raise ValueError(f"Module {module} is not a submodule of the prepared model.")
 
@@ -432,6 +407,31 @@ class Quantizer(_BaseQuantizer):
         model_to_check = model if model is not None else self._model
         _validate_mmap_backend_and_device(model_to_check, backend, mmap_dir)
 
+    def _validate_no_persistent_observer_calculators(
+        self,
+        model: nn.Module | fx.GraphModule | None,
+        backend: ExportBackend,
+    ) -> None:
+        """Reject CoreAI/CoreML export when any qparams calculator is a
+        ``StatelessQParamsCalculatorBase`` (e.g. dynamic quantization).
+        """
+        if backend == ExportBackend._TORCH:
+            return
+        model_to_check = model if model is not None else self._model
+        stateless_fq_names = [
+            name
+            for name, mod in model_to_check.named_modules()
+            if isinstance(mod, FakeQuantizeImplBase)
+            and isinstance(mod.qparams_calculator, StatelessQParamsCalculatorBase)
+        ]
+        if stateless_fq_names:
+            raise NotImplementedError(
+                f"backend={backend} does not yet support qparams calculators that "
+                f"recompute every forward (e.g. dynamic quantization). "
+                f"Affected FakeQuantize modules: {stateless_fq_names}. Use "
+                f"backend=ExportBackend._TORCH for torch-only inference."
+            )
+
     def finalize(
         self,
         model: nn.Module | fx.GraphModule | None = None,
@@ -480,6 +480,7 @@ class Quantizer(_BaseQuantizer):
             finalize frees the original dense weights.
         """
         self._validate_mmap_dir_constraints(model, backend, mmap_dir)
+        self._validate_no_persistent_observer_calculators(model, backend)
         return self._quantizer.finalize(model, backend, mmap_dir=mmap_dir)
 
     @contextmanager
@@ -488,9 +489,11 @@ class Quantizer(_BaseQuantizer):
         Context manager for calibration-based post-training quantization.
 
         When entering this context, observers are enabled to collect statistics
-        from calibration data, and fake quantization is disabled to get accurate
-        statistics. When exiting, observers are disabled and fake quantization
-        is re-enabled for evaluation.
+        from calibration data. Weight fake quantization stays enabled, while
+        activation fake quantization is disabled so that activation observers
+        see the effect of quantized weights when computing activation ranges.
+        When exiting, observers are disabled and fake quantization is
+        re-enabled on both weights and activations for evaluation.
 
         **When to use:**
 

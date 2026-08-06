@@ -5,7 +5,6 @@
 
 """Quantization utilities and helper functions."""
 
-
 import torch
 from torchao.quantization.quant_primitives import _get_reduction_params
 
@@ -41,9 +40,7 @@ def get_quantization_shapes(
     """
 
     original_shape = tensor.shape
-    blockwise_shape, reduction_dims = _get_reduction_params(
-        block_size, tensor.size()
-    )
+    blockwise_shape, reduction_dims = _get_reduction_params(block_size, tensor.size())
     reduced_shape = list(blockwise_shape)
     for i in reduction_dims:
         reduced_shape[i] = 1

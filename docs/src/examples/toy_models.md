@@ -8,4 +8,5 @@ These tutorials demonstrate model compression techniques using simple toy models
 /tutorials/mnist_quantization
 /tutorials/mnist_palettization
 /tutorials/mnist_palettization_and_activation_quantization
+/tutorials/mnist_pruning
 ```

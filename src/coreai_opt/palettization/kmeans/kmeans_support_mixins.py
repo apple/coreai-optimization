@@ -92,3 +92,14 @@ class _ConvPalettizationMixin(_PalettizationSupportMixin):
                 )
                 .transpose(0, 1)
             )
+
+
+class _ConvTransposePalettizationMixin(_ConvPalettizationMixin):
+    """Mixin providing palettization support for transposed convolution operations.
+
+    ``ConvTranspose`` weights are shaped ``[in_channels, out_channels, *kernel]``,
+    so the output-channel axis is 1. The reshape logic from
+    ``_ConvPalettizationMixin`` works unchanged.
+    """
+
+    default_axis: ClassVar[int] = 1

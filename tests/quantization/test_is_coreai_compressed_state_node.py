@@ -3,9 +3,9 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-"""Tests for _is_state_node in PT2E annotation utils.
+"""Tests for is_coreai_compressed_state_node in PT2E annotation utils.
 
-Verifies that _is_state_node correctly identifies state nodes (weights,
+Verifies that is_coreai_compressed_state_node correctly identifies state nodes (weights,
 parameters, compressed weight decompression ops) and rejects activation nodes.
 """
 
@@ -14,7 +14,7 @@ from unittest.mock import Mock
 import pytest
 import torch
 
-from coreai_opt.quantization._graph._annotation_utils import _is_state_node
+from coreai_opt._utils.fx_utils import is_coreai_compressed_state_node
 from tests.test_utils.general import COREAI_AVAILABLE
 
 
@@ -24,7 +24,7 @@ def _make_node(
     op_name: str | None = None,
     args: tuple = (),
 ) -> Mock:
-    """Create a mock FX node with the attributes needed by _is_state_node.
+    """Create a mock FX node with the attributes needed by is_coreai_compressed_state_node.
 
     Args:
         op (str): The FX node op type (e.g., "get_attr", "call_function").
@@ -34,7 +34,7 @@ def _make_node(
         args (tuple): Node args (other mock nodes or values).
 
     Returns:
-        Mock: A mock node suitable for passing to _is_state_node.
+        Mock: A mock node suitable for passing to is_coreai_compressed_state_node.
     """
     node = Mock(spec=torch.fx.Node)
     node.op = op
@@ -49,23 +49,23 @@ def _make_node(
     return node
 
 
-class TestIsStateNode:
+class TestIsCoreAICompressedStateNode:
     def test_get_attr_is_state(self):
         """get_attr nodes (direct parameter access) are state."""
         node = _make_node("get_attr")
-        assert _is_state_node(node) is True
+        assert is_coreai_compressed_state_node(node) is True
 
     def test_placeholder_is_not_state(self):
         """Placeholder nodes (model inputs) are not state."""
         node = _make_node("placeholder")
-        assert _is_state_node(node) is False
+        assert is_coreai_compressed_state_node(node) is False
 
     def test_lut_to_dense_is_state(self):
         """coreai.lut_to_dense call_function is state (palettized weights)."""
         indices = _make_node("get_attr")
         lut = _make_node("get_attr")
         node = _make_node("call_function", "coreai", "lut_to_dense", args=(indices, lut))
-        assert _is_state_node(node) is True
+        assert is_coreai_compressed_state_node(node) is True
 
     def test_shift_scale_with_lut_input_is_state(self):
         """constexpr_blockwise_shift_scale fed by lut_to_dense is state."""
@@ -76,7 +76,7 @@ class TestIsStateNode:
         node = _make_node(
             "call_function", "coreai", "constexpr_blockwise_shift_scale", args=(lut_node, scale)
         )
-        assert _is_state_node(node) is True
+        assert is_coreai_compressed_state_node(node) is True
 
     def test_shift_scale_is_state(self):
         """constexpr_blockwise_shift_scale is always state. This op is only
@@ -87,7 +87,7 @@ class TestIsStateNode:
         node = _make_node(
             "call_function", "coreai", "constexpr_blockwise_shift_scale", args=(data, scale)
         )
-        assert _is_state_node(node) is True
+        assert is_coreai_compressed_state_node(node) is True
 
     def test_aten_op_with_all_state_inputs_is_not_state(self):
         """An aten call_function whose inputs are all get_attr is NOT state.
@@ -97,7 +97,7 @@ class TestIsStateNode:
         weight = _make_node("get_attr")
         bias = _make_node("get_attr")
         node = _make_node("call_function", "aten", "add", args=(weight, bias))
-        assert _is_state_node(node) is False
+        assert is_coreai_compressed_state_node(node) is False
 
 
 def _find_coreai_nodes(gm: torch.fx.GraphModule, op_name: str) -> list[torch.fx.Node]:
@@ -115,7 +115,7 @@ def _find_coreai_nodes(gm: torch.fx.GraphModule, op_name: str) -> list[torch.fx.
 
 
 @pytest.mark.skipif(not COREAI_AVAILABLE, reason="Requires coreai")
-class TestIsStateNodeIntegration:
+class TestIsCoreAICompressedStateNodeIntegration:
     @pytest.mark.seed
     def test_joint_compression_lut_to_dense_not_quantized(
         self, simple_conv_linear_model, simple_model_input
@@ -168,7 +168,7 @@ class TestIsStateNodeIntegration:
 
         # Each lut_to_dense must be recognized as state
         for node in lut_nodes:
-            assert _is_state_node(node) is True, (
+            assert is_coreai_compressed_state_node(node) is True, (
                 f"lut_to_dense node {node.name} not identified as state"
             )
 
@@ -255,7 +255,7 @@ class TestIsStateNodeIntegration:
 
         # Both op types must be recognized as state
         for node in lut_nodes + shift_scale_nodes:
-            assert _is_state_node(node) is True, (
+            assert is_coreai_compressed_state_node(node) is True, (
                 f"{node.target._opname} node {node.name} not identified as state"
             )
 

@@ -11,32 +11,27 @@ backend-specific representations.
 """
 
 import logging
+import operator
 from collections.abc import Mapping
 
 import torch
 from torch.fx import Node
 
-from coreai_opt._utils.export_utils import (
-    COREML_SUPPORTED_ACTIVATION_DTYPES,
-    COREML_SUPPORTED_WEIGHT_DTYPES,
-)
+from coreai_opt._utils.export_utils import validate_coreml_compatibility
+from coreai_opt._utils.fx_utils import get_node_type
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
-from coreai_opt._utils.torch_utils import (
-    is_float4_dtype as _is_float4_dtype,
-    sanitize_module_name as _sanitize_module_name,
-)
-from coreai_opt.common import CoreMLExportError
+from coreai_opt._utils.torch_utils import is_float4_dtype, sanitize_module_name
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
-    canonicalize_qparam_shape as _canonicalize_qparam_shape,
-    convert_dtype_for_torch_quantize as _convert_dtype_for_torch_quantize,
-    create_mil_act_quant_seq as _create_mil_act_quant_seq,
-    extract_quantization_params as _extract_quantization_params,
-    pack_fp4_to_float4tensor as _pack_fp4_to_float4tensor,
-    select_export_qparams_by_formulation as _select_export_qparams_by_formulation,
-    validate_fp4_export as _validate_fp4_export,
-    validate_qformulation_for_mil_export as _validate_qformulation_for_mil_export,
+    canonicalize_qparam_shape,
+    convert_dtype_for_torch_quantize,
+    create_mil_act_quant_seq,
+    extract_quantization_params,
+    pack_fp4_to_float4tensor,
+    select_export_qparams_by_formulation,
+    validate_fp4_export,
+    validate_qformulation_for_mil_export,
 )
 from coreai_opt.quantization._graph._utils import (
     remove_fake_quant_module,
@@ -142,12 +137,11 @@ def _get_weight_input_names(
 
     Returns:
         Tuple of (module_name, param_name)
-        - module_name: e.g., "conv", "layer1.0"
+        - module_name: e.g., "conv", "layer1.0", or "" for a root-module parameter
         - param_name: e.g., "weight", "bias"
 
     Raises:
         ValueError: If node is not a weight quantization node
-        ValueError: If weight target path is invalid
 
     """
     if not _is_weight_fake_quant(fake_quant_node, module):
@@ -159,13 +153,10 @@ def _get_weight_input_names(
     # Extract module and parameter name from target path
     # e.g., "conv.weight" -> ("conv", "weight")
     # e.g., "layer1.0.weight" -> ("layer1.0", "weight")
+    # e.g., "weight" -> ("", "weight") for a parameter on the root module
     target_path = str(input_node.target)
     last_dot_idx = target_path.rfind(".")
-    if last_dot_idx == -1:
-        msg = f"Invalid weight target path: {target_path}"
-        raise ValueError(msg)
-
-    module_name = target_path[:last_dot_idx]
+    module_name = target_path[:last_dot_idx] if last_dot_idx != -1 else ""
     param_name = target_path[last_dot_idx + 1 :]
 
     return module_name, param_name
@@ -269,7 +260,7 @@ def _process_mlir_weight_quantization(
         raise ValueError(f"Expected get_attr node for weight quantization, got {input_node.op}")
 
     # Extract and prepare quantization parameters
-    scale, zero_point, minval = _extract_quantization_params(fake_quant_mod)
+    scale, zero_point, minval = extract_quantization_params(fake_quant_mod)
     # Cast scale and minval to appropriate dtype for MLIR backend inference
     _compute_dtype_for_export = fake_quant_mod.qparams_calculator._compute_dtype_for_export
     scale = scale.to(dtype=_compute_dtype_for_export)
@@ -282,12 +273,12 @@ def _process_mlir_weight_quantization(
 
     # Drop one of the offsets so that the export
     # module / runtime selects the right dequant path.
-    zero_point, minval = _select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
+    zero_point, minval = select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
 
     # Convert to export dtypes for MLIR ops
-    if _is_float4_dtype(fake_quant_mod.dtype):
-        _validate_fp4_export(fake_quant_mod, quantized_data)
-        quantized_data = _pack_fp4_to_float4tensor(quantized_data)
+    if is_float4_dtype(fake_quant_mod.dtype):
+        validate_fp4_export(fake_quant_mod, quantized_data)
+        quantized_data = pack_fp4_to_float4tensor(quantized_data)
     if fake_quant_mod.qparams_calculator.scale_dtype == torch.float8_e8m0fnu:
         scale = scale.to(torch.float8_e8m0fnu)
 
@@ -341,8 +332,11 @@ def _process_mlir_activation_quantization(
         node: The fake quantization node to replace
         fake_quant_mod: The fake quantization module
     """
-    if _is_float4_dtype(fake_quant_mod.dtype):
-        raise ValueError("FP4 activation quantization is not supported for MLIR export.")
+    if is_float4_dtype(fake_quant_mod.dtype):
+        raise ValueError("Core AI export does not support FP4 activation quantization.")
+
+    if isinstance(fake_quant_mod.granularity, PerBlockGranularity):
+        raise ValueError("Core AI export does not support PerBlockGranularity on activations.")
 
     def _import_coreai_custom_ops():
         import coreai_torch._compression.custom_layers  # noqa: PLC0415, F401
@@ -356,11 +350,11 @@ def _process_mlir_activation_quantization(
         raise ValueError(f"Node {node} has no input arguments")
 
     # Extract and prepare quantization parameters
-    scale, zero_point, minval = _extract_quantization_params(fake_quant_mod)
+    scale, zero_point, minval = extract_quantization_params(fake_quant_mod)
 
     # Drop the offset the active formulation doesn't consume so the runtime op
     # selects the right dequant path.
-    zero_point, minval = _select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
+    zero_point, minval = select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
 
     # Cast scale and minval to appropriate dtype for MLIR backend inference
     _compute_dtype_for_export = fake_quant_mod.qparams_calculator._compute_dtype_for_export
@@ -373,11 +367,11 @@ def _process_mlir_activation_quantization(
 
     # Canonicalize scale/zero_point/minval to 0-D (per-tensor) or 1-D (per-channel)
     granularity = fake_quant_mod.granularity
-    scale = _canonicalize_qparam_shape(scale, granularity)
+    scale = canonicalize_qparam_shape(scale, granularity)
     if zero_point is not None:
-        zero_point = _canonicalize_qparam_shape(zero_point, granularity)
+        zero_point = canonicalize_qparam_shape(zero_point, granularity)
     if minval is not None:
-        minval = _canonicalize_qparam_shape(minval, granularity)
+        minval = canonicalize_qparam_shape(minval, granularity)
 
     # Register buffers and get buffer names
     base_name = node.name.replace(".", "_")
@@ -459,9 +453,9 @@ def _process_mil_weight_quantization(
         modules: Mapping of module names to modules
 
     """
-    _validate_qformulation_for_mil_export(fake_quant_mod)
+    validate_qformulation_for_mil_export(fake_quant_mod)
     # Extract quantization parameters
-    scale, zero_point, _ = _extract_quantization_params(fake_quant_mod)
+    scale, zero_point, _ = extract_quantization_params(fake_quant_mod)
     module_name, param_name = _get_weight_input_names(fake_quant_node, fake_quant_mod)
 
     # Get the module that owns the weight parameter
@@ -501,26 +495,20 @@ def _process_mil_activation_quantization(
 
     Converts activation FakeQuantize modules to Sequential modules containing
     quantize and dequantize operations that CoreMLTools can understand.
-    Supports both per-tensor (quantize_per_tensor) and per-channel
-    (quantize_per_channel) quantization based on the granularity axis.
-    Buffers are stored inside the modules.
+    Buffers are stored inside the modules. By the time this runs, CoreML
+    export compatibility has already been validated, so only per-tensor
+    activation granularity ever reaches here.
 
     Args:
         model: The graph module being modified
         fake_quant_node: The fake quantization node to process
         fake_quant_mod: The fake quantization module
 
-    Raises:
-        ValueError: If the granularity is per-block (not supported for MIL
-            activation export).
-
     """
-    _validate_qformulation_for_mil_export(fake_quant_mod)
-    if isinstance(fake_quant_mod.granularity, PerBlockGranularity):
-        raise ValueError("MIL export does not support per-block granularity for activations.")
+    validate_qformulation_for_mil_export(fake_quant_mod)
 
-    scale, zero_point, _ = _extract_quantization_params(fake_quant_mod)
-    converted_dtype, converted_zero_point = _convert_dtype_for_torch_quantize(
+    scale, zero_point, _ = extract_quantization_params(fake_quant_mod)
+    converted_dtype, converted_zero_point = convert_dtype_for_torch_quantize(
         fake_quant_mod.dtype,
         zero_point,
     )
@@ -528,7 +516,7 @@ def _process_mil_activation_quantization(
     # Use non-negative axis for export (None for per-tensor)
     axis = fake_quant_mod.qparams_calculator._resolved_axis
 
-    sequential_module = _create_mil_act_quant_seq(
+    sequential_module = create_mil_act_quant_seq(
         scale=scale,
         zero_point=converted_zero_point,
         dtype=converted_dtype,
@@ -536,7 +524,7 @@ def _process_mil_activation_quantization(
     )
 
     # Add Sequential module to the model
-    module_name = f"{MIL_ACT_QUANT_MODULE_PREFIX}{_sanitize_module_name(fake_quant_node.name)}"
+    module_name = f"{MIL_ACT_QUANT_MODULE_PREFIX}{sanitize_module_name(fake_quant_node.name)}"
     model.add_module(module_name, sequential_module)
 
     # Replace fake quant node with call_module to the Sequential
@@ -597,22 +585,22 @@ def prepare_for_mil_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule:
         msg = "Model contains no fake quantization nodes"
         raise ValueError(msg)
 
-    # CoreML does not support certain dtypes. Fail fast before mutating the
-    # graph below.
+    # Fail fast if model is not coreml-exportable
     for fake_quant_node, fake_quant_mod in fake_quant_nodes:
         node_id = str(fake_quant_node.target)
         if _is_weight_fake_quant(fake_quant_node, fake_quant_mod):
-            if fake_quant_mod.dtype not in COREML_SUPPORTED_WEIGHT_DTYPES:
-                raise CoreMLExportError(
-                    fake_quant_mod.dtype,
-                    f"weight quantizer '{node_id}'",
-                )
+            validate_coreml_compatibility(
+                CompressionTargetTensor.WEIGHT,
+                fake_quant_mod.dtype,
+                f"weight quantizer '{node_id}'",
+            )
         else:
-            if fake_quant_mod.dtype not in COREML_SUPPORTED_ACTIVATION_DTYPES:
-                raise CoreMLExportError(
-                    fake_quant_mod.dtype,
-                    f"activation quantizer '{node_id}'",
-                )
+            validate_coreml_compatibility(
+                CompressionTargetTensor.ACTIVATION,
+                fake_quant_mod.dtype,
+                f"activation quantizer '{node_id}'",
+                fake_quant_mod.granularity,
+            )
 
     # Process all fake quantization nodes
     for fake_quant_node, fake_quant_mod in fake_quant_nodes:
@@ -688,4 +676,138 @@ def prepare_for_mlir_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule
     model.graph.eliminate_dead_code()
     model.recompile()
 
+    return model
+
+
+def _move_cache_dequant_to_output(
+    model: torch.fx.GraphModule,
+    op_type: str,
+    quant_input_idx: int,
+) -> torch.fx.GraphModule:
+    """Relocate the dequantize on a cache-update op's input edge to its output edge.
+
+    Run after :func:`prepare_for_mlir_export`. The fake-quant graph
+
+        update -> coreai.quantize -> coreai.dequantize -> cache_op(x, dq, ...) -> consumer
+
+    is rewritten in-place to
+
+        update -> coreai.quantize -> cache_op(x, q, ...) -> coreai.dequantize -> consumer
+
+    The cache state's dtype (placeholder ``meta['val']`` and op ``meta['val']``) is
+    also retyped to the quantized dtype.
+
+    Precondition: the cache op must commute with quantize/dequantize — i.e.
+    a pure data-movement op (slicing, narrowing, copy). Arithmetic on cached
+    values would silently produce a numerically wrong model.
+
+    Args:
+        model: GraphModule already processed by :func:`prepare_for_mlir_export`.
+        op_type: Short op-type name as returned by ``get_node_type``
+        quant_input_idx: Index of the op input that the prepare-side spec annotated.
+
+    Returns:
+        The mutated GraphModule.
+
+    Raises:
+        NotImplementedError: If the op has ``getitem`` consumers (multi-output ops
+            are not supported), or the cache state cannot be located as a single
+            placeholder among the op's args.
+        RuntimeError: If the expected ``coreai.quantize`` -> ``coreai.dequantize``
+            chain is not present on the op's input edge.
+    """
+
+    def _import_coreai_custom_ops():
+        import coreai_torch._compression.custom_layers  # noqa: PLC0415, F401
+        from torch.ops import coreai  # noqa: PLC0415
+
+        return coreai
+
+    coreai = lazy_import_coreai_torch(_import_coreai_custom_ops)
+
+    rewrites = 0
+    for op_node in model.graph.nodes:
+        if op_node.op != "call_function":
+            continue
+        if get_node_type(op_node, warn_on_failure=False) != op_type:
+            continue
+
+        if len(op_node.all_input_nodes) <= quant_input_idx:
+            raise RuntimeError(
+                f"Op {op_node.name} has {len(op_node.all_input_nodes)} input nodes; "
+                f"quant_input_idx={quant_input_idx} is out of range."
+            )
+        dq_node = op_node.all_input_nodes[quant_input_idx]
+        if not (isinstance(dq_node, Node) and dq_node.target is coreai.dequantize):
+            raise RuntimeError(
+                f"Expected coreai.dequantize on input {quant_input_idx} of "
+                f"{op_node.name}, found {dq_node!r} "
+                f"(target={getattr(dq_node, 'target', None)!r})."
+            )
+        q_node = dq_node.args[0]
+        if not (isinstance(q_node, Node) and q_node.target is coreai.quantize):
+            raise RuntimeError(
+                f"Expected coreai.quantize feeding {dq_node.name}, found {q_node!r}."
+            )
+
+        getitem_users = [
+            u for u in op_node.users if u.op == "call_function" and u.target is operator.getitem
+        ]
+        if getitem_users:
+            raise NotImplementedError(
+                f"Op {op_node.name} has getitem consumers "
+                f"({[u.name for u in getitem_users]}), indicating a multi-output op. "
+                "Relocation for multi-output cache ops is not implemented yet."
+            )
+
+        original_consumers = list(op_node.users)
+        quantized_dtype = q_node.args[2]
+        if not isinstance(quantized_dtype, torch.dtype):
+            raise RuntimeError(
+                f"Expected coreai.quantize's dtype arg (args[2]) to be a torch.dtype; "
+                f"got {type(quantized_dtype).__name__}: {quantized_dtype!r}."
+            )
+
+        # Find the cache placeholder among the op's args.
+        cache_placeholders = [
+            a for a in op_node.args if isinstance(a, Node) and a.op == "placeholder"
+        ]
+        if len(cache_placeholders) != 1:
+            raise NotImplementedError(
+                f"Expected exactly one placeholder among {op_node.name}'s args; "
+                f"found {len(cache_placeholders)}. Cannot determine which input "
+                "is the cache state."
+            )
+        cache_placeholder = cache_placeholders[0]
+
+        op_node.replace_input_with(dq_node, q_node)
+        with model.graph.inserting_after(op_node):
+            new_dq = model.graph.call_function(
+                coreai.dequantize, (op_node, *dq_node.args[1:]), dict(dq_node.kwargs)
+            )
+        # new_dq outputs the original compute dtype — which is what
+        # op_node.meta["val"] still holds at this point. Clone so any later
+        # in-place mutation of one meta["val"] doesn't bleed into the other.
+        if "val" in op_node.meta:
+            new_dq.meta["val"] = op_node.meta["val"].clone()
+            op_node.meta["val"] = op_node.meta["val"].to(quantized_dtype)
+        for consumer in original_consumers:
+            consumer.replace_input_with(op_node, new_dq)
+
+        if "val" in cache_placeholder.meta:
+            cache_placeholder.meta["val"] = cache_placeholder.meta["val"].to(quantized_dtype)
+
+        rewrites += 1
+
+    if rewrites == 0:
+        raise RuntimeError(
+            f"_move_cache_dequant_to_output found no nodes matching {op_type!r}; "
+            "the dequantize was not relocated to the cache-op output and the "
+            "cache buffer was not retyped — the deployed model will not have "
+            "stored cache quantization. The op was present at prepare time, so "
+            "this likely indicates a graph mutation between prepare and finalize."
+        )
+
+    model.graph.eliminate_dead_code()
+    model.recompile()
     return model

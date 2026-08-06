@@ -184,7 +184,7 @@ The defaults are:
 
 In [Quantization Overview](overview.md) we saw how to use the default `W_INT8_A_INT8` config. [Config classes and their defaults](#config-classes-and-their-defaults) described the default settings in `QuantizerConfig()`, `ModuleQuantizerConfig()`, and `OpQuantizerConfig()`. Let us now see how to configure quantization when non-default settings are desired.
 
-Several examples below configure specific module names, module types, op names, or op types. To determine these for your model, see [How to get names + types for modules and ops](#how-to-get-names-types-for-modules-and-ops) (eager mode) or [Inspecting Model Structure](../utils/model_inspection.md) (graph mode).
+Several examples below configure specific module names, module types, op names, or op types. To determine these for your model, see [Inspecting Model Structure](../debugging/model_inspection.md).
 
 ### Example: `W_MXFP4_A_FP8` applied to all supported ops
 
@@ -857,7 +857,7 @@ classDiagram
 
 ## How to get names + types for modules and ops
 
-**Graph mode** (for `module_name_configs`, `module_type_configs`, `op_name_config`, `op_type_config`): use {class}`~coreai_opt.inspection.ModelInspector` to discover module names, module types, op names, and op types.
+Use {class}`~coreai_opt.inspection.ModelInspector` to discover module names, module types, op names, and op types for both graph and eager execution modes.
 
 ```python
 import torch
@@ -866,40 +866,12 @@ from coreai_opt.inspection import ModelInspector
 
 model = nn.Sequential(nn.Linear(10, 20), nn.ReLU(), nn.Linear(20, 5))
 inspector = ModelInspector(
-    model, example_inputs=(torch.randn(1, 10),), execution_mode="graph"
+    # Use execution_mode="eager" for eager mode inspection.
+    model,
+    example_inputs=(torch.randn(1, 10),),
+    execution_mode="graph",
 )
 print(inspector.format_summary())
 ```
 
-See [Inspecting Model Structure](../utils/model_inspection.md) for full usage and examples.
-
-**Eager mode**: module names (for `module_name_configs`) can be obtained by inspecting `model.named_modules()`. This includes all modules in the model (nested and leaf). The names align with the structure of modules defined in code.
-
-Op names can be constructed by referring to the parent module and the op in it. Example:
-
-```python
-class TwoAddModule(torch.nn.Module):
-    def forward(self, x):
-        a = x + x
-        b = a + a
-        return b
-
-
-class Model(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.submodule_a = TwoAddModule()
-        self.submodule_b = TwoAddModule()
-
-    def forward(self, x):
-        x = self.submodule_a(x)
-        x = self.submodule_b(x)
-        return x
-
-
-# the names of ops in the model will be :
-# - submodule_a.add
-# - submodule_a.add_1
-# - submodule_b.add
-# - submodule_b.add_1
-```
+See [Inspecting Model Structure](../debugging/model_inspection.md) for full usage, examples, and a comparison of graph and eager mode op naming.

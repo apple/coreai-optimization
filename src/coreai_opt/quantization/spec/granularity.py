@@ -11,11 +11,13 @@ from typing import Annotated, Any, Literal
 import torch
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
-from coreai_opt._utils.registry_utils import ConfigRegistryMixin
+from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegistryMixin
+from coreai_opt._utils.torch_utils import normalize_axis as _normalize_axis
+from coreai_opt.config.spec import CompressionTargetTensor as _CompressionTargetTensor
 from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 
 
-class QuantizationGranularity(BaseModel, ConfigRegistryMixin):
+class QuantizationGranularity(BaseModel, _ConfigRegistryMixin):
     """
     Base class for quantization granularity specifications.
     """
@@ -49,7 +51,11 @@ class QuantizationGranularity(BaseModel, ConfigRegistryMixin):
         return data
 
     @abstractmethod
-    def _get_block_size(self, block_sizes_list: list[int]) -> list[int]:
+    def _get_block_size(
+        self,
+        block_sizes_list: list[int],
+        quantization_target: _CompressionTargetTensor = _CompressionTargetTensor.WEIGHT,
+    ) -> list[int]:
         """
         Given an initial list of the tensor shape, return a list of block sizes
         corresponding to each axis:
@@ -61,6 +67,11 @@ class QuantizationGranularity(BaseModel, ConfigRegistryMixin):
         - if per-block structuring is being done for a certain axis, set the block
           size for that specific axis
 
+        ``quantization_target`` distinguishes weight from activation tensors.
+        Only per-block granularity uses it, since the two targets collapse
+        different sets of non-blocked axes (see :class:`PerBlockGranularity`);
+        the other granularities ignore it.
+
         Example:
             - ``[10, 5, 2]`` with per-channel structuring on axis 1 results in
               ``[10, 1, 2]``
@@ -70,11 +81,20 @@ class QuantizationGranularity(BaseModel, ConfigRegistryMixin):
         """
         pass
 
-    def get_block_size(self, tensor_shape: torch.Size) -> tuple[int, ...]:
+    def get_block_size(
+        self,
+        tensor_shape: torch.Size,
+        quantization_target: _CompressionTargetTensor = _CompressionTargetTensor.WEIGHT,
+    ) -> tuple[int, ...]:
         """
         Get a list of block sizes based on the granularity.
+
+        Args:
+            tensor_shape: Shape of the tensor being quantized.
+            quantization_target: Whether the tensor is a weight or an activation.
+                Defaults to ``WEIGHT``, which preserves the historical behavior.
         """
-        return tuple(self._get_block_size(list(tensor_shape)))
+        return tuple(self._get_block_size(list(tensor_shape), quantization_target))
 
     # The axis resolution logic lives here because it is granularity-specific.
     # Currently only PerChannelGranularity has a meaningful axis to resolve, but
@@ -104,9 +124,7 @@ class QuantizationGranularity(BaseModel, ConfigRegistryMixin):
         axis = granularity.axis
         if axis is None:
             return None
-        if axis < 0:
-            axis += tensor_ndim
-        return axis
+        return _normalize_axis(axis, tensor_ndim)
 
 
 @QuantizationGranularity.register("per_tensor")
@@ -119,7 +137,11 @@ class PerTensorGranularity(QuantizationGranularity):
 
     axis: Literal[None] = None
 
-    def _get_block_size(self, block_sizes_list: list[int]) -> list[int]:
+    def _get_block_size(
+        self,
+        block_sizes_list: list[int],
+        quantization_target: _CompressionTargetTensor = _CompressionTargetTensor.WEIGHT,
+    ) -> list[int]:
         return block_sizes_list
 
 
@@ -138,7 +160,11 @@ class PerChannelGranularity(QuantizationGranularity):
 
     axis: int | None = None
 
-    def _get_block_size(self, block_sizes_list: list[int]) -> list[int]:
+    def _get_block_size(
+        self,
+        block_sizes_list: list[int],
+        quantization_target: _CompressionTargetTensor = _CompressionTargetTensor.WEIGHT,
+    ) -> list[int]:
 
         if self.axis is None:
             raise ValueError(
@@ -168,9 +194,11 @@ class PerBlockGranularity(QuantizationGranularity):
     This applies quantization to blocks of values within the tensor. Supports two modes:
 
     1. Single-axis mode: Quantize blocks along one specific axis
-       (no blocking for axis>=2)
 
-       - ``axis``: The axis to create blocks (0 or 1)
+       - ``axis``: The axis to create blocks. May be negative (Python-style
+         indexing). For weight quantization this is typically ``0`` or ``1``
+         (the channel axes); for activation quantization it is commonly the
+         last / reduction axis (e.g. ``-1``).
        - ``block_size``: Integer specifying block size for that axis
 
     2. Multi-axis mode: Create blocks across multiple axes simultaneously
@@ -183,39 +211,68 @@ class PerBlockGranularity(QuantizationGranularity):
     ``Quantizer.prepare()`` automatically resolves the axis based on the module type
     for weight quantization.
 
+    Single-axis mode treats weights and activations differently:
+
+    - ``WEIGHT``: only the two leading channel axes take part. Whichever of them
+      is not the block axis collapses to ``1`` (one scale per slice), while
+      trailing dimensions — e.g. conv kernel dims — keep their full size, so each
+      block spans the whole kernel.
+    - ``ACTIVATION``: every axis other than the block axis collapses to ``1``, so
+      the scale holds one entry per block *and* per position along all the other
+      axes.
+
     .. list-table::
        :header-rows: 1
 
-       * - Weight tensor shape (input)
+       * - Tensor shape (input)
+         - target
          - axis
          - block_size
-         - Weight shape of each block (output)
+         - Shape of each block (output)
        * - [C_out, C_in]
+         - weight
          - 1
          - 32
          - [1, 32]
        * - [C_out, C_in]
+         - weight
          - None
          - (4, 8)
          - [4, 8]
        * - [C_out, C_in, KH, KW]
+         - weight
          - 0
          - 16
          - [16, 1, KH, KW]
        * - [C_out, C_in, KH, KW]
+         - weight
          - None
          - (4, 16, 3, -1)
          - [4, 16, 3, KW]
+       * - [B, S, D]
+         - activation
+         - -1
+         - 16
+         - [1, 1, 16]
+       * - [B, C, H, W]
+         - activation
+         - 1
+         - 16
+         - [1, 16, 1, 1]
     """
 
-    axis: Annotated[int, Field(ge=0, le=1)] | None = None
+    axis: int | None = None
     block_size: Annotated[int, Field(gt=0)] | tuple[Annotated[int, Field(gt=0)] | Literal[-1], ...]
 
-    def _get_block_size(self, block_sizes_list: list[int]) -> list[int]:
+    def _get_block_size(
+        self,
+        block_sizes_list: list[int],
+        quantization_target: _CompressionTargetTensor = _CompressionTargetTensor.WEIGHT,
+    ) -> list[int]:
         if isinstance(self.block_size, tuple):
             return self._handle_multi_axis_block_size(block_sizes_list)
         else:
-            return self._handle_single_axis_block_size(block_sizes_list)
+            return self._handle_single_axis_block_size(block_sizes_list, quantization_target)
 
     def _handle_multi_axis_block_size(self, block_sizes_list: list[int]) -> list[int]:
         """Handle blocking when self.block_size is a tuple"""
@@ -245,31 +302,45 @@ class PerBlockGranularity(QuantizationGranularity):
 
         return block_sizes_list
 
-    def _handle_single_axis_block_size(self, block_sizes_list: list[int]) -> list[int]:
-        """Handle blocking when self.block_size is an integer"""
+    def _handle_single_axis_block_size(
+        self,
+        block_sizes_list: list[int],
+        quantization_target: _CompressionTargetTensor = _CompressionTargetTensor.WEIGHT,
+    ) -> list[int]:
+        """Handle blocking when ``block_size`` is an integer.
+
+        ``axis`` may be negative and is resolved against the tensor rank.
+
+        ``quantization_target`` decides which of the non-blocked axes collapse to
+        ``1``: weights keep their trailing (e.g. kernel) dimensions whole, while
+        activations collapse every axis but the block axis. See the class
+        docstring for examples.
+        """
         # TODO: Logic to be added where if self.axis is None,
         #  we can figure out the optimal axis for the user
         if self.axis is None:
             raise ValueError("axis must be specified when block_size is an int")
 
-        if self.axis >= len(block_sizes_list):
+        rank = len(block_sizes_list)
+        axis = self.axis + rank if self.axis < 0 else self.axis
+
+        if axis < 0 or axis >= rank:
             raise ValueError(
-                f"axis {self.axis} is out of bounds for tensor of rank {len(block_sizes_list)}"
+                f"axis {self.axis} is out of bounds for tensor of rank {rank}. "
+                f"Allowed axis range is [{-rank}, {rank})"
             )
 
-        if block_sizes_list[self.axis] % self.block_size != 0:
+        if block_sizes_list[axis] % self.block_size != 0:
             raise _BlockSizeMismatchError(
-                f"Tensor size {block_sizes_list[self.axis]} along axis {self.axis} "
+                f"Tensor size {block_sizes_list[axis]} along axis {axis} "
                 f"is not divisible by block size {self.block_size}"
             )
 
-        # For integer block_size, only process the first two dimensions
-        # (which would be input and output channel axis in no particular order)
-        # Set the specified axis to block_size, set the other dimension (0 or 1) to 1
-        # Leave all higher dimensions (index 2+) unchanged
-        block_sizes_list[self.axis] = self.block_size
-        for axis, _ in enumerate(block_sizes_list[:2]):
-            if axis != self.axis:
-                block_sizes_list[axis] = 1
+        collapse_upto = rank if quantization_target == _CompressionTargetTensor.ACTIVATION else 2
+
+        block_sizes_list[axis] = self.block_size
+        for i, _ in enumerate(block_sizes_list[:collapse_upto]):
+            if i != axis:
+                block_sizes_list[i] = 1
 
         return block_sizes_list

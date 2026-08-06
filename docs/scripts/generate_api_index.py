@@ -162,7 +162,8 @@ def generate_api_index() -> str:
 
 
 if __name__ == "__main__":
-    repo_root = find_repo_root(__file__)
+    # Anchor on the cwd so `make` writes the invoking repo's index.
+    repo_root = find_repo_root()
     output = repo_root / _OUTPUT_PATH
 
     content = generate_api_index()

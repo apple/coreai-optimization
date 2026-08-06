@@ -29,14 +29,19 @@ from .range_calculator import RangeCalculatorBase
 
 
 class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
-    """
-    Base class for implementing logic to calculate quantization parameters
-    (scale, zero_point, minval) given min/max values.
-    """
+    """Abstract base for qparams calculators — common configuration and helpers.
 
-    scale: torch.Tensor
-    zero_point: torch.Tensor | None
-    minval: torch.Tensor | None
+    Concrete subclasses inherit from either:
+
+    - ``StatefulQParamsCalculatorBase`` — has scale/zp/minval buffers; used by
+      Static, MovingAverage, GlobalMinMax.
+    - ``StatelessQParamsCalculatorBase`` — no buffers, qparams recomputed per
+      forward; used by Dynamic. ``FakeQuantizeImplBase`` and ``Quantizer``
+      detect this subclass to keep the observer always on and to reject
+      export.
+
+    Subclasses must implement ``forward(tensor) -> (scale, zero_point, minval)``.
+    """
 
     def __init__(
         self,
@@ -62,17 +67,7 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         self.range_calculator = range_calculator
         self.float_range = float_range
 
-        self.register_buffer("scale", torch.empty(0))
-
-        if dtype.is_floating_point:
-            self.register_buffer("zero_point", None)
-            self.register_buffer("minval", None)
-        else:
-            self.register_buffer("zero_point", torch.empty(0, dtype=torch.int32))
-            self.register_buffer("minval", torch.empty(0))
-
         self._initialized = False
-        self._export_mode = False
 
         # This is added to address MLIR limitation where
         # tensor after q-dq op is not casted to incoming tensor dtype
@@ -86,6 +81,11 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
     def granularity(self) -> QuantizationGranularity:
         """Getter for granularity."""
         return self._granularity
+
+    @property
+    def quantization_target(self):
+        """Whether the quantized tensor is a weight or an activation."""
+        return self.range_calculator.quantization_target
 
     @granularity.setter
     def granularity(self, granularity: QuantizationGranularity) -> None:
@@ -122,7 +122,9 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         Return a tensor with dimensions equal to num blocks in each dimension, comprised
         of values equal to scalar.
         """
-        block_size_list = self.granularity.get_block_size(input_tensor.shape)
+        block_size_list = self.granularity.get_block_size(
+            input_tensor.shape, self.quantization_target
+        )
         num_blocks_list = [
             inp_size // block_size
             for inp_size, block_size in zip(input_tensor.shape, block_size_list, strict=True)
@@ -135,13 +137,17 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         taken from float_range setting.
         """
         min_val = (
-            self._get_tensor_with_granularity_from_scalar(self.float_range[0], tensor)
+            torch.clamp(
+                self._get_tensor_with_granularity_from_scalar(self.float_range[0], tensor), max=0
+            )
             if self.float_range[0] is not None
             else None
         )
 
         max_val = (
-            self._get_tensor_with_granularity_from_scalar(self.float_range[1], tensor)
+            torch.clamp(
+                self._get_tensor_with_granularity_from_scalar(self.float_range[1], tensor), min=0
+            )
             if self.float_range[1] is not None
             else None
         )
@@ -230,7 +236,7 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             min_val=min_val,
             max_val=max_val,
             mapping_type=QuantizationScheme._to_mapping_type(self.qscheme),
-            block_size=self.granularity.get_block_size(tensor.shape),
+            block_size=self.granularity.get_block_size(tensor.shape, self.quantization_target),
             target_dtype=self.target_dtype,
             quant_min=self.quant_min,
             quant_max=self.quant_max,
@@ -258,7 +264,7 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             minval = torch.min(min_val, torch.zeros_like(min_val))
 
         # For FP dtypes, neither zero_point nor minval is used (symmetric
-        # quantization with no offset). The buffers are registered as None.
+        # quantization with no offset).
         if self.dtype.is_floating_point:
             zero_point = None
             minval = None
@@ -285,19 +291,50 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         """Given the observed min/max range, return ``(scale, zero_point, minval)``.
 
-        The default implementation directly computes qparams from the given
-        range via ``_compute_scale_zero_point_minval``.  This is the correct behavior
-        for stateless calculators (e.g. ``StaticQParamsCalculator``).
-
-        Stateful calculators override this via ``RunningRangeMixin`` to update
-        running-range buffers before computing qparams from the smoothed range.
+        Default implementation: pure function of the supplied range, no running state.
+        ``RunningRangeMixin`` overrides this to apply a running-range smoothing rule
+        before computing qparams.
         """
         return self._compute_scale_zero_point_minval(tensor, min_val, max_val)
+
+    @abstractmethod
+    def forward(
+        self, tensor: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
+        """Compute and return ``(scale, zero_point, minval)`` for ``tensor``."""
+
+
+class StatefulQParamsCalculatorBase(QParamsCalculatorBase):
+    """Stateful base: maintains scale/zero_point/minval as nn.Module buffers
+    across forwards.
+
+    Buffer shapes are allocated on first forward and must remain stable
+    (``copy_`` requires shape compatibility) — use
+    ``StatelessQParamsCalculatorBase`` for variable-shape scales.
+    """
+
+    scale: torch.Tensor
+    zero_point: torch.Tensor | None
+    minval: torch.Tensor | None
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.register_buffer("scale", torch.empty(0))
+
+        if self.dtype.is_floating_point:
+            self.register_buffer("zero_point", None)
+            self.register_buffer("minval", None)
+        else:
+            self.register_buffer("zero_point", torch.empty(0, dtype=torch.int32))
+            self.register_buffer("minval", torch.empty(0))
+
+        self._export_mode = False
 
     def forward(
         self, tensor: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
-        """Compute scale, zero point, and minval from the input tensor.
+        """Compute qparams from ``tensor``; cache to buffers; return.
 
         On the first forward pass, initializes internal buffers using the
         observed tensor shape and device. Delegates the actual qparams
@@ -377,6 +414,64 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         )
 
 
+class StatelessQParamsCalculatorBase(QParamsCalculatorBase):
+    """Stateless base: no cached qparams; recomputed every forward.
+
+    Used for dynamic quantization where activations vary per inference and the
+    scale shape may change across forwards (e.g. LLM token-wise with variable
+    sequence length). ``self.scale``/``zero_point``/``minval`` are assigned in
+    forward as plain Python attributes (not buffers) for debugging visibility
+    only — they reflect the most recent forward and are not in ``state_dict``.
+
+    - ``FakeQuantizeImplBase`` keeps ``observer_enabled = 1`` for this subclass
+      so the recompute path stays live.
+    - ``get_qparams`` is undefined; ``set_export_mode(True)`` raises;
+      ``float_range=[None, None]`` is required.
+    """
+
+    def __init__(self, **kwargs):
+        float_range = kwargs.get("float_range", (None, None))
+        if float_range[0] is not None or float_range[1] is not None:
+            raise ValueError(
+                f"StatelessQParamsCalculatorBase requires float_range=[None, None]; "
+                f"got {float_range}. Bounded ranges contradict the per-forward "
+                f"recompute contract."
+            )
+        super().__init__(**kwargs)
+
+    def forward(
+        self, tensor: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
+        """Compute qparams from ``tensor`` and return; no buffer state."""
+        self._resolve_axis(tensor.ndim)
+
+        min_val, max_val = self._get_min_and_max_val(tensor)
+
+        if not self._initialized:
+            self._compute_dtype_for_export = tensor.dtype
+            self._initialized = True
+
+        scale, zero_point, minval = self.compute_qparams(tensor, min_val, max_val)
+
+        # Plain-attribute (not buffer) assignment for debugging visibility.
+        # Shape-mobile across forwards; not in state_dict.
+        self.scale = scale.detach()
+        self.zero_point = zero_point.detach() if zero_point is not None else None
+        self.minval = minval.detach() if minval is not None else None
+
+        return scale, zero_point, minval
+
+    def set_export_mode(self, enabled: bool = True) -> None:
+        if enabled:
+            raise NotImplementedError(
+                "Stateless quantization (e.g. dynamic) does not support export mode; "
+                "qparams are input-dependent and cannot be frozen for export."
+            )
+        # ``enabled=False`` is a deliberate no-op: stateless calculators have no
+        # ``_export_mode`` attribute (defined only on StatefulQParamsCalculatorBase),
+        # and there is nothing to disable.
+
+
 @QParamsCalculatorBase.register("default")
 class _DefaultQParamsCalculator(QParamsCalculatorBase):
     """
@@ -399,11 +494,16 @@ class _DefaultQParamsCalculator(QParamsCalculatorBase):
             "based on quantization target (weight or activation)."
         )
 
+    def forward(
+        self, tensor: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
+        raise RuntimeError("_DefaultQParamsCalculator.forward() should never be called")
+
 
 @QParamsCalculatorBase.register("static")
-class StaticQParamsCalculator(QParamsCalculatorBase):
+class StaticQParamsCalculator(StatefulQParamsCalculatorBase):
     """
-    Computes scale and zero point using min/max values from the current tensor.
+    Computes scale/zero-point/minval using min/max values from the current tensor.
 
     This QParamsCalculator directly uses the min/max range from each forward pass to compute
     quantization parameters. So in that sense, it does not maintain any "history" and
@@ -421,6 +521,19 @@ class StaticQParamsCalculator(QParamsCalculatorBase):
     # which directly computes qparams from current min/max with no running state.
 
 
+@QParamsCalculatorBase.register("dynamic")
+class DynamicQParamsCalculator(StatelessQParamsCalculatorBase):
+    """
+    Dynamically computes scale/zero-point/minval from the current tensor every forward.
+
+    Typically used for activation quantization where activations vary per
+    inference and there is no calibration phase. Supports variable-shape scales
+    (e.g. LLM token-wise quantization with variable sequence length) since no
+    nn.Module buffers are allocated — see ``StatelessQParamsCalculatorBase``
+    for the full stateless contract.
+    """
+
+
 # ``# type: ignore`` comments are used where the mixin accesses
 # attributes and methods provided by ``QParamsCalculatorBase`` /
 # ``nn.Module``, which mypy cannot resolve from the mixin class alone.
@@ -436,7 +549,7 @@ class RunningRangeMixin:
     parameters but with different ways of updating the running statistics
     can override the ``update_running_range`` method.
 
-    Must appear before ``QParamsCalculatorBase`` in the MRO so that its
+    Must appear before ``StatefulQParamsCalculatorBase`` in the MRO so that its
     ``compute_qparams`` and ``_initialize_state``
     take precedence over the base-class defaults.
     """
@@ -492,7 +605,7 @@ class RunningRangeMixin:
 
 
 @QParamsCalculatorBase.register("moving_average")
-class MovingAverageQParamsCalculator(RunningRangeMixin, QParamsCalculatorBase):
+class MovingAverageQParamsCalculator(RunningRangeMixin, StatefulQParamsCalculatorBase):
     """
     Computes the scale and zero point using a moving average of the range.
 
@@ -546,7 +659,7 @@ class MovingAverageQParamsCalculator(RunningRangeMixin, QParamsCalculatorBase):
 
 
 @QParamsCalculatorBase.register("global_minmax")
-class GlobalMinMaxQParamsCalculator(RunningRangeMixin, QParamsCalculatorBase):
+class GlobalMinMaxQParamsCalculator(RunningRangeMixin, StatefulQParamsCalculatorBase):
     """Computes scale and zero point by tracking the running min/max.
 
     Maintains ``running_min`` and ``running_max`` buffers that are updated each

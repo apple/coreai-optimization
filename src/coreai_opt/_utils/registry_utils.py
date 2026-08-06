@@ -71,6 +71,39 @@ class ClassRegistryMixin(RegistryMixin):
     def get_class(cls, key: Any) -> Any:
         return cls._get_object(key)
 
+    @classmethod
+    def resolve(cls, data: str | type) -> type:
+        """Resolve a string key or class type against this registry.
+
+        Args:
+            data (str | type): Either a string key registered in the registry, or a
+                class type. If a class is given, it is returned unchanged provided
+                it is one of the registered values.
+
+        Returns:
+            type: The registered class corresponding to ``data``.
+
+        Raises:
+            ValueError: If ``data`` is a string not registered as a key, or a class
+                that is not registered as a value.
+        """
+        if isinstance(data, str):
+            if data in cls.REGISTRY:
+                return cls.get_class(data)  # type: ignore[no-any-return]
+            raise ValueError(
+                f"No class is registered with key: '{data}' "
+                f"in registry {cls.__name__}. "
+                f"Available keys: {sorted(cls.list_registry_keys())}"
+            )
+        if data in cls.list_registry_values():
+            return data
+        name = getattr(data, "__name__", data)
+        available_classes = sorted(c.__name__ for c in cls.list_registry_values())
+        raise ValueError(
+            f"{name} is not a registered class in {cls.__name__}. "
+            f"Available classes: {available_classes}"
+        )
+
 
 class FunctionRegistryMixin(RegistryMixin):
     @classmethod

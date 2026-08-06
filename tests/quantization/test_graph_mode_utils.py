@@ -4,11 +4,16 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 from functools import wraps
+from unittest.mock import MagicMock
 
+import pytest
 import torch
 import torch.nn as nn
 
 from coreai_opt.quantization import Quantizer, QuantizerConfig
+from coreai_opt.quantization._graph._annotation_utils import (
+    _get_call_function_node_from_partition,
+)
 from coreai_opt.quantization._graph._utils import (
     _has_no_disallowed_kwargs,
     restore_kwargs,
@@ -178,3 +183,58 @@ class TestStripAndRestoreKwargs:
 
         restore_kwargs(graph, saved)
         assert custom_node.kwargs == metadata
+
+
+class TestGetCallFunctionNodeFromPartition:
+    def test_single_node_returns_node(self):
+        """Single call_function node in partition is returned successfully."""
+        node = MagicMock()
+        node.op = "call_function"
+        partition = MagicMock()
+        partition.nodes = [node]
+
+        result = _get_call_function_node_from_partition(partition)
+        assert result is node
+
+    def test_multi_node_error_includes_module_name(self):
+        """Multi-node partition error includes module name from nn_module_stack."""
+        module_fqn = "encoder.layer.0.attention.self"
+        nodes = []
+        for _ in range(3):
+            node = MagicMock()
+            node.op = "call_function"
+            node.meta = {"nn_module_stack": {"key": (module_fqn, type)}}
+            nodes.append(node)
+
+        partition = MagicMock()
+        partition.nodes = nodes
+
+        with pytest.raises(RuntimeError, match=module_fqn):
+            _get_call_function_node_from_partition(partition)
+
+    def test_multi_node_error_suggests_module_name_configs(self):
+        """Multi-node partition error suggests using module_name_configs."""
+        node = MagicMock()
+        node.op = "call_function"
+        node.meta = {"nn_module_stack": {"key": ("model.layer1", type)}}
+
+        partition = MagicMock()
+        partition.nodes = [node, node]
+
+        with pytest.raises(RuntimeError, match="module_name_configs"):
+            _get_call_function_node_from_partition(partition)
+
+    def test_multi_node_error_without_module_stack(self):
+        """Multi-node partition error still works without nn_module_stack."""
+        nodes = []
+        for _ in range(2):
+            node = MagicMock()
+            node.op = "call_function"
+            node.meta = {}
+            nodes.append(node)
+
+        partition = MagicMock()
+        partition.nodes = nodes
+
+        with pytest.raises(RuntimeError, match="Expected exactly 1 call function node"):
+            _get_call_function_node_from_partition(partition)

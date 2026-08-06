@@ -31,17 +31,22 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 dependencies = [
-    "coremltools>=8.3",
-    "numpy>=2,<2.4",              # TODO: Remove once coremltools has released a version > 9.0
+    # Required at runtime by torch.utils.cpp_extension to JIT-compile the vendored
+    # kmeans1d C++ core (a C++ toolchain must also be present on the host).
+    "ninja>=1.11",
+    "numpy>=2",
     "pydantic>=2.0.0",
+    "pyyaml>=6.0",
     "rich>=13.0.0",
     "safetensors>=0.5.3,<=0.7.0",
+    # Required at runtime by torch.utils.cpp_extension
+    "setuptools>=42",
     # PyTorch >= 2.9.0 requires torchao >= 0.15.0
     # Python's standard dependency specification (PEP 508) doesn't support conditional dependencies
     # based on other package versions. We can either 1) add a stricter check to require the newer torchao
     # version for everyone, or 2) add a runtime check in src/coreai_opt/init.py to ensure torchao
     # version >= 0.15.0 for torch version >= 2.9.0. Opting option 1.
-    # These torch versions must be in bounds of lowest_tested_torch and highest_tested_torch
+    # These torch versions must be in bounds of torch_2_8, torch_2_9, torch_2_10, and torch_2_11
     "torch>=2.8.0,<=2.11.0",
     "torchao>=0.15.0,<=0.17.0",
     "tqdm>=4.65",
@@ -51,8 +56,12 @@ name = "Apple Core AI Optimization Team"
 [project.optional-dependencies]
 coreai = [
     "coreai-core==1.0.0b2",
-    "coreai-torch>=0.4.0",
+    "coreai-torch>=0.4.1",
     "scikit-learn>=1.7.2",
+]
+coreml = [
+    "coremltools>=8.3",
+    "numpy>=2,<2.4",    # TODO: Remove once coremltools has released a version > 9.0
 ]
 [project.urls]
 Changelog = "https://github.com/apple/coreai-optimization/blob/main/CHANGELOG.md"
@@ -75,7 +84,7 @@ dev = [
 ]
 test = [
     "junitparser>=4.0.2",
-    "pytest>=7.0.0",
+    "pytest>=9.0.0",
     "pytest-cov>=4.0.0",
     "pytest-xdist>=3.0.0",
 ]
@@ -89,28 +98,15 @@ docs = [
     "sphinx-copybutton==0.5.2",
     "sphinx-llm==0.3.0",
     "sphinxcontrib-mermaid==1.0.0",
-    { include-group = "stable-coreai" },
+    { include-group = "coreai" },
 ]
-# Used in CI to force latest mimimum supported torch version
-# These torch versions must be in bounds of torch versions listed in project dependencies
-highest_tested_torch = [
-    "torch==2.11.0",
-    "torchao==0.17.0",
-    "torchvision==0.26.0",
-]
-# Latest CoreAI nightly
-latest-coreai = [
-    "coreai-core",
-    "coreai-torch",
-    "scikit-learn>=1.7.2",
-]
-# Used in CI to force lowest mimimum supported torch version
-# These torch versions must be in bounds of torch versions listed in project dependencies
-lowest_tested_torch = [
-    "torch==2.8.0",
-    "torchao==0.15.0",
-    "torchvision==0.23.0",
-]
+# `coreai` group mirrors the `coreai` optional-dependency (extra) so `uv sync`
+# installs CoreAI by default (see tool.uv.default-groups). The extra is the
+# single source of truth; this group self-references it to avoid duplicating the
+# package list.
+# This applies to the `coreml` group as well.
+coreai = [ "coreai-opt[coreai]" ]
+coreml = [ "coreai-opt[coreml]" ]
 pre-commit = [
     "bashate>=2.1.1",
     "darker>=3.0.0",
@@ -133,13 +129,28 @@ pre-commit = [
     "toml-sort>=0.24.3",
     "tomli-w>=1.0.0",
 ]
-# TODO: deduplicate coreai dependencies across groups
-stable-coreai = [
-    "coreai-core==1.0.0b2",
-    "coreai-torch>=0.4.0",
-    "scikit-learn>=1.7.2",
-]
 tamm-export = []
+# These torch versions must be in bounds of torch versions listed in project dependencies
+torch_2_10 = [
+    "torch==2.10.0",
+    "torchao==0.16.0",
+    "torchvision==0.25.0",
+]
+torch_2_11 = [
+    "torch==2.11.0",
+    "torchao==0.17.0",
+    "torchvision==0.26.0",
+]
+torch_2_8 = [
+    "torch==2.8.0",
+    "torchao==0.15.0",
+    "torchvision==0.23.0",
+]
+torch_2_9 = [
+    "torch==2.9.1",
+    "torchao==0.15.0",
+    "torchvision==0.24.1",
+]
 # Since torch and torchao are project dependencies, we need to include torchvision in dev
 # This allows standard `make test` to find torchvision
 torchvision = [
@@ -151,7 +162,8 @@ tutorial = [
     "nbconvert>=7.17.1",
     "papermill>=2.7.0",
     "torchinfo>=1.8.0",
-    { include-group = "stable-coreai" },
+    { include-group = "coreai" },
+    { include-group = "coreml" },
     { include-group = "torchvision" },
 ]
 
@@ -160,14 +172,14 @@ package-dir = { "" = "src" }
 [tool.setuptools.dynamic]
 version = { attr = "coreai_opt._about.__version__" }
 [tool.setuptools.package-data]
-coreai_opt = [ "py.typed" ]
+coreai_opt = [ "deps/_kmeans1d/_core.cpp", "deps/_kmeans1d/LICENSE", "py.typed" ]
 [tool.setuptools.packages]
 find.exclude = [ "coreai_opt_benchmarking*", "tests*" ]
 find.where = [ "src" ]
 
 # make env group installed by default with uv sync
 [tool.uv]
-default-groups = [ "dev", "stable-coreai" ]
+default-groups = [ "dev", "coreai", "coreml" ]
 index = [
     { explicit = true, name = "pytorch-cpu", url = "https://download.pytorch.org/whl/cpu" },
     { explicit = true, name = "pytorch-cu128", url = "https://download.pytorch.org/whl/cu128" },
@@ -177,19 +189,18 @@ environments = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
+# Security: only install distributions on PyPI for at least 3 days, giving
+# malicious uploads time to be detected and yanked before they reach CI.
+# coreai-core/coreai-torch are exempted (false) so CI tests their latest releases.
+exclude-newer = "3 days"
+exclude-newer-package = { coreai-core = false, coreai-torch = false }
 # Declare conflicting groups so uv does not error
 conflicts = [
     [
-        { group = "highest_tested_torch" },
-        { group = "lowest_tested_torch" },
-    ],
-    [
-        { group = "stable-coreai" },
-        { group = "latest-coreai" },
-    ],
-    [
-        { extra = "coreai" },
-        { group = "latest-coreai" },
+        { group = "torch_2_8" },
+        { group = "torch_2_9" },
+        { group = "torch_2_10" },
+        { group = "torch_2_11" },
     ],
 ]
 [tool.uv.sources]
@@ -282,6 +293,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 norecursedirs = [ ".oss-export" ]
+strict = true
 testpaths = [ "tests" ]
 
 [tool.towncrier]

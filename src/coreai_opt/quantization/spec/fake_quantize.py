@@ -28,11 +28,11 @@ from coreai_opt._utils.torch_utils import (
 from coreai_opt.config.spec import CompressionSimulatorBase, CompressionTargetTensor
 from coreai_opt.quantization._utils import get_quantization_shapes as _get_quantization_shapes
 from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
+from coreai_opt.quantization.spec.qscheme import QuantizationScheme
 
 from .granularity import QuantizationGranularity
 from .qformulation import QuantizationFormulation
-from .qparams_calculator import QParamsCalculatorBase
-from .qscheme import QuantizationScheme
+from .qparams_calculator import QParamsCalculatorBase, StatelessQParamsCalculatorBase
 
 __all__ = ["FakeQuantizeImplBase"]
 
@@ -47,33 +47,39 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
     def __init__(
         self,
         dtype: torch.dtype,
-        qscheme: QuantizationScheme,
         qformulation: QuantizationFormulation,
         granularity: QuantizationGranularity,
         target_dtype: torch.dtype,
         quant_min: int | float,
         quant_max: int | float,
         qparams_calculator: QParamsCalculatorBase,
-        quantization_target: CompressionTargetTensor,
         n_bits: int | None = None,
         **kwargs,
     ):
         super().__init__()
         self.dtype = dtype
-        self.qscheme = qscheme
         self.qformulation = qformulation
         self._granularity = granularity
         self.target_dtype = target_dtype
         self.quant_min = quant_min
         self.quant_max = quant_max
         self.qparams_calculator = qparams_calculator
-        self.quantization_target = quantization_target
         self.register_buffer("_disabled", torch.tensor(False))
 
         # Infer n_bits from dtype if not provided
         if n_bits is None:
             n_bits = _get_n_bits_from_dtype(dtype)
         self.n_bits = n_bits
+
+    @property
+    def qscheme(self) -> QuantizationScheme:
+        """The quantization scheme, delegated to the qparams_calculator."""
+        return self.qparams_calculator.qscheme
+
+    @property
+    def quantization_target(self) -> CompressionTargetTensor:
+        """Getter for quantization target."""
+        return self.qparams_calculator.quantization_target
 
     @property
     def granularity(self) -> QuantizationGranularity:
@@ -97,6 +103,30 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
     def is_disabled(self) -> bool:
         """Return True if fake quantization has been disabled."""
         return self._disabled.item()
+
+    def disable_observer(self) -> None:
+        """Disable the observer, unless the qparams calculator is stateless.
+
+        Applies to **any** caller (direct, ``apply(disable_observer)``,
+        ``convert_pt2e``, QAT scheduling). Stateless calculators recompute per
+        forward and need ``observer_enabled=1`` permanently — ``forward`` uses
+        that flag to route between live recompute and the stateful
+        ``get_qparams()`` cache (which stateless doesn't have).
+        """
+        if isinstance(self.qparams_calculator, StatelessQParamsCalculatorBase):
+            return
+        super().disable_observer()
+
+    def enable_observer(self, enabled: bool = True) -> None:
+        """Inverse of ``disable_observer``: ignore ``enabled=False`` when the
+        qparams calculator is stateless. Covers callers that invoke
+        ``enable_observer(False)`` directly (e.g. the QAT scheduler at
+        ``quantizer.py:_maybe_apply_qat_schedule``); ``disable_observer()``
+        itself routes through the override above.
+        """
+        if not enabled and isinstance(self.qparams_calculator, StatelessQParamsCalculatorBase):
+            return
+        super().enable_observer(enabled)
 
     def _warn_and_disable(self, error: _BlockSizeMismatchError) -> None:
         """Log a warning and permanently disable this module."""
@@ -332,7 +362,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
 
         This function quantizes the values in tensor but keeps the quantized tensor dtype in FP.
         """
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -357,7 +387,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         output_dtype: torch.dtype,
     ) -> torch.Tensor:
         """Integer dequantization. See :func:`_dequantize_int` for the math."""
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -379,7 +409,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         """
         Floating-point quantization: cast_to_low_precision(clamp(input / scale, min, max))
         """
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -400,7 +430,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         output_dtype: torch.dtype,
     ) -> torch.Tensor:
         """Floating-point dequantization: input * scale"""
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -422,7 +452,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
 
         Dispatches to the int or float fused STE class based on self.dtype.
         """
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )

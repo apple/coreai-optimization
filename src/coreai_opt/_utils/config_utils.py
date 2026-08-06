@@ -4,13 +4,57 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 """Utilities for config related items"""
+
 from __future__ import annotations
 
+import logging
+from collections.abc import Iterable, Mapping
 from enum import Enum, auto
 from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # Constant representing all tensors for an input/output/state spec
 ALL_TENSORS = "*"
+
+
+def get_last_matching_spec(
+    identifiers: Iterable[int | str],
+    spec_dict: Mapping[int | str, Any],
+) -> tuple[Any, bool]:
+    """Return the last value in ``spec_dict`` whose key matches any identifier.
+
+    Iterates ``spec_dict`` keys in declaration order, tracking the last match.
+    Later-declared keys take precedence over earlier ones. Falls back to the
+    ``"*"`` wildcard key if no specific match is found. Warns when multiple
+    keys match. Returns ``(value, True)`` on match — value may be ``None`` if
+    the entry is explicit-None to disable. Returns ``(None, False)`` if no key
+    matched at all.
+    """
+    identifiers_set = set(identifiers)
+    matching_keys: list[int | str] = []
+    last_value = None
+    found = False
+    for key, value in spec_dict.items():
+        if key in identifiers_set:
+            matching_keys.append(key)
+            last_value = value
+            found = True
+    if found:
+        if len(matching_keys) > 1:
+            logger.warning(
+                "Multiple spec keys matched for identifiers %s against spec keys %s: "
+                "%s. Using the last matching key '%s'.",
+                list(identifiers_set),
+                list(spec_dict.keys()),
+                matching_keys,
+                matching_keys[-1],
+            )
+        return last_value, True
+    if ALL_TENSORS in spec_dict:
+        return spec_dict[ALL_TENSORS], True
+    return None, False
 
 
 def is_yaml_file(file_path: Path) -> bool:
@@ -18,7 +62,7 @@ def is_yaml_file(file_path: Path) -> bool:
     Returns True if file_path points to a file ending in .yaml or .yml suffix, False
     otherwise.
     """
-    return file_path.is_file() and file_path.suffix.lower() in ['.yaml', '.yml']
+    return file_path.is_file() and file_path.suffix.lower() in [".yaml", ".yml"]
 
 
 class ConfigLevel(Enum):
@@ -31,6 +75,7 @@ class ConfigLevel(Enum):
     - MODULE_TYPE: Applied to specific module types (e.g., all Conv2d)
     - GLOBAL: Applied to all modules
     """
+
     MODULE_NAME = auto()
     MODULE_TYPE = auto()
     GLOBAL = auto()

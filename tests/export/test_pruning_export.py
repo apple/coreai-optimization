@@ -12,7 +12,7 @@ import torch.nn as nn
 from coreai_opt import ExportBackend
 from coreai_opt.pruning import MagnitudePruner, MagnitudePrunerConfig
 from coreai_opt.pruning.spec import ChannelStructured
-from tests.conftest import ParametrizedPruneConfigs
+from tests.fixtures.pruning import ParametrizedPruneConfigs
 
 from . import export_utils
 

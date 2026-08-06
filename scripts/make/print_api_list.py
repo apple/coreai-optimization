@@ -20,7 +20,7 @@ Usage:
 
     # Inspect a single module (dotted name or file path):
     python scripts/make/print_api_list.py coreai_opt.quantization.spec.spec
-    python scripts/make/print_api_list.py src/coreai_opt/quantization/spec/spec.py
+    python scripts/make/print_api_list.py path/to/module.py
     make api-list MODULE=coreai_opt.quantization.spec.spec
 """
 

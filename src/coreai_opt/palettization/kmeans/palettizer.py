@@ -45,7 +45,10 @@ from coreai_opt.palettization.spec.fake_palettize import (
     _enable_observer,
 )
 
-from ._prepare_for_export import prepare_for_mil_export, prepare_for_mlir_export
+from ._prepare_for_export import (
+    prepare_for_mil_export as _prepare_for_mil_export,
+    prepare_for_mlir_export as _prepare_for_mlir_export,
+)
 from .kmeans_fake_palettize import _KMeansFakePalettize
 from .supported_ops_registry import _KMeansPalettizerSupportedOpsRegistry
 
@@ -143,6 +146,11 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
         self._num_workers = 1
 
+    @classmethod
+    def get_op_type_resolver(cls) -> Callable[[Callable], str | None]:
+        """Return a function that maps a torch function to its palettizable op type."""
+        return _KMeansPalettizerSupportedOpsRegistry.get_func_type
+
     def prepare(
         self,
         example_inputs: tuple[torch.Tensor],
@@ -199,7 +207,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 f"Loading precomputed sensitivities from {sensitivity_path} "
                 "for weighted k-means clustering"
             )
-            sensitivities = torch.load(sensitivity_path)
+            sensitivities = torch.load(sensitivity_path, weights_only=True)
             self._set_sensitivities_in_fake_palettize_modules(sensitivities)
 
         self._model.apply(_enable_observer)
@@ -400,10 +408,10 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 pass
 
             case ExportBackend.CoreAI:
-                finalized_model = prepare_for_mlir_export(finalized_model, mmap_dir=mmap_dir)
+                finalized_model = _prepare_for_mlir_export(finalized_model, mmap_dir=mmap_dir)
 
             case ExportBackend.CoreML:
-                finalized_model = prepare_for_mil_export(finalized_model)
+                finalized_model = _prepare_for_mil_export(finalized_model)
 
             case _:
                 msg = f"Unsupported backend: {backend}"

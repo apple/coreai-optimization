@@ -13,11 +13,26 @@ from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
-from .types import ModelSummary, ModuleInfo, OpInfo
+from .types import InputEdge, ModelSummary, ModuleInfo, OpInfo
 
 _FRAMEWORK_PATH_MARKERS = ("torch/nn/modules/", "torch/nn/functional", "torch/_")
 
-_LEGEND = "Legend:  ■ module_name (module_type)  ◆ op_name [op_type]"
+_LEGEND = (
+    "Legend:\n"
+    "  ■ module_name (module_type)  ◆ op_name [op_type]\n"
+    "\n"
+    "  op inputs:  {I: producer[N]}  —  I = op_input_spec index;"
+    " N = output slot of the producing op\n"
+    "  op states:     param_name    —  model parameter or buffer\n"
+    "  op outputs: {N: [consumers]} —  N = output slot index;"
+    " consumers = ops receiving that output\n"
+    "  untracked_N                  —  input tensor whose producer was not intercepted"
+    " (e.g. raw attribute or global tensor); still quantizable via op_input_spec\n"
+    "  module inputs:  {I: [op[N], ...]}  —  I = module_input_spec index;"
+    " op[N] = op and its input slot receiving data from outside; absent keys = non-quantizable\n"
+    "  module outputs: {I: op[N]}         —  I = module_output_spec index;"
+    " op[N] = op and its output slot leaving the module; absent keys = non-quantizable"
+)
 
 
 def _source_for_op(op: OpInfo) -> tuple[str, str]:
@@ -37,6 +52,17 @@ def _source_for_op(op: OpInfo) -> tuple[str, str]:
     return f"{rel_path}:{frame.lineno}", frame.code_context
 
 
+def _producer_output_label(inp: InputEdge) -> str:
+    """Return the display label for one input edge.
+
+    When ``output_idx`` is ``None`` (registered states, ephemeral/untracked tensors)
+    only the name is shown. Otherwise the output slot index is appended: ``name[N]``.
+    """
+    if inp.output_idx is None:
+        return inp.op_name
+    return f"{inp.op_name}[{inp.output_idx}]"
+
+
 def _styled_op_label(op: OpInfo) -> Text:
     """Build the styled multi-line label for an op leaf node."""
     label = Text()
@@ -49,17 +75,28 @@ def _styled_op_label(op: OpInfo) -> Text:
     label.append(op_type_str, style="yellow")
     label.append("]")
 
-    # Line 2: op inputs
-    if op.inputs:
-        input_names = ", ".join(inp.op_name for inp in op.inputs)
-        label.append(f"\n  op inputs:  {input_names}")
+    # Line 2: op inputs as {arg_idx: producer_label}, excluding states.
+    # arg_idx is the full positional index (matching op_input_spec), not the filtered position.
+    non_state_input_items = [(i, inp) for i, inp in enumerate(op.inputs) if not inp.is_state]
+    if non_state_input_items:
+        parts = ", ".join(f"{i}: {_producer_output_label(inp)}" for i, inp in non_state_input_items)
+        label.append(f"\n  op inputs:  {{{parts}}}")
 
-    # Line 3: op outputs
+    # Line 3: op states
+    op_state_names = [inp._display_name for inp in op.inputs if inp.is_state]
+    if op_state_names:
+        state_names = ", ".join(name for name in op_state_names)
+        label.append(f"\n  op states:  {state_names}")
+
+    # Line 4: op outputs
     if op.outputs:
-        output_names = ", ".join(out.op_name for out in op.outputs)
-        label.append(f"\n  op outputs: {output_names}")
+        parts = ", ".join(
+            f"{idx}: [{', '.join(out.op_name for out in consumers)}]"
+            for idx, consumers in sorted(op.outputs.items())
+        )
+        label.append(f"\n  op outputs: {{{parts}}}")
 
-    # Lines 4-5: source
+    # Lines 5-6: source
     source_path, source_code = _source_for_op(op)
     if source_path:
         label.append(f"\n  filepath:  {source_path}", style="dim")
@@ -67,6 +104,21 @@ def _styled_op_label(op: OpInfo) -> Text:
             label.append(f"\n  code:      {source_code}", style="dim")
 
     return label
+
+
+def _format_input_ops(input_ops: dict) -> str:
+    """Format module input_ops dict as '{I: [op[N], ...], ...}'."""
+    parts = []
+    for k, edges in sorted(input_ops.items()):
+        edge_strs = [f"{e.op.op_name}[{e.index}]" for e in edges]
+        parts.append(f"{k}: [{', '.join(edge_strs)}]")
+    return "{" + ", ".join(parts) + "}"
+
+
+def _format_output_ops(output_ops: dict) -> str:
+    """Format module output_ops dict as '{I: op[N], ...}'."""
+    parts = [f"{k}: {e.op.op_name}[{e.index}]" for k, e in sorted(output_ops.items())]
+    return "{" + ", ".join(parts) + "}"
 
 
 def _styled_module_label(module: ModuleInfo) -> Text:
@@ -78,11 +130,9 @@ def _styled_module_label(module: ModuleInfo) -> Text:
     label.append(module.module_type, style="magenta")
     label.append(")")
     if module.input_ops:
-        input_names = ", ".join(op.op_name for op in module.input_ops)
-        label.append(f"\n    module inputs:  {input_names}", style="dim")
+        label.append(f"\n    module inputs:  {_format_input_ops(module.input_ops)}", style="dim")
     if module.output_ops:
-        output_names = ", ".join(op.op_name for op in module.output_ops)
-        label.append(f"\n    module outputs: {output_names}", style="dim")
+        label.append(f"\n    module outputs: {_format_output_ops(module.output_ops)}", style="dim")
     return label
 
 
@@ -120,11 +170,13 @@ def format_model_summary(summary: ModelSummary, colorize: bool | None = None) ->
     root_label.append(summary.model.module_type, style="magenta")
     root_label.append(")")
     if summary.model.input_ops:
-        input_names = ", ".join(op.op_name for op in summary.model.input_ops)
-        root_label.append(f"\n    module inputs:  {input_names}", style="dim")
+        root_label.append(
+            f"\n    module inputs:  {_format_input_ops(summary.model.input_ops)}", style="dim"
+        )
     if summary.model.output_ops:
-        output_names = ", ".join(op.op_name for op in summary.model.output_ops)
-        root_label.append(f"\n    module outputs: {output_names}", style="dim")
+        root_label.append(
+            f"\n    module outputs: {_format_output_ops(summary.model.output_ops)}", style="dim"
+        )
 
     tree = Tree(root_label)
     _render_tree(summary.model, tree)
