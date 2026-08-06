@@ -194,6 +194,7 @@ environments = [
 # malicious uploads time to be detected and yanked before they reach CI.
 # coreai-core/coreai-torch are exempted (false) so CI tests their latest releases.
 exclude-newer = "3 days"
+exclude-newer-package = { coreai-core = false, coreai-torch = false }
 # Declare conflicting groups so uv does not error
 conflicts = [
     [
