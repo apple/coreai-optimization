@@ -13,11 +13,13 @@ from torchao.quantization.pt2e import allow_exported_model_train_eval
 
 from coreai_opt._utils.fx_utils import normalize_module_fqn
 from coreai_opt._utils.torch_utils import (
+    ATEN_OP_TO_MODULE_TYPE,
     mmap_module_state_dict,
     move_model_to_eval,
     move_model_to_train,
     normalize_axis,
 )
+from coreai_opt._utils.version_utils import version_ge
 
 
 class TestMoveModelContextManagers:
@@ -163,3 +165,63 @@ class TestMmapModuleStateDict:
 
         with pytest.raises(ValueError, match="requires CPU tensors"):
             mmap_module_state_dict(model, tmp_path / "model.safetensors")
+
+
+class TestAtenOpToModuleType:
+    """Tests for ATEN_OP_TO_MODULE_TYPE overload correctness across torch versions.
+
+    Regression test for: conv_transpose2d/3d were mapped to the `.input` overload
+    which was deprecated in PyTorch 2.9. The mapping must use `.default` as the
+    primary key while retaining the `.input` alias for backward compat on < 2.9.
+    """
+
+    @staticmethod
+    def test_conv_transpose2d_default_overload_present():
+        """conv_transpose2d.default must always be in the mapping (torch >= 2.9 primary path)."""
+        assert torch.ops.aten.conv_transpose2d.default in ATEN_OP_TO_MODULE_TYPE
+        assert ATEN_OP_TO_MODULE_TYPE[torch.ops.aten.conv_transpose2d.default] is nn.ConvTranspose2d
+
+    @staticmethod
+    def test_conv_transpose3d_default_overload_present():
+        """conv_transpose3d.default must always be in the mapping (torch >= 2.9 primary path)."""
+        assert torch.ops.aten.conv_transpose3d.default in ATEN_OP_TO_MODULE_TYPE
+        assert ATEN_OP_TO_MODULE_TYPE[torch.ops.aten.conv_transpose3d.default] is nn.ConvTranspose3d
+
+    @staticmethod
+    def test_conv_transpose2d_input_overload_compat():
+        """conv_transpose2d.input alias is present on torch < 2.9 for backward compat.
+
+        On torch >= 2.9 the `.input` overload may not exist at all; the test is
+        skipped in that case since the `.default` path fully covers those versions.
+        """
+        if not version_ge(torch, "2.9"):
+            # On < 2.9 the .input overload exists and must also resolve to ConvTranspose2d
+            assert torch.ops.aten.conv_transpose2d.input in ATEN_OP_TO_MODULE_TYPE
+            assert ATEN_OP_TO_MODULE_TYPE[torch.ops.aten.conv_transpose2d.input] is nn.ConvTranspose2d
+        else:
+            # On >= 2.9 the .input overload may be absent; that's expected and fine
+            pytest.skip("conv_transpose2d.input overload not expected on torch >= 2.9")
+
+    @staticmethod
+    def test_conv_transpose3d_input_overload_compat():
+        """conv_transpose3d.input alias is present on torch < 2.9 for backward compat."""
+        if not version_ge(torch, "2.9"):
+            assert torch.ops.aten.conv_transpose3d.input in ATEN_OP_TO_MODULE_TYPE
+            assert ATEN_OP_TO_MODULE_TYPE[torch.ops.aten.conv_transpose3d.input] is nn.ConvTranspose3d
+        else:
+            pytest.skip("conv_transpose3d.input overload not expected on torch >= 2.9")
+
+    @staticmethod
+    def test_all_other_ops_unaffected():
+        """Sanity-check that unrelated ops in the mapping were not disturbed."""
+        expected = {
+            torch.ops.aten.conv1d.default: nn.Conv1d,
+            torch.ops.aten.conv2d.default: nn.Conv2d,
+            torch.ops.aten.conv3d.default: nn.Conv3d,
+            torch.ops.aten.conv_transpose1d.default: nn.ConvTranspose1d,
+            torch.ops.aten.linear.default: nn.Linear,
+            torch.ops.aten.embedding.default: nn.Embedding,
+        }
+        for op, module_type in expected.items():
+            assert op in ATEN_OP_TO_MODULE_TYPE
+            assert ATEN_OP_TO_MODULE_TYPE[op] is module_type
