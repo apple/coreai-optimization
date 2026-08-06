@@ -44,7 +44,7 @@ from coreai_opt.quantization.spec import (
     default_activation_quantization_spec,
     default_weight_quantization_spec,
 )
-from tests.conftest import make_graph_mode_ptq_config
+from tests.fixtures.quantization import make_graph_mode_ptq_config
 from tests.models.composite import (
     CompositeRMSNormModel,
     CompositeRMSNormOnlyModel,

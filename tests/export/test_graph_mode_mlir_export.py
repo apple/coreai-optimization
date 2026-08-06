@@ -27,11 +27,13 @@ from coreai_opt.quantization.spec import (
     QuantizationFormulation,
     QuantizationScheme,
 )
-from tests.conftest import make_graph_mode_ptq_config
 from tests.fixtures.compression import ParametrizedP4A8CompressionConfigs
 from tests.fixtures.fp4 import ParametrizedFP4Configs
 from tests.fixtures.fp8 import ParametrizedFP8Configs
-from tests.fixtures.quantization import ParametrizedQuantConfigs
+from tests.fixtures.quantization import (
+    ParametrizedQuantConfigs,
+    make_graph_mode_ptq_config,
+)
 from tests.models.composite import CompositeRMSNormModel, CompositeSDPAModel
 
 from . import export_utils

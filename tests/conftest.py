@@ -20,11 +20,6 @@ import numpy as np
 import pytest
 import torch
 
-from coreai_opt.quantization import ModuleQuantizerConfig, QuantizerConfig
-from coreai_opt.quantization.spec import (
-    default_activation_quantization_spec,
-    default_weight_quantization_spec,
-)
 from tests.utils import test_artifact_path
 
 pytest_plugins = [
@@ -61,27 +56,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Anything other than 'interpreter' unsets USE_LOCAL_COREAI so the OS\n"
             "runtime is used."
         ),
-    )
-
-
-def make_graph_mode_ptq_config(*, quantize_activations: bool) -> QuantizerConfig:
-    """Build a graph-mode w8 (weight-only) or w8a8 PTQ QuantizerConfig.
-
-    Args:
-        quantize_activations (bool): True for w8a8, False for w8 weight-only.
-
-    Returns:
-        QuantizerConfig: Config with the default weight spec globally, plus the
-            default activation spec on every op input/output when requested.
-    """
-    activation_spec = default_activation_quantization_spec() if quantize_activations else None
-    return QuantizerConfig(
-        global_config=ModuleQuantizerConfig(
-            op_state_spec={"weight": default_weight_quantization_spec()},
-            op_input_spec={"*": activation_spec} if activation_spec else None,
-            op_output_spec={"*": activation_spec} if activation_spec else None,
-        ),
-        execution_mode="graph",
     )
 
 
