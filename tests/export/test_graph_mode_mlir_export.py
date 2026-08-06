@@ -9,6 +9,8 @@ from collections.abc import Mapping
 
 import pytest
 import torch
+from coreai_torch import ExternalizeSpec, _patch_model_for_externalization
+from coreai_torch.composite_ops import SDPA, RMSNormImpl
 
 from coreai_opt import ExportBackend
 from coreai_opt.palettization.kmeans import KMeansPalettizer
@@ -29,7 +31,9 @@ from tests.conftest import (
     ParametrizedFP8Configs,
     ParametrizedP4A8CompressionConfigs,
     ParametrizedQuantConfigs,
+    make_graph_mode_ptq_config,
 )
+from tests.models.composite import CompositeRMSNormModel, CompositeSDPAModel
 
 from . import export_utils
 
@@ -418,4 +422,94 @@ def test_integer_quant_minval_export(
             "quantize": 4 if has_activation_quant else 0,
             "dequantize": 4 if has_activation_quant else 0,
         },
+    )
+
+
+# Composite-op externalize export coverage
+
+
+@pytest.mark.parametrize(
+    "quantize_activations, expected_quantize_count",
+    [
+        pytest.param(False, 0, id="w8-weight-only"),
+        pytest.param(True, 4, id="w8a8"),
+    ],
+)
+@pytest.mark.parametrize(
+    "model_cls, externalize_spec",
+    [
+        pytest.param(
+            CompositeRMSNormModel,
+            ExternalizeSpec(
+                target_class=RMSNormImpl,
+                composite_op_name="rms_norm",
+                composite_attrs=["axes", "eps"],
+            ),
+            id="rmsnorm",
+        ),
+        pytest.param(
+            CompositeSDPAModel,
+            ExternalizeSpec(
+                target_class=SDPA,
+                composite_op_name="scaled_dot_product_attention",
+                composite_attrs=["scale", "is_causal", "window_size"],
+            ),
+            id="sdpa",
+        ),
+    ],
+)
+def test_composite_externalize_export(
+    model_cls: type[torch.nn.Module],
+    externalize_spec: ExternalizeSpec,
+    quantize_activations: bool,
+    expected_quantize_count: int,
+) -> None:
+    """End-to-end CoreAI export of a model with an externalized composite op.
+
+    Marks the composite op for externalization, runs graph-mode PTQ
+    (w8 weight-only or w8a8), then lowers the finalized graph to a
+    .aimodel and runs it. ``convert_and_verify`` handles SNR / PSNR
+    on the runtime output and op-count verification on the exported
+    program (``constexpr_blockwise_shift_scale`` for weight quantizers
+    and ``quantize`` / ``dequantize`` for activation quantizers).
+
+    Both models wrap their composite in two Linears, so the op counts are
+    identical across the RMSNorm and SDPA cases: the composite itself is
+    opaque and contributes no quantizers of its own under a global config.
+
+    ``externalize_model`` is forwarded through ``convert_and_verify``'s
+    ``**converter_kwargs`` so the MLIR converter runs
+    ``_subexport_and_restore(model, ep)`` and sees the opaque composite
+    during ``TorchConverter.add_exported_program``.
+    """
+    model = model_cls().eval().half()
+    input_data = torch.randn(2, 4, 32, dtype=torch.float16)
+
+    _patch_model_for_externalization(model, [externalize_spec])
+
+    quantizer = Quantizer(
+        model, make_graph_mode_ptq_config(quantize_activations=quantize_activations)
+    )
+    prepared_model = quantizer.prepare((input_data,))
+
+    if quantize_activations:
+        with quantizer.calibration_mode(), torch.no_grad():
+            prepared_model(input_data)
+
+    with torch.no_grad():
+        prepared_model_output = prepared_model(input_data)
+
+    finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI)
+
+    export_utils.convert_and_verify(
+        finalized_model=finalized_model,
+        input_data=input_data,
+        expected_ops={
+            "constexpr_blockwise_shift_scale": 2,
+            "quantize": expected_quantize_count,
+            "dequantize": expected_quantize_count,
+        },
+        export_backend=ExportBackend.CoreAI,
+        prepared_model_output=prepared_model_output,
+        externalize_model=model,
     )

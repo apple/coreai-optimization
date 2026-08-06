@@ -34,10 +34,19 @@ from coreai_opt.quantization.spec import (
     PerTensorGranularity,
     QuantizationScheme,
     QuantizationSpec,
+    default_activation_quantization_spec,
+    default_weight_quantization_spec,
 )
 from coreai_opt.quantization.spec.fake_quantize import _DefaultFakeQuantizeImpl
 from coreai_opt.quantization.spec.qparams_calculator import StaticQParamsCalculator
 from coreai_opt.quantization.spec.range_calculator import MinMaxRangeCalculator
+from tests.models.composite import (  # noqa: F401
+    composite_rmsnorm_input,
+    composite_rmsnorm_model,
+    mnist_composite_rmsnorm_example_input,
+    mnist_composite_rmsnorm_pretrained_model,
+    mnist_composite_rmsnorm_pretrained_state,
+)
 from tests.models.mnist import (  # noqa: F401
     custom_test_mnist_model,
     mnist_data,
@@ -121,6 +130,27 @@ def make_quant_config(
             op_output_spec={"*": act_spec},
         ),
         execution_mode=execution_mode,
+    )
+
+
+def make_graph_mode_ptq_config(*, quantize_activations: bool) -> QuantizerConfig:
+    """Build a graph-mode w8 (weight-only) or w8a8 PTQ QuantizerConfig.
+
+    Args:
+        quantize_activations (bool): True for w8a8, False for w8 weight-only.
+
+    Returns:
+        QuantizerConfig: Config with the default weight spec globally, plus the
+            default activation spec on every op input/output when requested.
+    """
+    activation_spec = default_activation_quantization_spec() if quantize_activations else None
+    return QuantizerConfig(
+        global_config=ModuleQuantizerConfig(
+            op_state_spec={"weight": default_weight_quantization_spec()},
+            op_input_spec={"*": activation_spec} if activation_spec else None,
+            op_output_spec={"*": activation_spec} if activation_spec else None,
+        ),
+        execution_mode="graph",
     )
 
 

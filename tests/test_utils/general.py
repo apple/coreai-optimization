@@ -8,6 +8,7 @@
 import importlib.util
 
 import torch
+from torch.ops import coreai
 
 COREAI_AVAILABLE = importlib.util.find_spec("coreai") is not None
 
@@ -88,3 +89,76 @@ def verify_snr_psnr(
 
     if snr <= snr_thresh or psnr <= psnr_thresh:
         raise SNRBelowThresholdError(snr, psnr, snr_thresh, psnr_thresh, prefix)
+
+
+def get_fake_quant_nodes(model: torch.fx.GraphModule) -> list[torch.fx.Node]:
+    """Return the activation_post_process observer nodes in a prepared graph."""
+    return [node for node in model.graph.nodes if "activation_post_process" in node.name]
+
+
+def assert_single_call_function_node(
+    gm: torch.fx.GraphModule, target_substr: str, *, stage: str = ""
+) -> torch.fx.Node:
+    """Assert exactly one call_function node's target contains a substring.
+
+    Current usage: externalized composite ops get a process-unique op name (sanitized module
+    path plus a uuid4 suffix), so there is no stable target object to compare
+    against and a substring match on ``str(node.target)`` is required.
+
+    Args:
+        gm: The graph module to search
+        target_substr: Substring to match against ``str(node.target)``
+        stage: Optional pipeline stage name, used only in the error message
+
+    Returns:
+        The single matching node
+
+    """
+    matches = [
+        n for n in gm.graph.nodes if n.op == "call_function" and target_substr in str(n.target)
+    ]
+    where = f" in the {stage.upper()} graph" if stage else ""
+    assert len(matches) == 1, (
+        f"Expected exactly one call_function matching '{target_substr}'"
+        f"{where}; got {[n.name for n in matches]}"
+    )
+    return matches[0]
+
+
+def is_coreai_quantize(target: object) -> bool:
+    """Whether an FX node target is the ``coreai::quantize`` op.
+
+    Compares by object identity against ``torch.ops.coreai``. Both forms are
+    matched because they are distinct objects and which one appears depends
+    on the pipeline stage: ``Quantizer.finalize`` emits the
+    ``OpOverloadPacket`` (``coreai.quantize``) while a decomposed
+    ExportedProgram carries the ``OpOverload`` (``coreai.quantize.default``).
+
+    The op resolves lazily on first call, so this raises AttributeError if
+    the coreai op namespace was never registered (see ``COREAI_AVAILABLE``).
+    """
+    return target is coreai.quantize or target is coreai.quantize.default
+
+
+def is_coreai_dequantize(target: object) -> bool:
+    """Whether an FX node target is the ``coreai::dequantize`` op."""
+    return target is coreai.dequantize or target is coreai.dequantize.default
+
+
+def get_quantize_dtype(node: torch.fx.Node) -> torch.dtype | None:
+    """Return the quantized dtype carried in an FX node's args, else None.
+
+    ``coreai::quantize`` takes ``(input, scale, dtype)``, so its dtype is the
+    third positional arg. ``coreai::dequantize`` takes ``(input, scale)`` and
+    carries no dtype, so this returns None for a dequantize node. To read the
+    dtype at a dequantize boundary, pass the quantize node feeding it
+    (``dequantize_node.args[0]``).
+
+    Args:
+        node: The FX node to inspect
+
+    Returns:
+        The first ``torch.dtype`` positional arg, or None if there is none
+
+    """
+    return next((a for a in node.args if isinstance(a, torch.dtype)), None)

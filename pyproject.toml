@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [ "setuptools>=42", "wheel" ]
+requires = [ "setuptools>=42" ]
 
 [project]
 name = "coreai-opt"
@@ -50,8 +50,8 @@ dependencies = [
 name = "Apple Core AI Optimization Team"
 [project.optional-dependencies]
 coreai = [
-    "coreai-core==1.0.0b1",
-    "coreai-torch==0.4.0",
+    "coreai-core==1.0.0b2",
+    "coreai-torch>=0.4.0",
     "scikit-learn>=1.7.2",
 ]
 [project.urls]
@@ -135,8 +135,8 @@ pre-commit = [
 ]
 # TODO: deduplicate coreai dependencies across groups
 stable-coreai = [
-    "coreai-core==1.0.0b1",
-    "coreai-torch==0.4.0",
+    "coreai-core==1.0.0b2",
+    "coreai-torch>=0.4.0",
     "scikit-learn>=1.7.2",
 ]
 tamm-export = []
@@ -193,6 +193,12 @@ conflicts = [
     ],
 ]
 [tool.uv.sources]
+# TEMPORARY: resolve coreai-torch from the module externalization API branch
+# instead of the PyPI release. That branch adds the `_patch_model_for_externalization`
+# and `_subexport_and_restore` entry points used by the externalization tests.
+# It lives on a fork; apple/coreai-torch does not carry it yet. Drop this entry
+# (and re-pin the versions above) once the work lands upstream and is released.
+coreai-torch = { git = "https://github.com/gokulkrishna98/coreai-torch.git", branch = "dev/gokul/module-externalization-api" }
 torch = [
     { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
     { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },

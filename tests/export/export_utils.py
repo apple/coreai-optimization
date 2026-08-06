@@ -376,10 +376,14 @@ class MLIRConverter(ModelConverter):
         self,
         traced_model: torch.export.ExportedProgram,
         input_data: torch.Tensor,
+        externalize_model: Any = None,
         **kwargs: Any,
     ) -> AIProgram:
         _, _ = input_data, kwargs
-        coreai_program = self._lower_to_coreai(traced_model)
+        coreai_program = self._lower_to_coreai(
+            traced_model,
+            externalize_model=externalize_model,
+        )
         assert type(coreai_program) is AIProgram
 
         return coreai_program
@@ -457,10 +461,32 @@ class MLIRConverter(ModelConverter):
     @staticmethod
     def _lower_to_coreai(
         exported_program: torch.export.ExportedProgram,
+        externalize_model: Any = None,
     ) -> AIProgram:
-        """Lower exported program to Core AI."""
+        """Lower exported program to Core AI.
+
+        Args:
+            exported_program: The exported program to lower.
+            externalize_model: Optional ``torch.nn.Module`` that was marked in
+                place by ``coreai_torch._patch_model_for_externalization``.
+                When provided,
+                ``_subexport_and_restore(model, exported_program)`` is run to
+                sub-export each marked composite (and restore the patched
+                forwards); the resulting ``_ExternalizedExportedProgram`` list
+                is passed to ``TorchConverter.add_exported_program`` via
+                ``_externalized_exported_programs`` so the composites survive
+                lowering as opaque calls.
+        """
         converter = coreai_torch.TorchConverter()
-        converter.add_exported_program(exported_program)
+        externalized_exported_programs = (
+            coreai_torch._subexport_and_restore(externalize_model, exported_program)
+            if externalize_model is not None
+            else None
+        )
+        converter.add_exported_program(
+            exported_program,
+            _externalized_exported_programs=externalized_exported_programs,
+        )
         return converter.to_coreai()
 
 

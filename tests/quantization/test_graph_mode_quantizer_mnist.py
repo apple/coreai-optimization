@@ -5,6 +5,8 @@
 
 import pytest
 import torch
+from coreai_torch import ExternalizeSpec, _patch_model_for_externalization
+from coreai_torch.composite_ops import RMSNormImpl
 
 import tests.utils as utils
 from coreai_opt import ExportBackend
@@ -18,6 +20,8 @@ from coreai_opt.quantization.spec import (
     PerChannelGranularity,
     PerTensorGranularity,
 )
+from tests.export import export_utils
+from tests.test_utils.general import assert_single_call_function_node
 
 image_size = 28
 batch_size = 128
@@ -324,3 +328,131 @@ def test_weight_and_activation_qat_mnist(mnist_pretrained_model, mnist_dataset, 
 
     # Accuracy before and after finalize should match
     assert post_qat_accuracy == finalized_accuracy
+
+
+@pytest.mark.seed
+def test_weight_and_activation_qat_mnist_with_externalized_composite(
+    mnist_composite_rmsnorm_pretrained_model,
+    mnist_composite_rmsnorm_example_input,
+    mnist_dataset,
+):
+    """QAT on an MNIST classifier with an externalized RMSNormImpl composite.
+
+    Graph-mode QAT flow: baseline accuracy -> mark
+    for externalization -> prepare -> post-prepare drop -> train under
+    ``training_mode()`` -> post-QAT recovery -> finalize -> finalized
+    accuracy matches post-QAT accuracy.
+
+    Externalize-specific overlay:
+      - ``_patch_model_for_externalization`` is applied BEFORE
+        ``Quantizer.prepare`` so graph mode treats the composite as opaque
+        and cannot insert q-dq inside the RMSNorm body.
+      - The composite itself carries no quantization annotation: the
+        global config only annotates registered op patterns, so the
+        composite's own input and output edges are not targeted here.
+      - After finalize, the graph must contain exactly one
+        ``coreai_torch_ext::norm`` call_function node.
+      - The finalized model lowers to a runnable .aimodel and the
+        runtime output matches the finalized torch output under the
+        SNR / PSNR thresholds enforced by ``convert_and_verify``.
+        ``externalize_model`` is forwarded so the composite stays
+        opaque through ``TorchConverter.add_exported_program``.
+    """
+    train_loader, test_loader = utils.setup_data_loaders(mnist_dataset, batch_size)
+
+    model = mnist_composite_rmsnorm_pretrained_model
+    accuracy = utils.eval_model(model, test_loader)
+    assert accuracy > 92.0, (
+        f"expect pretrained MNIST-composite model accuracy > 92%, got {accuracy:.2f}%"
+    )
+
+    _patch_model_for_externalization(
+        model,
+        [
+            ExternalizeSpec(
+                target_class=RMSNormImpl,
+                composite_op_name="rms_norm",
+                composite_attrs=["axes", "eps"],
+            ),
+        ],
+    )
+    op_name = model.norm._externalize_op_name
+    target_substr = f"coreai_torch_ext.{op_name}"
+
+    # w8a8 via the default global config, which is equivalent to a bare
+    # `QuantizerConfig()`. Both activation and weight dtype default to int8:
+    # activations symmetric per-tensor, weights symmetric per-channel on
+    # axis 0.
+    # The global config does not reach the externalized composite's
+    # boundary because it only annotates registered op patterns. The
+    # composite's input edge is dequantized only incidentally by fc1's
+    # output observer, and its output edge is not quantized at all.
+    # Quantizing a composite boundary requires a module-level config and is
+    # covered in tests/export/test_composite_op_externalize.py::
+    # TestCompositeOpIOQuantization.
+    config = QuantizerConfig(global_config=ModuleQuantizerConfig())
+    quantizer = Quantizer(model, config)
+
+    prepared_model = quantizer.prepare(
+        example_inputs=(mnist_composite_rmsnorm_example_input,),
+    )
+
+    post_prepare_accuracy = utils.eval_model(prepared_model, test_loader)
+    assert post_prepare_accuracy < 90.0, (
+        f"Expect accuracy to drop below 90% after preparation with an all ones data sample; "
+        f"got {post_prepare_accuracy:.2f}% (baseline {accuracy:.2f}%)"
+    )
+
+    optimizer = torch.optim.Adam(prepared_model.parameters(), eps=1e-3, weight_decay=1e-4)
+    with quantizer.training_mode():
+        for batch_idx, (data, target) in enumerate(train_loader):
+            utils.train_step(
+                prepared_model,
+                optimizer,
+                train_loader,
+                data,
+                target,
+                batch_idx,
+                epoch=0,
+            )
+
+    post_qat_accuracy = utils.eval_model(prepared_model, test_loader)
+    assert post_qat_accuracy > 94.0, (
+        f"Expect accuracy to climb above 94% after QAT, got {post_qat_accuracy:.2f}%"
+    )
+
+    finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI)
+    finalized_accuracy = utils.eval_model(finalized_model, test_loader)
+    assert post_qat_accuracy == finalized_accuracy, (
+        f"post-QAT accuracy ({post_qat_accuracy:.2f}%) must match "
+        f"post-finalize accuracy ({finalized_accuracy:.2f}%)"
+    )
+
+    assert_single_call_function_node(finalized_model, target_substr, stage="finalized")
+
+    # Lower to .aimodel and verify the runtime output matches the
+    # finalized torch output. expected_ops pins the weight constexpr and
+    # activation q-dq node counts graph mode inserts for the
+    # flatten -> Linear -> composite -> ReLU -> Linear -> LogSoftmax graph
+    # under the default w8a8 (int8) global config:
+    #   - 2 constexpr_blockwise_shift_scale: the two Linear weights.
+    #   - 5 quantize / 5 dequantize: the five annotated activation edges,
+    #     namely the model input, fc1's input and output, and fc2's input
+    #     and output.
+    # ReLU, LogSoftmax and the composite carry no quantization annotation
+    # and contribute no q-dq nodes.
+    sample_input = mnist_composite_rmsnorm_example_input
+    with torch.no_grad():
+        prepared_for_export_output = prepared_model(sample_input)
+    export_utils.convert_and_verify(
+        finalized_model=finalized_model,
+        input_data=sample_input,
+        expected_ops={
+            "constexpr_blockwise_shift_scale": 2,
+            "quantize": 5,
+            "dequantize": 5,
+        },
+        export_backend=ExportBackend.CoreAI,
+        prepared_model_output=prepared_for_export_output,
+        externalize_model=model,
+    )
