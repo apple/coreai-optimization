@@ -54,6 +54,9 @@ from coreai_opt.quantization._fake_quant_utils import (
     disable_activation_fake_quant,
     enable_weight_fake_quant,
 )
+from coreai_opt.quantization._source_names import (
+    record_weight_source_names_graph as _record_weight_source_names,
+)
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
     KVCacheQuantConfig,
@@ -1297,6 +1300,10 @@ class GraphQuantizer(_BaseQuantizer):
         # with their inputs but invalidate axis semantics, so per-channel/per-block
         # granularity is mathematically incorrect. Force per-tensor.
         force_per_tensor_for_channel_altering_ops(model)
+
+        # Record each weight FQ's parameter FQN so that the block-size warning
+        # raised during the upcoming forward pass can name the offending weight.
+        _record_weight_source_names(model)
 
         # Apply weight axis defaults for per channel and per block quantization
         _apply_weight_axis_defaults(model)

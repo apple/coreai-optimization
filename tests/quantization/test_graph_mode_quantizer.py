@@ -1490,6 +1490,42 @@ class TestBlockSizeMismatchSkipGraphMode:
         # The graph must still be runnable after the disabled nodes were removed.
         assert prepared_model(*example_inputs).shape == (1, 1024)
 
+    def test_skip_warning_names_the_offending_weight(self, caplog):
+        """The weight skip warning identifies the weight by FQN and shape.
+
+        In graph mode the name comes from the ``get_attr`` node feeding the
+        fake-quantize node, whose target is the dotted parameter FQN.
+        """
+        # axis 0 is out_features: 12 % 8 != 0.
+        model = torch.nn.Sequential(torch.nn.Linear(8, 12))
+        example_inputs = (torch.randn(1, 8),)
+
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={
+                    "weight": QuantizationSpec(
+                        dtype="int8",
+                        qscheme="symmetric",
+                        granularity=PerBlockGranularity(axis=0, block_size=8),
+                    )
+                },
+                op_input_spec=None,
+                op_output_spec=None,
+            ),
+            execution_mode="graph",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            Quantizer(model, config).prepare(example_inputs)
+
+        skip_messages = [msg for msg in caplog.messages if "Skipping quantization" in msg]
+        assert len(skip_messages) == 1, f"Expected one skip warning, got {skip_messages}"
+        message = skip_messages[0]
+
+        assert "'0.weight'" in message, message
+        assert "(12, 8)" in message, message
+        assert "'0' via module_name_configs" in message, message
+
     @pytest.mark.parametrize(
         "backend",
         [

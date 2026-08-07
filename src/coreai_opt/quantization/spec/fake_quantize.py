@@ -128,13 +128,29 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
             return
         super().enable_observer(enabled)
 
-    def _warn_and_disable(self, error: _BlockSizeMismatchError) -> None:
-        """Log a warning and permanently disable this module."""
+    def _warn_and_disable(self, error: _BlockSizeMismatchError, shape: torch.Size) -> None:
+        """Log a warning and permanently disable this module.
+
+        Names the offending tensor and its shape so that the granularity can be
+        corrected without having to hunt for the layer first. The name is only
+        available for weights (recorded during ``prepare()``); activations fall
+        back to ``"<unknown>"``.
+        """
+        module_name = self.source_module_name
+        hint = (
+            f" To quantize it, set a compatible granularity for '{module_name}' "
+            f"via module_name_configs."
+            if module_name is not None
+            else ""
+        )
         logger.warning(
-            "Tensor (target: %s) incompatible with block size "
-            "configuration: %s. Skipping quantization.",
+            "Tensor '%s' (target: %s, shape: %s) incompatible with block size "
+            "configuration: %s. Skipping quantization.%s",
+            self.source_name,
             self.quantization_target,
+            tuple(shape),
             error,
+            hint,
         )
         self._disabled.fill_(True)
 
@@ -156,7 +172,7 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
                 try:
                     scale, zero_point, minval = self.qparams_calculator(tensor)
                 except _BlockSizeMismatchError as e:
-                    self._warn_and_disable(e)
+                    self._warn_and_disable(e, tensor.shape)
                     return tensor
         else:
             # When the observer is not enabled, call the get_qparams

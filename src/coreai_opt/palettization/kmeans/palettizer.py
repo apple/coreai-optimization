@@ -34,6 +34,9 @@ from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleCompressionConfig
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.config.spec.base import CompressionSpec
+from coreai_opt.palettization._source_names import (
+    record_weight_source_names as _record_weight_source_names,
+)
 from coreai_opt.palettization.base_palettizer import _BasePalettizer
 from coreai_opt.palettization.config.palettization_config import (
     KMeansPalettizerConfig,
@@ -99,9 +102,6 @@ def _calculate_centroids_for_module(
         fp_module(weight)
     except Exception as e:
         raise RuntimeError(f"Centroid calculation failed for layer {layer_name!r}") from e
-
-    if fp_module._disabled:
-        fp_module._disabled_reason = f"layer {layer_name!r}"
 
     return fp_module
 
@@ -197,6 +197,11 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         # Prepare the model
         logger.info("Preparing model for palettization")
         prepared_model = self._handler.prepare(self._model, example_inputs=example_inputs)
+
+        # Record each fake-palettize module's parameter FQN so that the
+        # incompatibility warnings raised while computing centroids below can
+        # name the offending weight.
+        _record_weight_source_names(prepared_model)
 
         # Save example inputs for later use in calibration
         self._example_inputs = tuple([ip.detach().clone() for ip in example_inputs])
@@ -518,10 +523,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
         for info, new_fp in zip(fp_info, results, strict=True):
             if getattr(new_fp, "_disabled", False):
-                logger.warning(
-                    f"Disabling palettization for a module: "
-                    f"{getattr(new_fp, '_disabled_reason', '')}"
-                )
+                logger.warning("Disabling palettization for weight '%s'", new_fp.source_name)
             # ParametrizationList supports item assignment; this swaps the
             # worker's mutated module into the live model without touching
             # the surrounding parametrization registration.

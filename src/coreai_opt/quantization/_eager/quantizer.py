@@ -39,6 +39,9 @@ from coreai_opt.quantization._fake_quant_utils import (
     disable_activation_fake_quant,
     enable_weight_fake_quant,
 )
+from coreai_opt.quantization._source_names import (
+    record_weight_source_names_eager as _record_weight_source_names,
+)
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
     ModuleQuantizerConfig,
@@ -223,6 +226,10 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
         Args:
             model (nn.Module): The model after eager prepare().
         """
+        # Record each weight FQ's parameter FQN so that the block-size warning
+        # raised during the upcoming forward pass can name the offending weight.
+        _record_weight_source_names(model)
+
         _apply_weight_axis_defaults(model)
         validate_activation_axes(model)
 

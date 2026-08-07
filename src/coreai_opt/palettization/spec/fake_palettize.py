@@ -78,6 +78,25 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         """Return True if fake palettization has been disabled."""
         return self._disabled
 
+    def _warn_and_disable(self, setting: str, error: Exception, shape: torch.Size) -> None:
+        """Log a warning naming the offending weight and disable this module.
+
+        Names the tensor and its shape so that the palettization config can be
+        corrected without having to hunt for the layer first. The name is
+        recorded during ``prepare()``; it falls back to ``"<unknown>"`` for
+        modules created outside that path.
+        """
+        logger.warning(
+            "Tensor '%s' (shape: %s) incompatible with %s: %s. Skipping palettization.",
+            self.source_name,
+            tuple(shape),
+            setting,
+            # The granularity and cluster_dim messages end in a period; drop it
+            # so the sentence this builds has exactly one.
+            str(error).rstrip("."),
+        )
+        self._disabled = True
+
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         """Apply fake palettization to input tensor"""
         # If permanently disabled due to incompatibility, return original tensor
@@ -89,16 +108,10 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             try:
                 lut, indices = self._calculate_centroids(tensor)
             except _IncompatibleGranularityError as e:
-                logger.warning(
-                    f"Tensor incompatible with granularity: {e}. Skipping palettization."
-                )
-                self._disabled = True
+                self._warn_and_disable("granularity", e, tensor.shape)
                 return tensor
             except _IncompatibleClusterDimError as e:
-                logger.warning(
-                    f"Tensor incompatible with cluster_dim: {e}. Skipping palettization."
-                )
-                self._disabled = True
+                self._warn_and_disable("cluster_dim", e, tensor.shape)
                 return tensor
 
             self.lut = lut.detach()

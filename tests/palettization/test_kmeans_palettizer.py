@@ -300,6 +300,38 @@ class TestKMeansPalettizer:
         assert isinstance(prepared_model[2].parametrizations.weight[0], _FakePalettizeImplBase)
         assert not prepared_model[2].parametrizations.weight[0].is_disabled()
 
+    def test_skip_warning_names_the_offending_weight(self, caplog):
+        """The skip warning identifies the weight by FQN and shape."""
+        # axis 0 is out_features: 12 % 8 != 0 for the first Linear, 16 % 8 == 0
+        # for the second, so exactly one layer is skipped.
+        model = nn.Sequential(
+            nn.Linear(8, 12),
+            nn.ReLU(),
+            nn.Linear(12, 16),
+        )
+        example_inputs = (torch.randn(1, 8),)
+
+        config = KMeansPalettizerConfig(
+            global_config=ModuleKMeansPalettizerConfig(
+                op_state_spec={
+                    "weight": PalettizationSpec(
+                        n_bits=2,
+                        granularity=PerGroupedChannelGranularity(axis=0, group_size=8),
+                    )
+                },
+            )
+        )
+
+        with caplog.at_level(logging.WARNING):
+            KMeansPalettizer(model, config).prepare(example_inputs)
+
+        skip_messages = [msg for msg in caplog.messages if "Skipping palettization" in msg]
+        assert len(skip_messages) == 1, f"Expected one skip warning, got {skip_messages}"
+        message = skip_messages[0]
+
+        assert "'0.weight'" in message, message
+        assert "(12, 8)" in message, message
+
     def test_prepared_model_supports_torch_inference(
         self, simple_conv_linear_model, simple_model_input
     ):
