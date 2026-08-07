@@ -27,7 +27,6 @@ from coreai_opt._utils.insertion.torch_function import (
 )
 from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
 from coreai_opt._utils.torch_utils import (
-    move_model_to_eval as _move_model_to_eval,
     remove_compression_parametrizations as _remove_compression_parametrizations,
 )
 from coreai_opt.common import ExportBackend
@@ -100,9 +99,6 @@ def _calculate_centroids_for_module(
     except Exception as e:
         raise RuntimeError(f"Centroid calculation failed for layer {layer_name!r}") from e
 
-    if fp_module._disabled:
-        fp_module._disabled_reason = f"layer {layer_name!r}"
-
     return fp_module
 
 
@@ -140,9 +136,6 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             supported_ops_registry=_KMeansPalettizerSupportedOpsRegistry,
             optimization_type_name="palettize",
         )
-
-        # Store example inputs for sensitivity-based centroid recomputation
-        self._example_inputs = None
 
         self._num_workers = 1
 
@@ -198,9 +191,6 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         logger.info("Preparing model for palettization")
         prepared_model = self._handler.prepare(self._model, example_inputs=example_inputs)
 
-        # Save example inputs for later use in calibration
-        self._example_inputs = tuple([ip.detach().clone() for ip in example_inputs])
-
         # Load precomputed sensitivities if provided
         if sensitivity_path is not None:
             logger.info(
@@ -216,7 +206,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         if self._num_workers > 1:
             self._calculate_centroids_parallel(num_workers)
         else:
-            self._calculate_centroids_sequential(example_inputs)
+            self._calculate_centroids_sequential()
 
         # Remove FakePalettize modules that were disabled during the forward
         # pass due to incompatible granularity or cluster dimensions.
@@ -335,7 +325,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 if self._num_workers > 1:
                     self._calculate_centroids_parallel(self._num_workers)
                 else:
-                    self._calculate_centroids_sequential(self._example_inputs)
+                    self._calculate_centroids_sequential()
 
                 # Restore normal operation
                 self._model.apply(_enable_fake_palett)
@@ -438,41 +428,14 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         args.update(module_config._get_compressor_specific_settings())
         return _KMeansFakePalettize.with_args(**args)
 
-    def _calculate_centroids_sequential(self, example_inputs: tuple[torch.Tensor]) -> None:
-        """Run a forward pass to calculate centroids, with a per-layer progress bar."""
-        fp_modules: list[_KMeansFakePalettize] = []
-        for _, module in self._model.named_modules(remove_duplicate=True):
-            if not P.is_parametrized(module):
-                continue
-            for parametrizations in module.parametrizations.values():
-                for p in parametrizations:
-                    if isinstance(p, _KMeansFakePalettize):
-                        fp_modules.append(p)
-                        break
+    def _collect_fake_palett_info(self, *, to_cpu: bool) -> list[_FakePalettInfo]:
+        """Collect one ``_FakePalettInfo`` per ``_KMeansFakePalettize`` parametrization.
 
-        progress = tqdm(total=len(fp_modules), desc="Palettizing layers (num_workers=1)")
-        seen: set[int] = set()
-
-        def _tick(module, _inputs, _output):
-            if id(module) not in seen:
-                seen.add(id(module))
-                progress.update(1)
-
-        handles = [m.register_forward_hook(_tick) for m in fp_modules]
-        try:
-            with _move_model_to_eval(self._model):
-                with torch.no_grad():
-                    self._model(*example_inputs)
-        finally:
-            for h in handles:
-                h.remove()
-            progress.close()
-
-    def _calculate_centroids_parallel(self, num_workers: int) -> None:
-        """Compute centroids for all _KMeansFakePalettize modules in parallel."""
-        # Track parametrization slot (module, attr_name, idx) so the worker's
-        # mutated module can be swapped back in. Whole-module swap means every
-        # buffer and plain attribute round-trips automatically.
+        Records the parametrization slot (module, attr_name, idx) so a
+        (worker-mutated) module can be swapped back in, plus the layer's dense
+        weight. ``to_cpu`` moves each weight to CPU, required when the weight is
+        shipped to a spawned worker process.
+        """
         fp_info: list[_FakePalettInfo] = []
         for module_name, module in self._model.named_modules(remove_duplicate=True):
             if not P.is_parametrized(module):
@@ -480,7 +443,9 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             for attr_name, parametrizations in module.parametrizations.items():
                 for idx, p in enumerate(parametrizations):
                     if isinstance(p, _KMeansFakePalettize):
-                        weight = parametrizations.original.detach().cpu()
+                        weight = parametrizations.original.detach()
+                        if to_cpu:
+                            weight = weight.cpu()
                         fp_info.append(
                             _FakePalettInfo(
                                 module=module,
@@ -492,7 +457,30 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                             )
                         )
                         break
+        return fp_info
 
+    def _calculate_centroids_sequential(self) -> None:
+        """Compute centroids for every ``_KMeansFakePalettize`` module in-process.
+
+        Mirrors the parallel path but runs in the current process (no worker
+        pool): each layer's centroids are computed by invoking
+        ``fp_module(weight)`` directly. Palettization centroids depend only on
+        the layer weight, so this needs no model forward — and therefore no
+        example inputs.
+        """
+        fp_info = self._collect_fake_palett_info(to_cpu=False)
+        if not fp_info:
+            return
+
+        results = [
+            _calculate_centroids_for_module((info.fp_module, info.weight, info.layer_name))
+            for info in tqdm(fp_info, desc="Palettizing layers (num_workers=1)")
+        ]
+        self._apply_centroid_results(fp_info, results)
+
+    def _calculate_centroids_parallel(self, num_workers: int) -> None:
+        """Compute centroids for all _KMeansFakePalettize modules in parallel."""
+        fp_info = self._collect_fake_palett_info(to_cpu=True)
         if not fp_info:
             return
 
@@ -516,15 +504,24 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 )
             )
 
+        self._apply_centroid_results(fp_info, results)
+
+    def _apply_centroid_results(
+        self,
+        fp_info: list[_FakePalettInfo],
+        results: list[_KMeansFakePalettize],
+    ) -> None:
+        """Swap each computed ``_KMeansFakePalettize`` back into its slot.
+
+        ``ParametrizationList`` supports item assignment, so this swaps the
+        module into the live model without touching the surrounding
+        parametrization registration. In the parallel path ``results`` holds the
+        workers' returned copies; in-process they are the same live objects
+        (mutated in place), so the assignment is a harmless no-op there.
+        """
         for info, new_fp in zip(fp_info, results, strict=True):
-            if getattr(new_fp, "_disabled", False):
-                logger.warning(
-                    f"Disabling palettization for a module: "
-                    f"{getattr(new_fp, '_disabled_reason', '')}"
-                )
-            # ParametrizationList supports item assignment; this swaps the
-            # worker's mutated module into the live model without touching
-            # the surrounding parametrization registration.
+            if new_fp.is_disabled():
+                logger.warning("Disabling palettization for layer %r", info.layer_name)
             info.module.parametrizations[info.attr_name][info.idx] = new_fp
 
     @staticmethod
