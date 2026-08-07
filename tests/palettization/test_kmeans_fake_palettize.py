@@ -943,7 +943,6 @@ class TestInitializationAndStateDict:
         assert palettizer.lut.shape == (1, 1, 4, 1)  # 2^2 = 4 clusters
         assert palettizer.lut.dtype == weight.dtype
 
-
         # Check state_dict contains proper values
         state_dict = palettizer.state_dict()
 
@@ -1045,6 +1044,96 @@ class TestInitializationAndStateDict:
             # Clean up temporary file
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
+
+
+class TestLegacyCheckpointCompat:
+    """Backward compatibility with pre-refactor checkpoints, which stored
+    ``observer_enabled``/``lut``/``quantized_lut``/``lut_quantization_scale``/
+    ``lut_quantization_zero_point`` as buffers instead of deriving them.
+    """
+
+    @staticmethod
+    def _legacy_state_dict(ref: _KMeansFakePalettize) -> dict:
+        """Rewrite an initialized module's state dict into the pre-refactor
+        layout: drop ``centroids`` and add the old ``lut`` (+ quant) buffers.
+        """
+        sd = ref.state_dict()
+        sd.pop("centroids")
+        sd["lut"] = ref.lut
+        if ref.quantized_lut is not None:
+            sd["quantized_lut"] = ref.quantized_lut
+            sd["lut_quantization_scale"] = ref.lut_quantization_scale
+            if ref.lut_quantization_zero_point is not None:
+                sd["lut_quantization_zero_point"] = ref.lut_quantization_zero_point
+        return sd
+
+    @pytest.mark.parametrize("lut_dtype", [None, torch.int8])
+    def test_load_reconstructs_centroids_from_legacy_lut(self, lut_dtype):
+        spec = PalettizationSpec(
+            n_bits=2,
+            granularity=PerTensorGranularity(),
+            lut_qspec=_make_lut_qspec(lut_dtype),
+            enable_per_channel_scale=False,
+        )
+        weight = torch.randn(4, 8)
+        ref = _KMeansFakePalettize(**spec.__dict__)
+        ref.forward(weight)
+        ref_out = ref.hard_assign(weight)
+
+        legacy_sd = self._legacy_state_dict(ref)
+        assert "centroids" not in legacy_sd and "lut" in legacy_sd
+
+        loaded = _KMeansFakePalettize(**spec.__dict__)
+        if lut_dtype is not None:
+            # Loading a LUT-quantized checkpoint requires the LUT quantizer's
+            # qparams buffers to be sized first (pre-existing quantization
+            # requirement, independent of this reconstruction path).
+            loaded.forward(weight)
+        loaded.load_state_dict(legacy_sd)  # strict=True: must not raise on legacy keys
+
+        # centroids reconstructed and the derived LUT reproduces the stored one
+        assert loaded.centroids is not None
+        assert torch.equal(loaded.lut, ref.lut)
+        if lut_dtype is None:
+            # plain palettization is bit-exact end to end
+            assert torch.equal(loaded.hard_assign(weight), ref_out)
+
+    def test_observer_enabled_defaults_off_and_loads(self):
+        spec = PalettizationSpec(
+            n_bits=2, granularity=PerTensorGranularity(), enable_per_channel_scale=False
+        )
+        p = _KMeansFakePalettize(**spec.__dict__)
+        assert p.observer_enabled.item() == 0
+        # Non-persistent: not serialized into new checkpoints.
+        assert "observer_enabled" not in p.state_dict()
+
+        p.forward(torch.randn(4, 8))
+        sd = p.state_dict()
+        assert "observer_enabled" not in sd
+        # A legacy checkpoint that carries observer_enabled=1 is honored on load.
+        sd["observer_enabled"] = torch.tensor([1], dtype=torch.uint8)
+        loaded = _KMeansFakePalettize(**spec.__dict__)
+        loaded.load_state_dict(sd)
+        assert loaded.observer_enabled.item() == 1
+
+    def test_observer_enabled_recomputes_every_forward(self):
+        spec = PalettizationSpec(
+            n_bits=2, granularity=PerTensorGranularity(), enable_per_channel_scale=False
+        )
+        p = _KMeansFakePalettize(**spec.__dict__)
+        low = torch.linspace(0.0, 1.0, 32).reshape(4, 8)
+        high = torch.linspace(10.0, 11.0, 32).reshape(4, 8)
+
+        # observer off (default): centroids are computed once and not recomputed.
+        p.forward(low)
+        first = p.centroids.clone()
+        p.forward(high)
+        assert torch.equal(p.centroids, first)
+
+        # observer on: re-clusters against the new tensor on every forward.
+        p.observer_enabled[0] = 1
+        p.forward(high)
+        assert not torch.equal(p.centroids, first)
 
 
 class TestSensitivityBasedPalettization:

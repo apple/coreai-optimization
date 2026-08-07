@@ -156,8 +156,11 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         self._indices_stale = True
 
     def ensure_initialized(self, tensor: torch.Tensor) -> None:
-        """Cluster centroids on first use; disable on an incompatible tensor."""
-        if self._centroids_initialized:
+        """Cluster centroids on first use; disable on an incompatible tensor.
+
+        Re-clusters on every call while ``observer_enabled`` is set.
+        """
+        if self._centroids_initialized and self.observer_enabled[0] == 0:
             return
         try:
             self._initialize(tensor.detach())
@@ -204,11 +207,25 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             self._indices_stale = False
 
     def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
-        """Mark centroids as initialized after loading them from a checkpoint."""
+        """Load centroids from a checkpoint, reconstructing them from a legacy
+        ``lut`` buffer when present.
+        """
+        lut_key, centroids_key = prefix + "lut", prefix + "centroids"
+        if centroids_key not in state_dict and lut_key in state_dict:
+            state_dict[centroids_key] = self._centroids_from_lut(state_dict[lut_key])
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
         if self.centroids is not None:
             self._centroids_initialized = True
             self._indices_stale = True
+
+    def _centroids_from_lut(self, lut: torch.Tensor) -> torch.Tensor:
+        """Invert ``_reshape_lut_tensor`` to recover ``(num_blocks, num_clusters,
+        cluster_dim)`` centroids from a stored 4D LUT tensor.
+        """
+        ungrouped_dim = 0 if self.granularity.axis == 1 else 1
+        centroids = lut.squeeze(-1) if self.cluster_dim == 1 else lut
+        centroids = centroids.squeeze(ungrouped_dim)
+        return centroids.unsqueeze(-1) if self.cluster_dim == 1 else centroids
 
     @property
     def lut(self) -> torch.Tensor | None:

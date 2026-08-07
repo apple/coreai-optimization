@@ -29,6 +29,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
     indices: torch.Tensor
     per_channel_scale: torch.Tensor | None
     fake_palett_enabled: torch.Tensor
+    observer_enabled: torch.Tensor
 
     def __init__(
         self,
@@ -47,6 +48,11 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         self.enable_per_channel_scale = enable_per_channel_scale
 
         self.register_buffer("fake_palett_enabled", torch.tensor([1], dtype=torch.uint8))
+        # Non-persistent (kept out of new checkpoints); when set to 1 (at runtime or
+        # via a legacy checkpoint) the forward pass re-clusters centroids every call.
+        self.register_buffer(
+            "observer_enabled", torch.tensor([0], dtype=torch.uint8), persistent=False
+        )
         self._disabled = False
 
         self.register_buffer("indices", None)
@@ -155,6 +161,25 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
         )
+
+        obs_key = prefix + "observer_enabled"
+        if obs_key in state_dict:
+            self.observer_enabled.copy_(state_dict[obs_key])
+            if obs_key in unexpected_keys:
+                unexpected_keys.remove(obs_key)
+
+        # Accept (and ignore) buffers from legacy checkpoints that are now
+        # derived properties, so old state dicts load without unexpected-key errors.
+        # ``lut`` is consumed by the subclass to reconstruct ``centroids``.
+        for legacy_name in (
+            "lut",
+            "quantized_lut",
+            "lut_quantization_scale",
+            "lut_quantization_zero_point",
+        ):
+            prefixed_key = prefix + legacy_name
+            if prefixed_key in unexpected_keys:
+                unexpected_keys.remove(prefixed_key)
 
     def enable_fake_palett(self, enabled: bool = True) -> None:
         self.fake_palett_enabled[0] = 1 if enabled else 0
