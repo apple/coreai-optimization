@@ -40,18 +40,11 @@ ATEN_OP_TO_MODULE_TYPE: dict[torch._ops.OpOverload, type[torch.nn.Module]] = {
     torch.ops.aten.conv2d.default: torch.nn.Conv2d,
     torch.ops.aten.conv3d.default: torch.nn.Conv3d,
     torch.ops.aten.conv_transpose1d.default: torch.nn.ConvTranspose1d,
-    torch.ops.aten.conv_transpose2d.default: torch.nn.ConvTranspose2d,
-    torch.ops.aten.conv_transpose3d.default: torch.nn.ConvTranspose3d,
+    torch.ops.aten.conv_transpose2d.input: torch.nn.ConvTranspose2d,
+    torch.ops.aten.conv_transpose3d.input: torch.nn.ConvTranspose3d,
     torch.ops.aten.linear.default: torch.nn.Linear,
     torch.ops.aten.embedding.default: torch.nn.Embedding,
 }
-
-# Backward-compat aliases for torch < 2.9
-try:
-    ATEN_OP_TO_MODULE_TYPE[torch.ops.aten.conv_transpose2d.input] = torch.nn.ConvTranspose2d
-    ATEN_OP_TO_MODULE_TYPE[torch.ops.aten.conv_transpose3d.input] = torch.nn.ConvTranspose3d
-except AttributeError:
-    pass
 
 
 class NamedModule(NamedTuple):
