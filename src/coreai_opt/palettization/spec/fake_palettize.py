@@ -79,20 +79,13 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         return self._disabled
 
     def _warn_and_disable(self, setting: str, error: Exception, shape: torch.Size) -> None:
-        """Log a warning naming the offending weight and disable this module.
-
-        Names the tensor and its shape so that the palettization config can be
-        corrected without having to hunt for the layer first. The name is
-        recorded during ``prepare()``; it falls back to ``"<unknown>"`` for
-        modules created outside that path.
-        """
+        """Log a warning naming the offending weight and disable this module."""
         logger.warning(
             "Tensor '%s' (shape: %s) incompatible with %s: %s. Skipping palettization.",
             self.source_name,
             tuple(shape),
             setting,
-            # The granularity and cluster_dim messages end in a period; drop it
-            # so the sentence this builds has exactly one.
+            # These errors end in a period; drop it to avoid doubling up.
             str(error).rstrip("."),
         )
         self._disabled = True

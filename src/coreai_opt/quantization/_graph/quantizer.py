@@ -1301,8 +1301,7 @@ class GraphQuantizer(_BaseQuantizer):
         # granularity is mathematically incorrect. Force per-tensor.
         force_per_tensor_for_channel_altering_ops(model)
 
-        # Record each weight FQ's parameter FQN so that the block-size warning
-        # raised during the upcoming forward pass can name the offending weight.
+        # Name weight FQs before the forward pass below can warn about them.
         _record_weight_source_names(model)
 
         # Apply weight axis defaults for per channel and per block quantization

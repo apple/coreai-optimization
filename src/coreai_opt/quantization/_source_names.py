@@ -3,22 +3,16 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-"""Record which model tensor each weight fake-quantize module quantizes.
+"""Record which parameter each weight fake-quantize module quantizes.
 
-``FakeQuantizeImplBase`` warns and disables itself from inside ``forward`` when a
-tensor is incompatible with the configured block size, but a module cannot
-discover its own position in the model at that point. The passes here run during
-``prepare()``, before the first forward pass, and stamp each weight
-fake-quantize module with the FQN of the parameter it quantizes so the warning
-can name the offending weight.
+``FakeQuantizeImplBase`` warns and disables itself from inside ``forward``, where a
+module cannot know its own position in the model. These passes run during
+``prepare()``, before the first forward, so the warning can name the weight.
 
-Weights only: activation fake-quantize modules have no backing parameter, so
-they keep the unnamed warning.
-
-Like :mod:`coreai_opt.quantization._axis_defaults`, this module deliberately
-implements its own graph and eager walks instead of reusing the helpers in
-``_graph``/``_eager``. Both mode-specific quantizers import it, so importing
-either subpackage from here would create a circular import.
+Like :mod:`coreai_opt.quantization._axis_defaults`, this module implements its own
+graph and eager walks rather than reusing the ``_graph``/``_eager`` helpers: both
+mode-specific quantizers import it, so importing either subpackage here would be a
+circular import.
 """
 
 from __future__ import annotations
@@ -34,11 +28,6 @@ from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
 def record_weight_source_names_graph(model: GraphModule) -> None:
     """Stamp weight fake-quantize modules in a graph-mode ``GraphModule``.
 
-    A weight fake-quantize node takes its value from the ``get_attr`` node for
-    the parameter, whose target is the dotted parameter FQN (e.g.
-    ``"layer1.0.weight"``), so the name needs no inference. This mirrors
-    ``_graph._prepare_for_export._get_weight_input_names``.
-
     Args:
         model (GraphModule): The prepared graph-mode ``GraphModule``.
     """
@@ -53,24 +42,21 @@ def record_weight_source_names_graph(model: GraphModule) -> None:
         if fake_quant.quantization_target != CompressionTargetTensor.WEIGHT:
             continue
 
-        # Activation fake-quantize nodes read from an op rather than a parameter.
+        # An already-compressed weight reaches the fake quantize through a
+        # decompression op (e.g. coreai.lut_to_dense) instead of a get_attr, and
+        # then carries no parameter name. See is_coreai_compressed_state_node.
         input_node = node.args[0]
         if input_node.op != "get_attr":
             continue
 
-        # "layer1.0.weight" -> ("layer1.0", "weight"); a root-module parameter
-        # such as "weight" has no module part.
-        target_path = str(input_node.target)
-        module_name, _, param_name = target_path.rpartition(".")
+        # A get_attr target is the dotted parameter FQN: "layer1.0.weight" ->
+        # ("layer1.0", "weight"). A root-module parameter has no module part.
+        module_name, _, param_name = str(input_node.target).rpartition(".")
         fake_quant.set_source_name(module_name, param_name)
 
 
 def record_weight_source_names_eager(model: nn.Module) -> None:
     """Stamp weight fake-quantize modules in an eager-mode model.
-
-    Weight fake-quantize modules live in the ``ParametrizationList`` registered
-    for the parameter they quantize, so the owning module name and the parameter
-    name both come straight from ``named_modules()``.
 
     Args:
         model (nn.Module): The prepared eager-mode model.
@@ -78,6 +64,8 @@ def record_weight_source_names_eager(model: nn.Module) -> None:
     for module_name, module in model.named_modules(remove_duplicate=True):
         if not P.is_parametrized(module):
             continue
+        # A weight fake quantize lives in the ParametrizationList of the
+        # parameter it quantizes.
         for param_name, parametrizations in module.parametrizations.items():
             for fake_quant in parametrizations:
                 if not isinstance(fake_quant, FakeQuantizeImplBase):

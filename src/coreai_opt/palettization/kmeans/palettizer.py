@@ -198,9 +198,8 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         logger.info("Preparing model for palettization")
         prepared_model = self._handler.prepare(self._model, example_inputs=example_inputs)
 
-        # Record each fake-palettize module's parameter FQN so that the
-        # incompatibility warnings raised while computing centroids below can
-        # name the offending weight.
+        # Name fake palettize modules before centroid calculation below can
+        # warn about them.
         _record_weight_source_names(prepared_model)
 
         # Save example inputs for later use in calibration

@@ -226,8 +226,7 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
         Args:
             model (nn.Module): The model after eager prepare().
         """
-        # Record each weight FQ's parameter FQN so that the block-size warning
-        # raised during the upcoming forward pass can name the offending weight.
+        # Name weight FQs before the forward pass below can warn about them.
         _record_weight_source_names(model)
 
         _apply_weight_axis_defaults(model)

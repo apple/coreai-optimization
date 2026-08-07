@@ -129,12 +129,10 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         super().enable_observer(enabled)
 
     def _warn_and_disable(self, error: _BlockSizeMismatchError, shape: torch.Size) -> None:
-        """Log a warning and permanently disable this module.
+        """Log a warning naming the offending tensor and permanently disable this module.
 
-        Names the offending tensor and its shape so that the granularity can be
-        corrected without having to hunt for the layer first. The name is only
-        available for weights (recorded during ``prepare()``); activations fall
-        back to ``"<unknown>"``.
+        ``source_name`` is only recorded for weights, so activations report
+        ``"<unknown>"`` and get no config hint.
         """
         module_name = self.source_module_name
         hint = (
