@@ -16,6 +16,7 @@ import torch.multiprocessing as mp
 import torch.nn.utils.parametrize as P
 from tqdm import tqdm
 
+from coreai_opt._utils.config_utils import ConfigLevel as _ConfigLevel
 from coreai_opt._utils.eager_utils import (
     EagerCompressionComponentBuilderMixin as _EagerCompressionComponentBuilderMixin,
 )
@@ -27,21 +28,22 @@ from coreai_opt._utils.insertion.torch_function import (
 )
 from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
 from coreai_opt._utils.torch_utils import (
+    move_model_to_train as _move_model_to_train,
     remove_compression_parametrizations as _remove_compression_parametrizations,
 )
+from coreai_opt.base_model_compressor import _CompressorLifecycle
 from coreai_opt.common import ExportBackend
-from coreai_opt.config.compression_config import ModuleCompressionConfig
+from coreai_opt.config.compression_config import ModuleCompressionConfig, ModuleConfigDict
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.config.spec.base import CompressionSpec
 from coreai_opt.palettization.base_palettizer import _BasePalettizer
 from coreai_opt.palettization.config.palettization_config import (
     KMeansPalettizerConfig,
+    PATSchedule,
 )
 from coreai_opt.palettization.spec.fake_palettize import (
     _disable_fake_palett,
-    _disable_observer,
     _enable_fake_palett,
-    _enable_observer,
 )
 
 from ._prepare_for_export import (
@@ -95,7 +97,8 @@ def _calculate_centroids_for_module(
     fp_module, weight, layer_name = args
 
     try:
-        fp_module(weight)
+        with torch.no_grad():
+            fp_module(weight)
     except Exception as e:
         raise RuntimeError(f"Centroid calculation failed for layer {layer_name!r}") from e
 
@@ -138,6 +141,10 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         )
 
         self._num_workers = 1
+
+        self._step_count: int = 0
+        self._fp_to_schedule: dict[_KMeansFakePalettize, PATSchedule] = {}
+        self._module_config_dict: ModuleConfigDict[ModuleCompressionConfig] = {}
 
     @classmethod
     def get_op_type_resolver(cls) -> Callable[[Callable], str | None]:
@@ -187,6 +194,9 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         # Save so calibration_mode's recompute can use the same parallelism.
         self._num_workers = num_workers
 
+        # Cache config dict before prepare() modifies module types.
+        self._module_config_dict = self._config.build_module_config_dict(self._model)
+
         # Prepare the model
         logger.info("Preparing model for palettization")
         prepared_model = self._handler.prepare(self._model, example_inputs=example_inputs)
@@ -200,7 +210,6 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             sensitivities = torch.load(sensitivity_path, weights_only=True)
             self._set_sensitivities_in_fake_palettize_modules(sensitivities)
 
-        self._model.apply(_enable_observer)
         self._model.apply(_disable_fake_palett)
 
         if self._num_workers > 1:
@@ -213,7 +222,6 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         self._remove_disabled_fake_palett_modules(self._model)
 
         self._model.apply(_enable_fake_palett)
-        self._model.apply(_disable_observer)
 
         # Mark the model as prepared to prevent re-preparation
         self._mark_model_as_prepared(prepared_model)
@@ -272,64 +280,124 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 "Model must be prepared before entering calibration mode. Call prepare() first."
             )
 
-        # Save model checkpoint before modifying gradients
-        checkpoint_path = self._save_model_checkpoint(self._model)
-        self._model.zero_grad()
+        if self._lifecycle is not _CompressorLifecycle.IDLE:
+            raise RuntimeError(
+                f"Cannot enter calibration_mode() while palettizer is {self._lifecycle.value}"
+            )
+        self._lifecycle = _CompressorLifecycle.CALIBRATING
+        try:
+            # Save model checkpoint before modifying gradients
+            checkpoint_path = self._save_model_checkpoint(self._model)
+            self._model.zero_grad()
 
-        # Helper class for loss computation
-        class CalibrationHelper:
-            def __init__(self, loss_fn):
-                self.loss_fn = loss_fn
-                self.step_called = False
+            # Helper class for loss computation
+            class CalibrationHelper:
+                def __init__(self, loss_fn):
+                    self.loss_fn = loss_fn
+                    self.step_called = False
 
-            def step(self, output: torch.Tensor, target: torch.Tensor):
-                """Compute loss and backward pass."""
-                loss = self.loss_fn(output, target)
-                loss.backward()
-                self.step_called = True
+                def step(self, output: torch.Tensor, target: torch.Tensor):
+                    """Compute loss and backward pass."""
+                    loss = self.loss_fn(output, target)
+                    loss.backward()
+                    self.step_called = True
 
-        # Disable observers and fake palettization for sensitivity computation
-        self._model.apply(_disable_observer)
-        self._model.apply(_disable_fake_palett)
+            # Disable fake palettization for sensitivity computation
+            self._model.apply(_disable_fake_palett)
 
-        calibration_helper = CalibrationHelper(loss_fn)
+            calibration_helper = CalibrationHelper(loss_fn)
 
-        with self._register_grad_square_hooks(self._model):
+            with self._register_grad_square_hooks(self._model):
+                try:
+                    yield calibration_helper
+                finally:
+                    # Ensure step() was called at least once
+                    if not calibration_helper.step_called:
+                        raise RuntimeError(
+                            "calibration_mode requires at least one call to step(). "
+                            "No calibration data was processed."
+                        )
+
+                    # Construct sensitivities
+                    sensitivities = self._construct_sensitivities(sensitivity_path)
+
+                    # Restore model from checkpoint
+                    self._load_model_checkpoint(self._model, checkpoint_path)
+
+                    # Set sensitivities in fake palettize modules
+                    self._set_sensitivities_in_fake_palettize_modules(sensitivities)
+
+                    # Zero out gradients to clean up squared gradient values from hooks
+                    self._model.zero_grad()
+
+                    # Recompute centroids with sensitivities, matching the
+                    # parallelism the user opted into at prepare() time.
+                    if self._num_workers > 1:
+                        self._calculate_centroids_parallel(self._num_workers)
+                    else:
+                        self._calculate_centroids_sequential()
+
+                    # Restore normal operation
+                    self._model.apply(_enable_fake_palett)
+        finally:
+            self._lifecycle = _CompressorLifecycle.IDLE
+
+    @contextmanager
+    def training_mode(self):
+        """Context manager wrapping a training loop. Mutually exclusive with
+        calibration_mode().
+        """
+        if not self._is_model_prepared(self._model):
+            raise RuntimeError(
+                "Model must be prepared before entering training mode. Call prepare() first."
+            )
+
+        if self._lifecycle is not _CompressorLifecycle.IDLE:
+            raise RuntimeError(
+                f"Cannot enter training_mode() while palettizer is {self._lifecycle.value}"
+            )
+        self._lifecycle = _CompressorLifecycle.TRAINING
+        with _move_model_to_train(self._model):
             try:
-                yield calibration_helper
+                self._build_fp_to_schedule()
+                self._apply_schedule()
+                yield self
             finally:
-                # Ensure step() was called at least once
-                if not calibration_helper.step_called:
-                    raise RuntimeError(
-                        "calibration_mode requires at least one call to step(). "
-                        "No calibration data was processed."
-                    )
+                self._lifecycle = _CompressorLifecycle.IDLE
 
-                # Construct sensitivities
-                sensitivities = self._construct_sensitivities(sensitivity_path)
+    def step(self) -> None:
+        """Advance the schedule by one step. Must be called inside training_mode()."""
+        if self._lifecycle is not _CompressorLifecycle.TRAINING:
+            raise RuntimeError("step() must be called inside a training_mode() context.")
+        self._step_count += 1
+        self._apply_schedule()
 
-                # Restore model from checkpoint
-                self._load_model_checkpoint(self._model, checkpoint_path)
+    def _build_fp_to_schedule(self) -> None:
+        if self._fp_to_schedule:
+            return
+        for module_name, module in self._model.named_modules(remove_duplicate=True):
+            if not P.is_parametrized(module):
+                continue
+            for parametrizations in module.parametrizations.values():
+                for param in parametrizations:
+                    if not isinstance(param, _KMeansFakePalettize):
+                        continue
+                    schedule = self._resolve_schedule(module_name)
+                    if schedule is not None:
+                        self._fp_to_schedule[param] = schedule
+                    break
 
-                # Set sensitivities in fake palettize modules
-                self._set_sensitivities_in_fake_palettize_modules(sensitivities)
+    def _resolve_schedule(self, module_name: str) -> PATSchedule | None:
+        """Look up the PAT schedule for a module via the config hierarchy."""
+        for level in _ConfigLevel.priority_order():
+            config = self._module_config_dict[level].get(module_name)
+            if config is not None:
+                return config.pat_schedule
+        return None
 
-                # Zero out gradients to clean up squared gradient values from hooks
-                self._model.zero_grad()
-
-                # Enable observers to recompute LUTs with sensitivities
-                self._model.apply(_enable_observer)
-
-                # Recompute centroids with sensitivities, matching the
-                # parallelism the user opted into at prepare() time.
-                if self._num_workers > 1:
-                    self._calculate_centroids_parallel(self._num_workers)
-                else:
-                    self._calculate_centroids_sequential()
-
-                # Restore normal operation
-                self._model.apply(_enable_fake_palett)
-                self._model.apply(_disable_observer)
+    def _apply_schedule(self) -> None:
+        for fp_module, schedule in self._fp_to_schedule.items():
+            fp_module.enable_fake_palett(schedule._compute_state(self._step_count))
 
     def _validate_mmap_dir_constraints(
         self,
@@ -425,7 +493,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         # Serialize the spec, then layer in the owning module's compressor-specific
         # settings (e.g. enable_fast_kmeans_mode, rounding_precision).
         args = spec.model_dump_preserve_objects()
-        args.update(module_config._get_compressor_specific_settings())
+        args.update(module_config._get_fake_module_kwargs())
         return _KMeansFakePalettize.with_args(**args)
 
     def _collect_fake_palett_info(self, *, to_cpu: bool) -> list[_FakePalettInfo]:
@@ -720,17 +788,15 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
     @staticmethod
     def _load_model_checkpoint(model: torch.nn.Module, checkpoint_path: str):
         """Restore model checkpoint from specified checkpoint path."""
-        if checkpoint_path is not None and os.path.exists(checkpoint_path):
-            logger.debug(
-                f"Restoring model from checkpoint {checkpoint_path} "
-                "before setting sensitivities and recomputing centroids"
-            )
-            model.load_state_dict(torch.load(checkpoint_path, weights_only=True))
-            # Clean up temporary checkpoint file
-            logger.debug(f"Removing temporary checkpoint {checkpoint_path}")
-            os.unlink(checkpoint_path)
-        else:
-            logger.error(f"Failed to load model checkpoint from path: {checkpoint_path}")
+        if checkpoint_path is None or not os.path.exists(checkpoint_path):
+            raise RuntimeError(f"Failed to load model checkpoint from path: {checkpoint_path}")
+        logger.debug(
+            f"Restoring model from checkpoint {checkpoint_path} "
+            "before setting sensitivities and recomputing centroids"
+        )
+        model.load_state_dict(torch.load(checkpoint_path, weights_only=True))
+        logger.debug(f"Removing temporary checkpoint {checkpoint_path}")
+        os.unlink(checkpoint_path)
 
     @staticmethod
     def _remove_disabled_fake_palett_modules(model: torch.nn.Module) -> None:

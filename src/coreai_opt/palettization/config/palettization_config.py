@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar, final
 
-from pydantic import PositiveInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
 from coreai_opt.config import (
     CompressionConfig,
@@ -29,6 +29,29 @@ if TYPE_CHECKING:
 
 _KMEANS_PALETTIZATION_CONFIG = "kmeans_palettization_config"
 _PALETTIZATION_SPEC = "palettization_spec"
+
+
+class PATSchedule(BaseModel):
+    """Schedule for enabling palettization-aware training (PAT).
+
+    Defines the step threshold at which a module's fake palettization
+    forward pass becomes active. Used with ``KMeansPalettizer.step()``.
+
+    Attributes:
+        enable_fake_palettize: Step count at which fake palettization is
+            enabled. Must be >= 0.
+
+    Example:
+        >>> schedule = PATSchedule(enable_fake_palettize=500)
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    enable_fake_palettize: int = Field(default=0, ge=0)
+
+    def _compute_state(self, step_count: int) -> bool:
+        """Return whether fake palettization should be active at the given step."""
+        return step_count >= self.enable_fake_palettize
 
 
 class OpKMeansPalettizerConfig(WeightOnlyOpValidationMixin, OpCompressionConfig[PalettizationSpec]):
@@ -140,6 +163,11 @@ class ModuleKMeansPalettizerConfig(
             K-means clustering. Higher values preserve more precision but may reduce
             speed benefits. Only used when enable_fast_kmeans_mode is True. Default: 4.
 
+        pat_schedule (PATSchedule | None): Schedule controlling when this
+            module's palettization is active during a training_mode() loop.
+            If None, palettization is active immediately once training_mode()
+            begins. Default: None.
+
     Example:
         >>> config = ModuleKMeansPalettizerConfig()  # Uses defaults
         >>> # Or with custom settings:
@@ -160,6 +188,7 @@ class ModuleKMeansPalettizerConfig(
 
     enable_fast_kmeans_mode: bool = True
     rounding_precision: PositiveInt = 4
+    pat_schedule: PATSchedule | None = None
 
     # Namespace exposing built-in preset constructors.
     presets: ClassVar[_ModuleKMeansPalettizerConfigPresets]
@@ -182,6 +211,12 @@ class ModuleKMeansPalettizerConfig(
                 )
 
         return self
+
+    def _get_fake_module_kwargs(self) -> dict:
+        """Exclude palettizer-only fields from the fake-palettize constructor args."""
+        base = super()._get_fake_module_kwargs()
+        base.pop("pat_schedule", None)
+        return base
 
 
 @final

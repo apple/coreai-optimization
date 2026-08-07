@@ -11,6 +11,7 @@ techniques such as quantization.
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from enum import Enum
 from os import PathLike
 
 import torch
@@ -21,12 +22,21 @@ from coreai_opt.config import CompressionConfig
 _COREAI_OPT_PREPARED_ATTR = "_coreai_opt_prepared"
 
 
+class _CompressorLifecycle(Enum):
+    """Lifecycle state of a model compressor."""
+
+    IDLE = "idle"
+    TRAINING = "training"
+    CALIBRATING = "calibrating"
+
+
 class _BaseModelCompressor(ABC):
     """
     An abstract base class for implementing model compression techniques.
     """
 
     _supported_modules: tuple[type[torch.nn.Module]]
+    _lifecycle: _CompressorLifecycle
 
     def __init__(self, model: torch.nn.Module, config: CompressionConfig | None = None):
         """
@@ -39,6 +49,7 @@ class _BaseModelCompressor(ABC):
         """
         self._model = model
         self._config = config
+        self._lifecycle = _CompressorLifecycle.IDLE
 
     @staticmethod
     def _is_model_prepared(model: torch.nn.Module) -> bool:
