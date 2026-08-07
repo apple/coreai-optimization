@@ -18,6 +18,40 @@ _SEQ = 4
 _BATCH = 2
 
 
+# Externalize specs shared by the externalization test modules.
+#
+# These are factories rather than module-level constants on purpose: this module
+# is registered as a pytest plugin in tests/conftest.py, so it is imported for
+# every test session, while ``coreai-torch`` is an optional extra. Importing it
+# at module scope would break collection for anyone without the extra, so the
+# imports stay function-local (same reason the model classes import inside
+# ``__init__``).
+
+
+def rmsnorm_externalize_spec():
+    """ExternalizeSpec targeting the RMSNormImpl composite."""
+    from coreai_torch import ExternalizeSpec  # noqa: PLC0415
+    from coreai_torch.composite_ops import RMSNormImpl  # noqa: PLC0415
+
+    return ExternalizeSpec(
+        target_class=RMSNormImpl,
+        composite_op_name="rms_norm",
+        composite_attrs=["axes", "eps"],
+    )
+
+
+def sdpa_externalize_spec():
+    """ExternalizeSpec targeting the SDPA composite."""
+    from coreai_torch import ExternalizeSpec  # noqa: PLC0415
+    from coreai_torch.composite_ops import SDPA  # noqa: PLC0415
+
+    return ExternalizeSpec(
+        target_class=SDPA,
+        composite_op_name="scaled_dot_product_attention",
+        composite_attrs=["scale", "is_causal", "window_size"],
+    )
+
+
 class CompositeRMSNormModel(nn.Module):
     """Linear -> RMSNormImpl (composite) -> Linear over rank-3 activations."""
 

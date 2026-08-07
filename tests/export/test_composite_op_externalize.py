@@ -17,7 +17,10 @@ Coverage spans:
   via a module-level config, by name and by type, on a bare composite, on a
   mixed model with other quantized ops, and on a multi-tensor (q / k / v) SDPA
   composite; a distinct dtype on the composite config proves it outranks the
-  global spec at the boundary (``TestCompositeOpIOQuantization``).
+  global spec at the boundary (``TestCompositeOpIOQuantization``). A proper
+  subset of integer input indices selects exactly those positional args, which
+  pins the index -> argument mapping the wildcard cannot
+  (``test_composite_boundary_input_index_selects_those_args``).
 
 End-to-end lowering and execution tests live in
 ``tests/export/test_graph_mode_mlir_export.py::test_composite_externalize_export``.
@@ -29,7 +32,6 @@ import pytest
 import torch
 import torch.nn as nn
 from coreai_torch import ExternalizeSpec, _patch_model_for_externalization
-from coreai_torch.composite_ops import SDPA, RMSNormImpl
 
 from coreai_opt import ExportBackend
 from coreai_opt.quantization import (
@@ -49,6 +51,8 @@ from tests.models.composite import (
     CompositeRMSNormModel,
     CompositeRMSNormOnlyModel,
     CompositeSDPAModel,
+    rmsnorm_externalize_spec,
+    sdpa_externalize_spec,
 )
 from tests.test_utils.general import (
     assert_single_call_function_node,
@@ -57,16 +61,8 @@ from tests.test_utils.general import (
     is_coreai_quantize,
 )
 
-_RMSNORM_SPEC = ExternalizeSpec(
-    target_class=RMSNormImpl,
-    composite_op_name="rms_norm",
-    composite_attrs=["axes", "eps"],
-)
-_SDPA_SPEC = ExternalizeSpec(
-    target_class=SDPA,
-    composite_op_name="scaled_dot_product_attention",
-    composite_attrs=["scale", "is_causal", "window_size"],
-)
+_RMSNORM_SPEC = rmsnorm_externalize_spec()
+_SDPA_SPEC = sdpa_externalize_spec()
 
 
 @pytest.mark.parametrize(
@@ -139,24 +135,34 @@ class TestCompositeOpIOQuantization:
     _COMPOSITE_ACT_DTYPE = torch.uint8
 
     @classmethod
-    def _config(cls, spec: ExternalizeSpec, module_name: str, target_by: str) -> QuantizerConfig:
+    def _composite_act_spec(cls) -> QuantizationSpec:
         # The composite config must use a dtype DISTINCT from the global
         # (default) activation dtype: a matching dtype collapses via observer
         # sharing into a vacuous no-op, so the composite's effect at the
         # boundary would not be observable.
         assert cls._COMPOSITE_ACT_DTYPE != default_activation_quantization_spec().dtype
-        composite_act = QuantizationSpec(
+        return QuantizationSpec(
             dtype=cls._COMPOSITE_ACT_DTYPE,
             qscheme=QuantizationScheme.SYMMETRIC,
             granularity=PerTensorGranularity(),
         )
+
+    @classmethod
+    def _config(
+        cls,
+        spec: ExternalizeSpec,
+        module_name: str,
+        target_by: str,
+        module_input_spec: dict | None = None,
+    ) -> QuantizerConfig:
+        composite_act = cls._composite_act_spec()
         global_config = ModuleQuantizerConfig(
             op_state_spec={"weight": default_weight_quantization_spec()},
             op_input_spec={"*": default_activation_quantization_spec()},
             op_output_spec={"*": default_activation_quantization_spec()},
         )
         composite_config = ModuleQuantizerConfig(
-            module_input_spec={"*": composite_act},
+            module_input_spec=module_input_spec or {"*": composite_act},
             module_output_spec={"*": composite_act},
         )
         if target_by == "name":
@@ -172,12 +178,13 @@ class TestCompositeOpIOQuantization:
         spec: ExternalizeSpec,
         module_name: str,
         target_by: str,
+        module_input_spec: dict | None = None,
     ) -> tuple[torch.fx.GraphModule, str]:
         _patch_model_for_externalization(model, [spec])
         op_name = model.get_submodule(module_name)._externalize_op_name
         target_substr = f"coreai_torch_ext.{op_name}"
 
-        quantizer = Quantizer(model, self._config(spec, module_name, target_by))
+        quantizer = Quantizer(model, self._config(spec, module_name, target_by, module_input_spec))
         prepared = quantizer.prepare((sample,))
         assert_single_call_function_node(prepared, target_substr, stage="prepared")
 
@@ -234,3 +241,72 @@ class TestCompositeOpIOQuantization:
         sample = torch.randn(2, 4, 32, dtype=torch.float16)
         finalized, target_substr = self._finalize(model, sample, spec, module_name, target_by)
         self._assert_boundary_quantized(finalized, target_substr, num_tensor_inputs)
+
+    @pytest.mark.parametrize("target_by", ["name", "type"])
+    def test_composite_boundary_input_index_selects_those_args(self, target_by: str) -> None:
+        """Integer keys in ``module_input_spec`` quantize exactly those positional args
+        for composite ops.
+
+        The unselected input is left  unquantized rather than falling
+        back to the global spec, because the composite is opaque to the
+        op-pattern annotator and only a module-level config reaches its edges.
+        """
+        quantized_indices = (0, 2)
+        num_tensor_inputs = 3
+        model = CompositeSDPAModel().eval().half()
+        sample = torch.randn(2, 4, 32, dtype=torch.float16)
+
+        finalized, target_substr = self._finalize(
+            model,
+            sample,
+            _SDPA_SPEC,
+            "composite",
+            target_by,
+            module_input_spec={i: self._composite_act_spec() for i in quantized_indices},
+        )
+
+        composite = assert_single_call_function_node(finalized, target_substr, stage="finalized")
+        tensor_inputs = [
+            a for a in composite.args if isinstance(a, torch.fx.Node) and a.op != "get_attr"
+        ]
+        assert len(tensor_inputs) == num_tensor_inputs, (
+            f"Expected {num_tensor_inputs} tensor inputs to {composite.name}, "
+            f"got {[n.name for n in tensor_inputs]}"
+        )
+
+        # Each selected index must be fed by a dequantize whose producing
+        # quantize carries the composite dtype; each unselected index must not
+        # be quantized at all.
+        for index, act_input in enumerate(tensor_inputs):
+            if index in quantized_indices:
+                assert is_coreai_dequantize(act_input.target), (
+                    f"input {index} was selected by module_input_spec but is not fed by "
+                    f"a dequantize: {act_input.target}"
+                )
+                input_dtype = get_quantize_dtype(act_input.args[0])
+                assert input_dtype == self._COMPOSITE_ACT_DTYPE, (
+                    f"input {index} was selected by module_input_spec but is quantized as "
+                    f"{input_dtype}, expected the composite dtype {self._COMPOSITE_ACT_DTYPE}"
+                )
+            else:
+                assert not is_coreai_dequantize(act_input.target), (
+                    f"input {index} was not selected by module_input_spec but is fed by "
+                    f"a dequantize: {act_input.target}"
+                )
+
+        # module_output_spec stays the wildcard, so the composite's consumer is
+        # quantized with the composite dtype regardless of which inputs were selected.
+        consumers = list(composite.users)
+        assert len(consumers) == 1, (
+            f"expected the composite to have exactly one consumer, got "
+            f"{[n.name for n in consumers]}"
+        )
+        consumer = consumers[0]
+        assert is_coreai_quantize(consumer.target), (
+            f"the composite's consumer is not a quantize node: {consumer.target}"
+        )
+        consumer_dtype = get_quantize_dtype(consumer)
+        assert consumer_dtype == self._COMPOSITE_ACT_DTYPE, (
+            f"the composite's output is quantized as {consumer_dtype}, expected the "
+            f"composite dtype {self._COMPOSITE_ACT_DTYPE}"
+        )

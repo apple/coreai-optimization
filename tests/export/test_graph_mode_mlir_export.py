@@ -11,7 +11,6 @@ from collections.abc import Mapping
 import pytest
 import torch
 from coreai_torch import ExternalizeSpec, _patch_model_for_externalization
-from coreai_torch.composite_ops import SDPA, RMSNormImpl
 
 from coreai_opt import ExportBackend
 from coreai_opt.palettization.kmeans import KMeansPalettizer
@@ -34,7 +33,12 @@ from tests.fixtures.quantization import (
     ParametrizedQuantConfigs,
     make_graph_mode_ptq_config,
 )
-from tests.models.composite import CompositeRMSNormModel, CompositeSDPAModel
+from tests.models.composite import (
+    CompositeRMSNormModel,
+    CompositeSDPAModel,
+    rmsnorm_externalize_spec,
+    sdpa_externalize_spec,
+)
 
 from . import export_utils
 
@@ -459,24 +463,8 @@ def test_integer_quant_minval_export(
 @pytest.mark.parametrize(
     "model_cls, externalize_spec",
     [
-        pytest.param(
-            CompositeRMSNormModel,
-            ExternalizeSpec(
-                target_class=RMSNormImpl,
-                composite_op_name="rms_norm",
-                composite_attrs=["axes", "eps"],
-            ),
-            id="rmsnorm",
-        ),
-        pytest.param(
-            CompositeSDPAModel,
-            ExternalizeSpec(
-                target_class=SDPA,
-                composite_op_name="scaled_dot_product_attention",
-                composite_attrs=["scale", "is_causal", "window_size"],
-            ),
-            id="sdpa",
-        ),
+        pytest.param(CompositeRMSNormModel, rmsnorm_externalize_spec(), id="rmsnorm"),
+        pytest.param(CompositeSDPAModel, sdpa_externalize_spec(), id="sdpa"),
     ],
 )
 def test_composite_externalize_export(

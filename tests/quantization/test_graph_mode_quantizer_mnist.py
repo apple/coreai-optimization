@@ -7,8 +7,7 @@ import sys
 
 import pytest
 import torch
-from coreai_torch import ExternalizeSpec, _patch_model_for_externalization
-from coreai_torch.composite_ops import RMSNormImpl
+from coreai_torch import _patch_model_for_externalization
 
 import tests.utils as utils
 from coreai_opt import ExportBackend
@@ -23,6 +22,7 @@ from coreai_opt.quantization.spec import (
     PerTensorGranularity,
 )
 from tests.export import export_utils
+from tests.models.composite import rmsnorm_externalize_spec
 from tests.test_utils.general import assert_single_call_function_node
 
 image_size = 28
@@ -333,6 +333,7 @@ def test_weight_and_activation_qat_mnist(mnist_pretrained_model, mnist_dataset, 
     assert post_qat_accuracy == finalized_accuracy
 
 
+@pytest.mark.slow
 @pytest.mark.seed
 def test_weight_and_activation_qat_mnist_with_externalized_composite(
     mnist_composite_rmsnorm_pretrained_model,
@@ -369,16 +370,7 @@ def test_weight_and_activation_qat_mnist_with_externalized_composite(
         f"expect pretrained MNIST-composite model accuracy > 92%, got {accuracy:.2f}%"
     )
 
-    _patch_model_for_externalization(
-        model,
-        [
-            ExternalizeSpec(
-                target_class=RMSNormImpl,
-                composite_op_name="rms_norm",
-                composite_attrs=["axes", "eps"],
-            ),
-        ],
-    )
+    _patch_model_for_externalization(model, [rmsnorm_externalize_spec()])
     op_name = model.norm._externalize_op_name
     target_substr = f"coreai_torch_ext.{op_name}"
 
