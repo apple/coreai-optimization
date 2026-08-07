@@ -195,10 +195,13 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         self._centroids_initialized = True
         self._indices_stale = False
 
-    def _refresh_indices(self, weight: torch.Tensor) -> None:
-        """Recompute indices from the current centroids, without re-clustering."""
-        self.indices = self._assign_indices(weight, self.centroids).detach()
-        self._indices_stale = False
+    def _maybe_refresh_indices(self, weight: torch.Tensor) -> None:
+        """Recompute indices from the current centroids if self._indices_stale is true,
+        without re-clustering.
+        """
+        if self._indices_stale:
+            self.indices = self._assign_indices(weight, self.centroids).detach()
+            self._indices_stale = False
 
     def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
         """Mark centroids as initialized after loading them from a checkpoint."""
@@ -275,8 +278,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         """Nearest-centroid reconstruction against the current centroids,
         refreshing indices first if stale.
         """
-        if self._indices_stale:
-            self._refresh_indices(weight)
+        self._maybe_refresh_indices(weight)
         return self._palettize(self.lut, self.indices, weight)
 
     def _blocks_to_cluster(self, weight_2d: torch.Tensor, axis: int) -> list[torch.Tensor]:

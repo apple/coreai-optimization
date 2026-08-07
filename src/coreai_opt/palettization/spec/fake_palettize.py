@@ -89,6 +89,11 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         raise NotImplementedError()
 
     @abstractmethod
+    def hard_assign(self, weight: torch.Tensor) -> torch.Tensor:
+        """Return the hard-assigned (deployable) palettized reconstruction of ``weight``."""
+        raise NotImplementedError()
+
+    @abstractmethod
     def _palettize(
         self, lut: torch.Tensor, indices: torch.Tensor, original_weights: torch.Tensor
     ) -> torch.Tensor:

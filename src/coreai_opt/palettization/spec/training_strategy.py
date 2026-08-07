@@ -16,21 +16,18 @@ from pydantic import BaseModel, ConfigDict, model_serializer
 from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegistryMixin
 
 if TYPE_CHECKING:
-    from coreai_opt.palettization.kmeans.kmeans_fake_palettize import _KMeansFakePalettize
+    from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 
 
 class TrainingStrategy(ABC):
     """Contract for a fake-palettize module's training-time forward pass."""
 
     @abstractmethod
-    def train_forward(self, module: _KMeansFakePalettize, weight: torch.Tensor) -> torch.Tensor:
-        """Compute this training step's output for ``weight``.
+    def train_forward(self, module: _FakePalettizeImplBase, weight: torch.Tensor) -> torch.Tensor:
+        """Return the training-time output for ``weight``.
 
-        May mutate ``module.centroids`` in place (must set
-        ``module._indices_stale = True`` if it does). Use ``module.quantize_lut()``
-        to fake-quantize intermediate centroids against the module's
-        configured LUT quantizer. Must leave ``module.centroids`` such that
-        ``module.hard_assign(weight)`` produces a sensible result at eval time.
+        Defines how the palettized weight behaves during training (e.g. frozen,
+        straight-through, soft assignment).
         """
         raise NotImplementedError
 
@@ -50,7 +47,7 @@ class _DefaultTrainingStrategy(TrainingStrategy):
     ``TrainingStrategy``.
     """
 
-    def train_forward(self, module: _KMeansFakePalettize, weight: torch.Tensor) -> torch.Tensor:
+    def train_forward(self, module: _FakePalettizeImplBase, weight: torch.Tensor) -> torch.Tensor:
         return module.hard_assign(weight)
 
 
