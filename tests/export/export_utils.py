@@ -538,13 +538,6 @@ class MLIRConverter(ModelConverter):
             exported_program: The exported program to lower.
             externalize_model: Optional ``torch.nn.Module`` that was marked in
                 place by ``coreai_torch._patch_model_for_externalization``.
-                When provided,
-                ``_subexport_and_restore(model, exported_program)`` is run to
-                sub-export each marked composite (and restore the patched
-                forwards); the resulting ``_ExternalizedExportedProgram`` list
-                is passed to ``TorchConverter.add_exported_program`` via
-                ``_externalized_exported_programs`` so the composites survive
-                lowering as opaque calls.
         """
         converter = coreai_torch.TorchConverter()
         externalized_exported_programs = (

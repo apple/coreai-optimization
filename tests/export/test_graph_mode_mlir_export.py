@@ -481,15 +481,6 @@ def test_composite_externalize_export(
     on the runtime output and op-count verification on the exported
     program (``constexpr_blockwise_shift_scale`` for weight quantizers
     and ``quantize`` / ``dequantize`` for activation quantizers).
-
-    Both models wrap their composite in two Linears, so the op counts are
-    identical across the RMSNorm and SDPA cases: the composite itself is
-    opaque and contributes no quantizers of its own under a global config.
-
-    ``externalize_model`` is forwarded through ``convert_and_verify``'s
-    ``**converter_kwargs`` so the MLIR converter runs
-    ``_subexport_and_restore(model, ep)`` and sees the opaque composite
-    during ``TorchConverter.add_exported_program``.
     """
     model = model_cls().eval().half()
     input_data = torch.randn(2, 4, 32, dtype=torch.float16)

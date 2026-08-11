@@ -9,21 +9,6 @@ in presence of coreai-opt graph mode quantization.
 Test structural assertions: after ``_patch_model_for_externalization``
 patches a composite submodule's forward into a ``torch.library.custom_op``,
 the resulting opaque call_function node survives Graph-mode ``prepare`` + ``finalize``.
-Coverage spans:
-
-- the RMSNorm composite under both w8 weight-only and w8a8:
-  ``test_composite_op_survives_prepare_and_finalize``
-- explicit quantization of the composite's own input/output boundary
-  via a module-level config, by name and by type, on a bare composite, on a
-  mixed model with other quantized ops, and on a multi-tensor (q / k / v) SDPA
-  composite; a distinct dtype on the composite config proves it outranks the
-  global spec at the boundary (``TestCompositeOpIOQuantization``). A proper
-  subset of integer input indices selects exactly those positional args, which
-  pins the index -> argument mapping the wildcard cannot
-  (``test_composite_boundary_input_index_selects_those_args``).
-
-End-to-end lowering and execution tests live in
-``tests/export/test_graph_mode_mlir_export.py::test_composite_externalize_export``.
 """
 
 from __future__ import annotations
@@ -79,16 +64,6 @@ def test_composite_op_survives_prepare_and_finalize(
 ) -> None:
     """The externalized composite must remain a single opaque
     call_function node end-to-end, under both w8 and w8a8.
-
-    ``_patch_model_for_externalization`` swaps the submodule's forward for a
-    ``torch.library.custom_op`` BEFORE the quantizer runs, so graph mode's
-    annotator never sees the composite body and cannot insert q-dq
-    inside it. The structural guarantee here is that the custom-op
-    call survives ``Quantizer.prepare`` (which traces the model into
-    a GraphModule and inserts observers) and ``Quantizer.finalize``
-    (which converts observers into coreai q-dq / constexpr nodes),
-    irrespective of whether activation observers are inserted on
-    surrounding ops.
     """
     model = composite_rmsnorm_model
     sample = composite_rmsnorm_input
@@ -122,14 +97,11 @@ class TestCompositeOpIOQuantization:
     """Ensure externalized composite's I/O boundary can be quantized
     via a module-level config, by name and by type.
 
-    The composite is opaque to the op-pattern annotator, but the custom-op
-    node retains ``nn_module_stack`` metadata (path and type), so a module-level
-    config can target it for i/o quantization at the boundary. A global config
-    quantizes the rest of the model with the default activation dtype (int8) and
-    the composite config provides a distinct ``_COMPOSITE_ACT_DTYPE`` (uint8) on
-    the composite's edges. Module config outranks global, so the composite
-    boundary must carry the composite dtype while every other quantized edge
-    carries the global dtype.
+    A global config quantizes the rest of the model with the default activation
+    dtype (int8) and the composite config provides a distinct
+    ``_COMPOSITE_ACT_DTYPE`` (uint8) on the composite's edges. Module config
+    outranks global, so the composite boundary must carry the composite dtype
+    while every other quantized edge carries the global dtype.
     """
 
     _COMPOSITE_ACT_DTYPE = torch.uint8
@@ -274,9 +246,6 @@ class TestCompositeOpIOQuantization:
             f"got {[n.name for n in tensor_inputs]}"
         )
 
-        # Each selected index must be fed by a dequantize whose producing
-        # quantize carries the composite dtype; each unselected index must not
-        # be quantized at all.
         for index, act_input in enumerate(tensor_inputs):
             if index in quantized_indices:
                 assert is_coreai_dequantize(act_input.target), (

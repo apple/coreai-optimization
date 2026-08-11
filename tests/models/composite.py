@@ -19,13 +19,6 @@ _BATCH = 2
 
 
 # Externalize specs shared by the externalization test modules.
-#
-# These are factories rather than module-level constants on purpose: this module
-# is registered as a pytest plugin in tests/conftest.py, so it is imported for
-# every test session, while ``coreai-torch`` is an optional extra. Importing it
-# at module scope would break collection for anyone without the extra, so the
-# imports stay function-local (same reason the model classes import inside
-# ``__init__``).
 
 
 def rmsnorm_externalize_spec():
@@ -120,16 +113,10 @@ class MNISTCompositeRMSNormModel(nn.Module):
         return self.softmax(x)
 
 
+# Function scoped so the consuming test's seed marker applies.
 @pytest.fixture(scope="function")
 def mnist_composite_rmsnorm_pretrained_state(mnist_dataset) -> dict:
-    """One-epoch-pretrained state_dict for MNISTCompositeRMSNormModel.
-
-    Training costs ~1.5s. This fixture is function scoped so the
-    repo-wide seeding policy applies: determinism comes from the
-    consuming test's ``@pytest.mark.seed`` marker, which the autouse
-    ``seed_every_test`` fixture in ``tests/conftest.py`` honors before
-    this fixture runs.
-    """
+    """One-epoch-pretrained state_dict for MNISTCompositeRMSNormModel."""
     model = MNISTCompositeRMSNormModel()
 
     train_ds, _ = mnist_dataset

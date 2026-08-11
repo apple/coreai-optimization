@@ -346,21 +346,6 @@ def test_weight_and_activation_qat_mnist_with_externalized_composite(
     for externalization -> prepare -> post-prepare drop -> train under
     ``training_mode()`` -> post-QAT recovery -> finalize -> finalized
     accuracy matches post-QAT accuracy.
-
-    Externalize-specific overlay:
-      - ``_patch_model_for_externalization`` is applied BEFORE
-        ``Quantizer.prepare`` so graph mode treats the composite as opaque
-        and cannot insert q-dq inside the RMSNorm body.
-      - The composite itself carries no quantization annotation: the
-        global config only annotates registered op patterns, so the
-        composite's own input and output edges are not targeted here.
-      - After finalize, the graph must contain exactly one
-        ``coreai_torch_ext::norm`` call_function node.
-      - The finalized model lowers to a runnable .aimodel and the
-        runtime output matches the finalized torch output under the
-        SNR / PSNR thresholds enforced by ``convert_and_verify``.
-        ``externalize_model`` is forwarded so the composite stays
-        opaque through ``TorchConverter.add_exported_program``.
     """
     train_loader, test_loader = utils.setup_data_loaders(mnist_dataset, batch_size)
 
@@ -374,17 +359,6 @@ def test_weight_and_activation_qat_mnist_with_externalized_composite(
     op_name = model.norm._externalize_op_name
     target_substr = f"coreai_torch_ext.{op_name}"
 
-    # w8a8 via the default global config, which is equivalent to a bare
-    # `QuantizerConfig()`. Both activation and weight dtype default to int8:
-    # activations symmetric per-tensor, weights symmetric per-channel on
-    # axis 0.
-    # The global config does not reach the externalized composite's
-    # boundary because it only annotates registered op patterns. The
-    # composite's input edge is dequantized only incidentally by fc1's
-    # output observer, and its output edge is not quantized at all.
-    # Quantizing a composite boundary requires a module-level config and is
-    # covered in tests/export/test_composite_op_externalize.py::
-    # TestCompositeOpIOQuantization.
     config = QuantizerConfig(global_config=ModuleQuantizerConfig())
     quantizer = Quantizer(model, config)
 

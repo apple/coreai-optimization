@@ -151,17 +151,7 @@ def assert_single_call_function_node(
 
 
 def is_coreai_quantize(target: object) -> bool:
-    """Whether an FX node target is the ``coreai::quantize`` op.
-
-    Compares by object identity against ``torch.ops.coreai``. Both forms are
-    matched because they are distinct objects and which one appears depends
-    on the pipeline stage: ``Quantizer.finalize`` emits the
-    ``OpOverloadPacket`` (``coreai.quantize``) while a decomposed
-    ExportedProgram carries the ``OpOverload`` (``coreai.quantize.default``).
-
-    The op resolves lazily on first call, so this raises AttributeError if
-    the coreai op namespace was never registered (see ``COREAI_AVAILABLE``).
-    """
+    """Whether an FX node target is the ``coreai::quantize`` op."""
     return target is coreai.quantize or target is coreai.quantize.default
 
 
@@ -172,12 +162,6 @@ def is_coreai_dequantize(target: object) -> bool:
 
 def get_quantize_dtype(node: torch.fx.Node) -> torch.dtype | None:
     """Return the quantized dtype carried in an FX node's args, else None.
-
-    ``coreai::quantize`` takes ``(input, scale, dtype)``, so its dtype is the
-    third positional arg. ``coreai::dequantize`` takes ``(input, scale)`` and
-    carries no dtype, so this returns None for a dequantize node. To read the
-    dtype at a dequantize boundary, pass the quantize node feeding it
-    (``dequantize_node.args[0]``).
 
     Args:
         node: The FX node to inspect
