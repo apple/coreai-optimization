@@ -1633,6 +1633,7 @@ class TestDerivedLutProperties:
         assert palettizer.lut is not None
         assert torch.isfinite(palettizer.lut).all()
         assert palettizer.quantized_lut is not None
+        assert not palettizer.quantized_lut.dtype.is_floating_point
         scale = palettizer.lut_quantization_scale
         assert scale is not None and (scale > 0).all()
 
@@ -1681,21 +1682,20 @@ class TestDerivedLutProperties:
         for a, b in zip(first, second, strict=True):
             assert torch.equal(a, b)
 
-    def test_lut_consistent_with_quantized_lut_and_scale(self):
-        """The dequantized `lut` matches `scale * quantized_lut` (int8 symmetric),
-        confirming all four properties derive from the same frozen qparams.
+    def test_lut_small_quantization_error(self):
+        """The dequantized `lut` reconstructs the raw centroids within one
+        quantization step.
         """
         palettizer = self._make_palettizer(lut_qspec=_make_lut_qspec(torch.int8))
         palettizer._initialize(torch.randn(8, 8))
 
-        lut = palettizer.lut
-        quantized_lut = palettizer.quantized_lut
-        scale = palettizer.lut_quantization_scale
+        raw = palettizer._raw_lut(palettizer.centroids)
+        scale = palettizer.lut_quantization_scale.max().item()
         torch.testing.assert_close(
-            lut.flatten(),
-            scale.flatten() * quantized_lut.flatten().float(),
-            atol=1e-4,
-            rtol=1e-4,
+            palettizer.lut.squeeze(),
+            raw.squeeze(),
+            atol=scale,
+            rtol=0,
         )
 
 
@@ -1917,17 +1917,7 @@ class TestClustering:
             palettizer._blocks_to_cluster(weight_2d, axis=0)
 
 
-def _accelerator_device() -> str | None:
-    """Return an available accelerator device type ("cuda" or "mps"), else None."""
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-    return None
-
-
-@pytest.mark.skipif(_accelerator_device() is None, reason="requires a CUDA or MPS accelerator")
-def test_device_placement_on_accelerator():
+def test_device_placement_on_accelerator(accelerator_device):
     """LUT quantization and reconstruction device behavior on an accelerator.
 
     Checks in one pass that:
@@ -1938,7 +1928,7 @@ def test_device_placement_on_accelerator():
       - ``hard_assign`` (eval) gathers against the CPU ``indices`` and returns on the
         weight's device -- no accelerator/cpu device mismatch.
     """
-    device = _accelerator_device()
+    device = accelerator_device
 
     spec = PalettizationSpec(
         n_bits=2,

@@ -222,6 +222,11 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         """Invert ``_reshape_lut_tensor`` to recover ``(num_blocks, num_clusters,
         cluster_dim)`` centroids from a stored 4D LUT tensor.
         """
+        if lut.ndim != 4:
+            raise ValueError(
+                "Legacy 'lut' buffer must be 4D (num_blocks_axis0, num_blocks_axis1, "
+                f"num_clusters, cluster_dim); got shape {tuple(lut.shape)}."
+            )
         ungrouped_dim = 0 if self.granularity.axis == 1 else 1
         centroids = lut.squeeze(-1) if self.cluster_dim == 1 else lut
         centroids = centroids.squeeze(ungrouped_dim)
