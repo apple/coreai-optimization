@@ -20,7 +20,6 @@ from coreai_torch import ExternalizeSpec, _patch_model_for_externalization
 
 from coreai_opt import ExportBackend
 from coreai_opt.quantization import (
-    ModuleQuantizerConfig,
     Quantizer,
     QuantizerConfig,
 )
@@ -28,10 +27,12 @@ from coreai_opt.quantization.spec import (
     PerTensorGranularity,
     QuantizationScheme,
     QuantizationSpec,
-    default_activation_quantization_spec,
-    default_weight_quantization_spec,
 )
-from tests.fixtures.quantization import make_graph_mode_ptq_config
+from tests.fixtures.quantization import (
+    COMPOSITE_BOUNDARY_ACT_DTYPE,
+    make_graph_mode_composite_boundary_config,
+    make_graph_mode_ptq_config,
+)
 from tests.models.composite import (
     CompositeRMSNormModel,
     CompositeRMSNormOnlyModel,
@@ -104,15 +105,10 @@ class TestCompositeOpIOQuantization:
     while every other quantized edge carries the global dtype.
     """
 
-    _COMPOSITE_ACT_DTYPE = torch.uint8
+    _COMPOSITE_ACT_DTYPE = COMPOSITE_BOUNDARY_ACT_DTYPE
 
     @classmethod
     def _composite_act_spec(cls) -> QuantizationSpec:
-        # The composite config must use a dtype DISTINCT from the global
-        # (default) activation dtype: a matching dtype collapses via observer
-        # sharing into a vacuous no-op, so the composite's effect at the
-        # boundary would not be observable.
-        assert cls._COMPOSITE_ACT_DTYPE != default_activation_quantization_spec().dtype
         return QuantizationSpec(
             dtype=cls._COMPOSITE_ACT_DTYPE,
             qscheme=QuantizationScheme.SYMMETRIC,
@@ -127,21 +123,11 @@ class TestCompositeOpIOQuantization:
         target_by: str,
         module_input_spec: dict | None = None,
     ) -> QuantizerConfig:
-        composite_act = cls._composite_act_spec()
-        global_config = ModuleQuantizerConfig(
-            op_state_spec={"weight": default_weight_quantization_spec()},
-            op_input_spec={"*": default_activation_quantization_spec()},
-            op_output_spec={"*": default_activation_quantization_spec()},
+        return make_graph_mode_composite_boundary_config(
+            module_name=module_name if target_by == "name" else None,
+            module_type=spec.target_class if target_by == "type" else None,
+            module_input_spec=module_input_spec,
         )
-        composite_config = ModuleQuantizerConfig(
-            module_input_spec=module_input_spec or {"*": composite_act},
-            module_output_spec={"*": composite_act},
-        )
-        if target_by == "name":
-            scope = {"module_name_configs": {module_name: composite_config}}
-        else:
-            scope = {"module_type_configs": {spec.target_class: composite_config}}
-        return QuantizerConfig(global_config=global_config, execution_mode="graph", **scope)
 
     def _finalize(
         self,

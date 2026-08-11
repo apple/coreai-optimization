@@ -104,6 +104,61 @@ def make_graph_mode_ptq_config(*, quantize_activations: bool) -> QuantizerConfig
     )
 
 
+COMPOSITE_BOUNDARY_ACT_DTYPE = torch.uint8
+
+
+def make_graph_mode_composite_boundary_config(
+    *,
+    module_name: str | None = None,
+    module_type: type | None = None,
+    module_input_spec: dict | None = None,
+) -> QuantizerConfig:
+    """Build a graph-mode w8a8 config that also quantizes the composite op module's
+    own i/o boundary.
+
+    Args:
+        module_name: Target the module at this path (``module_name_configs``).
+        module_type: Target modules of this type (``module_type_configs``).
+            Exactly one of module_name / module_type must be given.
+        module_input_spec: Override the boundary input spec, e.g.
+            ``{0: spec, 2: spec}`` to select individual positional args.
+            Defaults to the ``"*"`` wildcard over every boundary input.
+
+    Returns:
+        QuantizerConfig: global w8a8 plus a module-scoped boundary spec.
+    """
+    if (module_name is None) == (module_type is None):
+        msg = "pass exactly one of module_name / module_type"
+        raise ValueError(msg)
+    assert COMPOSITE_BOUNDARY_ACT_DTYPE != default_activation_quantization_spec().dtype
+
+    def _boundary_spec() -> QuantizationSpec:
+        return QuantizationSpec(
+            dtype=COMPOSITE_BOUNDARY_ACT_DTYPE,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerTensorGranularity(),
+        )
+
+    boundary_config = ModuleQuantizerConfig(
+        module_input_spec=module_input_spec or {"*": _boundary_spec()},
+        module_output_spec={"*": _boundary_spec()},
+    )
+    scope = (
+        {"module_name_configs": {module_name: boundary_config}}
+        if module_name is not None
+        else {"module_type_configs": {module_type: boundary_config}}
+    )
+    return QuantizerConfig(
+        global_config=ModuleQuantizerConfig(
+            op_state_spec={"weight": default_weight_quantization_spec()},
+            op_input_spec={"*": default_activation_quantization_spec()},
+            op_output_spec={"*": default_activation_quantization_spec()},
+        ),
+        execution_mode="graph",
+        **scope,
+    )
+
+
 @dataclass
 class ParametrizedQuantConfigs:
     """Container for parametrized Eager and PT2E quantization configs.

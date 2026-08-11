@@ -31,6 +31,7 @@ from tests.fixtures.fp4 import ParametrizedFP4Configs
 from tests.fixtures.fp8 import ParametrizedFP8Configs
 from tests.fixtures.quantization import (
     ParametrizedQuantConfigs,
+    make_graph_mode_composite_boundary_config,
     make_graph_mode_ptq_config,
 )
 from tests.models.composite import (
@@ -452,47 +453,66 @@ def test_integer_quant_minval_export(
 
 # Composite-op externalize export coverage
 
+# (model, externalize spec, composite submodule path, expected coreai.quantize count
+# per config kind)
+_EXTERNALIZE_EXPORT_CASES = [
+    pytest.param(
+        CompositeRMSNormModel,
+        rmsnorm_externalize_spec(),
+        "norm",
+        {"w8": 0, "w8a8": 4, "w8a8-boundary": 6},
+        id="rmsnorm",
+    ),
+    pytest.param(
+        CompositeSDPAModel,
+        sdpa_externalize_spec(),
+        "composite",
+        {"w8": 0, "w8a8": 4, "w8a8-boundary": 8},
+        id="sdpa",
+    ),
+]
 
+
+@pytest.mark.parametrize("config_kind", ["w8", "w8a8", "w8a8-boundary"])
 @pytest.mark.parametrize(
-    "quantize_activations, expected_quantize_count",
-    [
-        pytest.param(False, 0, id="w8-weight-only"),
-        pytest.param(True, 4, id="w8a8"),
-    ],
-)
-@pytest.mark.parametrize(
-    "model_cls, externalize_spec",
-    [
-        pytest.param(CompositeRMSNormModel, rmsnorm_externalize_spec(), id="rmsnorm"),
-        pytest.param(CompositeSDPAModel, sdpa_externalize_spec(), id="sdpa"),
-    ],
+    "model_cls, externalize_spec, composite_module, expected_quantize_counts",
+    _EXTERNALIZE_EXPORT_CASES,
 )
 def test_composite_externalize_export(
     model_cls: type[torch.nn.Module],
     externalize_spec: ExternalizeSpec,
-    quantize_activations: bool,
-    expected_quantize_count: int,
+    composite_module: str,
+    expected_quantize_counts: Mapping[str, int],
+    config_kind: str,
 ) -> None:
     """End-to-end CoreAI export of a model with an externalized composite op.
 
-    Marks the composite op for externalization, runs graph-mode PTQ
-    (w8 weight-only or w8a8), then lowers the finalized graph to a
-    .aimodel and runs it. ``convert_and_verify`` handles SNR / PSNR
-    on the runtime output and op-count verification on the exported
-    program (``constexpr_blockwise_shift_scale`` for weight quantizers
-    and ``quantize`` / ``dequantize`` for activation quantizers).
+    Marks the composite op for externalization, runs graph-mode PTQ, then lowers the
+    finalized graph to a .aimodel and runs it. ``convert_and_verify`` handles SNR /
+    PSNR on the runtime output and op-count verification on the exported program
+    (``constexpr_blockwise_shift_scale`` for weight quantizers and ``quantize`` /
+    ``dequantize`` for activation quantizers).
+
+    Three configs:
+
+    - ``w8`` / ``w8a8``: global config only.
+    - ``w8a8-boundary``: adds a module-scoped ``module_input_spec`` /
+      ``module_output_spec`` so the composite op's i/o edges are quantized
     """
     model = model_cls().eval().half()
     input_data = torch.randn(2, 4, 32, dtype=torch.float16)
 
     _patch_model_for_externalization(model, [externalize_spec])
 
-    quantizer = Quantizer(
-        model, make_graph_mode_ptq_config(quantize_activations=quantize_activations)
-    )
+    if config_kind == "w8a8-boundary":
+        config = make_graph_mode_composite_boundary_config(module_name=composite_module)
+    else:
+        config = make_graph_mode_ptq_config(quantize_activations=config_kind == "w8a8")
+
+    quantizer = Quantizer(model, config)
     prepared_model = quantizer.prepare((input_data,))
 
-    if quantize_activations:
+    if config_kind != "w8":
         with quantizer.calibration_mode(), torch.no_grad():
             prepared_model(input_data)
 
@@ -501,6 +521,7 @@ def test_composite_externalize_export(
 
     finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI)
 
+    expected_quantize_count = expected_quantize_counts[config_kind]
     export_utils.convert_and_verify(
         finalized_model=finalized_model,
         input_data=input_data,
