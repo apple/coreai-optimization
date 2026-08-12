@@ -31,13 +31,11 @@ from tests.fixtures.fp4 import ParametrizedFP4Configs
 from tests.fixtures.fp8 import ParametrizedFP8Configs
 from tests.fixtures.quantization import (
     ParametrizedQuantConfigs,
-    make_graph_mode_composite_boundary_config,
-    make_graph_mode_ptq_config,
+    make_graph_mode_module_boundary_config,
+    make_quant_config,
 )
 from tests.models.composite import (
-    CompositeRMSNormModel,
     CompositeSDPAModel,
-    rmsnorm_externalize_spec,
     sdpa_externalize_spec,
 )
 
@@ -453,30 +451,21 @@ def test_integer_quant_minval_export(
 
 # Composite-op externalize export coverage
 
-# (model, externalize spec, composite submodule path, expected coreai.quantize count
-# per config kind)
-_EXTERNALIZE_EXPORT_CASES = [
-    pytest.param(
-        CompositeRMSNormModel,
-        rmsnorm_externalize_spec(),
-        "norm",
-        {"w8": 0, "w8a8": 4, "w8a8-boundary": 6},
-        id="rmsnorm",
-    ),
-    pytest.param(
-        CompositeSDPAModel,
-        sdpa_externalize_spec(),
-        "composite",
-        {"w8": 0, "w8a8": 4, "w8a8-boundary": 8},
-        id="sdpa",
-    ),
-]
-
 
 @pytest.mark.parametrize("config_kind", ["w8", "w8a8", "w8a8-boundary"])
 @pytest.mark.parametrize(
+    # (model, externalize spec, composite submodule path, expected coreai.quantize
+    # count per config kind)
     "model_cls, externalize_spec, composite_module, expected_quantize_counts",
-    _EXTERNALIZE_EXPORT_CASES,
+    [
+        pytest.param(
+            CompositeSDPAModel,
+            sdpa_externalize_spec(),
+            "composite",
+            {"w8": 0, "w8a8": 4, "w8a8-boundary": 8},
+            id="sdpa",
+        ),
+    ],
 )
 def test_composite_externalize_export(
     model_cls: type[torch.nn.Module],
@@ -505,9 +494,17 @@ def test_composite_externalize_export(
     _patch_model_for_externalization(model, [externalize_spec])
 
     if config_kind == "w8a8-boundary":
-        config = make_graph_mode_composite_boundary_config(module_name=composite_module)
+        # uint8 boundary edges stay distinguishable from the int8 global ones.
+        config = make_graph_mode_module_boundary_config(
+            module_boundary_dtype=torch.uint8,
+            module_name=composite_module,
+        )
     else:
-        config = make_graph_mode_ptq_config(quantize_activations=config_kind == "w8a8")
+        config = make_quant_config(
+            weight_dtype=torch.int8,
+            act_dtype=torch.int8 if config_kind == "w8a8" else None,
+            execution_mode="graph",
+        )
 
     quantizer = Quantizer(model, config)
     prepared_model = quantizer.prepare((input_data,))
@@ -532,5 +529,5 @@ def test_composite_externalize_export(
         },
         export_backend=ExportBackend.CoreAI,
         prepared_model_output=prepared_model_output,
-        externalize_model=model,
+        externalized_model=model,
     )

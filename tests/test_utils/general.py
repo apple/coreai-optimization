@@ -71,7 +71,6 @@ def compute_snr_psnr(
 
     Returns:
         Tuple of (SNR, PSNR) values
-
     """
     assert len(data) == len(reference), f"Tensor length mismatch: {len(data)} vs {len(reference)}"
 
@@ -137,7 +136,6 @@ def assert_single_call_function_node(
 
     Returns:
         The single matching node
-
     """
     matches = [
         n for n in gm.graph.nodes if n.op == "call_function" and target_substr in str(n.target)
@@ -161,13 +159,5 @@ def is_coreai_dequantize(target: object) -> bool:
 
 
 def get_quantize_dtype(node: torch.fx.Node) -> torch.dtype | None:
-    """Return the quantized dtype carried in an FX node's args, else None.
-
-    Args:
-        node: The FX node to inspect
-
-    Returns:
-        The first ``torch.dtype`` positional arg, or None if there is none
-
-    """
+    """Return the quantized dtype carried in an FX node's args, else None."""
     return next((a for a in node.args if isinstance(a, torch.dtype)), None)

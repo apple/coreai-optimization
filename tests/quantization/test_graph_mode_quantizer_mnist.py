@@ -423,5 +423,5 @@ def test_weight_and_activation_qat_mnist_with_externalized_composite(
         },
         export_backend=ExportBackend.CoreAI,
         prepared_model_output=prepared_for_export_output,
-        externalize_model=model,
+        externalized_model=model,
     )

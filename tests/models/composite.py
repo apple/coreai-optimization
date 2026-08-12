@@ -13,9 +13,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 _DIM = 32
-_HIDDEN = 64
-_SEQ = 4
-_BATCH = 2
 
 
 # Externalize specs shared by the externalization test modules.
@@ -43,41 +40,6 @@ def sdpa_externalize_spec():
         composite_op_name="scaled_dot_product_attention",
         composite_attrs=["scale", "is_causal", "window_size"],
     )
-
-
-class CompositeRMSNormModel(nn.Module):
-    """Linear -> RMSNormImpl (composite) -> Linear over rank-3 activations."""
-
-    def __init__(
-        self,
-        dim: int = _DIM,
-        hidden: int = _HIDDEN,
-        eps: float = 1e-5,
-    ) -> None:
-        from coreai_torch.composite_ops import RMSNormImpl  # noqa: PLC0415
-
-        super().__init__()
-        self.up = nn.Linear(dim, hidden, bias=False)
-        self.norm = RMSNormImpl(eps=eps)
-        self.scale = nn.Parameter(torch.ones(hidden))
-        self.down = nn.Linear(hidden, dim, bias=False)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        h = self.up(x)
-        h = self.norm(h, self.scale)
-        return self.down(h)
-
-
-@pytest.fixture
-def composite_rmsnorm_model() -> CompositeRMSNormModel:
-    """Eval-half model with a single RMSNormImpl composite op."""
-    return CompositeRMSNormModel().eval().half()
-
-
-@pytest.fixture
-def composite_rmsnorm_input() -> torch.Tensor:
-    """Rank-3 fp16 sample input matching CompositeRMSNormModel's shapes."""
-    return torch.randn(_BATCH, _SEQ, _DIM, dtype=torch.float16)
 
 
 class MNISTCompositeRMSNormModel(nn.Module):

@@ -436,13 +436,13 @@ class MLIRConverter(ModelConverter):
         self,
         traced_model: torch.export.ExportedProgram,
         input_data: torch.Tensor,
-        externalize_model: Any = None,
+        externalized_model: Any = None,
         **kwargs: Any,
     ) -> AIProgram:
         _, _ = input_data, kwargs
         coreai_program = self._lower_to_coreai(
             traced_model,
-            externalize_model=externalize_model,
+            externalized_model=externalized_model,
         )
         assert type(coreai_program) is AIProgram
 
@@ -530,19 +530,19 @@ class MLIRConverter(ModelConverter):
     @staticmethod
     def _lower_to_coreai(
         exported_program: torch.export.ExportedProgram,
-        externalize_model: Any = None,
+        externalized_model: Any = None,
     ) -> AIProgram:
         """Lower exported program to Core AI.
 
         Args:
             exported_program: The exported program to lower.
-            externalize_model: Optional ``torch.nn.Module`` that was marked in
+            externalized_model: Optional ``torch.nn.Module`` that was marked in
                 place by ``coreai_torch._patch_model_for_externalization``.
         """
         converter = coreai_torch.TorchConverter()
         externalized_exported_programs = (
-            coreai_torch._subexport_and_restore(externalize_model, exported_program)
-            if externalize_model is not None
+            coreai_torch._subexport_and_restore(externalized_model, exported_program)
+            if externalized_model is not None
             else None
         )
         converter.add_exported_program(
@@ -573,6 +573,7 @@ def convert_and_verify(
     expected_ops: Mapping[str, int],
     export_backend: ExportBackend,
     prepared_model_output: torch.Tensor | tuple[torch.Tensor, ...],
+    externalized_model: torch.nn.Module | None = None,
     snr_thresh: float = 20.0,
     psnr_thresh: float = 22.0,
     skip_finalized_model_verify: bool = False,
@@ -587,6 +588,9 @@ def convert_and_verify(
         export_backend: Target inference stack (CoreML or CoreAI)
         prepared_model_output: Pre-computed reference output from the prepared
             PyTorch model (single tensor or tuple).
+        externalized_model: Optional ``torch.nn.Module`` that was patched in place by
+            ``coreai_torch._patch_model_for_externalization``. Only supported by the
+            CoreAI backend; passing it for any other backend raises ValueError.
         snr_thresh: Minimum acceptable SNR value
         psnr_thresh: Minimum acceptable PSNR value
         skip_finalized_model_verify: If True, skip forward pass verification on
@@ -597,8 +601,19 @@ def convert_and_verify(
     Returns:
         The converted model in the specified format
 
+    Raises:
+        ValueError: If externalized_model is given for a non-CoreAI backend.
+
     """
     converter = create_converter(export_backend)
+
+    if externalized_model is not None:
+        if export_backend is not ExportBackend.CoreAI:
+            msg = (
+                f"externalized_model is only supported by the CoreAI backend, got {export_backend}"
+            )
+            raise ValueError(msg)
+        converter_kwargs["externalized_model"] = externalized_model
 
     # Run finalized model forward pass BEFORE tracing. torch.export.export()
     # (called in trace) may mutate the model (e.g., strip parametrizations on
