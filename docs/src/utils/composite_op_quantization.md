@@ -1,4 +1,4 @@
-# Quantizing Models with Core AI Composite Ops
+# Quantizing Models with Core AI Composite Ops in Graph Mode
 
 Core AI recognizes certain well-known building blocks, such as SDPA or RMSNorm, as _composite ops_ and applies optimized implementations for them.
 `coreai-torch` establishes those boundaries through _externalization_.
@@ -20,17 +20,17 @@ The externalization APIs used below, `_patch_model_for_externalization` and `_su
 
 ```mermaid
 ---
-title: "Composite Op Quantization Workflow"
+title: "Graph mode Quantization Workflow with Externalization"
 ---
 flowchart LR
-    model["Full Precision<br>Model"] --> patch["Patch model"]
-    patch --> prepare["quantizer.prepare(...)"]
-    prepare --> calibrate["Calibrate"]
-    calibrate --> qfin["quantizer.finalize(...)"]
-    qfin --> export["torch.export.export(...)"]
-    export --> sub["Sub-export<br>and restore"]
-    sub --> convert["TorchConverter().to_coreai()"]
+    model["Full Precision<br>Model"] --> patch["Patch Model for<br>Externalization"]
+    patch --> prepare["Prepare and<br>Calibrate"]
+    prepare --> qfin["Finalize and<br>Export"]
+    qfin --> sub["Sub-export<br>and Restore"]
+    sub --> convert["Convert to<br>Core AI"]
     style model fill:#f9f9f9,stroke:#999
+    style patch fill:#e8f0fe,stroke:#4285f4
+    style sub fill:#e8f0fe,stroke:#4285f4
 ```
 
 ## Step 1: Patch the model before prepare
@@ -239,4 +239,4 @@ coreai.graph @main(%arg0: tensor<1x32xf32> {coreai.name = "x"}) -> (tensor<1x32x
 
 ## Notes
 
-- The same set of APIs and workflows can be followed for Quantization Aware Training in `graph` mode as well.
+- The same set of APIs and steps apply for Quantization Aware Training in `graph` mode as well.
