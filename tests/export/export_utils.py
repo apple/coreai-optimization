@@ -590,7 +590,7 @@ def convert_and_verify(
             PyTorch model (single tensor or tuple).
         externalized_model: Optional ``torch.nn.Module`` that was patched in place by
             ``coreai_torch._patch_model_for_externalization``. Only supported by the
-            CoreAI backend; passing it for any other backend raises ValueError.
+            CoreAI backend.
         snr_thresh: Minimum acceptable SNR value
         psnr_thresh: Minimum acceptable PSNR value
         skip_finalized_model_verify: If True, skip forward pass verification on
