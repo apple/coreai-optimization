@@ -9,15 +9,25 @@
 
 Two checks:
 
-1. ``latest_released_version`` matches the repo's latest ``vX.Y.Z`` release
-   tag (fetched fresh from ``origin`` so an out-of-date local tag can't hide a
-   mismatch). Skipped if there's no such tag yet (e.g. before the first
-   release).
-2. ``__version__`` equals the ``.dev0`` version computed from
-   ``latest_released_version`` (``next_candidate_version``) — its last number
-   plus one. This stops a release candidate from looking like it already
-   shipped a release that hasn't happened yet; see
-   ``scripts/release/release_utils.next_candidate_version``.
+1. ``latest_released_version`` names a release that has either been tagged or
+   been branched. The tag is fetched fresh from ``origin`` so an out-of-date
+   local tag can't hide a mismatch. The branch alternative covers the
+   stabilization window: a release branch is cut before its tag exists, and
+   ``main`` moves to the next candidate at the cut, so between those two points
+   ``latest_released_version`` legitimately names an untagged release. Skipped
+   if there's no release tag yet (e.g. before the first release).
+2. ``__version__`` names a release that may directly follow
+   ``latest_released_version`` — exactly one number up by one, everything
+   after it reset to zero — plus a ``.dev0`` suffix. From ``"1.0.1"`` that
+   admits ``"2.0.0.dev0"``, ``"1.1.0.dev0"``, and ``"1.0.2.dev0"``, so a
+   minor or major is chosen by editing ``__version__``, while a skipped
+   number or a move backwards is rejected. This also stops a release
+   candidate from looking like it already shipped; see
+   ``scripts/release/release_utils.valid_next_versions``.
+
+   A release branch is the exception: it sets ``latest_released_version`` to
+   the version it produces, so ``__version__`` is that same version plus
+   ``.dev0``. See ``release_utils.release_branch_version``.
 """
 
 from __future__ import annotations
@@ -41,9 +51,12 @@ while not (_repo_root / "pyproject.toml").is_file():
 sys.path.insert(0, str(_repo_root))
 
 from scripts.release.release_utils import (  # noqa: E402
+    RELEASE_BRANCH_PREFIX,
     latest_release_tag,
-    next_candidate_version,
     read_about,
+    release_branch_exists,
+    release_branch_version,
+    valid_next_versions,
 )
 
 
@@ -56,20 +69,30 @@ def main() -> int:
     errors = []
 
     latest_tag = latest_release_tag(repo_root)
-    if latest_tag is not None and latest_tag != latest_released:
+    if (
+        latest_tag is not None
+        and latest_tag != latest_released
+        and not release_branch_exists(repo_root, latest_released)
+    ):
         errors.append(
             f"latest_released_version is {latest_released!r} in {about.path}, but the "
-            f"latest release tag is v{latest_tag}. Update latest_released_version "
-            f"to {latest_tag!r}."
+            f"latest release tag is v{latest_tag} and there is no "
+            f"{RELEASE_BRANCH_PREFIX}{latest_released} branch. Update latest_released_version "
+            f"to {latest_tag!r}, or cut the release branch before bumping it."
         )
 
-    expected_version = next_candidate_version(latest_released)
-    if about.version != expected_version:
+    # On `main`, `__version__` names a release after `latest_released_version`.
+    # On a release branch it names that same release, because the branch sets
+    # `latest_released_version` to the version it produces.
+    allowed = [f"{candidate}.dev0" for candidate in valid_next_versions(latest_released)]
+    allowed.append(release_branch_version(latest_released))
+    if about.version not in allowed:
         errors.append(
             f"__version__ is {about.version!r} in {about.path}, but latest_released_version "
-            f"{latest_released!r} implies {expected_version!r}. __version__ must be "
-            "latest_released_version with its last segment incremented by one, "
-            "plus '.dev0'."
+            f"{latest_released!r} allows only {', '.join(repr(a) for a in allowed)}. "
+            "__version__ must take latest_released_version, add one to exactly one of its "
+            "numbers, reset every number after it to zero, and end in '.dev0' — or, on a "
+            "release branch, be latest_released_version itself plus '.dev0'."
         )
 
     if errors:

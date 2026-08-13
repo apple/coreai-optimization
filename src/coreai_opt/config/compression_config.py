@@ -379,21 +379,11 @@ class ModuleCompressionConfig(BaseModel, Generic[_OpConfigT, _SpecT]):
 
         return self
 
-    def _get_compressor_specific_settings(self) -> dict[str, Any]:
-        """
-        Get compressor-specific settings, excluding base ModuleCompressionConfig fields.
-
-        Returns only fields defined by the concrete subclass (e.g.,
-        enable_fast_kmeans_mode, rounding_precision for palettization), not the base
-        spec and config fields (op_input_spec, op_output_spec, op_state_spec,
-        op_type_config, op_name_config, module_input_spec, module_output_spec,
-        module_state_spec).
-
-        This is useful when constructing arguments for compression operations that need
-        the compression-specific settings but handle the spec fields separately.
+    def _get_fake_module_kwargs(self) -> dict[str, Any]:
+        """Get the settings to forward to the compression simulator module's constructor.
 
         Returns:
-            Dictionary of compressor-specific field names to their values.
+            Dictionary of field names to their values.
         """
         base_field_names = set(ModuleCompressionConfig.model_fields.keys())
         return {k: v for k, v in self.model_dump().items() if k not in base_field_names}

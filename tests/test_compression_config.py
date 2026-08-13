@@ -449,9 +449,9 @@ def test_generic_type_extraction():
     assert base_cls is None
 
 
-def test_get_compressor_specific_settings():
+def test_get_fake_module_kwargs():
     """
-    Test that _get_compressor_specific_settings returns only subclass-defined fields.
+    Test that _get_fake_module_kwargs returns only subclass-defined fields.
     """
     # Create a config with both base class fields and subclass fields
     config = ModuleFooCompressionConfig(
@@ -469,7 +469,7 @@ def test_get_compressor_specific_settings():
     )
 
     # Get compressor-specific settings
-    settings = config._get_compressor_specific_settings()
+    settings = config._get_fake_module_kwargs()
 
     # Should only contain subclass-defined fields
     assert "compression_ratio" in settings

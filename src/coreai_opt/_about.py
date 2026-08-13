@@ -6,12 +6,14 @@
 """
 Version information for coreai_opt package.
 
-``latest_released_version`` is the last tagged release (e.g. ``"0.2.1"``).
-Hard-code it right after tagging a new release. ``__version__`` is
-computed from it: add one to its last number and add ``.dev0`` at the end
-(e.g. ``"0.2.2.dev0"``) — this is the release ``main`` is working toward. A
-pre-commit hook checks that ``__version__`` matches this rule and that
-``latest_released_version`` matches the repo's latest release tag.
+``latest_released_version`` is the OSS release this tree is anchored to (e.g.
+``"0.2.1"``) — on ``main`` the most recently cut release, on a release branch
+the release that branch produces.
+``__version__`` is the release ``main`` is working toward (e.g.
+``"0.2.2.dev0"``). Both are set together when a release branch is cut. A
+pre-commit hook checks that ``__version__`` raises exactly one of
+``latest_released_version``'s numbers by one, zeroes the rest, and ends in
+``.dev0`` — so a minor or major can be declared, not just a patch.
 
 Keep ``__version__`` a plain string, not an expression, so setuptools can
 read it at build time without importing the package (which would pull in a

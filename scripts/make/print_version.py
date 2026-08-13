@@ -9,7 +9,7 @@
 
 Usage:
     print_version.py             the ``.dev0`` candidate, e.g. ``0.2.2.dev0``
-                                  (``make version``)
+                                  (``make version-dev``)
     print_version.py --release   the release itself, e.g. ``0.2.2`` — the
                                   version ``make build`` publishes
 
@@ -25,7 +25,7 @@ import argparse
 import sys
 from pathlib import Path
 
-# `make version` exports PYTHONPATH, but the release workflow runs this script
+# `make version-dev` exports PYTHONPATH, but the release workflow runs this script
 # directly, which puts only `scripts/make/` on sys.path. Walk up to the project
 # root (the directory holding pyproject.toml, alongside `scripts/`) so this
 # keeps working if the script moves. It can't call
@@ -58,7 +58,9 @@ def main() -> None:
 
     about = read_about(_repo_root)
     compute = next_release_base if args.release else next_candidate_version
-    sys.stdout.write(f"{compute(about.latest_released_version, get_version_extension())}\n")
+    sys.stdout.write(
+        f"{compute(about.latest_released_version, about.version, get_version_extension())}\n"
+    )
 
 
 if __name__ == "__main__":
