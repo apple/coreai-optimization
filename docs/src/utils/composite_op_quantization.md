@@ -11,7 +11,7 @@ In order to preserve the composite op structure during this process for external
 - `_patch_model_for_externalization`: Patch the model **before** `quantizer.prepare`, so that the composite op call sites survive export and all subsequent quantization passes as opaque nodes.
 - `_subexport_and_restore`: The submodule bodies of the composite ops themselves are then exported and restored before lowering to `CoreAI`.
 
-Quantization treats each composite op as opaque: no fake-quantize op is placed inside the composite body.
+Quantization treats each composite op as opaque, i.e., no fake-quantize op is placed inside the composite body.
 The composite's input and output boundary can still be quantized, see [Quantizing the composite op boundary](#quantizing-the-composite-op-boundary) below for details.
 
 :::{warning}
@@ -37,7 +37,7 @@ flowchart LR
 
 `_patch_model_for_externalization` replaces the `forward` of every matching submodule in the model with a `torch.library.custom_op`, in place.
 Call it before constructing the `Quantizer`.
-The example below uses the same `RMSNormComposite` module as an example, however, the same process applies for all composite ops with their respective `ExternalizeSpec`s.
+The example below demonstrates this using the same `RMSNormComposite` op from the [Externalization](https://apple.github.io/coreai-torch/main/guides/externalization.html) guide, however, the same process applies for all composite ops with their respective `ExternalizeSpec`s.
 
 ```python
 import torch
@@ -145,6 +145,7 @@ coreai_program = (
 In the Core AI graph, the composite op is emitted as a separate private graph that `@main` reaches through `coreai.invoke`:
 
 ```text
+// composite op body
 coreai.graph private noinline @norm_57e2d4a8(%arg0: tensor<1x32xf32> {coreai.name = "input"}, %arg1: tensor<32xf32> {coreai.name = "scale"}) -> (tensor<1x32xf32>) attributes {composite_decl = ...} {
   %2 = coreai.decomposable.broadcasting_mul %0, %1 : (tensor<1x32xf32>, tensor<1x32xf32>) -> tensor<1x32xf32>
   %4 = coreai.reduce_mean %2, %3 : (tensor<1x32xf32>, tensor<1xsi32>) -> tensor<1x1xf32>
@@ -159,6 +160,8 @@ coreai.graph @main(%arg0: tensor<1x32xf32> {coreai.name = "x"}) -> (tensor<1x32x
   %44 = coreai.decomposable.broadcasting_add %43, %2 : (tensor<1x32xf32>, tensor<32xf32>) -> tensor<1x32xf32>
   %53 = coreai.quantize %44, ... : (tensor<1x32xf32>, ...) -> tensor<1x32xsi8>
   %62 = coreai.dequantize %53, ... : (tensor<1x32xsi8>, ...) -> tensor<1x32xf32>
+
+  // externalized composite op invocation
   %63 = coreai.invoke @norm_57e2d4a8(%62, %0) : (tensor<1x32xf32>, tensor<32xf32>) -> tensor<1x32xf32>
   %72 = coreai.quantize %63, ... : (tensor<1x32xf32>, ...) -> tensor<1x32xsi8>
   %81 = coreai.dequantize %72, ... : (tensor<1x32xsi8>, ...) -> tensor<1x32xf32>
@@ -173,7 +176,7 @@ The composite body carries no `coreai.quantize` or `coreai.dequantize` op and st
 ## Quantizing the composite op boundary
 
 The `coreai.quantize` pairs surrounding the `coreai.invoke` above come from the global config. They are the output quantizer of the preceding `Linear` and the input quantizer of the following one.
-The composite op boundary itself is not targeted by a global config.
+The composite op boundary itself is not targeted by the global config.
 
 To target the boundary specifically, use `module_input_spec` and `module_output_spec` on a {class}`~coreai_opt.quantization.config.ModuleQuantizerConfig` scoped by `module_type_configs` or `module_name_configs`.
 
@@ -226,9 +229,15 @@ coreai.graph private noinline @norm_20ea9665(%arg0: tensor<1x32xf32> {coreai.nam
 }
 
 coreai.graph @main(%arg0: tensor<1x32xf32> {coreai.name = "x"}) -> (tensor<1x32xf32>) {
+
+  // Input boundary quantizers for the composite op
   %13 = coreai.quantize %arg0, ... : (tensor<1x32xf32>, ...) -> tensor<1x32xsi8>
   %22 = coreai.dequantize %13, ... : (tensor<1x32xsi8>, ...) -> tensor<1x32xf32>
+
+  // externalized composite op invocation
   %23 = coreai.invoke @norm_20ea9665(%22, %0) : (tensor<1x32xf32>, tensor<32xf32>) -> tensor<1x32xf32>
+
+  // Output boundary quantizers for the composite op
   %32 = coreai.quantize %23, ... : (tensor<1x32xf32>, ...) -> tensor<1x32xsi8>
   %41 = coreai.dequantize %32, ... : (tensor<1x32xsi8>, ...) -> tensor<1x32xf32>
   coreai.output %41 : tensor<1x32xf32>
