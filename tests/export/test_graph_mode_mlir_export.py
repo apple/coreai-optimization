@@ -48,6 +48,8 @@ def _run_graph_mode_mlir_export_test_ex(
     config: QuantizerConfig,
     expected_ops: Mapping[str, int],
     model_dtype: torch.dtype | None = None,
+    calibrate: bool = False,
+    externalized_model: torch.nn.Module | None = None,
 ) -> None:
     """Run graph-mode Core AI export test with expanded configuration parameters.
 
@@ -57,6 +59,10 @@ def _run_graph_mode_mlir_export_test_ex(
         config: graph-mode quantization configuration
         model_dtype: Model dtype (float16, float32, bfloat16, or None for no conversion)
         expected_ops: Expected operation counts in converted model
+        calibrate: If True, run one calibration pass under
+            ``quantizer.calibration_mode()`` before the reference forward.
+        externalized_model: The model patched in place by
+            ``coreai_torch._patch_model_for_externalization``.
     """
     if model_dtype is not None:
         model = model.to(dtype=model_dtype)
@@ -65,6 +71,10 @@ def _run_graph_mode_mlir_export_test_ex(
     model.eval()
     quantizer = Quantizer(model, config)
     prepared_model = quantizer.prepare((input_data,))
+
+    if calibrate:
+        with quantizer.calibration_mode(), torch.no_grad():
+            prepared_model(input_data)
 
     with torch.no_grad():
         prepared_model_output = prepared_model(input_data)
@@ -77,6 +87,7 @@ def _run_graph_mode_mlir_export_test_ex(
         expected_ops=expected_ops,
         export_backend=ExportBackend.CoreAI,
         prepared_model_output=prepared_model_output,
+        externalized_model=externalized_model,
     )
 
 
@@ -506,28 +517,16 @@ def test_composite_externalize_export(
             execution_mode="graph",
         )
 
-    quantizer = Quantizer(model, config)
-    prepared_model = quantizer.prepare((input_data,))
-
-    if config_kind != "w8":
-        with quantizer.calibration_mode(), torch.no_grad():
-            prepared_model(input_data)
-
-    with torch.no_grad():
-        prepared_model_output = prepared_model(input_data)
-
-    finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI)
-
     expected_quantize_count = expected_quantize_counts[config_kind]
-    export_utils.convert_and_verify(
-        finalized_model=finalized_model,
+    _run_graph_mode_mlir_export_test_ex(
+        model=model,
         input_data=input_data,
+        config=config,
         expected_ops={
             "constexpr_blockwise_shift_scale": 2,
             "quantize": expected_quantize_count,
             "dequantize": expected_quantize_count,
         },
-        export_backend=ExportBackend.CoreAI,
-        prepared_model_output=prepared_model_output,
+        calibrate=config_kind != "w8",
         externalized_model=model,
     )

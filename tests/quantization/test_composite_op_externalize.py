@@ -118,24 +118,27 @@ class TestCompositeOpIOQuantization:
             module_input_spec=module_input_spec,
         )
 
-    def _finalize(
+    def _quantize_with_externalization_and_verify(
         self,
         model: nn.Module,
         sample: torch.Tensor,
         spec: ExternalizeSpec,
         module_name: str,
-        target_by: str,
-        boundary_dtype: torch.dtype,
-        module_input_spec: dict | None = None,
+        config: QuantizerConfig,
     ) -> tuple[torch.fx.GraphModule, str]:
+        """Run graph-mode PTQ on the model and verify the composite op stays opaque.
+
+        Patches the composite for externalization, prepares, finalizes, and asserts
+        the composite is still a single opaque call_function node after each of
+        those two stages.
+
+        Returns the finalized graph and the substring identifying that node.
+        """
         _patch_model_for_externalization(model, [spec])
         op_name = model.get_submodule(module_name)._externalize_op_name
         target_substr = f"coreai_torch_ext.{op_name}"
 
-        quantizer = Quantizer(
-            model,
-            self._config(spec, module_name, target_by, boundary_dtype, module_input_spec),
-        )
+        quantizer = Quantizer(model, config)
         prepared = quantizer.prepare((sample,))
         assert_single_call_function_node(prepared, target_substr, stage="prepared")
 
@@ -213,8 +216,9 @@ class TestCompositeOpIOQuantization:
         boundary_dtype = torch.uint8
         model = model_cls().eval().half()
         sample = torch.randn(2, 4, 32, dtype=torch.float16)
-        finalized, target_substr = self._finalize(
-            model, sample, spec, module_name, target_by, boundary_dtype
+        config = self._config(spec, module_name, target_by, boundary_dtype)
+        finalized, target_substr = self._quantize_with_externalization_and_verify(
+            model, sample, spec, module_name, config
         )
         self._assert_boundary_quantized(finalized, target_substr, num_tensor_inputs, boundary_dtype)
 
@@ -233,17 +237,19 @@ class TestCompositeOpIOQuantization:
         num_tensor_inputs = 3
         model = CompositeSDPAModel().eval().half()
         sample = torch.randn(2, 4, 32, dtype=torch.float16)
-
-        finalized, target_substr = self._finalize(
-            model,
-            sample,
-            sdpa_externalize_spec(),
+        spec = sdpa_externalize_spec()
+        config = self._config(
+            spec,
             "composite",
             target_by,
             boundary_dtype,
             module_input_spec={
                 i: self._composite_act_spec(boundary_dtype) for i in quantized_indices
             },
+        )
+
+        finalized, target_substr = self._quantize_with_externalization_and_verify(
+            model, sample, spec, "composite", config
         )
 
         composite = assert_single_call_function_node(finalized, target_substr, stage="finalized")

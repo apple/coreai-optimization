@@ -10,10 +10,8 @@ from __future__ import annotations
 import pytest
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-_DIM = 32
-
+from tests.utils import test_artifact_path
 
 # Externalize specs shared by the externalization test modules.
 
@@ -75,33 +73,20 @@ class MNISTCompositeRMSNormModel(nn.Module):
         return self.softmax(x)
 
 
-# Function scoped so the consuming test's seed marker applies.
+# Function scoped so each test gets an independently mutable model.
 @pytest.fixture(scope="function")
-def mnist_composite_rmsnorm_pretrained_state(mnist_dataset) -> dict:
-    """One-epoch-pretrained state_dict for MNISTCompositeRMSNormModel."""
+def mnist_composite_rmsnorm_pretrained_model() -> MNISTCompositeRMSNormModel:
+    """Load the committed 1-epoch MNISTCompositeRMSNormModel checkpoint.
+
+    Trained with seed 42 for one epoch over the MNIST train split: Adam,
+    lr=1e-3, batch_size=128, shuffle=False, nll_loss.
+    """
     model = MNISTCompositeRMSNormModel()
-
-    train_ds, _ = mnist_dataset
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=128, shuffle=False)
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    model.train()
-    for _data, _target in train_loader:
-        optimizer.zero_grad()
-        output = model(_data)
-        loss = F.nll_loss(output, _target)
-        loss.backward()
-        optimizer.step()
-    return {k: v.detach().clone() for k, v in model.state_dict().items()}
-
-
-@pytest.fixture(scope="function")
-def mnist_composite_rmsnorm_pretrained_model(
-    mnist_composite_rmsnorm_pretrained_state: dict,
-) -> MNISTCompositeRMSNormModel:
-    """Fresh MNISTCompositeRMSNormModel loaded from the pretrained state fixture."""
-    model = MNISTCompositeRMSNormModel()
-    model.load_state_dict(mnist_composite_rmsnorm_pretrained_state)
+    model.load_state_dict(
+        torch.load(
+            test_artifact_path("mnist/mnist_composite_rmsnorm_pretrained_1epoch_08132026.pt")
+        )
+    )
     return model
 
 
@@ -114,7 +99,7 @@ def mnist_composite_rmsnorm_example_input() -> torch.Tensor:
 class CompositeRMSNormOnlyModel(nn.Module):
     """A single RMSNormImpl composite and nothing else."""
 
-    def __init__(self, dim: int = _DIM, eps: float = 1e-5) -> None:
+    def __init__(self, dim: int = 32, eps: float = 1e-5) -> None:
         from coreai_torch.composite_ops import RMSNormImpl  # noqa: PLC0415
 
         super().__init__()
@@ -128,7 +113,7 @@ class CompositeRMSNormOnlyModel(nn.Module):
 class CompositeSDPAModel(nn.Module):
     """proj -> SDPA(composite) -> output_proj, fp16, single-head fake-dim."""
 
-    def __init__(self, dim: int = _DIM) -> None:
+    def __init__(self, dim: int = 32) -> None:
         from coreai_torch.composite_ops import SDPA  # noqa: PLC0415
 
         super().__init__()

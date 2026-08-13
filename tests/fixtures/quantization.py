@@ -95,9 +95,7 @@ def make_graph_mode_module_boundary_config(
     ``module_input_spec`` / ``module_output_spec`` on top of it.
 
     Args:
-        module_boundary_dtype: Activation dtype for the boundary spec. Must differ
-            from global_dtype, otherwise the boundary and global observers share a
-            dtype and the config no longer proves the module scope outranks global.
+        module_boundary_dtype: Activation dtype for the boundary spec.
         module_name: Target the module at this path (``module_name_configs``).
         module_type: Target modules of this type (``module_type_configs``).
             Exactly one of module_name / module_type must be given.
@@ -110,18 +108,10 @@ def make_graph_mode_module_boundary_config(
         QuantizerConfig: the global config plus a module-scoped boundary spec.
 
     Raises:
-        ValueError: If not exactly one of module_name / module_type is given, or if
-            module_boundary_dtype matches global_dtype.
+        ValueError: If not exactly one of module_name / module_type is provided.
     """
     if (module_name is None) == (module_type is None):
         msg = "pass exactly one of module_name / module_type"
-        raise ValueError(msg)
-    if module_boundary_dtype == global_dtype:
-        msg = (
-            f"module_boundary_dtype {module_boundary_dtype} must differ from the "
-            f"global dtype {global_dtype}, otherwise the boundary edges are "
-            "indistinguishable from the globally quantized ones"
-        )
         raise ValueError(msg)
 
     def _boundary_spec() -> QuantizationSpec:
