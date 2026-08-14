@@ -102,11 +102,11 @@ class GatedMLPModel(nn.Module):
     Inspired by the MLP block in Qwen3 and similar transformer architectures.
     """
 
-    def __init__(self, dim: int = 32, hidden_dim: int = 64) -> None:
+    def __init__(self, dim: int = 32, hidden_dim: int = 64, bias: bool = False) -> None:
         super().__init__()
-        self.gate_proj = nn.Linear(dim, hidden_dim, bias=False)
-        self.up_proj = nn.Linear(dim, hidden_dim, bias=False)
-        self.down_proj = nn.Linear(hidden_dim, dim, bias=False)
+        self.gate_proj = nn.Linear(dim, hidden_dim, bias=bias)
+        self.up_proj = nn.Linear(dim, hidden_dim, bias=bias)
+        self.down_proj = nn.Linear(hidden_dim, dim, bias=bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         up_tensor = self.up_proj(x)
@@ -127,10 +127,10 @@ def gated_mlp_model_input():
 
 
 class SimpleLinearModel(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, bias: bool = True):
         super().__init__()
-        self.l1 = nn.Linear(64, 128)
-        self.l2 = nn.Linear(128, 64)
+        self.l1 = nn.Linear(64, 128, bias=bias)
+        self.l2 = nn.Linear(128, 64, bias=bias)
 
     def forward(self, x):
         x = self.l1(x)
@@ -148,6 +148,30 @@ def simple_linear_model():
 def simple_linear_model_input():
     """Fixture providing example input tensor."""
     return torch.randn(4, 64)
+
+
+class LinearBatchNormModel(torch.nn.Module):
+    """Linear model with a BatchNorm between its two layers.
+
+    Same layer shapes as :class:`SimpleLinearModel`, plus BatchNorm's persistent
+    buffers (``running_mean``, ``running_var``, ``num_batches_tracked``), which makes
+    it useful for testing behavior that depends on buffers and not on parameters alone.
+    """
+
+    def __init__(self, bias: bool = False):
+        super().__init__()
+        self.l1 = nn.Linear(64, 128, bias=bias)
+        self.bn = nn.BatchNorm1d(128)
+        self.l2 = nn.Linear(128, 64, bias=bias)
+
+    def forward(self, x):
+        return self.l2(self.bn(self.l1(x)))
+
+
+@pytest.fixture
+def linear_batchnorm_model():
+    """Fixture providing a linear model carrying BatchNorm running-stat buffers."""
+    return LinearBatchNormModel()
 
 
 class SimpleMHAModel(nn.Module):
