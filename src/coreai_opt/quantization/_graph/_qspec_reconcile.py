@@ -38,9 +38,7 @@ _MAX_ITERS_PER_SLOT = 100
 """Drain-loop iteration budget per slot. See :func:`_drain_iteration_bound`."""
 
 
-def annotate_via_reconciliation(
-    model: fx.GraphModule, ctx: _AnnotationContext
-) -> None:
+def annotate_via_reconciliation(model: fx.GraphModule, ctx: _AnnotationContext) -> None:
     """Annotate ``model`` in place using the constraint-queue reconciler."""
     qspecs = build_initial_provisional_qspecs(
         winning_configs=ctx.winning_configs,

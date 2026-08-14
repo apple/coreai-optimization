@@ -230,9 +230,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             for a_class in self._all_patterns()
             if issubclass(a_class, SharedObserverModulePattern)
         ]
-        shared_observer_nodes: dict[
-            torch.fx.Node, type[SharedObserverModulePattern]
-        ] = {}
+        shared_observer_nodes: dict[torch.fx.Node, type[SharedObserverModulePattern]] = {}
         for annotator in shared_observer_annotators:
             node_to_annotator_and_match_dict = annotator._match_all_patterns(model)
             for node in node_to_annotator_and_match_dict:

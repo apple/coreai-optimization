@@ -44,12 +44,12 @@ The fields are exactly the settable inputs of `coreai_opt...QuantizationSpec`, p
 
 `_qspec_constraints._FIELD_POLICY` is the authority. The reasoning:
 
-| Field | Policy | Why |
-| --- | --- | --- |
-| `DTYPE` | Highest-priority proposal wins | Two tensors sharing an observer can't have different dtypes, and there's no safe join — int4 and int8 aren't compatible in either direction. Config precedence decides. |
-| `QFORMULATION`, `FAKE_QUANTIZE_CLS`, `QPARAM_CALCULATOR_CLS`, `RANGE_CALCULATOR_CLS`, `SCALE_DTYPE`, `QSCHEME`, `GRANULARITY` | Highest-priority proposal wins | Ordinary config choices. |
-| `FLOAT_RANGE` | Widest of the proposals, per bound | A shared observer must cover every member's data, so a pin survives only while every member agrees on it. Priority is deliberately not consulted: covering the data is a correctness constraint, not a preference. This is also where "fixed qparams" lives — a fixed observer is one whose `float_range` is pinned on both bounds. |
-| `QUANTIZATION_TARGET` | Highest-priority proposal wins | This is not actually set as part of the config, but comes from whether the tensor is a weight or an activation. If we share a qspec between a weight and an activation, using the higher-priority one creates a coherent set of fields that matches at least one target's original provisional qspec. |
+| Field                                                                                                                         | Policy                             | Why                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DTYPE`                                                                                                                       | Highest-priority proposal wins     | Two tensors sharing an observer can't have different dtypes, and there's no safe join — int4 and int8 aren't compatible in either direction. Config precedence decides.                                                                                                                                                             |
+| `QFORMULATION`, `FAKE_QUANTIZE_CLS`, `QPARAM_CALCULATOR_CLS`, `RANGE_CALCULATOR_CLS`, `SCALE_DTYPE`, `QSCHEME`, `GRANULARITY` | Highest-priority proposal wins     | Ordinary config choices.                                                                                                                                                                                                                                                                                                            |
+| `FLOAT_RANGE`                                                                                                                 | Widest of the proposals, per bound | A shared observer must cover every member's data, so a pin survives only while every member agrees on it. Priority is deliberately not consulted: covering the data is a correctness constraint, not a preference. This is also where "fixed qparams" lives — a fixed observer is one whose `float_range` is pinned on both bounds. |
+| `QUANTIZATION_TARGET`                                                                                                         | Highest-priority proposal wins     | This is not actually set as part of the config, but comes from whether the tensor is a weight or an activation. If we share a qspec between a weight and an activation, using the higher-priority one creates a coherent set of fields that matches at least one target's original provisional qspec.                               |
 
 Some properties are deliberately *not* fields. `quant_min` / `quant_max` / `n_bits` / `target_dtype` are computed by `QuantizationSpec` from `dtype` and `qscheme`, so they fall out of reassembly; reconciling them alongside their own inputs would let them contradict those inputs. `ch_axis` lives inside `GRANULARITY`.
 
@@ -67,11 +67,11 @@ They cannot. A `QParamsCalculator` is bound to a single tensor rank: it caches i
 
 So the two points keep separate, correctly-shaped observers, and what transfers between them is the *knowledge* rather than the observer. `ShareFields` is the wrong tool for that: it reconciles, and reconciliation is bidirectional, so a downstream slot's default range would widen the upstream pin instead of adopting it. What is needed is a one-way copy, which is `InheritFields`:
 
-| Constraint | Relation | Effect |
-| --- | --- | --- |
-| `ShareObserverInstance` | different tensors, one observer | reconcile — the observer must cover every member |
-| `ShareFields` | different tensors, separate observers | agree on the named fields, nothing else |
-| `InheritFields` | one tensor, separate observers | copy, upstream to downstream |
+| Constraint              | Relation                              | Effect                                           |
+| ----------------------- | ------------------------------------- | ------------------------------------------------ |
+| `ShareObserverInstance` | different tensors, one observer       | reconcile — the observer must cover every member |
+| `ShareFields`           | different tensors, separate observers | agree on the named fields, nothing else          |
+| `InheritFields`         | one tensor, separate observers        | copy, upstream to downstream                     |
 
 Without it, `linear`'s input relearns a range it was already given and quantizes provably non-negative data as symmetric, spending half the integer range on values that cannot occur.
 

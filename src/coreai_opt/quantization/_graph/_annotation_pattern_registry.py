@@ -378,9 +378,7 @@ def _shared_op_boundary_slots(node: torch.fx.Node) -> tuple[NodeSlot, list[NodeS
     return output_slot, input_slots
 
 
-def _any_input_slot_populated(
-    input_slots: list[NodeSlot], qspecs: ProvisionalQSpecMap
-) -> bool:
+def _any_input_slot_populated(input_slots: list[NodeSlot], qspecs: ProvisionalQSpecMap) -> bool:
     """Whether any input slot has a proposal yet.
 
     With none, there is nothing for the sharing to enforce.
@@ -879,12 +877,9 @@ class ConcatPattern(SharedObserverModulePattern):
         output_granularity = output_fields.get(FieldName.GRANULARITY)
 
         # A per-tensor granularity has ``axis is None``.
-        granularity_axis = (
-            output_granularity.value.axis if output_granularity is not None else None
-        )
-        per_channel_along_concat_axis = (
-            granularity_axis is not None
-            and _same_axis(granularity_axis, concat_dim, node)
+        granularity_axis = output_granularity.value.axis if output_granularity is not None else None
+        per_channel_along_concat_axis = granularity_axis is not None and _same_axis(
+            granularity_axis, concat_dim, node
         )
         if not per_channel_along_concat_axis:
             # Sharing an instance subsumes sharing fields, since the merged group
@@ -896,9 +891,7 @@ class ConcatPattern(SharedObserverModulePattern):
         return [ShareFields(_slots=all_slots, fields=frozenset({FieldName.DTYPE}))]
 
 
-def _all_slots_share_observer(
-    node: torch.fx.Node, qspecs: ProvisionalQSpecMap
-) -> list[Constraint]:
+def _all_slots_share_observer(node: torch.fx.Node, qspecs: ProvisionalQSpecMap) -> list[Constraint]:
     """Tie every input and output slot into one observer instance.
 
     For shared-observer ops whose sharing doesn't depend on any spec field.

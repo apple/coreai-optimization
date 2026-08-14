@@ -751,9 +751,7 @@ class TestInPlaceActivationPatternCoverage:
     _INPUT = (torch.randn(2, 4, 8, 8),)
 
     def _prepare(self, model: nn.Module):
-        return Quantizer(model.eval(), self._w8a8_config()).prepare(
-            example_inputs=self._INPUT
-        )
+        return Quantizer(model.eval(), self._w8a8_config()).prepare(example_inputs=self._INPUT)
 
     @staticmethod
     def _fake_quant_consumers(prepared) -> dict[str, int]:
@@ -832,18 +830,13 @@ class TestCatOfSigmoidReconciliation:
 
     @staticmethod
     def _by_target(model: torch.fx.GraphModule, needle: str) -> list[torch.fx.Node]:
-        return [
-            n for n in model.graph.nodes
-            if n.op == "call_function" and needle in str(n.target)
-        ]
+        return [n for n in model.graph.nodes if n.op == "call_function" and needle in str(n.target)]
 
     @staticmethod
     def _annotation(node: torch.fx.Node):
         return node.meta.get(Q_ANNOTATION_KEY)
 
-    def test_cat_of_sigmoid_shared_observer_topology(
-        self, weight_input_act_output_act_config
-    ):
+    def test_cat_of_sigmoid_shared_observer_topology(self, weight_input_act_output_act_config):
         """Every branch in the cat group should end up pointing at one anchor.
 
         Load-bearing invariants:
@@ -873,9 +866,7 @@ class TestCatOfSigmoidReconciliation:
         model = self._CatOfSigmoid().eval()
         example_inputs = (torch.randn(1, 3, 8, 8),)
 
-        prepared = Quantizer(model, weight_input_act_output_act_config).prepare(
-            example_inputs
-        )
+        prepared = Quantizer(model, weight_input_act_output_act_config).prepare(example_inputs)
 
         convs = self._by_target(prepared, "conv2d")
         sigmoids = self._by_target(prepared, "sigmoid")
@@ -900,8 +891,7 @@ class TestCatOfSigmoidReconciliation:
             "qparams_calculator"
         ]()
         assert anchor_calculator.qscheme == QuantizationScheme.ASYMMETRIC, (
-            f"reconciled qscheme did not reach the calculator: "
-            f"got {anchor_calculator.qscheme}"
+            f"reconciled qscheme did not reach the calculator: got {anchor_calculator.qscheme}"
         )
 
         # The two convs feeding the sigmoid pattern get no output_qspec:

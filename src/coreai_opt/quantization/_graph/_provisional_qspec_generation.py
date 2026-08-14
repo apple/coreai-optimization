@@ -129,9 +129,7 @@ def _populate_input_slots(
         slot = NodeSlot(node=node, kind=SlotKind.INPUT, arg_index=arg_index)
         if _is_state_node(producer):
             _validate_state_not_referenced_via_input_spec(producer, arg_index, cfg)
-            spec = _lookup_state_spec(
-                cfg, producer, module_name_to_state_names_map
-            )
+            spec = _lookup_state_spec(cfg, producer, module_name_to_state_names_map)
             target = CompressionTargetTensor.WEIGHT
         else:
             spec = _lookup_by_key(cfg.op_input_spec, arg_index)
@@ -154,15 +152,11 @@ def _warn_if_non_quantizable_input_configured(
     A ``*`` spec sweeping up an int tensor is routine and stays silent.
     """
     if arg_index in cfg.op_input_spec:
-        _warn_non_quantizable_tensor_setting(
-            producer, "input", arg_index, cfg.op_input_spec
-        )
+        _warn_non_quantizable_tensor_setting(producer, "input", arg_index, cfg.op_input_spec)
     if _is_state_node(producer):
         state_name = get_local_state_name(producer)
         if state_name is not None and state_name in cfg.op_state_spec:
-            _warn_non_quantizable_tensor_setting(
-                producer, "state", state_name, cfg.op_state_spec
-            )
+            _warn_non_quantizable_tensor_setting(producer, "state", state_name, cfg.op_state_spec)
 
 
 def _validate_state_not_referenced_via_input_spec(
@@ -233,12 +227,8 @@ def _populate_output_slot(
             _warn_non_quantizable_tensor_setting(node, "output", 0, cfg.op_output_spec)
         return
 
-    consumers_in_pattern = [
-        consumer for consumer in node.users if consumer in pattern
-    ]
-    consumers_outside_pattern = [
-        consumer for consumer in node.users if consumer not in pattern
-    ]
+    consumers_in_pattern = [consumer for consumer in node.users if consumer in pattern]
+    consumers_outside_pattern = [consumer for consumer in node.users if consumer not in pattern]
 
     has_intrinsic = _get_op_intrinsic(node) is not None
 
@@ -295,13 +285,24 @@ def _apply_op_intrinsic_override(
     scheme, float_range = intrinsic
 
     _override_field(
-        qspecs, output_slot, FieldName.QSCHEME,
-        scheme, OP_INTRINSIC_PRIORITY, node, user_spec.qscheme, "qscheme",
+        qspecs,
+        output_slot,
+        FieldName.QSCHEME,
+        scheme,
+        OP_INTRINSIC_PRIORITY,
+        node,
+        user_spec.qscheme,
+        "qscheme",
     )
     _override_field(
-        qspecs, output_slot, FieldName.FLOAT_RANGE,
-        list(float_range), OP_INTRINSIC_PRIORITY, node,
-        user_spec.float_range, "float_range",
+        qspecs,
+        output_slot,
+        FieldName.FLOAT_RANGE,
+        list(float_range),
+        OP_INTRINSIC_PRIORITY,
+        node,
+        user_spec.float_range,
+        "float_range",
     )
 
 
@@ -322,10 +323,13 @@ def _override_field(
     qspec.fields[field_name] = FieldValue(value=intrinsic_value, priority=priority)
     if user_value is not None and user_value != intrinsic_value:
         logger.info(
-            "Op-intrinsic override on %s (target=%s): user %s=%r overridden "
-            "by intrinsic %s=%r.",
-            node.name, node.target, human_field_name, user_value,
-            human_field_name, intrinsic_value,
+            "Op-intrinsic override on %s (target=%s): user %s=%r overridden by intrinsic %s=%r.",
+            node.name,
+            node.target,
+            human_field_name,
+            user_value,
+            human_field_name,
+            intrinsic_value,
         )
 
 
@@ -342,9 +346,7 @@ def _get_op_intrinsic(
     if node.target in _hardtanh_ops and len(node.args) >= 3:
         min_val, max_val = node.args[1], node.args[2]
         scheme = (
-            QuantizationScheme.SYMMETRIC
-            if min_val == -max_val
-            else QuantizationScheme.ASYMMETRIC
+            QuantizationScheme.SYMMETRIC if min_val == -max_val else QuantizationScheme.ASYMMETRIC
         )
         return scheme, (float(min_val), float(max_val))
     return None
@@ -355,9 +357,7 @@ def _get_op_intrinsic(
 # ---------------------------------------------------------------------------
 
 
-def _mark_declined(
-    qspecs: ProvisionalQSpecMap, slot: NodeSlot, priority: int
-) -> None:
+def _mark_declined(qspecs: ProvisionalQSpecMap, slot: NodeSlot, priority: int) -> None:
     """Record that ``slot``'s config declined to observe it, keeping the strongest
     declining priority.
     """
@@ -380,12 +380,8 @@ def _populate_fields_from_spec(
     """
     qspec = _get_or_create(qspecs, slot)
     for field_name, attr in _FIELD_FROM_SPEC_ATTR.items():
-        qspec.fields[field_name] = FieldValue(
-            value=getattr(spec, attr), priority=priority
-        )
-    qspec.fields[FieldName.QUANTIZATION_TARGET] = FieldValue(
-        value=target, priority=priority
-    )
+        qspec.fields[field_name] = FieldValue(value=getattr(spec, attr), priority=priority)
+    qspec.fields[FieldName.QUANTIZATION_TARGET] = FieldValue(value=target, priority=priority)
 
 
 def _lookup_by_key(spec_map: dict[Any, Any], key: Any) -> Any:

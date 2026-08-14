@@ -180,23 +180,17 @@ class ShareObserverInstance(Constraint):
             None,
         )
         if shared is None:
-            shared = ProvisionalQSpec(
-                fields=dict(reconciled_fields), declined_by=group_declined_by
-            )
+            shared = ProvisionalQSpec(fields=dict(reconciled_fields), declined_by=group_declined_by)
 
         changed = {slot for slot in widened if qspecs.get(slot) is not shared}
         for slot in changed:
             qspecs[slot] = shared
         return changed
 
-    def _resolve_decline(
-        self, widened: set[NodeSlot], qspecs: ProvisionalQSpecMap
-    ) -> int | None:
+    def _resolve_decline(self, widened: set[NodeSlot], qspecs: ProvisionalQSpecMap) -> int | None:
         """Priority of the decline that governs the group, or ``None`` if observed."""
         declines = [
-            qspecs[slot].declined_by
-            for slot in widened
-            if slot in qspecs and qspecs[slot].declined
+            qspecs[slot].declined_by for slot in widened if slot in qspecs and qspecs[slot].declined
         ]
         if not declines:
             return None

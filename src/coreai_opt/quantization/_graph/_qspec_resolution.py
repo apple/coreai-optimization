@@ -196,9 +196,7 @@ def _build_concrete_spec(qspec: ProvisionalQSpec) -> TorchAOQuantizationSpec | N
     if not qspec.fields:
         return None
     missing = [
-        field_name.name
-        for field_name in _SPEC_KWARG_FROM_FIELD
-        if field_name not in qspec.fields
+        field_name.name for field_name in _SPEC_KWARG_FROM_FIELD if field_name not in qspec.fields
     ]
     if missing or FieldName.QUANTIZATION_TARGET not in qspec.fields:
         # Every observed slot is seeded from a whole QuantizationSpec, so a
@@ -215,9 +213,7 @@ def _build_concrete_spec(qspec: ProvisionalQSpec) -> TorchAOQuantizationSpec | N
             for field_name, kwarg in _SPEC_KWARG_FROM_FIELD.items()
         }
     )
-    return _convert_to_pt2e_spec(
-        spec, qspec.fields[FieldName.QUANTIZATION_TARGET].value
-    )
+    return _convert_to_pt2e_spec(spec, qspec.fields[FieldName.QUANTIZATION_TARGET].value)
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +262,4 @@ def _backfill_input_qspec_map(
     node: fx.Node, input_map: dict[fx.Node, _SlotSpec]
 ) -> dict[fx.Node, _SlotSpec | None]:
     """An ``input_qspec_map`` with an entry per positional input, ``None`` where unset."""
-    return {
-        producer: input_map.get(producer, None)
-        for producer in node.all_input_nodes
-    }
+    return {producer: input_map.get(producer, None) for producer in node.all_input_nodes}

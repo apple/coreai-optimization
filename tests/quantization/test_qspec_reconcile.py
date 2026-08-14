@@ -142,9 +142,7 @@ class TestReconcileField:
                 QSCHEME=_fv(torch.per_tensor_affine, priority=OP_INTRINSIC_PRIORITY)
             ),
         }
-        result = _reconcile_field(
-            FieldName.QSCHEME, frozenset({conv_out, sigmoid_out}), state
-        )
+        result = _reconcile_field(FieldName.QSCHEME, frozenset({conv_out, sigmoid_out}), state)
         assert result.value == torch.per_tensor_affine
         assert result.priority == OP_INTRINSIC_PRIORITY
 
@@ -580,9 +578,7 @@ class TestConcatAxisNormalization:
         ],
     )
     def test_same_axis(self, ch_axis, concat_dim, rank, expected) -> None:
-        assert (
-            _same_axis(ch_axis, concat_dim, self._node_with_rank(rank)) is expected
-        )
+        assert _same_axis(ch_axis, concat_dim, self._node_with_rank(rank)) is expected
 
     def test_same_axis_without_metadata_falls_back_to_raw_compare(self) -> None:
         """No ``val`` metadata means rank is unknown, so only an exact match
@@ -635,9 +631,7 @@ class TestBuildConcreteSpec:
 
     def test_reconciled_qscheme_reaches_the_calculator(self) -> None:
         """The regression guard for the original defect."""
-        spec = _build_concrete_spec(
-            self._fields(QSCHEME=_fv(QuantizationScheme.ASYMMETRIC))
-        )
+        spec = _build_concrete_spec(self._fields(QSCHEME=_fv(QuantizationScheme.ASYMMETRIC)))
         assert self._calculator(spec).qscheme is QuantizationScheme.ASYMMETRIC
 
     def test_reconciled_float_range_reaches_the_calculator(self) -> None:
@@ -679,9 +673,7 @@ class TestBuildConcreteSpec:
         for a slot that was never seeded from a config — surface it instead of
         filling in defaults."""
         with pytest.raises(ReconciliationError, match="Cannot rebuild"):
-            _build_concrete_spec(
-                ProvisionalQSpec(fields={FieldName.DTYPE: _fv(torch.int8)})
-            )
+            _build_concrete_spec(ProvisionalQSpec(fields={FieldName.DTYPE: _fv(torch.int8)}))
 
 
 # ---------------------------------------------------------------------------
@@ -704,9 +696,7 @@ class TestDeclinedSlots:
                 FieldName.DTYPE: _fv(torch.int8, priority),
                 FieldName.QSCHEME: _fv(QuantizationScheme.SYMMETRIC, priority),
                 FieldName.GRANULARITY: _fv(PerTensorGranularity(), priority),
-                FieldName.QUANTIZATION_TARGET: _fv(
-                    CompressionTargetTensor.ACTIVATION, priority
-                ),
+                FieldName.QUANTIZATION_TARGET: _fv(CompressionTargetTensor.ACTIVATION, priority),
             }
         )
 
@@ -741,7 +731,7 @@ class TestDeclinedSlots:
         observed, declined = _slot("observed"), _slot("declined")
         state: ProvisionalQSpecMap = {
             observed: self._observed(priority=99),  # worst
-            declined: self._declined(priority=0),   # best
+            declined: self._declined(priority=0),  # best
         }
         ShareObserverInstance(_slots=frozenset({observed, declined})).apply(state)
         assert state[observed].declined is False
@@ -810,9 +800,9 @@ class TestInheritFields:
             ),
             dst: self._with(),
         }
-        changed = InheritFields(
-            source=src, targets=frozenset({dst}), fields=self._FACTS
-        ).apply(state)
+        changed = InheritFields(source=src, targets=frozenset({dst}), fields=self._FACTS).apply(
+            state
+        )
         assert changed == {dst}
         assert state[dst].fields[FieldName.QSCHEME].value is QuantizationScheme.ASYMMETRIC
         assert state[dst].fields[FieldName.FLOAT_RANGE].value == [0.0, None]
@@ -868,9 +858,10 @@ class TestInheritFields:
             src: self._with(FLOAT_RANGE=_fv([0.0, None])),
             dst: ProvisionalQSpec(declined_by=0),
         }
-        assert InheritFields(
-            source=src, targets=frozenset({dst}), fields=self._FACTS
-        ).apply(state) == set()
+        assert (
+            InheritFields(source=src, targets=frozenset({dst}), fields=self._FACTS).apply(state)
+            == set()
+        )
 
     def test_declined_source_carries_nothing(self) -> None:
         src, dst = _slot("a"), _slot("b")
@@ -878,9 +869,10 @@ class TestInheritFields:
             src: ProvisionalQSpec(declined_by=0),
             dst: self._with(),
         }
-        assert InheritFields(
-            source=src, targets=frozenset({dst}), fields=self._FACTS
-        ).apply(state) == set()
+        assert (
+            InheritFields(source=src, targets=frozenset({dst}), fields=self._FACTS).apply(state)
+            == set()
+        )
 
     def test_absent_target_is_not_created(self) -> None:
         """Propagation must not invent observation for a slot nothing asked to
@@ -888,7 +880,8 @@ class TestInheritFields:
         ``_build_concrete_spec`` rejects."""
         src, absent = _slot("a"), _slot("absent")
         state: ProvisionalQSpecMap = {src: self._with(FLOAT_RANGE=_fv([0.0, None]))}
-        assert InheritFields(
-            source=src, targets=frozenset({absent}), fields=self._FACTS
-        ).apply(state) == set()
+        assert (
+            InheritFields(source=src, targets=frozenset({absent}), fields=self._FACTS).apply(state)
+            == set()
+        )
         assert absent not in state

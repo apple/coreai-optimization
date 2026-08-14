@@ -143,9 +143,7 @@ def _generate_constraints_for_node(
 
     pattern_class = ctx.shared_observer_nodes.get(node)
     if pattern_class is not None:
-        constraints.extend(
-            pattern_class.generate_qspec_sharing_constraints(node, qspecs)
-        )
+        constraints.extend(pattern_class.generate_qspec_sharing_constraints(node, qspecs))
 
     if _is_state_node(node) and len(node.users) >= 2:
         constraints.extend(_shared_state_constraints(node, qspecs, ctx))
@@ -194,9 +192,7 @@ def _adjacent_edge_constraints(
         producer_output = NodeSlot(node=producer, kind=SlotKind.OUTPUT, arg_index=0)
         consumer_input = NodeSlot(node=node, kind=SlotKind.INPUT, arg_index=arg_index)
         if _edge_should_share(producer_output, consumer_input, qspecs):
-            constraints.append(
-                ShareObserverInstance(frozenset({producer_output, consumer_input}))
-            )
+            constraints.append(ShareObserverInstance(frozenset({producer_output, consumer_input})))
 
     # Outgoing edges.
     for consumer in node.users:
@@ -209,16 +205,12 @@ def _adjacent_edge_constraints(
             continue
         producer_output = NodeSlot(node=node, kind=SlotKind.OUTPUT, arg_index=0)
         if _edge_should_share(producer_output, consumer_input, qspecs):
-            constraints.append(
-                ShareObserverInstance(frozenset({producer_output, consumer_input}))
-            )
+            constraints.append(ShareObserverInstance(frozenset({producer_output, consumer_input})))
 
     return constraints
 
 
-def _edge_should_share(
-    first: NodeSlot, second: NodeSlot, qspecs: ProvisionalQSpecMap
-) -> bool:
+def _edge_should_share(first: NodeSlot, second: NodeSlot, qspecs: ProvisionalQSpecMap) -> bool:
     """Whether an edge's slots should share an observer: neither declined, and at
     least one holding fields.
 
@@ -228,15 +220,10 @@ def _edge_should_share(
     first_qspec, second_qspec = qspecs.get(first), qspecs.get(second)
     if any(qspec is not None and qspec.declined for qspec in (first_qspec, second_qspec)):
         return False
-    return any(
-        qspec is not None and bool(qspec.fields)
-        for qspec in (first_qspec, second_qspec)
-    )
+    return any(qspec is not None and bool(qspec.fields) for qspec in (first_qspec, second_qspec))
 
 
-def _find_input_slot_for_producer(
-    consumer: fx.Node, producer: fx.Node
-) -> NodeSlot | None:
+def _find_input_slot_for_producer(consumer: fx.Node, producer: fx.Node) -> NodeSlot | None:
     """Return the consumer's INPUT slot reading from ``producer``, if any."""
     for arg_index, actual_producer in enumerate(consumer.all_input_nodes):
         if actual_producer is producer:
@@ -273,9 +260,7 @@ def _shared_state_constraints(
         return []
     # Each consumer's config independently says whether it quantizes the tensor,
     # so ordinary config precedence decides — including when it declines.
-    return [
-        ShareObserverInstance(frozenset(known_slots), priority_decides_decline=True)
-    ]
+    return [ShareObserverInstance(frozenset(known_slots), priority_decides_decline=True)]
 
 
 # ---------------------------------------------------------------------------
@@ -336,16 +321,10 @@ def _rank_changing_passthrough_constraints(
     targets = _chain_target_slots(node, qspecs)
     if not targets:
         return []
-    return [
-        InheritFields(
-            source=source, targets=frozenset(targets), fields=_DATA_FACT_FIELDS
-        )
-    ]
+    return [InheritFields(source=source, targets=frozenset(targets), fields=_DATA_FACT_FIELDS)]
 
 
-def _chain_source_slot(
-    node: fx.Node, qspecs: ProvisionalQSpecMap
-) -> NodeSlot | None:
+def _chain_source_slot(node: fx.Node, qspecs: ProvisionalQSpecMap) -> NodeSlot | None:
     """Walk upstream past rank-changing passthroughs to the slot holding the facts,
     or ``None`` if nothing on the chain has any yet.
     """
@@ -364,9 +343,7 @@ def _chain_source_slot(
     return None
 
 
-def _chain_target_slots(
-    node: fx.Node, qspecs: ProvisionalQSpecMap
-) -> set[NodeSlot]:
+def _chain_target_slots(node: fx.Node, qspecs: ProvisionalQSpecMap) -> set[NodeSlot]:
     """Walk downstream past rank-changing passthroughs to the slots that hold observers."""
     targets: set[NodeSlot] = set()
     frontier = [node]
