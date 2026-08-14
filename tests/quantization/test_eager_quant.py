@@ -2011,7 +2011,12 @@ def test_warn_on_nonquantizable_tensor(caplog, config, warning_msg):
 
     quantizer = Quantizer(model, config)
     _ = quantizer.prepare(example_input)
-    if "*" in config.global_config.op_input_spec or "*" in config.global_config.op_state_spec:
+    # A wildcard *spec* sweeping up the int tensor stays silent. A wildcard
+    # holding None is an opt-out, not a spec, so it does not suppress the warning.
+    if (
+        config.global_config.op_input_spec.get("*") is not None
+        or config.global_config.op_state_spec.get("*") is not None
+    ):
         assert len(caplog.records) == 0
     else:
         assert len(caplog.records) == 1

@@ -16,6 +16,7 @@ import pytest
 import torch
 from torch import nn
 
+from coreai_opt._utils.config_utils import ALL_TENSORS
 from coreai_opt._utils.python_utils import fqn
 from coreai_opt.base_model_compressor import ExportBackend
 from coreai_opt.quantization import (
@@ -29,6 +30,7 @@ from coreai_opt.quantization.spec import (
     PerChannelGranularity,
     QuantizationScheme,
 )
+from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
 
 # Canonical fully-disabled override produced by only_for / without / set_global(None).
 DISABLED_MODULE_CONFIG = ModuleQuantizerConfig(
@@ -64,6 +66,25 @@ class _DemoModel(nn.Module):
         return self.head(self.detr_decoder(self.text_encoder(x)))
 
 
+class _BatchNormModel(nn.Module):
+    """Exercises conv-bn folding: conv-bn-relu, conv-bn, pool, flatten, linear."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.conv1 = nn.Conv2d(3, 8, 3, padding=1)
+        self.bn1 = nn.BatchNorm2d(8)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(8, 8, 3, padding=1)
+        self.bn2 = nn.BatchNorm2d(8)
+        self.fc = nn.Linear(8, 4)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.bn2(self.conv2(x))
+        x = torch.flatten(nn.functional.adaptive_avg_pool2d(x, 1), 1)
+        return self.fc(x)
+
+
 # ---------------------------------------------------------------------------
 # Preset factories
 # ---------------------------------------------------------------------------
@@ -96,10 +117,10 @@ def test_preset_returns_correct_type(owner_cls, preset_name):
 @pytest.mark.parametrize("owner_cls", _OWNER_CLASSES)
 @pytest.mark.parametrize("preset_name", _PRESET_NAMES)
 def test_preset_is_weight_only(owner_cls, preset_name):
-    """All built-in presets are weight-only — empty input/output activation specs."""
+    """All built-in presets are weight-only — activations explicitly disabled."""
     module = _module_config(getattr(owner_cls.presets, preset_name)())
-    assert module.op_input_spec == {}
-    assert module.op_output_spec == {}
+    assert module.op_input_spec == {ALL_TENSORS: None}
+    assert module.op_output_spec == {ALL_TENSORS: None}
 
 
 @pytest.mark.parametrize("owner_cls", _OWNER_CLASSES)
@@ -130,6 +151,38 @@ def test_w4_per_block_block_size_override(owner_cls):
     config = owner_cls.presets.w4_per_block(block_size=64)
     weight_spec = _module_config(config).op_state_spec["weight"]
     assert weight_spec.granularity.block_size == 64
+
+
+# ``w4_per_block`` is omitted: this model's channel counts aren't divisible by
+# the default block size, so it quantizes nothing.
+@pytest.mark.parametrize("preset_name", ["w8", "w4"])
+def test_preset_does_not_quantize_batchnorm_affine_params(preset_name):
+    """A conv-bn pattern quantizes the folded conv weight, not the bn's affine scale.
+
+    The bn node is covered so that no observer lands on the internal conv->bn edge,
+    but a pattern's state spec belongs to the op it is anchored on. Quantizing
+    ``bn.weight`` also breaks the axis-default pass, since ``batch_norm`` has no
+    per-channel axis default to resolve ``axis=None`` against.
+    """
+    config = getattr(QuantizerConfig.presets, preset_name)()
+    prepared = Quantizer(_BatchNormModel().eval(), config).prepare(
+        example_inputs=(torch.randn(2, 3, 8, 8),)
+    )
+
+    fq_names = {
+        name
+        for name, module in prepared.named_modules()
+        if isinstance(module, FakeQuantizeImplBase)
+    }
+    # One per weight-bearing op: conv1, conv2, fc. Matches main_oss.
+    assert len(fq_names) == 3
+
+    for node in prepared.graph.nodes:
+        if node.op == "call_function" and node.name.startswith("batch_norm"):
+            weight_arg = node.all_input_nodes[1]
+            assert weight_arg.name not in fq_names, (
+                f"{node.name} weight {weight_arg.name} should not be fake-quantized"
+            )
 
 
 # ---------------------------------------------------------------------------

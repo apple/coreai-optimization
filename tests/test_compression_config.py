@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 from pydantic import ValidationError
 
-from coreai_opt._utils.config_utils import ConfigLevel
+from coreai_opt._utils.config_utils import ALL_TENSORS, ConfigLevel
 from coreai_opt.common import CompressionType
 from coreai_opt.config import (
     CompressionConfig,
@@ -84,13 +84,14 @@ def test_op_compression_config_defaults():
 
 
 def test_op_compression_config_explicit_none():
-    """Test that explicit None converts to empty dict."""
+    """Explicit None disables the category, as ``{"*": None}``."""
     config = OpFooCompressionConfig(op_input_spec=None, op_output_spec=None, op_state_spec=None)
 
-    # Explicit None should result in empty dicts (via BeforeValidator)
-    assert config.op_input_spec == {}
-    assert config.op_output_spec == {}
-    assert config.op_state_spec == {}
+    # None is shorthand for "compress no tensor here", kept at the tensor level so
+    # it stays distinguishable from {}, which names no tensor and says nothing.
+    assert config.op_input_spec == {ALL_TENSORS: None}
+    assert config.op_output_spec == {ALL_TENSORS: None}
+    assert config.op_state_spec == {ALL_TENSORS: None}
 
 
 def test_op_compression_config_with_specs():
@@ -186,10 +187,10 @@ def test_module_compression_config_explicit_none():
         module_state_spec=None,
     )
 
-    # All should be empty dicts
-    assert config.op_input_spec == {}
-    assert config.op_output_spec == {}
-    assert config.op_state_spec == {}
+    # Op-level specs disable at the tensor level; the rest are simply empty.
+    assert config.op_input_spec == {ALL_TENSORS: None}
+    assert config.op_output_spec == {ALL_TENSORS: None}
+    assert config.op_state_spec == {ALL_TENSORS: None}
     assert config.op_type_config == {}
     assert config.op_name_config == {}
     assert config.module_input_spec == {}
@@ -203,11 +204,11 @@ def test_module_compression_config_none_op_type_config():
         op_type_config={"linear": None, "conv": OpFooCompressionConfig()}
     )
 
-    # None should be normalized to an OpConfig with empty specs
+    # None should be normalized to an OpConfig with every category disabled
     assert isinstance(config.op_type_config["linear"], OpFooCompressionConfig)
-    assert config.op_type_config["linear"].op_input_spec == {}
-    assert config.op_type_config["linear"].op_output_spec == {}
-    assert config.op_type_config["linear"].op_state_spec == {}
+    assert config.op_type_config["linear"].op_input_spec == {ALL_TENSORS: None}
+    assert config.op_type_config["linear"].op_output_spec == {ALL_TENSORS: None}
+    assert config.op_type_config["linear"].op_state_spec == {ALL_TENSORS: None}
 
     # Non-None should be unchanged (has defaults)
     assert config.op_type_config["conv"].op_input_spec == {"*": DummySpec(value=1)}
@@ -219,11 +220,11 @@ def test_module_compression_config_none_op_name_config():
         op_name_config={"layer1.weight": None, "layer2.weight": OpFooCompressionConfig()}
     )
 
-    # None should be normalized to an OpConfig with empty specs
+    # None should be normalized to an OpConfig with every category disabled
     assert isinstance(config.op_name_config["layer1.weight"], OpFooCompressionConfig)
-    assert config.op_name_config["layer1.weight"].op_input_spec == {}
-    assert config.op_name_config["layer1.weight"].op_output_spec == {}
-    assert config.op_name_config["layer1.weight"].op_state_spec == {}
+    assert config.op_name_config["layer1.weight"].op_input_spec == {ALL_TENSORS: None}
+    assert config.op_name_config["layer1.weight"].op_output_spec == {ALL_TENSORS: None}
+    assert config.op_name_config["layer1.weight"].op_state_spec == {ALL_TENSORS: None}
 
     # Non-None should be unchanged (has defaults)
     assert config.op_name_config["layer2.weight"].op_input_spec == {"*": DummySpec(value=1)}

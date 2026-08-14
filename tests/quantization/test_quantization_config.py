@@ -10,7 +10,7 @@ import torch
 from pydantic import ValidationError
 
 import tests.utils as utils
-from coreai_opt._utils.config_utils import ALL_TENSORS as _ALL_TENSORS
+from coreai_opt._utils.config_utils import ALL_TENSORS as _ALL_TENSORS, spec_dict_is_active
 from coreai_opt.quantization import QuantizationSpec, Quantizer
 from coreai_opt.quantization.config.quantization_config import (
     _QUANTIZATION_CONFIG,
@@ -99,9 +99,13 @@ def test_init_module_quantizer_config():
     assert module_config.qat_schedule is None
 
 
-def test_init_module_quantizer_config_with_none_vs_empty_dict():
-    """Test that ModuleQuantizerConfig can take both None and {} for attributes"""
-    module_config_1 = ModuleQuantizerConfig(
+def test_init_module_quantizer_config_none_and_empty_dict_differ():
+    """``None`` disables an op-level category; ``{}`` expresses no opinion.
+
+    Module-level specs are unaffected — they keep normalizing None to ``{}``,
+    since only op-level specs feed per-tensor annotation decisions.
+    """
+    empty = ModuleQuantizerConfig(
         op_input_spec={},
         op_output_spec={},
         op_state_spec={},
@@ -109,7 +113,7 @@ def test_init_module_quantizer_config_with_none_vs_empty_dict():
         module_output_spec={},
         module_state_spec={},
     )
-    module_config_2 = ModuleQuantizerConfig(
+    disabled = ModuleQuantizerConfig(
         op_input_spec=None,
         op_output_spec=None,
         op_state_spec=None,
@@ -117,7 +121,14 @@ def test_init_module_quantizer_config_with_none_vs_empty_dict():
         module_output_spec=None,
         module_state_spec=None,
     )
-    assert module_config_1 == module_config_2
+    assert empty != disabled
+    assert empty.op_input_spec == {}
+    assert disabled.op_input_spec == {_ALL_TENSORS: None}
+    # Module-level specs stay empty either way.
+    assert empty.module_input_spec == disabled.module_input_spec == {}
+    # Neither asks for compression.
+    assert not spec_dict_is_active(empty.op_input_spec)
+    assert not spec_dict_is_active(disabled.op_input_spec)
 
 
 def test_init_op_quantizer_config():
@@ -128,19 +139,29 @@ def test_init_op_quantizer_config():
     assert op_config.op_state_spec["weight"] == default_weight_quantization_spec()
 
 
-def test_init_op_quantizer_config_with_none_vs_empty_dict():
-    """Test that OpQuantizerConfig can take both None and {} for attributes"""
-    op_config_1 = OpQuantizerConfig(
+def test_init_op_quantizer_config_none_and_empty_dict_differ():
+    """``None`` disables a category; ``{}`` expresses no opinion about it.
+
+    These were equivalent before, both normalizing to ``{}``. Keeping them
+    distinct is what lets a consumer tell "the user excluded this tensor" from
+    "no key addressed this tensor".
+    """
+    empty = OpQuantizerConfig(
         op_input_spec={},
         op_output_spec={},
         op_state_spec={},
     )
-    op_config_2 = OpQuantizerConfig(
+    disabled = OpQuantizerConfig(
         op_input_spec=None,
         op_output_spec=None,
         op_state_spec=None,
     )
-    assert op_config_1 == op_config_2
+    assert empty != disabled
+    assert empty.op_input_spec == {}
+    assert disabled.op_input_spec == {_ALL_TENSORS: None}
+    # Neither asks for compression.
+    assert not spec_dict_is_active(empty.op_input_spec)
+    assert not spec_dict_is_active(disabled.op_input_spec)
 
 
 def test_from_yaml(tmp_path, expanded_dtype_allowlist):  # noqa: F811
