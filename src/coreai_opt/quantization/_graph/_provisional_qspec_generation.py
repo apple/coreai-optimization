@@ -279,21 +279,30 @@ def _apply_op_intrinsic_override(
     distribution, at :data:`OP_INTRINSIC_PRIORITY` so they outrank user config.
 
     Nothing else: the op has no opinion on the other fields.
+
+    The ``QSCHEME`` half is skipped for a floating-point dtype, which admits only
+    the symmetric scheme — see ``QuantizationSpec.validate_qscheme_for_fp_quant``.
+    An op like ``relu`` proposes an asymmetric scheme to exploit its one-sided
+    range, but that is a representational choice the dtype forbids, so proposing it
+    would make the group unbuildable rather than merely lower quality. The
+    ``FLOAT_RANGE`` half still applies: the bound is a fact about the data and
+    holds whatever the dtype.
     """
     intrinsic = _get_op_intrinsic(node)
     assert intrinsic is not None, "caller must gate on _get_op_intrinsic"
     scheme, float_range = intrinsic
 
-    _override_field(
-        qspecs,
-        output_slot,
-        FieldName.QSCHEME,
-        scheme,
-        OP_INTRINSIC_PRIORITY,
-        node,
-        user_spec.qscheme,
-        "qscheme",
-    )
+    if not user_spec.dtype.is_floating_point:
+        _override_field(
+            qspecs,
+            output_slot,
+            FieldName.QSCHEME,
+            scheme,
+            OP_INTRINSIC_PRIORITY,
+            node,
+            user_spec.qscheme,
+            "qscheme",
+        )
     _override_field(
         qspecs,
         output_slot,
