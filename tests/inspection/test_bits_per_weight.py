@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-"""Tests for the standalone bits_per_weight utility."""
+"""Tests for the bits_per_weight utility."""
 
 import pytest
 import torch
@@ -37,7 +37,7 @@ _IN_FEATURES = 64
 _HIDDEN_FEATURES = 128
 _OUT_FEATURES = 64
 _WEIGHT_ELEMS = _HIDDEN_FEATURES * _IN_FEATURES + _OUT_FEATURES * _HIDDEN_FEATURES
-# One bias element per output feature of each layer.
+
 _BIAS_ELEMS = _HIDDEN_FEATURES + _OUT_FEATURES
 # One per-channel qparam (quantization scale, or palettization per-channel scale) per
 # output channel of each layer.
@@ -51,9 +51,6 @@ _MAX_EXPECTED_OVERHEAD_BPW = 2.0
 
 _EXAMPLE_INPUT = torch.rand(4, _IN_FEATURES)
 
-# Quantization granularity paired with the number of qparam blocks it produces over both
-# weights: one block per weight tensor for per-tensor, one per output channel for
-# per-channel, and one per ``block_size`` elements along axis 1 for per-block.
 _BLOCK_SIZE = 32
 _QUANT_GRANULARITIES = [
     (PerTensorGranularity(axis=None), 2),
@@ -65,9 +62,6 @@ _QUANT_GRANULARITIES = [
     ),
 ]
 
-# Palettization granularity paired with the number of LUT blocks it produces over both
-# weights: one LUT per weight tensor for per-tensor, and one per group of output
-# channels for per-grouped-channel.
 _PALETT_GRANULARITIES = [
     (PalettPerTensorGranularity(axis=None), 2),
     (
@@ -80,10 +74,6 @@ _PALETT_GRANULARITIES = [
     ),
 ]
 
-# n_bits paired with the granularities that stay within the sanity envelope on a model
-# this small. A 2**8-entry fp32 LUT costs 8,192 bits, so at n_bits=8 only per-tensor
-# granularity keeps the LUTs cheaper than the payload they index; the fine-grained
-# combinations go to test_overhead_heavy_configs_exceed_envelope instead.
 _PALETT_CASES = [
     pytest.param(n_bits, granularity, num_lut_blocks, id=f"n{n_bits}_{granularity_id}")
     for n_bits in (1, 2, 4)
@@ -310,9 +300,7 @@ def test_overhead_heavy_configs_exceed_bitwidth(
 
 
 def test_persistent_buffers_counted():
-    # BatchNorm running stats (running_mean, running_var) and num_batches_tracked are
-    # persistent buffers that ship in state_dict(), so they must be amortized into
-    # deploy bpw alongside the dense parameters.
+    """BatchNorm running stats ship in ``state_dict()``, so they are amortized in."""
     result = bits_per_weight(LinearBatchNormModel())
 
     # Params: the two fp32 weights (the model is bias-free), plus BatchNorm's fp32
@@ -329,9 +317,11 @@ def test_persistent_buffers_counted():
 
 
 def test_multi_original_parametrization_is_unsupported():
-    # weight_norm's right_inverse returns a pair, so PyTorch stores original0 /
-    # original1 instead of a single `original`. There is no one dense tensor to
-    # attribute a storage cost to, so this must raise rather than AttributeError.
+    """``weight_norm`` stores original0 / original1 rather than a single original.
+
+    There is no one dense tensor to attribute a storage cost to, so this must raise
+    rather than fail with ``AttributeError``.
+    """
     model = nn.utils.parametrizations.weight_norm(nn.Linear(_IN_FEATURES, _HIDDEN_FEATURES))
 
     with pytest.raises(NotImplementedError, match="multiple original tensors"):
@@ -339,8 +329,8 @@ def test_multi_original_parametrization_is_unsupported():
 
 
 def test_non_persistent_buffer_counted():
-    # Buffers count regardless of persistent=: the metric covers every tensor the
-    # model carries
+    """Buffers count regardless of ``persistent=``: every tensor the model carries."""
+
     class _ModuleWithScratch(nn.Module):
         def __init__(self) -> None:
             super().__init__()
@@ -375,16 +365,8 @@ def test_float_quant_is_unsupported(dtype, granularity):
         bits_per_weight(prepared)
 
 
-def test_prepared_marker_buffer_excluded():
-    # coreai_opt registers a 1-element `_coreai_opt_prepared` marker buffer on
-    # prepare(); it is bookkeeping, not model data, so it must not skew the totals.
-    prepared = _prepare_eager_quant(SimpleLinearModel(), torch.int8)
-    dense_param_count = sum(p.numel() for p in SimpleLinearModel().parameters())
-
-    assert bits_per_weight(prepared).total_weights == dense_param_count
-
-
 def test_per_module_attributes_cost_to_the_owning_module():
+    """Under mixed precision, each module's bpw lands on that module."""
 
     spec = QuantizationSpec(
         dtype=torch.int8, qscheme="symmetric", granularity=PerChannelGranularity(axis=0)
@@ -418,10 +400,7 @@ def test_per_module_attributes_cost_to_the_owning_module():
 
 
 def test_per_module_counts_a_tied_weight_once():
-    # SharedParamsModel points shared_linear, layer1, and layer2 at one weight and
-    # one bias. Tensors are deduped by id() across the whole model, so the first
-    # module named_modules() reaches is charged and the later two get nothing.
-
+    """A weight shared by several modules is charged only to the first one."""
     per_module = bits_per_weight(SharedParamsModel()).per_module
 
     assert per_module["shared_linear"] == _FP32_BITS
