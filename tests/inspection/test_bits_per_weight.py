@@ -27,7 +27,7 @@ from coreai_opt.quantization.spec import (
     PerTensorGranularity,
     QuantizationSpec,
 )
-from tests.models.simple import LinearBatchNormModel, SimpleLinearModel
+from tests.models.simple import LinearBatchNormModel, SharedParamsModel, SimpleLinearModel
 
 # SimpleLinearModel and LinearBatchNormModel are both Linear(64, 128) -> Linear(128, 64),
 # so their weights are 128 x 64 and 64 x 128.
@@ -382,3 +382,51 @@ def test_prepared_marker_buffer_excluded():
     dense_param_count = sum(p.numel() for p in SimpleLinearModel().parameters())
 
     assert bits_per_weight(prepared).total_weights == dense_param_count
+
+
+def test_per_module_attributes_cost_to_the_owning_module():
+
+    spec = QuantizationSpec(
+        dtype=torch.int8, qscheme="symmetric", granularity=PerChannelGranularity(axis=0)
+    )
+    config = QuantizerConfig(
+        global_config=ModuleQuantizerConfig(op_state_spec={"weight": spec}, op_input_spec=None),
+        # l2 stays fp32 while l1 is int8
+        module_name_configs={"l2": None},
+        execution_mode="eager",
+    )
+    prepared = Quantizer(SimpleLinearModel(bias=False), config).prepare(
+        example_inputs=(_EXAMPLE_INPUT,)
+    )
+    prepared(_EXAMPLE_INPUT)
+    result = bits_per_weight(prepared)
+
+    # l1 carries 8 bits per weight plus one fp32 scale per output channel.
+    l1_elems = _HIDDEN_FEATURES * _IN_FEATURES
+    expected_l1_bits = l1_elems * 8 + _HIDDEN_FEATURES * _FP32_BITS
+    l2_elems = _OUT_FEATURES * _HIDDEN_FEATURES
+
+    assert result.per_module == {
+        "l1": pytest.approx(expected_l1_bits / l1_elems),
+        "l2": _FP32_BITS,
+    }
+
+    assert result.total_bits == expected_l1_bits + l2_elems * _FP32_BITS
+    assert result.bpw == result.total_bits / (l1_elems + l2_elems)
+
+    assert result.per_module["l1"] < result.bpw < result.per_module["l2"]
+
+
+def test_per_module_counts_a_tied_weight_once():
+    # SharedParamsModel points shared_linear, layer1, and layer2 at one weight and
+    # one bias. Tensors are deduped by id() across the whole model, so the first
+    # module named_modules() reaches is charged and the later two get nothing.
+
+    per_module = bits_per_weight(SharedParamsModel()).per_module
+
+    assert per_module["shared_linear"] == _FP32_BITS
+    assert "layer1" not in per_module
+    assert "layer2" not in per_module
+    # Modules that own tensors of their own are unaffected.
+    assert per_module["input_layer"] == _FP32_BITS
+    assert per_module["output"] == _FP32_BITS
