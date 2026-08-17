@@ -99,13 +99,13 @@ coreai_program = (
 
 Compared to the [usual flow](../introduction/integration_coreai.md), there are *two* key differences:
 
-### Patch the model in-place for externalization using the `_patch_model_for_externalization` API
+## Patch the model in-place for externalization using the `_patch_model_for_externalization` API
 
 In graph mode execution, `coreai-opt`'s `quantizer.prepare` invokes the `torch.export.export` API. By default, this causes the composite op body to be inlined in the graph and we lose the information about it's boundary for externalization. In order to preserve this information, the `_patch_model_for_externalization` API modifies the original `torch` model in-place, before preparing the model for graph mode quantization using `coreai-opt`. Specifically, it replaces the forward method of the `nn.module`s specified in `ExternalizeSpec(target_class)` with a `torch.library.custom_op` that, in turn, invokes the original forward method of the composite op. This keeps the model functionally the same, however, now the sub-module (`RMSNormComposite` in this example) becomes opaque to the `torch.export.export` API, i.e., a single node instead of the composite op body being inlined in the exported graph.
 
 Note that in addition to replacing the `forward` method of the composite ops with a `torch.library.custom_op`, the `_patch_model_for_externalization` API also registers some additional information/metadata as attributes on the composite op sub-modules. This metadata is then used by `_subexport_and_restore` as explained below, after which the model is restored by removing this metadata along with the `torch.library.custom_op` from the model.
 
-### `_subexport_and_restore` and provide the composite op exported programs during `add_exported_program`
+## `_subexport_and_restore` and provide the composite op exported programs during `add_exported_program`
 
 Once a model is patched using the `_patch_model_for_externalization` API, it can be quantized as usual using `coreai-opt`'s graph mode (either for PTQ or QAT) and finalized to `CoreAI` backend.
 
@@ -119,7 +119,7 @@ It returns a list of torch exported programs corresponding to all the composite 
 These torch exported programs are then passed to the `add_exported_program` API via the `_externalized_exported_programs` argument to prepare the coreai graph (`aimodel`).
 After this process, the coreai graph contains both the main graph and the sub-graphs corresponding to the composite op submodule preserved as function calls.
 
-#### Notes
+## Notes
 
 - Quantization cannot be applied *inside* the composite op body.
 - However, the boundaries (incoming and outgoing tensors) of the composite ops can be quantized as usual, using the `module_input_spec` and `module_output_spec` config kwargs as described in the documentation on `coreai-opt` configs [here](../quantization/config.md).
