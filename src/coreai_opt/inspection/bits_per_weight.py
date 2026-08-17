@@ -71,8 +71,7 @@ from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase as _
 __all__ = ["BitsPerWeightResult", "bits_per_weight"]
 
 # Fallback scale bit width for an uncalibrated model whose ``scale`` buffer is
-# not yet materialized. coreai_opt registers ``scale`` without an explicit dtype,
-# so PyTorch's default fp32 applies.
+# not yet materialized.
 _DEFAULT_SCALE_BITS = 32
 
 # A weight parametrization that compresses the dense tensor.
@@ -144,8 +143,7 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
         module_bits[name] = module_bits.get(name, 0) + bits
         module_weights[name] = module_weights.get(name, 0) + weights
 
-    # id() of every Parameter / Buffer already counted, so a tied tensor (one
-    # object shared across attributes, e.g. lm_head.weight = embed_tokens.weight)
+    # id() of every Parameter / Buffer already counted, so a tied tensor
     # is counted once
     seen_ids: set[int] = set()
 
