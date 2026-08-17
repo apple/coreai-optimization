@@ -436,7 +436,7 @@ class MLIRConverter(ModelConverter):
         self,
         traced_model: torch.export.ExportedProgram,
         input_data: torch.Tensor,
-        externalized_model: Any = None,
+        externalized_model: torch.nn.Module | None = None,
         **kwargs: Any,
     ) -> AIProgram:
         _, _ = input_data, kwargs
@@ -530,7 +530,7 @@ class MLIRConverter(ModelConverter):
     @staticmethod
     def _lower_to_coreai(
         exported_program: torch.export.ExportedProgram,
-        externalized_model: Any = None,
+        externalized_model: torch.nn.Module | None = None,
     ) -> AIProgram:
         """Lower exported program to Core AI.
 
