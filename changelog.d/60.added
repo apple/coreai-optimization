@@ -1,0 +1,1 @@
+Add training-aware palettization to `KMeansPalettizer` via a `training_mode()` context manager and `step()` method, with a `PATSchedule` (`pat_schedule` on the module config) controlling when palettization activates during a training loop. `PalettizationSpec` gains a `training_strategy_config` field for selecting pluggable training-time strategies.

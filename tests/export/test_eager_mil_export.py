@@ -94,6 +94,10 @@ def test_simple_model_export(
     parametrized_quant_config_general: ParametrizedQuantConfigs,
 ) -> None:
     """Test eager CoreML export with various quantization configurations."""
+    # CoreML rejects per-channel activation quantization outright.
+    if parametrized_quant_config_general.has_per_channel_activation_granularity:
+        pytest.skip("CoreML export rejects per-channel activation quantization")
+
     has_act_quant = parametrized_quant_config_general.has_activation_quantization
 
     _run_eager_mil_export_test(
@@ -114,6 +118,10 @@ def test_mnist_export(
     parametrized_quant_config_general: ParametrizedQuantConfigs,
 ) -> None:
     """Test eager CoreML export on MNIST model with various quantization configurations."""
+    # CoreML rejects per-channel activation quantization outright.
+    if parametrized_quant_config_general.has_per_channel_activation_granularity:
+        pytest.skip("CoreML export rejects per-channel activation quantization")
+
     has_act_quant = parametrized_quant_config_general.has_activation_quantization
 
     _run_eager_mil_export_test(
@@ -167,22 +175,31 @@ def test_gated_mlp_perchannel_act_export(
     parametrized_quant_config_perchannel_act_axis_coverage: ParametrizedQuantConfigs,
 ) -> None:
     """Test eager CoreML export with per-channel activation quantization axes.
-    Uses GatedMLPModel (uniform rank-3 activations throughout the model) to
-    test per-channel activation quantization across all valid axis values without
-    out-of-bounds errors.
+
+    Uses GatedMLPModel (uniform rank-3 activations throughout the model). CoreML
+    export rejects per-channel activation quantization outright; per-tensor cases
+    from this fixture should still export and verify normally.
     """
-    has_act_quant = (
-        parametrized_quant_config_perchannel_act_axis_coverage.has_activation_quantization
-    )
+    config = parametrized_quant_config_perchannel_act_axis_coverage
+
+    if config.has_per_channel_activation_granularity:
+        with pytest.raises(CoreMLExportError):
+            _run_eager_mil_export_test(
+                model=gated_mlp_model,
+                input_data=gated_mlp_model_input,
+                parametrized_quant_config=config,
+                expected_ops={},
+            )
+        return
 
     _run_eager_mil_export_test(
         model=gated_mlp_model,
         input_data=gated_mlp_model_input,
-        parametrized_quant_config=parametrized_quant_config_perchannel_act_axis_coverage,
+        parametrized_quant_config=config,
         expected_ops={
             "constexpr_blockwise_shift_scale": 3,
-            "quantize": 6 if has_act_quant else 0,
-            "dequantize": 6 if has_act_quant else 0,
+            "quantize": 6,
+            "dequantize": 6,
         },
     )
 

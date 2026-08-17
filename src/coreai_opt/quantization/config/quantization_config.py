@@ -13,7 +13,10 @@ from typing import TYPE_CHECKING, ClassVar, NamedTuple, Self, TypeAlias, final
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from coreai_opt._utils.config_utils import ALL_TENSORS as _ALL_TENSORS
+from coreai_opt._utils.config_utils import (
+    ALL_TENSORS as _ALL_TENSORS,
+    spec_dict_is_active as _spec_dict_is_active,
+)
 from coreai_opt.common import (
     _DeprecatedMemberEnumMeta,
     _StrEnum,
@@ -156,6 +159,13 @@ class ExecutionMode(_StrEnum, metaclass=_DeprecatedMemberEnumMeta):
         # Surface the deprecated alias above for static type checkers.
         PT2E: ExecutionMode
         """Deprecated. Use ``ExecutionMode.GRAPH`` instead."""
+
+
+class InvalidExecutionModeError(ValueError):
+    """Raised when an execution mode is not a recognized ExecutionMode value."""
+
+    def __init__(self, execution_mode: object) -> None:
+        super().__init__(f"Unknown execution_mode {execution_mode}. Expected 'graph' or 'eager'.")
 
 
 class OpQuantizerConfig(OpCompressionConfig[QuantizationSpec]):
@@ -527,7 +537,7 @@ class KVCacheQuantConfig(BaseModel):
         # op_output_spec must be empty/None: the finalize pass synthesizes the
         # output dequantize itself; a user-supplied output spec would either
         # double-quantize or conflict with the relocated dq.
-        if oqc.op_output_spec:
+        if _spec_dict_is_active(oqc.op_output_spec):
             raise ValueError(
                 "KVCacheQuantConfig.op_quantizer_config.op_output_spec must be "
                 "empty or None; the finalize pass inserts the output dequantize."
@@ -535,7 +545,7 @@ class KVCacheQuantConfig(BaseModel):
 
         # op_state_spec must be empty/None: cache-update ops have no learnable
         # state (the cache buffer is an input, not a parameter).
-        if oqc.op_state_spec:
+        if _spec_dict_is_active(oqc.op_state_spec):
             raise ValueError(
                 "KVCacheQuantConfig.op_quantizer_config.op_state_spec must be "
                 "empty or None; cache-update ops have no learnable state."

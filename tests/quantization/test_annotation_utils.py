@@ -11,7 +11,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch._ops import OpOverloadPacket
 
-from coreai_opt.quantization._graph._annotation_utils import _PASSTHROUGH_OP_OVERLOADS
+from coreai_opt.quantization._graph._qspec_constraint_generation import (
+    _PASSTHROUGH_OP_OVERLOADS,
+)
 
 
 def _overloadpackets_in_graph(model: nn.Module, example_inputs: tuple) -> set[OpOverloadPacket]:

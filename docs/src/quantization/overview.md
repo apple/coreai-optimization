@@ -203,7 +203,7 @@ The two modes are expected to produce very similar models for weight-only quanti
 
 A few scenarios where `eager` mode may need to be used instead of `graph`:
 
-- If you run into any errors during the `prepare` call which, under the hood, invokes the `torch.export.export` and `torchao`'s `prepare_qat_pt2e`/`convert_pt2e` APIs.
+- If you run into any errors during the `prepare` call which, under the hood, invokes the `torch.export.export` and `torchao`'s `prepare_qat_pt2e`/`convert_pt2e` APIs. See [Graph Mode Troubleshooting](../debugging/graph_mode_troubleshooting.md) for common export errors and workarounds before falling back to eager mode.
 - When `torch.nn.Module` needs to be provided as an input, instead of `ExportedProgram` to the conversion API of [coreai-torch](https://github.com/apple/coreai-torch). This happens when the `coreai-torch` conversion needs to "externalize" certain sub-modules to map them to _composite ops_ for better runtime performance.
 
 #### Weights and activations quantization

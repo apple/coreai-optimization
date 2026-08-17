@@ -2011,7 +2011,12 @@ def test_warn_on_nonquantizable_tensor(caplog, config, warning_msg):
 
     quantizer = Quantizer(model, config)
     _ = quantizer.prepare(example_input)
-    if "*" in config.global_config.op_input_spec or "*" in config.global_config.op_state_spec:
+    # A wildcard *spec* sweeping up the int tensor stays silent. A wildcard
+    # holding None is an opt-out, not a spec, so it does not suppress the warning.
+    if (
+        config.global_config.op_input_spec.get("*") is not None
+        or config.global_config.op_state_spec.get("*") is not None
+    ):
         assert len(caplog.records) == 0
     else:
         assert len(caplog.records) == 1
@@ -3379,7 +3384,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerBlockGranularity(axis=1, block_size=32),
                 True,
-                "FP4 activation quantization is not supported for MLIR export",
+                "Core AI export does not support FP4 activation quantization",
                 id="fp4_activation_rejected",
             ),
             pytest.param(

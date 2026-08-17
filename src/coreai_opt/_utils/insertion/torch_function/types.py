@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 import torch
 
-from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
+from coreai_opt._utils.spec_utils import PartialConstructor
 from coreai_opt.config.spec import CompressionSimulatorBase
 
 
@@ -27,15 +27,15 @@ class OpCompressionComponents:
     - None if no compression is applied to that component
     """
 
-    op_input_components: Mapping[
-        int | str, _PartialConstructor[CompressionSimulatorBase] | None
-    ] = field(default_factory=dict)
+    op_input_components: Mapping[int | str, PartialConstructor[CompressionSimulatorBase] | None] = (
+        field(default_factory=dict)
+    )
 
     op_output_components: Mapping[
-        int | str, _PartialConstructor[CompressionSimulatorBase] | None
+        int | str, PartialConstructor[CompressionSimulatorBase] | None
     ] = field(default_factory=dict)
 
-    op_state_components: Mapping[str, _PartialConstructor[CompressionSimulatorBase] | None] = field(
+    op_state_components: Mapping[str, PartialConstructor[CompressionSimulatorBase] | None] = field(
         default_factory=dict
     )
 
@@ -74,15 +74,15 @@ class ModuleCompressionComponents:
     or name to an OpCompressionComponents class.
     """
 
-    weight: Mapping[str, _PartialConstructor[CompressionSimulatorBase] | None] = field(
+    weight: Mapping[str, PartialConstructor[CompressionSimulatorBase] | None] = field(
         default_factory=dict
     )
 
-    input_activation: Mapping[int | str, _PartialConstructor[CompressionSimulatorBase] | None] = (
+    input_activation: Mapping[int | str, PartialConstructor[CompressionSimulatorBase] | None] = (
         field(default_factory=dict)
     )
 
-    output_activation: Mapping[int | str, _PartialConstructor[CompressionSimulatorBase] | None] = (
+    output_activation: Mapping[int | str, PartialConstructor[CompressionSimulatorBase] | None] = (
         field(default_factory=dict)
     )
 
@@ -91,14 +91,14 @@ class ModuleCompressionComponents:
     op_name_components: Mapping[str, OpCompressionComponents] = field(default_factory=dict)
 
     module_input_components: Mapping[
-        int | str, _PartialConstructor[CompressionSimulatorBase] | None
+        int | str, PartialConstructor[CompressionSimulatorBase] | None
     ] = field(default_factory=dict)
 
     module_output_components: Mapping[
-        int | str, _PartialConstructor[CompressionSimulatorBase] | None
+        int | str, PartialConstructor[CompressionSimulatorBase] | None
     ] = field(default_factory=dict)
 
-    module_state_components: Mapping[str, _PartialConstructor[CompressionSimulatorBase] | None] = (
+    module_state_components: Mapping[str, PartialConstructor[CompressionSimulatorBase] | None] = (
         field(default_factory=dict)
     )
 

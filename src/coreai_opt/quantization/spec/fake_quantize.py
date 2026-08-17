@@ -53,7 +53,6 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         quant_min: int | float,
         quant_max: int | float,
         qparams_calculator: QParamsCalculatorBase,
-        quantization_target: CompressionTargetTensor,
         n_bits: int | None = None,
         **kwargs,
     ):
@@ -65,7 +64,6 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         self.quant_min = quant_min
         self.quant_max = quant_max
         self.qparams_calculator = qparams_calculator
-        self.quantization_target = quantization_target
         self.register_buffer("_disabled", torch.tensor(False))
 
         # Infer n_bits from dtype if not provided
@@ -77,6 +75,11 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
     def qscheme(self) -> QuantizationScheme:
         """The quantization scheme, delegated to the qparams_calculator."""
         return self.qparams_calculator.qscheme
+
+    @property
+    def quantization_target(self) -> CompressionTargetTensor:
+        """Getter for quantization target."""
+        return self.qparams_calculator.quantization_target
 
     @property
     def granularity(self) -> QuantizationGranularity:
@@ -359,7 +362,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
 
         This function quantizes the values in tensor but keeps the quantized tensor dtype in FP.
         """
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -384,7 +387,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         output_dtype: torch.dtype,
     ) -> torch.Tensor:
         """Integer dequantization. See :func:`_dequantize_int` for the math."""
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -406,7 +409,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         """
         Floating-point quantization: cast_to_low_precision(clamp(input / scale, min, max))
         """
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -427,7 +430,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         output_dtype: torch.dtype,
     ) -> torch.Tensor:
         """Floating-point dequantization: input * scale"""
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -449,7 +452,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
 
         Dispatches to the int or float fused STE class based on self.dtype.
         """
-        block_size = self.granularity.get_block_size(tensor.shape)
+        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )

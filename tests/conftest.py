@@ -133,6 +133,16 @@ def temp_dir():
         yield tmpdir
 
 
+@pytest.fixture
+def accelerator_device() -> str:
+    """The available accelerator device type ("cuda" or "mps"); skip if neither."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    pytest.skip("requires a CUDA or MPS accelerator")
+
+
 @pytest.fixture(scope="function")
 def mnist_pretrained_model(custom_test_mnist_model):
     """Load the committed 1-epoch MNIST checkpoint into a fresh model."""

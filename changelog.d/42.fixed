@@ -1,0 +1,1 @@
+Reject per-channel activation quantization on CoreML export

@@ -26,7 +26,11 @@ from pydantic import (
     model_validator,
 )
 
-from coreai_opt._utils.config_utils import ConfigLevel as _ConfigLevel
+from coreai_opt._utils.config_utils import (
+    ALL_TENSORS as _ALL_TENSORS,
+    ConfigLevel as _ConfigLevel,
+    spec_dict_is_active as _spec_dict_is_active,
+)
 from coreai_opt._utils.python_utils import (
     fqn as _fqn,
     get_generic_type_arg as _get_generic_type_arg,
@@ -38,6 +42,19 @@ def _convert_none_to_empty_dict(v: Any):
     """If v is None, return an empty dict. Return v otherwise."""
     if v is None:
         return {}
+    return v
+
+
+def _convert_none_to_disabled_spec_dict(v: Any):
+    """If v is None, return ``{"*": None}``. Return v otherwise.
+
+    For spec dicts, ``None`` means "compress nothing here", which is the same
+    thing ``{"*": None}`` says explicitly. Normalizing to the explicit form keeps
+    the disabling at the tensor level, so a consumer can tell it apart from ``{}``
+    — a dict that names no tensor and therefore expresses no opinion.
+    """
+    if v is None:
+        return {_ALL_TENSORS: None}
     return v
 
 
@@ -103,16 +120,16 @@ class OpCompressionConfig(BaseModel, ABC, Generic[_SpecT]):
 
     op_input_spec: Annotated[
         dict[str | int, _SpecT | None] | None,
-        BeforeValidator(_convert_none_to_empty_dict),
+        BeforeValidator(_convert_none_to_disabled_spec_dict),
         BeforeValidator(_convert_digit_str_keys_to_int),
     ]
     op_output_spec: Annotated[
         dict[str | int, _SpecT | None] | None,
-        BeforeValidator(_convert_none_to_empty_dict),
+        BeforeValidator(_convert_none_to_disabled_spec_dict),
         BeforeValidator(_convert_digit_str_keys_to_int),
     ]
     op_state_spec: Annotated[
-        dict[str, _SpecT | None] | None, BeforeValidator(_convert_none_to_empty_dict)
+        dict[str, _SpecT | None] | None, BeforeValidator(_convert_none_to_disabled_spec_dict)
     ]
 
     @classmethod
@@ -166,8 +183,9 @@ class OpCompressionConfig(BaseModel, ABC, Generic[_SpecT]):
         This validator runs before field validation and applies the default specs
         defined by subclasses if the specs are not provided in the input data.
 
-        Note: Explicitly passing None will result in an empty dict (via BeforeValidator)
-        while omitting the field entirely will apply defaults.
+        Note: Explicitly passing None disables the category (it becomes
+        ``{"*": None}`` via BeforeValidator) while omitting the field entirely
+        applies defaults.
         """
         if not isinstance(data, dict):
             return data
@@ -223,9 +241,9 @@ class WeightOnlyOpValidationMixin:
             f"{self.__class__.__name__} does not support {{key}}. "
             f"This is a weight-only compression type that only supports op_state_spec."
         )
-        if self.op_input_spec:
+        if _spec_dict_is_active(self.op_input_spec):
             raise ValueError(error_msg.format(key="op_input_spec"))
-        if self.op_output_spec:
+        if _spec_dict_is_active(self.op_output_spec):
             raise ValueError(error_msg.format(key="op_output_spec"))
         return self
 
@@ -283,16 +301,16 @@ class ModuleCompressionConfig(BaseModel, Generic[_OpConfigT, _SpecT]):
 
     op_input_spec: Annotated[
         dict[str | int, _SpecT | None] | None,
-        BeforeValidator(_convert_none_to_empty_dict),
+        BeforeValidator(_convert_none_to_disabled_spec_dict),
         BeforeValidator(_convert_digit_str_keys_to_int),
     ]
     op_output_spec: Annotated[
         dict[str | int, _SpecT | None] | None,
-        BeforeValidator(_convert_none_to_empty_dict),
+        BeforeValidator(_convert_none_to_disabled_spec_dict),
         BeforeValidator(_convert_digit_str_keys_to_int),
     ]
     op_state_spec: Annotated[
-        dict[str, _SpecT | None] | None, BeforeValidator(_convert_none_to_empty_dict)
+        dict[str, _SpecT | None] | None, BeforeValidator(_convert_none_to_disabled_spec_dict)
     ]
     op_type_config: Annotated[
         dict[str, _OpConfigT | None] | None, BeforeValidator(_convert_none_to_empty_dict)
@@ -332,8 +350,9 @@ class ModuleCompressionConfig(BaseModel, Generic[_OpConfigT, _SpecT]):
 
         Gets default specs from the _OpConfigT type parameter's default methods.
 
-        Note: Explicitly passing None will result in an empty dict (via BeforeValidator)
-        while omitting the field entirely will apply defaults.
+        Note: Explicitly passing None disables the category (it becomes
+        ``{"*": None}`` via BeforeValidator) while omitting the field entirely
+        applies defaults.
         """
         if not isinstance(data, dict):
             return data
@@ -354,7 +373,8 @@ class ModuleCompressionConfig(BaseModel, Generic[_OpConfigT, _SpecT]):
         """Replace None values in op_type_config/op_name_config with disabled configs.
 
         A None value means "disable compression for this op type/name". This
-        validator normalises it to an explicit OpConfig with empty specs.
+        validator normalises it to an explicit OpConfig whose every spec category
+        is disabled.
         """
         op_config_cls = self._get_op_config_class()
         if op_config_cls is None:
@@ -379,21 +399,11 @@ class ModuleCompressionConfig(BaseModel, Generic[_OpConfigT, _SpecT]):
 
         return self
 
-    def _get_compressor_specific_settings(self) -> dict[str, Any]:
-        """
-        Get compressor-specific settings, excluding base ModuleCompressionConfig fields.
-
-        Returns only fields defined by the concrete subclass (e.g.,
-        enable_fast_kmeans_mode, rounding_precision for palettization), not the base
-        spec and config fields (op_input_spec, op_output_spec, op_state_spec,
-        op_type_config, op_name_config, module_input_spec, module_output_spec,
-        module_state_spec).
-
-        This is useful when constructing arguments for compression operations that need
-        the compression-specific settings but handle the spec fields separately.
+    def _get_fake_module_kwargs(self) -> dict[str, Any]:
+        """Get the settings to forward to the compression simulator module's constructor.
 
         Returns:
-            Dictionary of compressor-specific field names to their values.
+            Dictionary of field names to their values.
         """
         base_field_names = set(ModuleCompressionConfig.model_fields.keys())
         return {k: v for k, v in self.model_dump().items() if k not in base_field_names}
@@ -431,13 +441,13 @@ class WeightOnlyModuleValidationMixin:
             f"This is a weight-only compression type that only supports "
             f"op_state_spec and module_state_spec."
         )
-        if self.op_input_spec:
+        if _spec_dict_is_active(self.op_input_spec):
             raise ValueError(error_msg.format(key="op_input_spec"))
-        if self.op_output_spec:
+        if _spec_dict_is_active(self.op_output_spec):
             raise ValueError(error_msg.format(key="op_output_spec"))
-        if self.module_input_spec:
+        if _spec_dict_is_active(self.module_input_spec):
             raise ValueError(error_msg.format(key="module_input_spec"))
-        if self.module_output_spec:
+        if _spec_dict_is_active(self.module_output_spec):
             raise ValueError(error_msg.format(key="module_output_spec"))
         return self
 

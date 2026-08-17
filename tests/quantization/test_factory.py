@@ -38,7 +38,14 @@ from coreai_opt.quantization.spec.spec import (
 class TestQuantizationComponentFactory:
     """Test the QuantizationComponentFactory class"""
 
-    def test_create_range_calculator(self):
+    @pytest.mark.parametrize(
+        "quantization_target",
+        [
+            CompressionTargetTensor.WEIGHT,
+            CompressionTargetTensor.ACTIVATION,
+        ],
+    )
+    def test_create_range_calculator(self, quantization_target):
         """Test creating range calculator from spec"""
         spec = QuantizationSpec(
             dtype=torch.int8,
@@ -49,10 +56,11 @@ class TestQuantizationComponentFactory:
             range_calculator_cls=MinMaxRangeCalculator,
         )
 
-        range_calc = QuantizationComponentFactory.create_range_calculator(spec)
+        range_calc = QuantizationComponentFactory.create_range_calculator(spec, quantization_target)
 
         assert isinstance(range_calc, MinMaxRangeCalculator)
         assert range_calc.granularity == spec.granularity
+        assert range_calc.quantization_target == quantization_target
 
     @pytest.mark.parametrize(
         "range",

@@ -4,7 +4,7 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 import logging
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -21,14 +21,13 @@ from torchao.quantization.pt2e import WrapperModule, find_sequential_partitions
 from torchao.quantization.pt2e.quantizer import (
     QuantizationAnnotation,
     QuantizationSpec as TorchAOQuantizationSpec,
-    SharedQuantizationSpec as _SharedQuantizationSpec,
     get_module_name_filter,
 )
 from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 
 from coreai_opt._utils.config_utils import (
-    ALL_TENSORS as _ALL_TENSORS,
-    ConfigLevel as _ConfigLevel,
+    ALL_TENSORS,
+    ConfigLevel,
     get_last_matching_spec,
 )
 from coreai_opt._utils.fx_utils import (
@@ -37,16 +36,16 @@ from coreai_opt._utils.fx_utils import (
     is_coreai_compressed_state_node,
 )
 from coreai_opt._utils.python_utils import get_fn_arg_names
-from coreai_opt._utils.version_utils import version_ge as _version_ge
+from coreai_opt._utils.version_utils import version_ge
 from coreai_opt.config.compression_config import ModuleConfigDict
 from coreai_opt.config.spec import CompressionTargetTensor
+from coreai_opt.quantization._graph._utils import get_source_module_name
 from coreai_opt.quantization.config import ModuleQuantizerConfig
 from coreai_opt.quantization.config.quantization_config import (
     _ACTIVATION_SPEC_DICT,
     _STATE_SPEC_DICT,
 )
 from coreai_opt.quantization.spec import (
-    QuantizationComponentFactory,
     QuantizationScheme,
     QuantizationSpec,
 )
@@ -58,27 +57,6 @@ logger = logging.getLogger(__name__)
 
 INPUT_NODE_PREFIX = "input::"
 PARAM_NODE_PREFIX = "param::"
-
-# Ops that are transparent to quantization range propagation: they don't alter
-# the numeric range of their inputs, so we traverse through them when propagating
-# adjusted qspecs to child nodes.
-_PASSTHROUGH_OP_OVERLOADS: frozenset = frozenset(
-    {
-        torch.ops.aten.clone,
-        torch.ops.aten.dropout,
-        torch.ops.aten.expand,
-        torch.ops.aten.feature_dropout,
-        torch.ops.aten.permute,
-        torch.ops.aten.reshape,
-        torch.ops.aten.select,
-        torch.ops.aten.slice,
-        torch.ops.aten.squeeze,
-        torch.ops.aten.t,
-        torch.ops.aten.transpose,
-        torch.ops.aten.unsqueeze,
-        torch.ops.aten.view,
-    }
-)
 
 
 def _get_aten_graph_module_for_pattern(
@@ -108,7 +86,7 @@ def _get_aten_graph_module_for_pattern(
         )
 
     exported_program = torch.export.export(pattern, example_inputs, kwargs, strict=False)
-    if _version_ge(torch, "2.9"):
+    if version_ge(torch, "2.9"):
         aten_pattern = exported_program.module(check_guards=False)
     else:
         aten_pattern = exported_program.module()
@@ -196,147 +174,6 @@ def is_node_annotated(node: Node) -> bool:
     Returns True if the node is annotated, otherwise returns False
     """
     return node and Q_ANNOTATION_KEY in node.meta and node.meta[Q_ANNOTATION_KEY]._annotated
-
-
-def is_any_annotated(nodes: list[Node]) -> bool:
-    """
-    Given a list of nodes (that represents an operator pattern),
-    check if any of the node is annotated, return True if any of the node
-    is annotated, otherwise return False.
-    """
-    return any(is_node_annotated(node) for node in nodes)
-
-
-def is_all_annotated(nodes: list[Node]) -> bool:
-    """
-    Given a list of nodes (that represents an operator pattern),
-    return True if all of the node is annotated, otherwise return False.
-    """
-    return all(is_node_annotated(node) for node in nodes)
-
-
-def mark_nodes_as_annotated(nodes: Iterable[Node]) -> None:
-    for node in nodes:
-        if node is not None:
-            if Q_ANNOTATION_KEY not in node.meta:
-                node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation()
-            node.meta[Q_ANNOTATION_KEY]._annotated = True
-
-
-def _propagate_adjusted_spec_to_child_nodes(
-    root_node: torch.fx.Node,
-    qscheme: QuantizationScheme | None,
-    float_range: tuple[float, float] | None,
-    shared_observer_nodes: set[torch.fx.Node],
-) -> None:
-    """
-    Given a qscheme or float_range, propagate the info to all applicable children. Any input qspecs
-    which are not shared qspecs will have specs updated. The propagation logic
-    continues downwards through the graph until we encounter a non-shared observer op.
-    """
-    # Set of op types for which we want to propagate the updated spec through, even though they
-    # are not registered ops with quantizers themselves.
-    # This is a temporary solution. Adding them as SharedObserverPatterns may make sense, but
-    # additional consideration is needed as to whether it makes sense to have quantizers in between
-    # multiple shared observer ops.
-    # To minimize the impact of this change to quantization behavior as a whole, use the below
-    # set to skip these ops while continuing to traverse through the graph.
-    nodes_to_propagate = [(root_node, user) for user in root_node.users.keys()]
-    while nodes_to_propagate:
-        parent, curr_node = nodes_to_propagate.pop(0)
-        if (
-            curr_node.op == "call_function"
-            and getattr(curr_node.target, "overloadpacket", None) in _PASSTHROUGH_OP_OVERLOADS
-        ):
-            assert curr_node not in shared_observer_nodes
-            nodes_to_propagate.extend([(curr_node, user) for user in curr_node.users.keys()])
-            continue
-        if not is_node_annotated(curr_node):
-            continue
-        curr_input_qspec = curr_node.meta[Q_ANNOTATION_KEY].input_qspec_map.get(parent)
-        if curr_input_qspec is None:
-            continue
-        if (
-            isinstance(curr_input_qspec, _SharedQuantizationSpec)
-            and root_node not in curr_input_qspec.edge_or_node
-        ):
-            # This is a case in which we encounter a multi input op which already has a
-            # shared input qspec referencing a different edge. Here, we will not update
-            # the qscheme since it would unnecessarily constrain the range of the other
-            # edge. Here, there is the possiblity of having back to back quantize
-            # dequantize ops inserted.
-            continue
-        if not isinstance(curr_input_qspec, _SharedQuantizationSpec):
-            ctr = curr_input_qspec.observer_or_fake_quant_ctr
-            kwargs = {}
-            if qscheme is not None:
-                kwargs["qscheme"] = qscheme
-            if float_range is not None:
-                kwargs["float_range"] = float_range
-            if kwargs:
-                ctr = QuantizationComponentFactory.reconstruct_partial_qparams_calculator(
-                    ctr, **kwargs
-                )
-
-            # qscheme in TorchAOQuantizationSpec is not read by coreai-opt later on so we omit it.
-            # Only the qscheme contained within observer_or_fake_quant_ctr matters.
-            adjusted_qspec = TorchAOQuantizationSpec(
-                observer_or_fake_quant_ctr=ctr,
-                dtype=curr_input_qspec.dtype,
-                quant_min=curr_input_qspec.quant_min,
-                quant_max=curr_input_qspec.quant_max,
-            )
-            curr_node.meta[Q_ANNOTATION_KEY].input_qspec_map[parent] = adjusted_qspec
-
-        if curr_node in shared_observer_nodes:
-            nodes_to_propagate.extend([(curr_node, user) for user in curr_node.users.keys()])
-
-
-def adjust_output_qspec_for_qscheme_and_propagate(
-    node: torch.fx.Node, shared_observer_nodes: set[torch.fx.Node]
-) -> None:
-    """
-    Adjust output quantization spec for ops which can use fixed qparams
-    or ops for which we can use affine quantization mode during
-    symmetric quantization because their output is always positive.
-    Propagate the updated qscheme to input qspecs of child ops.
-
-    Args:
-        node: The node whose output qspec should be updated if necessary
-        shared_observer_nodes: Set of shared observer nodes for which adjusted qschemes
-            should propagate through
-    """
-    if not is_node_annotated(node):
-        return
-
-    qspec = node.meta[Q_ANNOTATION_KEY].output_qspec
-    if qspec is None:
-        return
-
-    if node.target in _fixed_q_params_ops:
-        qscheme, float_range = _fixed_q_params_ops[node.target]
-    elif node.target in _hardtanh_ops:
-        min_val, max_val = node.args[1], node.args[2]
-        float_range = (min_val, max_val)
-        qscheme = (
-            QuantizationScheme.SYMMETRIC if min_val == -max_val else QuantizationScheme.ASYMMETRIC
-        )
-    else:
-        return
-
-    ctr = QuantizationComponentFactory.reconstruct_partial_qparams_calculator(
-        qspec.observer_or_fake_quant_ctr, qscheme=qscheme, float_range=float_range
-    )
-
-    # qscheme in TorchAOQuantizationSpec is not read by coreai-opt later on so we omit it.
-    # Only the qscheme contained within observer_or_fake_quant_ctr matters.
-    node.meta[Q_ANNOTATION_KEY].output_qspec = TorchAOQuantizationSpec(
-        observer_or_fake_quant_ctr=ctr,
-        dtype=qspec.dtype,
-        quant_min=qspec.quant_min,
-        quant_max=qspec.quant_max,
-    )
-    _propagate_adjusted_spec_to_child_nodes(node, qscheme, float_range, shared_observer_nodes)
 
 
 def _get_weighted_mod_pattern(
@@ -637,20 +474,6 @@ def get_embedding_pattern() -> torch.nn.Module:
     return _get_aten_graph_module_for_pattern(WrapperModule(_embedding), example_inputs)
 
 
-def find_consumers(
-    pattern_nodes: Iterable[torch.fx.Node], target_nodes: list[torch.fx.Node]
-) -> set[torch.fx.Node]:
-    """Find all nodes that take as input any of the target nodes"""
-    consumers = []
-    for node in pattern_nodes:
-        if node is None:
-            continue
-        for arg in node.all_input_nodes:
-            if arg in target_nodes:
-                consumers.append(node)
-    return set(consumers)
-
-
 def _is_fx_node_floating_point(node: torch.fx.Node) -> bool:
     """
     Check if a fx node has floating point data.
@@ -845,111 +668,41 @@ def _fill_input_qspec_map_for_input(
         input_qspec_map[input_node] = input_node.meta[Q_ANNOTATION_KEY].output_qspec
 
 
-def _get_output_qspec(
-    node: torch.fx.Node,
-    quantization_config: AnnotationConfig,
-    shared_observer_nodes: set[torch.fx.Node] | None = None,
-) -> TorchAOQuantizationSpec | None:
-    """
-    Get the output qspec which should be associated with the node. Check child nodes
-    first to see if any input qspec is already set, and if so, reuse the qspec.
-    If there are multiple child nodes, the qspec will be the first valid one found when
-    checking all child nodes.
-    When encountering shared observer nodes as child nodes, continue checking their
-    children if no valid input qspec is found.
-    """
-    op_output_spec = quantization_config.op_output_spec
-
-    # Early exit if input node is not floating point dtype
-    if not _is_fx_node_floating_point(node):
-        # Hardcoding for index 0 for now while we only support single output setting
-        if 0 in op_output_spec:
-            _warn_non_quantizable_tensor_setting(node, "output", 0, op_output_spec)
-        return None
-
-    # First read qspec from config without applying it yet.
-    qspec_from_config, _ = get_last_matching_spec([0], op_output_spec)
-
-    # Don't set output qspec if it is specified to be None. If the op has multiple child
-    # ops where a subset of child ops don't have input quantization, we should not
-    # insert a quantizer for the op's output.
-    if qspec_from_config is None:
-        return None
-
-    # Check child ops to see if qspec settings should be taken from them.
-    # Current logic simply uses the first child qspec found as the qspec to use.
-    # This logic might need to be updated to be smarter in how the qspec to use is
-    # determined.
-    if not shared_observer_nodes:
-        shared_observer_nodes = set()
-    nodes_to_check = [user for user in node.users]
-    while nodes_to_check:
-        curr_node = nodes_to_check.pop(0)
-        if (
-            is_node_annotated(curr_node)
-            and curr_node.meta[Q_ANNOTATION_KEY].input_qspec_map.get(node) is not None
-        ):
-            return curr_node.meta[Q_ANNOTATION_KEY].input_qspec_map.get(node)
-        # Check children of shared observer nodes as well in a DFS fashion
-        if curr_node in shared_observer_nodes:
-            nodes_to_check[:0] = curr_node.users
-
-    # If no valid qspec was found, refer to quantization config
-    return qspec_from_config
-
-
-def _propagate_output_qspec(
-    node: torch.fx.Node,
-    output_qspec: TorchAOQuantizationSpec,
-    shared_observer_nodes: set[torch.fx.Node] | None = None,
-):
-    """
-    Propagate output qspec to child ops which are shared observer nodes. These node
-    types should simply echo the qspec which is coming from its input.
-    Propagated specs will be SharedQuantizationSpecs except for the first input qspec
-    that is set, since all subsequent SharedQuantizationSpecs will be referring to the
-    first input qspec set.
-    This function should be called for each annotation function which is defined.
-    """
-    if output_qspec is None or not shared_observer_nodes or not node.users:
-        return
-    if not shared_observer_nodes:
-        shared_observer_nodes = set()
-    spec_to_propagate = output_qspec
-    nodes_to_propagate = [user for user in node.users if user in shared_observer_nodes]
-
-    while nodes_to_propagate:
-        user = nodes_to_propagate.pop(0)
-        # Skip propagation for a node which is already annotated
-        if is_any_annotated([user]):
-            continue
-        input_qspec_map = {}
-        if isinstance(spec_to_propagate, _SharedQuantizationSpec):
-            # If spec to propagate is already a shared qspec, we can simply update all
-            # shared observer inputs and outputs with the shared qspec
-            for input_node in user.all_input_nodes:
-                input_qspec_map[input_node] = spec_to_propagate
-        else:
-            # If spec is not a shared qspec, this is the very first qspec we are
-            # setting. Set the first input to be this qspec, then update
-            # spec_to_propagate to be a shared qspec to be used for all other updates
-            first_user_input = user.all_input_nodes[0]
-            input_qspec_map[first_user_input] = spec_to_propagate
-            spec_to_propagate = _SharedQuantizationSpec((first_user_input, user))
-            for input_node in user.all_input_nodes[1:]:
-                input_qspec_map[input_node] = spec_to_propagate
-
-        user.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
-            input_qspec_map=input_qspec_map, output_qspec=spec_to_propagate
-        )
-        mark_nodes_as_annotated([user])
-
-        nodes_to_propagate.extend([child for child in user.users if child in shared_observer_nodes])
-
-
 def _get_call_function_node_from_partition(partition: SourcePartition) -> torch.fx.Node:
-    """Return the first call_function node in the partition."""
-    return [node for node in partition.nodes if node.op == "call_function"][0]
+    """
+    Given a partition, return the call function node associated with the partition.
+
+    We expect there to be only one call function node in the partition.
+    """
+    call_function_nodes = [node for node in partition.nodes if node.op == "call_function"]
+    if len(call_function_nodes) != 1:
+        # torch.export's insert_deferred_runtime_asserts synthesizes one SymInt mul per
+        # shape-runtime assertion, all sharing one torch_fn tag, so several can collapse
+        # into a single partition. They carry no tensor value to annotate, so picking any
+        # one of them is safe here; downstream floating-point filtering no-ops on SymInt.
+        if call_function_nodes and all(
+            isinstance(node.meta.get("val"), torch.SymInt) for node in call_function_nodes
+        ):
+            return call_function_nodes[0]
+
+        module_names = {
+            name
+            for node in call_function_nodes
+            if (name := get_source_module_name(node)) is not None
+        }
+        module_hint = ""
+        if module_names:
+            module_hint = (
+                f"\nSource module(s): {', '.join(sorted(module_names))}. "
+                f"Consider excluding this module from quantization via "
+                f"module_name_configs."
+            )
+        error_msg = (
+            f"Expected exactly 1 call function node in source partition but got "
+            f"{call_function_nodes}.{module_hint}"
+        )
+        raise RuntimeError(error_msg)
+    return call_function_nodes[0]
 
 
 def match_pattern_with_sequential_partitions(
@@ -1014,179 +767,6 @@ def match_pattern_with_subgraph_matcher(
     return node_to_match_dict
 
 
-def annotate_weighted_mod_match(
-    annotator_match: InternalMatch,
-    quantization_config: AnnotationConfig,
-    context: AnnotationContext,
-) -> None:
-    """
-    Try to annotate specific nodes in the model designated by ``annotator_match`` using
-    ``quantization_config``.
-    """
-    # Entries in name_node_map will be determined by what is populated in
-    # node_dict when the pattern was created.
-    name_node_map = annotator_match.name_node_map
-    mod_node = name_node_map["mod"]
-    bn_node = name_node_map.get("bn")
-    output_node = None
-    if "output" in name_node_map:
-        # In this case, an activation is applied to the weighted module output
-        output_node = name_node_map["output"]
-        # If the output is same as bn_node or mod_node, it means we have an inplace
-        # activation, so we need to correct the node.
-        if bn_node is not None and bn_node == output_node:
-            bn_node = bn_node.args[0]
-        elif mod_node == output_node:
-            mod_node = mod_node.args[0]
-
-    # TODO: skip partition if any intermediate node output is used by an op outside the pattern.
-
-    # Skip partition if already annotated
-    partition = [mod_node]
-    partition.extend(filter(None, [bn_node, output_node]))
-
-    if is_any_annotated(partition):
-        return
-
-    shared_observer_nodes = context.shared_observer_nodes
-    input_qspec_map = _get_input_qspec_map(
-        mod_node.all_input_nodes,
-        quantization_config,
-        context,
-    )
-    output_qspec = _get_output_qspec(
-        output_node or mod_node, quantization_config, shared_observer_nodes
-    )
-    # set mod_node
-    mod_node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
-        input_qspec_map=input_qspec_map,
-        output_qspec=None if output_node else output_qspec,
-    )
-    # set output_node if exists
-    if output_node:
-        output_node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(output_qspec=output_qspec)
-
-    # apply output spec to either final output_node or mod_node
-    _propagate_output_qspec(output_node or mod_node, output_qspec, shared_observer_nodes)
-
-    # Mark all nodes in pattern as annotated
-    mark_nodes_as_annotated(partition)
-
-
-def annotate_n_ary_act_match(
-    annotator_match: tuple[SourcePartition],
-    quantization_config: AnnotationConfig,
-    context: AnnotationContext,
-) -> None:
-    """
-    Try to annotate specific nodes in the model designated by ``annotator_match`` using
-    ``quantization_config``.
-    """
-    if len(annotator_match) > 2:
-        error_msg = (
-            "Sequential list of ops is longer than 2. Only lists of up to "
-            "length 2 (op + [act]_ are supported."
-        )
-        raise RuntimeError(error_msg)
-    nodes_to_annotate = [
-        _get_call_function_node_from_partition(partition) for partition in annotator_match
-    ]
-    first_op_node = nodes_to_annotate[0]
-    last_op_node = nodes_to_annotate[-1]
-
-    if is_any_annotated(nodes_to_annotate):
-        return
-
-    # TODO: skip partition if any intermediate node output is used by an op outside the pattern.
-
-    shared_observer_nodes = context.shared_observer_nodes
-    input_qspec_map = _get_input_qspec_map(
-        first_op_node.all_input_nodes,
-        quantization_config,
-        context,
-    )
-    output_qspec = _get_output_qspec(last_op_node, quantization_config, shared_observer_nodes)
-    if len(nodes_to_annotate) == 1:
-        first_op_node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
-            input_qspec_map=input_qspec_map,
-            output_qspec=output_qspec,
-            _annotated=True,
-        )
-    else:
-        first_op_node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
-            input_qspec_map=input_qspec_map,
-            _annotated=True,
-        )
-        last_op_node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
-            output_qspec=output_qspec,
-            _annotated=True,
-        )
-    _propagate_output_qspec(last_op_node, output_qspec, shared_observer_nodes)
-
-
-def _adjust_input_qspec_map_for_shared_observers(
-    op_node: Node, input_qspec_map: dict[Node, TorchAOQuantizationSpec]
-) -> _SharedQuantizationSpec | None:
-    """
-    For shared observer ops, check if any inputs have qspecs. If so,
-    1. set the first input to the first valid qspec
-    2. set all subsequent inputs to use SharedObserverQspec tied to the first input
-
-    This logic is mainly needed for multi-input shared observer ops (concat).
-    A SharedObserverQspec is returned for use as output_qspec.
-    """
-    shared_qspec = None
-    for input_node in op_node.all_input_nodes:
-        if input_qspec_map[input_node] is not None:
-            input_qspec_map[op_node.all_input_nodes[0]] = input_qspec_map[input_node]
-    if input_qspec_map[op_node.all_input_nodes[0]] is not None:
-        shared_qspec = _SharedQuantizationSpec((op_node.all_input_nodes[0], op_node))
-        for input_node in op_node.all_input_nodes[1:]:
-            input_qspec_map[input_node] = shared_qspec
-    return shared_qspec
-
-
-def annotate_shared_observer_match(
-    annotator_match: tuple[SourcePartition],
-    quantization_config: AnnotationConfig,
-    context: AnnotationContext,
-) -> None:
-    """
-    Try to annotate specific nodes in the model designated by ``annotator_match`` using
-    ``quantization_config``.
-    """
-    if len(annotator_match) > 1:
-        error_msg = (
-            "Shared observer pattern is expected to be length 1, but got "
-            f"{len(annotator_match)}. Annotator match: {annotator_match}."
-        )
-        raise RuntimeError(error_msg)
-
-    op_node = _get_call_function_node_from_partition(annotator_match[0])
-    if is_node_annotated(op_node):
-        return
-
-    shared_observer_nodes = context.shared_observer_nodes
-    input_qspec_map = _get_input_qspec_map(
-        op_node.all_input_nodes,
-        quantization_config,
-        context,
-    )
-    output_qspec = _adjust_input_qspec_map_for_shared_observers(op_node, input_qspec_map)
-
-    if output_qspec is None:
-        # Only use a different output qspec if it isn't sharing with its input
-        output_qspec = _get_output_qspec(op_node, quantization_config, shared_observer_nodes)
-
-    # input and output of op will share quantization parameter with input of op
-    op_node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
-        input_qspec_map=input_qspec_map,
-        output_qspec=output_qspec,
-        _annotated=True,
-    )
-    _propagate_output_qspec(op_node, output_qspec, shared_observer_nodes)
-
-
 def annotate_module_level_specs(
     module_configs: ModuleConfigDict,
     module_name_to_state_names_map: Mapping[str, Mapping[str, list[str]]],
@@ -1204,7 +784,7 @@ def annotate_module_level_specs(
             by the full state name.
         model: Model to annotate.
     """
-    for config_level in [_ConfigLevel.MODULE_TYPE, _ConfigLevel.MODULE_NAME]:
+    for config_level in [ConfigLevel.MODULE_TYPE, ConfigLevel.MODULE_NAME]:
         for module_name, module_config in module_configs[config_level].items():
             if _module_config_has_module_level_input_output_spec(module_config):
                 _annotate_nodes_for_module_level_input_output_spec(
@@ -1282,7 +862,7 @@ def _match_and_annotate_state_node(
     Given a state node, check if any of the module_configs have applicable
     module_state_specs and apply if so.
     """
-    for level in _ConfigLevel.priority_order():
+    for level in ConfigLevel.priority_order():
         # Reversed is needed because two different modules may have shared params where
         # both module configs are setting module_state_spec for the param using their
         # respective local names for the same parameter.
@@ -1355,8 +935,8 @@ def _get_spec_from_spec_dict(
     for i in identifier:
         if i in spec_dict:
             return (True, spec_dict[i])
-    if _ALL_TENSORS in spec_dict:
-        return (True, spec_dict[_ALL_TENSORS])
+    if ALL_TENSORS in spec_dict:
+        return (True, spec_dict[ALL_TENSORS])
     return (False, None)
 
 

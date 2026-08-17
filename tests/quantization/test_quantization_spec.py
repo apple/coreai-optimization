@@ -9,6 +9,7 @@ import yaml
 from pydantic import ValidationError
 from torchao.quantization import MappingType as TorchAOMappingType
 
+from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization import QuantizationSpec
 from coreai_opt.quantization.spec import (
     PerBlockGranularity,
@@ -253,8 +254,6 @@ def test_invalid_qformulation_string():
             },
         ),
         ("per_block", {"axis": 1, "block_size": 0}),
-        ("per_block", {"axis": 2, "block_size": 5}),
-        ("per_block", {"axis": 3, "block_size": 5}),
         (
             "per_block",
             {
@@ -302,6 +301,14 @@ def test_invalid_axis_block_size(granularity_type, granularity_params):
         ("per_block", {"axis": 1, "block_size": 3}, (7, 3), (1, 3)),
         ("per_block", {"axis": 0, "block_size": 4}, (8, 16, 3), (4, 1, 3)),
         ("per_block", {"axis": 1, "block_size": 8}, (7, 16, 3, 3), (1, 8, 3, 3)),
+        # Per block - block axis >= 2 and negative axes. Default target is WEIGHT,
+        # so only the two leading channel axes collapse to 1; trailing dims are
+        # left at full size. See test_get_block_size_per_block_target for how the
+        # ACTIVATION target differs.
+        ("per_block", {"axis": 2, "block_size": 16}, (1, 10, 32), (1, 1, 16)),
+        ("per_block", {"axis": -1, "block_size": 16}, (1, 10, 32), (1, 1, 16)),
+        ("per_block", {"axis": -1, "block_size": 4}, (10, 20), (1, 4)),
+        ("per_block", {"axis": -2, "block_size": 5}, (10, 20), (5, 1)),
         ("per_block", {"axis": None, "block_size": (2,)}, (10,), (2,)),
         (
             "per_block",
@@ -330,6 +337,37 @@ def test_get_block_size_valid_conditions(
 
 
 @pytest.mark.parametrize(
+    "axis,block_size,tensor_shape,weight_block_size,activation_block_size",
+    [
+        (1, 16, (1, 32, 10), (1, 16, 10), (1, 16, 1)),
+        (-1, 16, (1, 10, 32), (1, 1, 16), (1, 1, 16)),
+        (1, 16, (1, 32, 10, 64), (1, 16, 10, 64), (1, 16, 1, 1)),
+        (0, 16, (32, 64, 3, 3), (16, 1, 3, 3), (16, 1, 1, 1)),
+        (3, 16, (1, 32, 10, 64), (1, 1, 10, 16), (1, 1, 1, 16)),
+        (-1, 16, (1, 32, 10, 64), (1, 1, 10, 16), (1, 1, 1, 16)),
+    ],
+)
+def test_get_block_size_per_block_target(
+    axis, block_size, tensor_shape, weight_block_size, activation_block_size
+):
+    """Per-block single-axis blocking resolves differently per quantization target.
+
+    Weights block across the channel axes only; activations give every non-block
+    axis its own scale.
+    """
+    granularity = PerBlockGranularity(axis=axis, block_size=block_size)
+    shape = torch.Size(tensor_shape)
+
+    assert granularity.get_block_size(shape, CompressionTargetTensor.WEIGHT) == weight_block_size
+    assert (
+        granularity.get_block_size(shape, CompressionTargetTensor.ACTIVATION)
+        == activation_block_size
+    )
+    # Omitting the target keeps the default weight behavior.
+    assert granularity.get_block_size(shape) == weight_block_size
+
+
+@pytest.mark.parametrize(
     "granularity_type,granularity_params,tensor_shape",
     [
         # Per channel - axis out of bounds
@@ -338,6 +376,9 @@ def test_get_block_size_valid_conditions(
         ("per_channel", {"axis": -3}, (5, 10)),
         # Per block - axis out of bounds
         ("per_block", {"axis": 1, "block_size": 3}, (5,)),
+        ("per_block", {"axis": 2, "block_size": 5}, (10, 20)),
+        ("per_block", {"axis": 3, "block_size": 5}, (8, 16, 3)),
+        ("per_block", {"axis": -3, "block_size": 4}, (10, 20)),
         # Per block - None axis with integer block_size
         ("per_block", {"axis": None, "block_size": 5}, (10, 20)),
         # Per block - integer axis with list block_size

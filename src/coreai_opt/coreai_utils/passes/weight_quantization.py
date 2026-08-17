@@ -14,17 +14,17 @@ import ml_dtypes
 import numpy as np
 
 from coreai_opt.coreai_utils._coreai_imports import (
-    AIProgram,
-    DenseElementsAttr,
-    DenseResourceElementsAttr,
-    FloatAttr,
-    InsertionPoint,
-    IntegerType,
-    RankedTensorType,
-    WalkResult,
+    AIProgram as _AIProgram,
+    DenseElementsAttr as _DenseElementsAttr,
+    DenseResourceElementsAttr as _DenseResourceElementsAttr,
+    FloatAttr as _FloatAttr,
+    InsertionPoint as _InsertionPoint,
+    IntegerType as _IntegerType,
+    RankedTensorType as _RankedTensorType,
+    WalkResult as _WalkResult,
     _get_constant_value_as_np_array,
-    compression_types,
-    coreai,
+    compression_types as _compression_types,
+    coreai as _coreai,
 )
 from coreai_opt.coreai_utils._utils.graph_utils import (
     _apply_compression_transform,
@@ -79,7 +79,7 @@ def _create_int_quantized_weight(
     quantized_data_val = _create_constant_value_from_np_array(quantized_data, quantized_mlir_type)
     scale_val = _create_constant_value_from_np_array(scale, weight_element_type)
     zero_point_val = _create_constant_value_from_np_array(zero_point, quantized_mlir_type)
-    return coreai.blockwise_shift_scale(
+    return _coreai.blockwise_shift_scale(
         data=quantized_data_val,
         scale=scale_val,
         offset1=zero_point_val,
@@ -104,22 +104,22 @@ def _create_fp_quantized_weight(
     the scale constant is created in that dtype using DenseResourceElementsAttr.
     Otherwise the scale uses the uncompressed weight element type (default behavior).
     """
-    tensor_type = RankedTensorType.get(list(quantized_data.shape), fp_mlir_type)
-    data_attr = DenseResourceElementsAttr.get_from_buffer(
+    tensor_type = _RankedTensorType.get(list(quantized_data.shape), fp_mlir_type)
+    data_attr = _DenseResourceElementsAttr.get_from_buffer(
         quantized_data,
         "dense_resource",
         tensor_type,
     )
-    quantized_data_val = cast("Any", coreai.ConstantOp(value=data_attr).result)
+    quantized_data_val = cast("Any", _coreai.ConstantOp(value=data_attr).result)
 
     if scale_mlir_type is not None:
         scale_cast = np.ascontiguousarray(scale.astype(scale_np_dtype))
         scale_shape = list(scale_cast.shape)
-        scale_tensor_type = RankedTensorType.get(scale_shape, scale_mlir_type)
-        scale_attr = DenseResourceElementsAttr.get_from_buffer(
+        scale_tensor_type = _RankedTensorType.get(scale_shape, scale_mlir_type)
+        scale_attr = _DenseResourceElementsAttr.get_from_buffer(
             scale_cast, "dense_resource", scale_tensor_type
         )
-        scale_val = cast("Any", coreai.ConstantOp(value=scale_attr).result)
+        scale_val = cast("Any", _coreai.ConstantOp(value=scale_attr).result)
 
         # offset2 must be in the output (weight) dtype so blockwise_shift_scale
         # returns a tensor in the original weight precision, not f8E8M0FNU.
@@ -134,13 +134,13 @@ def _create_fp_quantized_weight(
             weight_element_type,
         )
 
-    zero_point_tensor_type = RankedTensorType.get(list(scale.shape), fp_mlir_type)
-    zero_point_attr = DenseElementsAttr.get_splat(
-        zero_point_tensor_type, FloatAttr.get(fp_mlir_type, 0.0)
+    zero_point_tensor_type = _RankedTensorType.get(list(scale.shape), fp_mlir_type)
+    zero_point_attr = _DenseElementsAttr.get_splat(
+        zero_point_tensor_type, _FloatAttr.get(fp_mlir_type, 0.0)
     )
-    zero_point_val = cast("Any", coreai.ConstantOp(value=zero_point_attr).result)
+    zero_point_val = cast("Any", _coreai.ConstantOp(value=zero_point_attr).result)
 
-    return coreai.blockwise_shift_scale(
+    return _coreai.blockwise_shift_scale(
         data=quantized_data_val,
         scale=scale_val,
         offset1=zero_point_val,
@@ -149,7 +149,7 @@ def _create_fp_quantized_weight(
 
 
 def quantize_weights(
-    coreai_program: AIProgram,
+    coreai_program: _AIProgram,
     dtype: DType,
     qscheme: QScheme = QScheme.SYMMETRIC,
     granularity: CompressionGranularity = CompressionGranularity.PER_CHANNEL,
@@ -157,7 +157,7 @@ def quantize_weights(
     weight_num_threshold: int = 1024,
     scale_dtype: DType | None = None,
     in_place: bool = False,
-) -> AIProgram:
+) -> _AIProgram:
     """Quantize weights in a Core AI AIProgram (MLIR<CoreAI> IR) by using Core AI ops.
 
     Walks through the IR and quantizes each coreai.constant op that needs to be
@@ -280,7 +280,7 @@ def quantize_weights(
             coreai.constant (zero_point) ──────┘
         """
         if not _should_compress_op(op, weight_num_threshold, _OPS_WEIGHT_NEED_COMPRESSION):
-            return WalkResult.ADVANCE
+            return _WalkResult.ADVANCE
 
         const_weight: Any = op
         weight = _get_constant_value_as_np_array(const_weight)
@@ -293,7 +293,7 @@ def quantize_weights(
 
         try:
             if dtype.is_int():
-                dtype_builtin = compression_types.string_to_builtin(dtype)
+                dtype_builtin = _compression_types.string_to_builtin(dtype)
                 quant_params = _compute_qparams_by_dtype(
                     weight,
                     dtype_builtin,
@@ -312,7 +312,7 @@ def quantize_weights(
                     "Failed to quantize op %s. Skipped this op.",
                     const_weight.name,
                 )
-                return WalkResult.ADVANCE
+                return _WalkResult.ADVANCE
         except ImportError:
             raise
         except Exception as e:
@@ -321,19 +321,19 @@ def quantize_weights(
                 const_weight.name,
                 e,
             )
-            return WalkResult.ADVANCE
+            return _WalkResult.ADVANCE
 
         quantized_data, scale, zero_point = quant_params
 
-        with const_weight.context, const_weight.location, InsertionPoint(const_weight):
+        with const_weight.context, const_weight.location, _InsertionPoint(const_weight):
             weight_element_type = cast("Any", const_weight.result.type).element_type
 
             if dtype.is_int():
                 ref_mlir_type = _get_string_to_mlir_type()[dtype]
                 quantized_mlir_type = (
-                    IntegerType.get_signed(ref_mlir_type.width)
+                    _IntegerType.get_signed(ref_mlir_type.width)
                     if ref_mlir_type.is_signed
-                    else IntegerType.get_unsigned(ref_mlir_type.width)
+                    else _IntegerType.get_unsigned(ref_mlir_type.width)
                 )
                 if zero_point is None:
                     zero_point = np.zeros_like(scale, dtype=quantized_data.dtype)
@@ -368,7 +368,7 @@ def quantize_weights(
 
         const_weight.result.replace_all_uses_with(quantized_weight)
 
-        return WalkResult.ADVANCE
+        return _WalkResult.ADVANCE
 
     return _apply_compression_transform(
         coreai_program,
