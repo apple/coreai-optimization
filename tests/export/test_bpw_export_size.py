@@ -182,18 +182,25 @@ def test_palettized_prediction_matches_export(spec: PalettizationSpec) -> None:
     _assert_palettized_matches_export(_gated_mlp(bias=False), _mlp_input(), spec)
 
 
+@pytest.mark.parametrize(
+    "weight_dtype", [torch.float32, torch.float16], ids=["fp32_weights", "fp16_weights"]
+)
 @pytest.mark.parametrize("dtype", [torch.int4, torch.int2], ids=["int4", "int2"])
-def test_perblock_asymmetric_subbyte_prediction_matches_export(dtype: torch.dtype) -> None:
+def test_perblock_asymmetric_subbyte_prediction_matches_export(
+    dtype: torch.dtype, weight_dtype: torch.dtype
+) -> None:
     """Per-block asymmetric sub-byte weights: zero-points are packed at ``n_bits``.
 
     Per-channel granularity keeps the zero-point term small enough to hide its
     width; per-block ``block_size=32`` makes it ~3% of the payload, so this is what
     catches a zero-point charged at ``target_dtype``'s byte width (``element_size()``
     is 1 for int4 and int2 alike) instead of at ``n_bits``.
+
+    The ``fp16_weights`` case additionally pins the scale width to the weight dtype.
     """
     _assert_quantized_matches_export(
-        _gated_mlp(bias=False),
-        _mlp_input(),
+        _gated_mlp(bias=False).to(weight_dtype),
+        _mlp_input().to(weight_dtype),
         dtype,
         "asymmetric",
         granularity=PerBlockGranularity(axis=1, block_size=32),

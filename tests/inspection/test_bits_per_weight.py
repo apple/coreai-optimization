@@ -52,13 +52,21 @@ _MAX_EXPECTED_OVERHEAD_BPW = 2.0
 _EXAMPLE_INPUT = torch.rand(4, _IN_FEATURES)
 
 _BLOCK_SIZE = 32
-_QUANT_GRANULARITIES = [
-    (PerTensorGranularity(axis=None), 2),
-    (PerChannelGranularity(axis=0), _OUT_CHANNELS),
-    (
+_PER_BLOCK_QPARAMS = _HIDDEN_FEATURES * (_IN_FEATURES // _BLOCK_SIZE) + _OUT_FEATURES * (
+    _HIDDEN_FEATURES // _BLOCK_SIZE
+)
+
+# (granularity, qparam blocks, qformulation).
+_QUANT_CASES = [
+    pytest.param(PerTensorGranularity(axis=None), 2, "zp", id="per_tensor_zp"),
+    pytest.param(PerTensorGranularity(axis=None), 2, "minval", id="per_tensor_minval"),
+    pytest.param(PerChannelGranularity(axis=0), _OUT_CHANNELS, "zp", id="per_channel_zp"),
+    pytest.param(PerChannelGranularity(axis=0), _OUT_CHANNELS, "minval", id="per_channel_minval"),
+    pytest.param(
         PerBlockGranularity(axis=1, block_size=_BLOCK_SIZE),
-        _HIDDEN_FEATURES * (_IN_FEATURES // _BLOCK_SIZE)
-        + _OUT_FEATURES * (_HIDDEN_FEATURES // _BLOCK_SIZE),
+        _PER_BLOCK_QPARAMS,
+        "zp",
+        id="per_block_zp",
     ),
 ]
 
@@ -88,17 +96,28 @@ def _expected_elems(bias: bool) -> int:
     return _WEIGHT_ELEMS + (_BIAS_ELEMS if bias else 0)
 
 
-def _expected_quant_bits(n_bits: int, num_qparam_blocks: int, qscheme: str, bias: bool) -> int:
+def _expected_quant_bits(
+    n_bits: int,
+    num_qparam_blocks: int,
+    qscheme: str,
+    bias: bool,
+    qformulation: str = "zp",
+) -> int:
     """Hand-derived cost of the weight-quantized model, in bits.
 
-    Payload is ``n_bits`` per weight. Overhead is one fp32 scale per qparam block, one
-    zero-point per block for asymmetric schemes only (packed at ``n_bits``, not at the
-    target dtype's byte width), and the fp32 biases, which quantization does not target.
+    Payload is ``n_bits`` per weight. Overhead is one fp32 scale per qparam block, the
+    per-block dequantization offset, and the fp32 biases, which quantization does not
+    target.
     """
     scale_bits = num_qparam_blocks * _FP32_BITS
-    zero_point_bits = num_qparam_blocks * n_bits if qscheme == "asymmetric" else 0
+    if qformulation == "minval":
+        offset_bits = num_qparam_blocks * _FP32_BITS
+    elif qscheme == "asymmetric":
+        offset_bits = num_qparam_blocks * n_bits
+    else:
+        offset_bits = 0
     bias_bits = _BIAS_ELEMS * _FP32_BITS if bias else 0
-    return _WEIGHT_ELEMS * n_bits + scale_bits + zero_point_bits + bias_bits
+    return _WEIGHT_ELEMS * n_bits + scale_bits + offset_bits + bias_bits
 
 
 def _expected_palettized_bits(
@@ -127,12 +146,14 @@ def _prepare_eager_quant(
     dtype: torch.dtype,
     qscheme: str = "symmetric",
     granularity: object | None = None,
+    qformulation: str = "zp",
 ) -> nn.Module:
     """Prepare an eager-mode weight-quantized model and calibrate it."""
     spec = QuantizationSpec(
         dtype=dtype,
         qscheme=qscheme,
         granularity=granularity or PerChannelGranularity(axis=0),
+        qformulation=qformulation,
     )
     config = QuantizerConfig(
         global_config=ModuleQuantizerConfig(op_state_spec={"weight": spec}, op_input_spec=None),
@@ -160,9 +181,8 @@ def test_full_precision_bits_per_weight():
 @pytest.mark.parametrize("bias", [False, True], ids=["no_bias", "bias"])
 @pytest.mark.parametrize("qscheme", ["symmetric", "asymmetric"])
 @pytest.mark.parametrize(
-    ("granularity", "num_qparam_blocks"),
-    _QUANT_GRANULARITIES,
-    ids=["per_tensor", "per_channel", "per_block"],
+    ("granularity", "num_qparam_blocks", "qformulation"),
+    _QUANT_CASES,
 )
 @pytest.mark.parametrize(
     ("dtype", "n_bits"),
@@ -181,13 +201,16 @@ def test_eager_quant_matches_analytical(
     n_bits: int,
     granularity: object,
     num_qparam_blocks: int,
+    qformulation: str,
     qscheme: str,
     bias: bool,
 ):
-    prepared = _prepare_eager_quant(SimpleLinearModel(bias=bias), dtype, qscheme, granularity)
+    prepared = _prepare_eager_quant(
+        SimpleLinearModel(bias=bias), dtype, qscheme, granularity, qformulation
+    )
     result = bits_per_weight(prepared)
 
-    expected_bits = _expected_quant_bits(n_bits, num_qparam_blocks, qscheme, bias)
+    expected_bits = _expected_quant_bits(n_bits, num_qparam_blocks, qscheme, bias, qformulation)
     expected_elems = _expected_elems(bias)
     assert result.total_bits == expected_bits
     # The inserted scale / zero-point buffers must not inflate the denominator: only the

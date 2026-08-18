@@ -31,6 +31,7 @@ Unsupported (raises ``NotImplementedError``):
 
 - Floating-point weight quantization (FP8 / FP4): the deploy-time storage math
   is not yet validated for these formats.
+- Pruned models
 - Weight parametrizations whose dense tensor is not a single ``original``
   tensor (e.g. ``torch.nn.utils.parametrizations.weight_norm``).
 - Graph-mode / ``torch.fx.GraphModule`` models.
@@ -65,8 +66,12 @@ from coreai_opt._utils.torch_utils import is_float_quant_dtype as _is_float_quan
 from coreai_opt.base_model_compressor import _COREAI_OPT_PREPARED_ATTR as _PREPARED_MARKER
 from coreai_opt.config.spec import CompressionTargetTensor as _CompressionTargetTensor
 from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
+from coreai_opt.pruning.spec import PruneImplBase as _PruneImplBase
 from coreai_opt.quantization.spec import QuantizationScheme as _QuantizationScheme
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase as _FakeQuantizeImplBase
+from coreai_opt.quantization.spec.qformulation import (
+    QuantizationFormulation as _QuantizationFormulation,
+)
 
 __all__ = ["BitsPerWeightResult", "bits_per_weight"]
 
@@ -127,8 +132,8 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
         NotImplementedError: If ``model`` is a graph-mode prepared model (a
             ``torch.fx.GraphModule``) or a ``torch.export.ExportedProgram``, or if it
             contains a weight compression whose storage cost this utility cannot
-            compute: floating-point (FP8 / FP4) quantization, or a parametrization
-            storing multiple original tensors.
+            compute: floating-point (FP8 / FP4) quantization, pruning, or a
+            parametrization storing multiple original tensors.
     """
     if isinstance(model, (torch.fx.GraphModule, torch.export.ExportedProgram)):
         raise NotImplementedError(
@@ -165,6 +170,7 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
         if _parametrize.is_parametrized(module):
             for tensor_name, param_list in module.parametrizations.items():
                 _ensure_single_original(param_list, name, tensor_name)
+                _ensure_not_pruned(param_list, name, tensor_name)
                 original = param_list.original
                 if id(original) in seen_ids:
                     continue
@@ -247,6 +253,18 @@ def _ensure_single_original(
         )
 
 
+def _ensure_not_pruned(
+    param_list: _ParametrizationList, module_name: str, tensor_name: str
+) -> None:
+    """Raise if a weight carries a pruning parametrization."""
+    for entry in param_list:
+        if isinstance(entry, _PruneImplBase):
+            raise NotImplementedError(
+                f"bits_per_weight cannot compute the storage cost of a pruned "
+                f"weight '{module_name}.{tensor_name}'."
+            )
+
+
 def _ensure_supported(compressor: _WeightCompressor | None, module_name: str) -> None:
     """Raise if the weight compressor's storage cost cannot yet be computed.
 
@@ -279,16 +297,15 @@ def _full_precision_bits(tensor: torch.Tensor) -> int:
 
 
 def _quantized_bits(weight: torch.Tensor, fq: _FakeQuantizeImplBase) -> int:
-    """Return the storage cost of a quantized weight including scale / zero-point overhead.
+    """Return the storage cost of a quantized weight including scale / offset overhead.
 
     Args:
         weight (torch.Tensor): The dense original weight tensor.
         fq (FakeQuantizeImplBase): The weight fake-quantize parametrization.
 
     Returns:
-        int: ``payload_bits + scale_bits + zero_point_bits`` in bits, where the
-        payload is ``numel * n_bits`` and the per-block scale and, for asymmetric
-        schemes, zero-point (cast to ``target_dtype`` on export) overhead is
+        int: ``payload_bits + scale_bits + offset_bits`` in bits, where the payload
+        is ``numel * n_bits`` and the per-block scale and offset overhead is
         amortized across the weight.
 
     Note:
@@ -309,18 +326,29 @@ def _quantized_bits(weight: torch.Tensor, fq: _FakeQuantizeImplBase) -> int:
         num_blocks = num_elements // math.prod(block_size)
 
     payload_bits = num_elements * fq.n_bits
+    scale_bits = num_blocks * _float_qparam_bits(fq)
 
-    # Scale width comes from the materialized buffer's own dtype (fp32 fallback
-    # when uncalibrated).
-    scale_bits = num_blocks * _buffer_dtype_bits(scale, _DEFAULT_SCALE_BITS)
+    return int(payload_bits + scale_bits + _offset_bits(fq, num_blocks))
 
-    zero_point_bits = 0
+
+def _float_qparam_bits(fq: _FakeQuantizeImplBase) -> int:
+    """Return the per-element bit width of the float qparams this weight exports with."""
+    dtype = fq.qparams_calculator._compute_dtype_for_export
+    return int(dtype.itemsize * 8)
+
+
+def _offset_bits(fq: _FakeQuantizeImplBase, num_blocks: int) -> int:
+    """Return the per-block dequantization offset cost of a quantized weight, in bits.
+
+    - ``ZP``: the export ships ``zero_point``, packed at ``n_bits``.
+    - ``MINVAL``: the export ships ``minval`` instead, and drops the zero-point.
+      ``minval`` is a float, so it costs a full float per block.
+    """
+    if fq.qformulation == _QuantizationFormulation.MINVAL:
+        return num_blocks * _float_qparam_bits(fq)
     if fq.qscheme == _QuantizationScheme.ASYMMETRIC:
-        # Zero-points are packed at n_bits on export, not at target_dtype's byte
-        # width (element_size() is 1 for int4 and int2 alike).
-        zero_point_bits = num_blocks * fq.n_bits
-
-    return int(payload_bits + scale_bits + zero_point_bits)
+        return num_blocks * fq.n_bits
+    return 0
 
 
 def _palettized_bits(weight: torch.Tensor, pal: _FakePalettizeImplBase) -> int:
