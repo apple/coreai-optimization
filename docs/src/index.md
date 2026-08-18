@@ -42,7 +42,6 @@ utils/mixed_precision
 utils/activation_comparison
 utils/casting
 utils/coreai_compression
-utils/composite_op_quantization
 ```
 
 ```{toctree}
