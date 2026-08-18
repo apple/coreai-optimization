@@ -45,7 +45,7 @@ Unsupported (raises ``NotImplementedError``):
 - It may be *larger*, because a serialized artifact carries structural metadata
   that is not modelled here.
 - This utility is intended to be used with a prepared ``coreai-opt`` model. Passing
-a finalized model to it may result in unpredictable behavior or a wrong bpw value.
+  a finalized model to it may result in unpredictable behavior or a wrong bpw value.
 
 Example:
     >>> from coreai_opt.inspection import bits_per_weight
@@ -106,7 +106,7 @@ class BitsPerWeightResult:
 
 
 def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
-    """Compute the average bits-per-weight.
+    """Compute the average bits-per-weight of a prepared ``coreai-opt`` model.
 
     Walks the module tree once. For each parametrized weight, the dense original
     tensor is counted at its effective compressed cost (quantization or
@@ -124,16 +124,17 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
         used to derive them.
 
     Raises:
-        NotImplementedError: If ``model`` is a ``torch.fx.GraphModule`` (graph
-            mode), or if it contains a weight compression whose storage cost this
-            utility cannot compute: floating-point (FP8 / FP4) quantization, or a
-            parametrization storing multiple original tensors.
+        NotImplementedError: If ``model`` is a graph-mode prepared model (a
+            ``torch.fx.GraphModule``) or a ``torch.export.ExportedProgram``, or if it
+            contains a weight compression whose storage cost this utility cannot
+            compute: floating-point (FP8 / FP4) quantization, or a parametrization
+            storing multiple original tensors.
     """
-    if isinstance(model, torch.fx.GraphModule):
+    if isinstance(model, (torch.fx.GraphModule, torch.export.ExportedProgram)):
         raise NotImplementedError(
-            "Graph / torch.fx.GraphModule models are not supported currently. "
-            "Only full-precision, eager-mode integer "
-            "quantized, and palettized nn.Modules are handled."
+            f"Graph mode prepared models are not supported currently, got {type(model)}. "
+            "Only full-precision, eager-mode integer quantized, and palettized "
+            "nn.Modules are handled."
         )
 
     module_bits: dict[str, int] = {}
