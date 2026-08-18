@@ -145,6 +145,13 @@ def test_palettization_spec_invalid_values(invalid_field, invalid_value):
         PalettizationSpec(**spec_dict)
 
 
+@pytest.mark.parametrize("group_size", [-1, 0])
+def test_per_grouped_channel_rejects_non_positive_group_size(group_size):
+    """Test that a non-positive group_size raises at construction."""
+    with pytest.raises(ValidationError):
+        PerGroupedChannelGranularity(axis=0, group_size=group_size)
+
+
 def test_model_dump():
     """Test model serialization."""
     lut_qspec = QuantizationSpec(dtype=torch.uint8, qscheme=QuantizationScheme.ASYMMETRIC)
