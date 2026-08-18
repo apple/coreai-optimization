@@ -120,4 +120,5 @@ After this process, the coreai graph contains both the main graph and the sub-gr
 - Quantization cannot be applied *inside* the composite op body because the `_patch_model_for_externalization` API replaces the composite op body with a torch custom op, thus making it opaque to `coreai-opt`'s graph mode quantizer.
 - However, the boundaries (incoming and outgoing tensors) of the composite ops can be quantized as usual, using the `module_input_spec` and `module_output_spec` config kwargs as described in the documentation on `coreai-opt` configs [here](config.md).
 
-:::{warning} The externalization APIs used below, `_patch_model_for_externalization` and `_subexport_and_restore` in coreai-torch are currently experimental. :::
+:::{warning} The externalization APIs used below, `_patch_model_for_externalization` and `_subexport_and_restore` in coreai-torch are currently experimental.
+:::
