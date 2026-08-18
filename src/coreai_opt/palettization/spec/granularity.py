@@ -123,7 +123,7 @@ class PerGroupedChannelGranularity(PalettizationGranularity):
     """
 
     axis: Annotated[int | None, Field(default=None, ge=0, le=1)]
-    group_size: int
+    group_size: Annotated[int, Field(gt=0)]
 
     def num_blocks_to_cluster(self, weight: torch.Tensor) -> int:
         if self.axis is None:
