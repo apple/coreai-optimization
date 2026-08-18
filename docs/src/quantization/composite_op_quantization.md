@@ -113,7 +113,7 @@ Now in order to convert the finalized model into a coreai graph (`aimodel`), the
 The `_subexport_and_restore` takes in the **original torch model** and does exactly that.
 It returns a list of torch exported programs corresponding to all the composite op sub-modules that were _patched_ for externalization by `_patch_model_for_externalization`.
 These torch exported programs are then passed to the `add_exported_program` API via the `_externalized_exported_programs` argument to prepare the coreai graph (`aimodel`).
-After this process, the coreai graph contains both the main graph and the sub-graphs corresponding to the composite op submodule preserved as function calls.
+After this process, the coreai graph contains both the main graph and the sub-graphs corresponding to the composite op submodules preserved as function calls.
 
 ## Notes
 
