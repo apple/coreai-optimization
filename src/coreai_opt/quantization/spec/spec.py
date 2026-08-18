@@ -65,7 +65,8 @@ class QuantizationSpec(CompressionSpec):
             Quantization scheme determining how values are mapped to the quantized
             range.
             Valid inputs:
-             - "symmetric" (default), "symmetric_with_clipping", "asymmetric"
+
+            - "symmetric" (default), "symmetric_with_clipping", "asymmetric"
 
             On how it affects the quantization and dequantization formulae,
             please refer to the `qformulation` description below.
