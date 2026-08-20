@@ -9,6 +9,7 @@ from abc import abstractmethod
 
 import torch
 import torch.nn as nn
+import torch.nn.utils.parametrize as P
 
 from coreai_opt._utils.registry_utils import ClassRegistryMixin as _ClassRegistryMixin
 
@@ -26,42 +27,9 @@ class CompressionSimulatorBase(_ClassRegistryMixin, nn.Module):
     compression simulation is performed during training.
     """
 
-    # Recorded during prepare() so that forward-time diagnostics can name the
-    # tensor. Class-level defaults keep this out of __init__, and out of
-    # state_dict, without touching subclass constructor chains.
-    _source_module_name: str | None = None
-    _source_param_name: str | None = None
-
-    def set_source_name(self, module_name: str, param_name: str | None = None) -> None:
-        """Record which model tensor this simulator compresses.
-
-        The first name recorded wins, so simulators shared by several modules
-        report a stable name.
-
-        Args:
-            module_name: Owning module's name in ``named_modules()``, or ``""``
-                for a root-module parameter.
-            param_name: Local parameter name (e.g. ``"weight"``), or ``None``.
-        """
-        if self._source_module_name is not None or self._source_param_name is not None:
-            return
-        self._source_module_name = module_name
-        self._source_param_name = param_name
-
-    @property
-    def source_name(self) -> str:
-        """FQN of the compressed tensor, or ``"<unknown>"`` if never recorded."""
-        parts = [part for part in (self._source_module_name, self._source_param_name) if part]
-        return ".".join(parts) if parts else "<unknown>"
-
-    @property
-    def source_module_name(self) -> str | None:
-        """Owning module's FQN, usable as a ``module_name_configs`` key.
-
-        ``None`` if never recorded, or for a root-module tensor that no module
-        name addresses.
-        """
-        return self._source_module_name or None
+    # FQN of the compressed tensor, recorded during prepare() because a module
+    # cannot discover its own name from forward().
+    source_name: str = "<unknown>"
 
     @abstractmethod
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -80,3 +48,30 @@ class CompressionSimulatorBase(_ClassRegistryMixin, nn.Module):
             flowing through
         """
         pass
+
+
+def record_source_names_eager(model: nn.Module) -> None:
+    """Record the FQN of each parametrized tensor on the simulator compressing it."""
+    for module_name, module in model.named_modules():
+        if not P.is_parametrized(module):
+            continue
+        for param_name, parametrizations in module.parametrizations.items():
+            for simulator in parametrizations:
+                if isinstance(simulator, CompressionSimulatorBase):
+                    simulator.source_name = f"{module_name}.{param_name}"
+
+
+def record_source_names_graph(model: torch.fx.GraphModule) -> None:
+    """Record the FQN of each compressed parameter on the simulator compressing it.
+
+    A simulator reading from anything other than a ``get_attr`` node keeps the
+    default name: an activation, or a weight arriving through a decompression op,
+    has no parameter to name.
+    """
+    simulators = dict(model.named_modules(remove_duplicate=False))
+    for node in model.graph.nodes:
+        if node.op != "call_module" or not node.args:
+            continue
+        simulator = simulators.get(str(node.target))
+        if isinstance(simulator, CompressionSimulatorBase) and node.args[0].op == "get_attr":
+            simulator.source_name = str(node.args[0].target)

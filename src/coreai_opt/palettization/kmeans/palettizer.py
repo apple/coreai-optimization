@@ -34,9 +34,7 @@ from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleCompressionConfig
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.config.spec.base import CompressionSpec
-from coreai_opt.palettization._source_names import (
-    record_weight_source_names as _record_weight_source_names,
-)
+from coreai_opt.config.spec.compression_simulator import record_source_names_eager
 from coreai_opt.palettization.base_palettizer import _BasePalettizer
 from coreai_opt.palettization.config.palettization_config import (
     KMeansPalettizerConfig,
@@ -198,9 +196,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         logger.info("Preparing model for palettization")
         prepared_model = self._handler.prepare(self._model, example_inputs=example_inputs)
 
-        # Name fake palettize modules before centroid calculation below can
-        # warn about them.
-        _record_weight_source_names(prepared_model)
+        record_source_names_eager(prepared_model)
 
         # Save example inputs for later use in calibration
         self._example_inputs = tuple([ip.detach().clone() for ip in example_inputs])

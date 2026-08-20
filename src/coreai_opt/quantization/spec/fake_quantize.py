@@ -129,26 +129,14 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         super().enable_observer(enabled)
 
     def _warn_and_disable(self, error: _BlockSizeMismatchError, shape: torch.Size) -> None:
-        """Log a warning naming the offending tensor and permanently disable this module.
-
-        ``source_name`` is only recorded for weights, so activations report
-        ``"<unknown>"`` and get no config hint.
-        """
-        module_name = self.source_module_name
-        hint = (
-            f" To quantize it, set a compatible granularity for '{module_name}' "
-            f"via module_name_configs."
-            if module_name is not None
-            else ""
-        )
+        """Log a warning naming the offending tensor and permanently disable this module."""
         logger.warning(
             "Tensor '%s' (target: %s, shape: %s) incompatible with block size "
-            "configuration: %s. Skipping quantization.%s",
+            "configuration: %s. Skipping quantization.",
             self.source_name,
             self.quantization_target,
             tuple(shape),
             error,
-            hint,
         )
         self._disabled.fill_(True)
 

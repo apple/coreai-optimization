@@ -85,7 +85,6 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             self.source_name,
             tuple(shape),
             setting,
-            # These errors end in a period; drop it to avoid doubling up.
             str(error).rstrip("."),
         )
         self._disabled = True

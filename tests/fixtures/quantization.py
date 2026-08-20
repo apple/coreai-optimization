@@ -17,6 +17,7 @@ from coreai_opt.quantization.spec import (
     PerBlockGranularity,
     PerChannelGranularity,
     PerTensorGranularity,
+    QuantizationGranularity,
     QuantizationScheme,
     QuantizationSpec,
 )
@@ -50,23 +51,27 @@ def make_quant_config(
     weight_dtype: torch.dtype | str | None,
     act_dtype: torch.dtype | str | None,
     execution_mode: str,
+    granularity: QuantizationGranularity | None = None,
 ) -> QuantizerConfig:
-    """Build a per-tensor symmetric QuantizerConfig for export tests.
+    """Build a symmetric QuantizerConfig for export tests.
 
     Args:
         weight_dtype (torch.dtype | str | None): Weight dtype, or None to disable.
         act_dtype (torch.dtype | str | None): Activation dtype, or None to disable.
         execution_mode (str): Either "eager" or "graph".
+        granularity (QuantizationGranularity | None): Granularity for both the
+            weight and activation specs. Defaults to per-tensor.
 
     Returns:
-        QuantizerConfig: Config with the requested per-tensor symmetric specs.
+        QuantizerConfig: Config with the requested symmetric specs.
     """
+    granularity = granularity or PerTensorGranularity()
 
     def _spec(dtype: torch.dtype | str) -> QuantizationSpec:
         return QuantizationSpec(
             dtype=dtype,
             qscheme=QuantizationScheme.SYMMETRIC,
-            granularity=PerTensorGranularity(),
+            granularity=granularity,
         )
 
     weight_spec = _spec(weight_dtype) if weight_dtype is not None else None

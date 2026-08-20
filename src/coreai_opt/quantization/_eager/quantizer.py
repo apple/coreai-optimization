@@ -31,6 +31,7 @@ from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleCompressionConfig
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.config.spec.base import CompressionSpec
+from coreai_opt.config.spec.compression_simulator import record_source_names_eager
 from coreai_opt.quantization._axis_defaults import (
     apply_weight_axis_defaults_eager as _apply_weight_axis_defaults,
     validate_activation_axes,
@@ -38,9 +39,6 @@ from coreai_opt.quantization._axis_defaults import (
 from coreai_opt.quantization._fake_quant_utils import (
     disable_activation_fake_quant,
     enable_weight_fake_quant,
-)
-from coreai_opt.quantization._source_names import (
-    record_weight_source_names_eager as _record_weight_source_names,
 )
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
@@ -226,8 +224,7 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
         Args:
             model (nn.Module): The model after eager prepare().
         """
-        # Name weight FQs before the forward pass below can warn about them.
-        _record_weight_source_names(model)
+        record_source_names_eager(model)
 
         _apply_weight_axis_defaults(model)
         validate_activation_axes(model)
