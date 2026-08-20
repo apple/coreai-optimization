@@ -410,9 +410,13 @@ docs-clean:
 # Regenerate docs/src/api/index.md from the package tree.
 #
 # Runs the same generator `make docs` invokes during the Sphinx build, so the
-# API index can be refreshed on its own using the base dev env.
+# API index can be refreshed on its own using the base dev env. Uses DOCS_DIR
+# (not MAKEFILE_DIR) so this and the Sphinx build always run the same generator:
+# a distribution that overrides DOCS_DIR documents a different set of root
+# packages, and pointing these two entry points at different files would make
+# them write conflicting indexes.
 render-api-index:
-	@$(call use_env,VENV) && uv run --no-sync --active python $(MAKEFILE_DIR)docs/scripts/generate_api_index.py
+	@$(call use_env,VENV) && uv run --no-sync --active python $(DOCS_DIR)/scripts/generate_api_index.py
 
 # Build and open documentation in browser
 # Uses --serve so the docs are loaded over HTTP, not file:// — required for
