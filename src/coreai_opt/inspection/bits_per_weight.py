@@ -163,7 +163,7 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
                     continue
                 seen_ids.add(id(original))
 
-                compressor = _find_weight_compressor(param_list)
+                compressor = _get_weight_compressor(param_list)
 
                 if isinstance(compressor, _FakeQuantizeImplBase) and _is_float_quant_dtype(
                     compressor.target_dtype
