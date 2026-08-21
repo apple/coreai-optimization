@@ -56,6 +56,7 @@ Example:
 """
 
 import math
+from collections import defaultdict
 from dataclasses import dataclass
 
 import torch
@@ -64,7 +65,10 @@ from torch.nn.utils.parametrize import ParametrizationList as _ParametrizationLi
 
 from coreai_opt._utils.torch_utils import is_float_quant_dtype as _is_float_quant_dtype
 from coreai_opt.base_model_compressor import _COREAI_OPT_PREPARED_ATTR as _PREPARED_MARKER
-from coreai_opt.config.spec import CompressionTargetTensor as _CompressionTargetTensor
+from coreai_opt.config.spec import (
+    CompressionSimulatorBase as _CompressionSimulatorBase,
+    CompressionTargetTensor as _CompressionTargetTensor,
+)
 from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 from coreai_opt.pruning.spec import PruneImplBase as _PruneImplBase
 from coreai_opt.quantization.spec import QuantizationScheme as _QuantizationScheme
@@ -75,11 +79,8 @@ from coreai_opt.quantization.spec.qformulation import (
 
 __all__ = ["BitsPerWeightResult", "bits_per_weight"]
 
-# Fallback scale bit width for an uncalibrated model whose ``scale`` buffer is
-# not yet materialized.
 _DEFAULT_SCALE_BITS = 32
 
-# A weight parametrization that compresses the dense tensor.
 _WeightCompressor = _FakeQuantizeImplBase | _FakePalettizeImplBase
 
 
@@ -91,7 +92,7 @@ class BitsPerWeightResult:
         bpw (float): Overall average bits per weight across all parameters
             (``total_bits / total_weights``); ``0.0`` if the model has no
             parameters.
-        per_module (dict[str, float]): Map from module name to that module's own
+        per_module_map (dict[str, float]): Map from module name to that module's own
             average bits per weight. Modules with no logical tensors are omitted.
         total_bits (int): Total storage cost in bits, including amortized
             compression overhead.
@@ -99,7 +100,7 @@ class BitsPerWeightResult:
     """
 
     bpw: float
-    per_module: dict[str, float]
+    per_module_map: dict[str, float]
     total_bits: int
     total_weights: int
 
@@ -142,12 +143,8 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
             "nn.Modules are handled."
         )
 
-    module_bits: dict[str, int] = {}
-    module_weights: dict[str, int] = {}
-
-    def _accumulate(name: str, bits: int, weights: int) -> None:
-        module_bits[name] = module_bits.get(name, 0) + bits
-        module_weights[name] = module_weights.get(name, 0) + weights
+    module_bits: dict[str, int] = defaultdict(int)
+    module_weights: dict[str, int] = defaultdict(int)
 
     # id() of every Parameter / Buffer already counted, so a tied tensor
     # is counted once
@@ -160,9 +157,7 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
     for name, module in model.named_modules():
         if any(name == prefix or name.startswith(prefix + ".") for prefix in skip_prefixes):
             continue
-        if isinstance(
-            module, (_FakeQuantizeImplBase, _FakePalettizeImplBase, _ParametrizationList)
-        ):
+        if isinstance(module, (_CompressionSimulatorBase, _ParametrizationList)):
             skip_prefixes.append(name)
             continue
 
@@ -171,43 +166,58 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
             for tensor_name, param_list in module.parametrizations.items():
                 _ensure_single_original(param_list, name, tensor_name)
                 _ensure_not_pruned(param_list, name, tensor_name)
+
                 original = param_list.original
                 if id(original) in seen_ids:
                     continue
                 seen_ids.add(id(original))
+
                 compressor = _find_weight_compressor(param_list)
-                _ensure_supported(compressor, name)
-                _accumulate(name, _tensor_storage_bits(original, compressor), original.numel())
+
+                if isinstance(compressor, _FakeQuantizeImplBase) and _is_float_quant_dtype(
+                    compressor.target_dtype
+                ):
+                    raise NotImplementedError(
+                        f"bits_per_weight cannot compute the storage cost of floating-point "
+                        f"weight quantization (dtype {compressor.target_dtype}) on module "
+                        f"'{name}'. Only integer quantization (int8 / int4 / int2 and "
+                        f"their unsigned variants) and palettization are supported currently."
+                    )
+
+                module_bits[name] += _tensor_storage_bits(original, compressor)
+                module_weights[name] += original.numel()
 
         # Directly-owned plain parameters: bias, untargeted weights, norms, etc.
         # A parametrized weight is no longer in _parameters (PyTorch moves it into
         # the ParametrizationList), so it is not re-counted here.
-        for param in module._parameters.values():
-            if param is None or id(param) in seen_ids:
+        for param in module.parameters(recurse=False):
+            if id(param) in seen_ids:
                 continue
             seen_ids.add(id(param))
-            _accumulate(name, _full_precision_bits(param), param.numel())
+            module_bits[name] += _full_precision_bits(param)
+            module_weights[name] += param.numel()
 
         # Buffers (BatchNorm running stats, RoPE caches, ...)
-        for buf_name, buf in module._buffers.items():
-            if buf is None or buf_name == _PREPARED_MARKER:
-                continue
-            if id(buf) in seen_ids:
+        # recurse=False keeps buf_name un-prefixed, so the marker comparison is
+        # bare-to-bare.
+        for buf_name, buf in module.named_buffers(recurse=False):
+            if buf_name == _PREPARED_MARKER or id(buf) in seen_ids:
                 continue
             seen_ids.add(id(buf))
-            _accumulate(name, _full_precision_bits(buf), buf.numel())
+            module_bits[name] += _full_precision_bits(buf)
+            module_weights[name] += buf.numel()
 
     total_bits = sum(module_bits.values())
     total_weights = sum(module_weights.values())
-    per_module = {
-        name: module_bits[name] / module_weights[name]
-        for name in module_bits
-        if module_weights[name] > 0
+    per_module_map = {
+        name: bits / module_weights[name]
+        for name, bits in module_bits.items()
+        if module_weights.get(name, 0) > 0
     }
     bpw = total_bits / total_weights if total_weights > 0 else 0.0
     return BitsPerWeightResult(
         bpw=bpw,
-        per_module=per_module,
+        per_module_map=per_module_map,
         total_bits=total_bits,
         total_weights=total_weights,
     )
@@ -265,23 +275,6 @@ def _ensure_not_pruned(
             )
 
 
-def _ensure_supported(compressor: _WeightCompressor | None, module_name: str) -> None:
-    """Raise if the weight compressor's storage cost cannot yet be computed.
-
-    Floating-point weight quantization (FP8 / FP4) is recognized by coreai_opt
-    but its deploy-time storage math has not been validated here yet.
-    """
-    if isinstance(compressor, _FakeQuantizeImplBase) and _is_float_quant_dtype(
-        compressor.target_dtype
-    ):
-        raise NotImplementedError(
-            f"bits_per_weight cannot compute the storage cost of floating-point "
-            f"weight quantization (dtype {compressor.target_dtype}) on module "
-            f"'{module_name}'. Only integer quantization (int8 / int4 / int2 and "
-            f"their unsigned variants) and palettization are supported currently."
-        )
-
-
 def _tensor_storage_bits(weight: torch.Tensor, compressor: _WeightCompressor | None) -> int:
     """Return the storage cost in bits of a (possibly compressed) weight tensor."""
     if compressor is None:
@@ -296,7 +289,7 @@ def _full_precision_bits(tensor: torch.Tensor) -> int:
     return int(tensor.numel() * tensor.element_size() * 8)
 
 
-def _quantized_bits(weight: torch.Tensor, fq: _FakeQuantizeImplBase) -> int:
+def _quantized_bits(weight: torch.Tensor, quantization_fq: _FakeQuantizeImplBase) -> int:
     """Return the storage cost of a quantized weight including scale / offset overhead.
 
     Args:
@@ -309,26 +302,26 @@ def _quantized_bits(weight: torch.Tensor, fq: _FakeQuantizeImplBase) -> int:
         amortized across the weight.
 
     Note:
-        For a calibrated model, ``num_blocks`` is read directly from the
-        materialized ``qparams_calculator.scale`` buffer. This is the canonical
+        ``num_blocks`` is read directly from the materialized
+        ``qparams_calculator.scale`` buffer. This is the canonical
         per-granularity block count (per-tensor, per-channel, per-block, and
-        multi-axis per-block all reduce to ``scale.numel()``). For an
-        uncalibrated model the ``scale`` buffer is empty, in which case
-        ``num_blocks`` is derived analytically from ``granularity.get_block_size``.
+        multi-axis per-block all reduce to ``scale.numel()``). When that buffer
+        is not yet materialized it is empty,``num_blocks`` is
+        derived analytically from ``granularity.get_block_size``.
     """
     num_elements = weight.numel()
 
-    scale = fq.qparams_calculator.scale
+    scale = quantization_fq.qparams_calculator.scale
     if scale is not None and scale.numel() > 0:
         num_blocks = scale.numel()
     else:
-        block_size = fq.granularity.get_block_size(weight.shape)
+        block_size = quantization_fq.granularity.get_block_size(weight.shape)
         num_blocks = num_elements // math.prod(block_size)
 
-    payload_bits = num_elements * fq.n_bits
-    scale_bits = num_blocks * _float_qparam_bits(fq)
+    payload_bits = num_elements * quantization_fq.n_bits
+    scale_bits = num_blocks * _float_qparam_bits(quantization_fq)
 
-    return int(payload_bits + scale_bits + _offset_bits(fq, num_blocks))
+    return int(payload_bits + scale_bits + _offset_bits(quantization_fq, num_blocks))
 
 
 def _float_qparam_bits(fq: _FakeQuantizeImplBase) -> int:
@@ -351,7 +344,7 @@ def _offset_bits(fq: _FakeQuantizeImplBase, num_blocks: int) -> int:
     return 0
 
 
-def _palettized_bits(weight: torch.Tensor, pal: _FakePalettizeImplBase) -> int:
+def _palettized_bits(weight: torch.Tensor, palettization_fq: _FakePalettizeImplBase) -> int:
     """Return the storage cost of a palettized weight including LUT / per-channel-scale overhead.
 
     Args:
@@ -359,31 +352,28 @@ def _palettized_bits(weight: torch.Tensor, pal: _FakePalettizeImplBase) -> int:
         pal (_FakePalettizeImplBase): The weight fake-palettize parametrization.
 
     Returns:
-        int: ``indices_bits + lut_bits + per_channel_scale_bits + lut_quant_bits``
-        in bits, where ``indices_bits`` is ``(numel // cluster_dim) * n_bits`` (one
-        ``n_bits`` index per cluster group, the dominant payload at deploy time),
-        ``lut_bits`` covers the centroid lookup tables,
-        ``per_channel_scale_bits`` is included only when per-channel scaling is
-        enabled, and ``lut_quant_bits`` covers the qparams needed to dequantize a
-        quantized LUT (``lut_qspec``).
+        int: Effective storage cost of a palettized weight tensor along with
+        overhead.
     """
     num_elements = weight.numel()
 
     # Indices: one n_bits index per cluster_dim-sized group along axis 0.
-    indices_bits = (num_elements // pal.cluster_dim) * pal.n_bits
+    indices_bits = (num_elements // palettization_fq.cluster_dim) * palettization_fq.n_bits
 
     # LUT (centroids): shape after _reshape_lut_tensor is
     # (num_blocks_axis0, num_blocks_axis1, 2**n_bits, cluster_dim).
-    lut = pal.lut
+    lut = palettization_fq.lut
     if lut is not None and lut.numel() > 0:
         lut_elements = lut.numel()
     else:
         lut_elements = (
-            pal.granularity.num_blocks_to_cluster(weight) * (2**pal.n_bits) * pal.cluster_dim
+            palettization_fq.granularity.num_blocks_to_cluster(weight)
+            * (2**palettization_fq.n_bits)
+            * palettization_fq.cluster_dim
         )
 
-    if pal.lut_qspec is not None:
-        lut_dtype_bits = pal.lut_qspec.n_bits
+    if palettization_fq.lut_qspec is not None:
+        lut_dtype_bits = palettization_fq.lut_qspec.n_bits
     else:
         lut_dtype_bits = _buffer_dtype_bits(lut, weight.element_size() * 8)
     lut_bits = lut_elements * lut_dtype_bits
@@ -392,8 +382,8 @@ def _palettized_bits(weight: torch.Tensor, pal: _FakePalettizeImplBase) -> int:
     # (weight.shape[0]); amortized when enabled, regardless of calibration.
     num_channels = weight.shape[0]
     per_channel_scale_bits = 0
-    if pal.enable_per_channel_scale:
-        per_channel_scale = pal.per_channel_scale
+    if palettization_fq.enable_per_channel_scale:
+        per_channel_scale = palettization_fq.per_channel_scale
         if per_channel_scale is not None and per_channel_scale.numel() > 0:
             num_channels = per_channel_scale.numel()
             per_channel_scale_bits = num_channels * per_channel_scale.element_size() * 8
@@ -404,11 +394,13 @@ def _palettized_bits(weight: torch.Tensor, pal: _FakePalettizeImplBase) -> int:
         indices_bits
         + lut_bits
         + per_channel_scale_bits
-        + _lut_quant_bits(weight, pal, num_channels)
+        + _lut_quant_bits(weight, palettization_fq, num_channels)
     )
 
 
-def _lut_quant_bits(weight: torch.Tensor, pal: _FakePalettizeImplBase, num_channels: int) -> int:
+def _lut_quant_bits(
+    weight: torch.Tensor, palettization_fq: _FakePalettizeImplBase, num_channels: int
+) -> int:
     """Return the qparams cost of a quantized LUT, in bits.
 
     Dequantizing a quantized LUT needs one scale per palettization block: the LUT
@@ -423,23 +415,23 @@ def _lut_quant_bits(weight: torch.Tensor, pal: _FakePalettizeImplBase, num_chann
       tensor ships and is already accounted for by the caller. only the zero-point,
       expanded the same way, is extra.
     """
-    if pal.lut_qspec is None:
+    if palettization_fq.lut_qspec is None:
         return 0
 
-    lut_scale = pal.lut_quantization_scale
+    lut_scale = palettization_fq.lut_quantization_scale
     if lut_scale is not None and lut_scale.numel() > 0:
         num_lut_blocks = lut_scale.numel()
     else:
-        num_lut_blocks = pal.granularity.num_blocks_to_cluster(weight)
+        num_lut_blocks = palettization_fq.granularity.num_blocks_to_cluster(weight)
 
-    if pal.enable_per_channel_scale:
+    if palettization_fq.enable_per_channel_scale:
         scale_elements, zero_point_elements = 0, num_channels
     else:
         scale_elements = zero_point_elements = num_lut_blocks
 
     bits = scale_elements * _buffer_dtype_bits(lut_scale, _DEFAULT_SCALE_BITS)
-    if pal.lut_qspec.qscheme == _QuantizationScheme.ASYMMETRIC:
-        bits += zero_point_elements * pal.lut_qspec.n_bits
+    if palettization_fq.lut_qspec.qscheme == _QuantizationScheme.ASYMMETRIC:
+        bits += zero_point_elements * palettization_fq.lut_qspec.n_bits
     return int(bits)
 
 

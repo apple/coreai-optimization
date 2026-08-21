@@ -4,17 +4,7 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 """Validate the bits-per-weight prediction against the actual Core AI exported
-asset size.
-
-``coreai_opt.inspection.bits_per_weight`` computes analytically: how many bits
-each weight costs at deploy time (payload plus amortized quantization /
-palettization overhead). This module cross-checks that prediction against ground
-truth: it exports the same model through the Core AI backend and measures the
-resulting artifact. If the analytical model is right, ``total_bits / 8`` should be
-close to the measured byte count -- within ``_MAX_GRAPH_OVERHEAD``, which allows
-for the structural metadata and other optimizations that any serialized artifact
-carries beyond the weights.
-"""
+asset size."""
 
 import pytest
 import torch
@@ -43,7 +33,7 @@ from tests.models.simple import GatedMLPModel
 from . import export_utils
 
 # Fractional budget for what a serialized artifact carries beyond the weight payload.
-_MAX_GRAPH_OVERHEAD = 0.025
+_MAX_COREAI_EXPORT_OVERHEAD = 0.025
 
 # GatedMLPModel at this width holds ~3.1M params (12 MiB fp32, 1.5 MiB at int4).
 _MLP_DIM = 1024
@@ -96,10 +86,10 @@ def _assert_prediction_matches_export(
     )
     # The only excess should be structural metadata, which stays a small fraction
     # of the payload.
-    assert overhead_bytes <= predicted_bytes * _MAX_GRAPH_OVERHEAD, (
+    assert overhead_bytes <= predicted_bytes * _MAX_COREAI_EXPORT_OVERHEAD, (
         f"exported asset {actual_bytes:,} bytes exceeded predicted "
         f"{predicted_bytes:,.0f} by {overhead_bytes:,.0f} bytes "
-        f"({overhead_bytes / predicted_bytes:.2%}, budget {_MAX_GRAPH_OVERHEAD:.1%}) "
+        f"({overhead_bytes / predicted_bytes:.2%}, budget {_MAX_COREAI_EXPORT_OVERHEAD:.1%}) "
         f"({context})"
     )
 
@@ -111,10 +101,9 @@ def _assert_quantized_matches_export(
     qscheme: str = "symmetric",
     granularity: object | None = None,
 ) -> None:
-    """Quantize, calibrate, and check the prediction against the export."""
+    """Quantize and check the prediction against the export."""
     quantizer = Quantizer(model, _eager_quant_config(dtype, qscheme, granularity))
     prepared_model = quantizer.prepare((input_data,))
-    prepared_model(input_data)
 
     result = bits_per_weight(prepared_model)
     finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI)

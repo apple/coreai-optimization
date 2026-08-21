@@ -20,6 +20,7 @@ from coreai_opt.palettization.spec import (
     PerGroupedChannelGranularity,
     PerTensorGranularity as PalettPerTensorGranularity,
 )
+from coreai_opt.pruning import MagnitudePruner
 from coreai_opt.quantization import ModuleQuantizerConfig, Quantizer, QuantizerConfig
 from coreai_opt.quantization.spec import (
     PerBlockGranularity,
@@ -148,7 +149,7 @@ def _prepare_eager_quant(
     granularity: object | None = None,
     qformulation: str = "zp",
 ) -> nn.Module:
-    """Prepare an eager-mode weight-quantized model and calibrate it."""
+    """Prepare an eager-mode weight-quantized model."""
     spec = QuantizationSpec(
         dtype=dtype,
         qscheme=qscheme,
@@ -159,9 +160,7 @@ def _prepare_eager_quant(
         global_config=ModuleQuantizerConfig(op_state_spec={"weight": spec}, op_input_spec=None),
         execution_mode="eager",
     )
-    prepared = Quantizer(model, config).prepare(example_inputs=(_EXAMPLE_INPUT,))
-    prepared(_EXAMPLE_INPUT)  # calibrate so quantization parameters are materialized
-    return prepared
+    return Quantizer(model, config).prepare(example_inputs=(_EXAMPLE_INPUT,))
 
 
 def _prepare_palettized(model: nn.Module, spec: PalettizationSpec) -> nn.Module:
@@ -351,6 +350,15 @@ def test_multi_original_parametrization_is_unsupported():
         bits_per_weight(model)
 
 
+def test_pruned_weight_is_unsupported():
+    """A pruned weight raises rather than being priced as a dense tensor."""
+    model = SimpleLinearModel(bias=False)
+    prepared = MagnitudePruner(model).prepare((_EXAMPLE_INPUT,))
+
+    with pytest.raises(NotImplementedError, match="pruned"):
+        bits_per_weight(prepared)
+
+
 def test_non_persistent_buffer_counted():
     """Buffers count regardless of ``persistent=``: every tensor the model carries."""
 
@@ -411,7 +419,7 @@ def test_per_module_attributes_cost_to_the_owning_module():
     expected_l1_bits = l1_elems * 8 + _HIDDEN_FEATURES * _FP32_BITS
     l2_elems = _OUT_FEATURES * _HIDDEN_FEATURES
 
-    assert result.per_module == {
+    assert result.per_module_map == {
         "l1": pytest.approx(expected_l1_bits / l1_elems),
         "l2": _FP32_BITS,
     }
@@ -419,16 +427,16 @@ def test_per_module_attributes_cost_to_the_owning_module():
     assert result.total_bits == expected_l1_bits + l2_elems * _FP32_BITS
     assert result.bpw == result.total_bits / (l1_elems + l2_elems)
 
-    assert result.per_module["l1"] < result.bpw < result.per_module["l2"]
+    assert result.per_module_map["l1"] < result.bpw < result.per_module_map["l2"]
 
 
 def test_per_module_counts_a_tied_weight_once():
     """A weight shared by several modules is charged only to the first one."""
-    per_module = bits_per_weight(SharedParamsModel()).per_module
+    per_module_map = bits_per_weight(SharedParamsModel()).per_module_map
 
-    assert per_module["shared_linear"] == _FP32_BITS
-    assert "layer1" not in per_module
-    assert "layer2" not in per_module
+    assert per_module_map["shared_linear"] == _FP32_BITS
+    assert "layer1" not in per_module_map
+    assert "layer2" not in per_module_map
     # Modules that own tensors of their own are unaffected.
-    assert per_module["input_layer"] == _FP32_BITS
-    assert per_module["output"] == _FP32_BITS
+    assert per_module_map["input_layer"] == _FP32_BITS
+    assert per_module_map["output"] == _FP32_BITS
