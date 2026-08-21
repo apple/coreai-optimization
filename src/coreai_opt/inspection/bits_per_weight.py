@@ -240,7 +240,7 @@ def _named_modules_excluding_compression_machinery(
         )
 
 
-def _find_weight_compressor(param_list: _ParametrizationList) -> _WeightCompressor | None:
+def _get_weight_compressor(param_list: _ParametrizationList) -> _WeightCompressor | None:
     """Return the weight-targeting compressor in a parametrization list, if any.
 
     Args:
