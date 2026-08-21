@@ -102,16 +102,31 @@ class GatedMLPModel(nn.Module):
     Inspired by the MLP block in Qwen3 and similar transformer architectures.
     """
 
-    def __init__(self, dim: int = 32, hidden_dim: int = 64, bias: bool = False) -> None:
+    def __init__(
+        self,
+        dim: int = 32,
+        hidden_dim: int = 64,
+        bias: bool = False,
+        extra_buffers: bool = False,
+        persistent_buffers: bool = True,
+    ) -> None:
         super().__init__()
         self.gate_proj = nn.Linear(dim, hidden_dim, bias=bias)
         self.up_proj = nn.Linear(dim, hidden_dim, bias=bias)
         self.down_proj = nn.Linear(hidden_dim, dim, bias=bias)
 
+        self.extra_buffers = extra_buffers
+        if extra_buffers:
+            self.register_buffer("proj", torch.randn(dim, dim), persistent=persistent_buffers)
+            self.register_buffer("shift", torch.randn(dim), persistent=persistent_buffers)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         up_tensor = self.up_proj(x)
         gate_tensor = nn.functional.silu(self.gate_proj(x))
-        return self.down_proj(up_tensor * gate_tensor)
+        out = self.down_proj(up_tensor * gate_tensor)
+        if self.extra_buffers:
+            out = torch.matmul(out, self.proj) + self.shift
+        return out
 
 
 @pytest.fixture

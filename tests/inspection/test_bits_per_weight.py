@@ -52,45 +52,6 @@ _MAX_EXPECTED_OVERHEAD_BPW = 2.0
 
 _EXAMPLE_INPUT = torch.rand(4, _IN_FEATURES)
 
-_BLOCK_SIZE = 32
-_PER_BLOCK_QPARAMS = _HIDDEN_FEATURES * (_IN_FEATURES // _BLOCK_SIZE) + _OUT_FEATURES * (
-    _HIDDEN_FEATURES // _BLOCK_SIZE
-)
-
-# (granularity, qparam blocks, qformulation).
-_QUANT_CASES = [
-    pytest.param(PerTensorGranularity(axis=None), 2, "zp", id="per_tensor_zp"),
-    pytest.param(PerTensorGranularity(axis=None), 2, "minval", id="per_tensor_minval"),
-    pytest.param(PerChannelGranularity(axis=0), _OUT_CHANNELS, "zp", id="per_channel_zp"),
-    pytest.param(PerChannelGranularity(axis=0), _OUT_CHANNELS, "minval", id="per_channel_minval"),
-    pytest.param(
-        PerBlockGranularity(axis=1, block_size=_BLOCK_SIZE),
-        _PER_BLOCK_QPARAMS,
-        "zp",
-        id="per_block_zp",
-    ),
-]
-
-_PALETT_GRANULARITIES = [
-    (PalettPerTensorGranularity(axis=None), 2),
-    (
-        PerGroupedChannelGranularity(axis=0, group_size=8),
-        _HIDDEN_FEATURES // 8 + _OUT_FEATURES // 8,
-    ),
-    (
-        PerGroupedChannelGranularity(axis=0, group_size=32),
-        _HIDDEN_FEATURES // 32 + _OUT_FEATURES // 32,
-    ),
-]
-
-_PALETT_CASES = [
-    pytest.param(n_bits, granularity, num_lut_blocks, id=f"n{n_bits}_{granularity_id}")
-    for n_bits in (1, 2, 4)
-    for (granularity, num_lut_blocks), granularity_id in zip(
-        _PALETT_GRANULARITIES, ("per_tensor", "group8", "group32"), strict=True
-    )
-] + [pytest.param(8, _PALETT_GRANULARITIES[0][0], _PALETT_GRANULARITIES[0][1], id="n8_per_tensor")]
-
 
 def _expected_elems(bias: bool) -> int:
     """Logical parameter elements: the dense weights, plus biases when present."""
@@ -181,7 +142,21 @@ def test_full_precision_bits_per_weight():
 @pytest.mark.parametrize("qscheme", ["symmetric", "asymmetric"])
 @pytest.mark.parametrize(
     ("granularity", "num_qparam_blocks", "qformulation"),
-    _QUANT_CASES,
+    [
+        pytest.param(PerTensorGranularity(axis=None), 2, "zp", id="per_tensor_zp"),
+        pytest.param(PerTensorGranularity(axis=None), 2, "minval", id="per_tensor_minval"),
+        pytest.param(PerChannelGranularity(axis=0), _OUT_CHANNELS, "zp", id="per_channel_zp"),
+        pytest.param(
+            PerChannelGranularity(axis=0), _OUT_CHANNELS, "minval", id="per_channel_minval"
+        ),
+        # One qparam block per 32 weights along the input-feature axis of each layer.
+        pytest.param(
+            PerBlockGranularity(axis=1, block_size=32),
+            _HIDDEN_FEATURES * (_IN_FEATURES // 32) + _OUT_FEATURES * (_HIDDEN_FEATURES // 32),
+            "zp",
+            id="per_block_zp",
+        ),
+    ],
 )
 @pytest.mark.parametrize(
     ("dtype", "n_bits"),
@@ -221,7 +196,30 @@ def test_eager_quant_matches_analytical(
 
 @pytest.mark.parametrize("bias", [False, True], ids=["no_bias", "bias"])
 @pytest.mark.parametrize("per_channel_scale", [False, True], ids=["no_pcs", "pcs"])
-@pytest.mark.parametrize(("n_bits", "granularity", "num_lut_blocks"), _PALETT_CASES)
+@pytest.mark.parametrize(
+    ("n_bits", "granularity", "num_lut_blocks"),
+    [
+        pytest.param(n_bits, granularity, num_lut_blocks, id=f"n{n_bits}_{granularity_id}")
+        for n_bits in (1, 2, 4)
+        for granularity, num_lut_blocks, granularity_id in (
+            (PalettPerTensorGranularity(axis=None), 2, "per_tensor"),
+            (
+                PerGroupedChannelGranularity(axis=0, group_size=8),
+                _HIDDEN_FEATURES // 8 + _OUT_FEATURES // 8,
+                "group8",
+            ),
+            (
+                PerGroupedChannelGranularity(axis=0, group_size=32),
+                _HIDDEN_FEATURES // 32 + _OUT_FEATURES // 32,
+                "group32",
+            ),
+        )
+    ]
+    # n_bits=8 only at per-tensor granularity. Its grouped variants carry more LUT than
+    # payload, so they break the sanity envelope and live in
+    # test_overhead_heavy_configs_exceed_bitwidth instead.
+    + [pytest.param(8, PalettPerTensorGranularity(axis=None), 2, id="n8_per_tensor")],
+)
 def test_palettized_matches_analytical(
     n_bits: int,
     granularity: object,
@@ -380,7 +378,7 @@ def test_non_persistent_buffer_counted():
     ("dtype", "granularity"),
     [
         (torch.float8_e4m3fn, PerChannelGranularity(axis=0)),
-        (torch.float4_e2m1fn_x2, PerBlockGranularity(axis=1, block_size=_BLOCK_SIZE)),
+        (torch.float4_e2m1fn_x2, PerBlockGranularity(axis=1, block_size=32)),
     ],
     ids=["fp8_per_channel", "fp4_per_block"],
 )

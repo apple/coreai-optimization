@@ -39,8 +39,16 @@ _MAX_COREAI_EXPORT_OVERHEAD = 0.025
 _MLP_DIM = 1024
 
 
-def _gated_mlp(bias: bool = False) -> nn.Module:
-    return GatedMLPModel(dim=_MLP_DIM, hidden_dim=_MLP_DIM, bias=bias)
+def _gated_mlp(
+    bias: bool = False, extra_buffers: bool = False, persistent_buffers: bool = True
+) -> nn.Module:
+    return GatedMLPModel(
+        dim=_MLP_DIM,
+        hidden_dim=_MLP_DIM,
+        bias=bias,
+        extra_buffers=extra_buffers,
+        persistent_buffers=persistent_buffers,
+    )
 
 
 def _mlp_input() -> torch.Tensor:
@@ -267,3 +275,12 @@ def test_mnist_quant_prediction_matches_export(
 ) -> None:
     """Real conv/BN/linear model, int8 and int4 per-channel weights."""
     _assert_quantized_matches_export(custom_test_mnist_model, mnist_example_input, dtype)
+
+
+@pytest.mark.parametrize("persistent", [True, False], ids=["persistent", "non_persistent"])
+def test_buffers_are_accounted_for_in_export(persistent: bool) -> None:
+    """Buffers ship at full precision even when the weights are compressed and
+    it reflects in BPW."""
+    _assert_quantized_matches_export(
+        _gated_mlp(extra_buffers=True, persistent_buffers=persistent), _mlp_input(), torch.int4
+    )
