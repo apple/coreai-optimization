@@ -57,6 +57,7 @@ Example:
 
 import math
 from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import torch
@@ -150,17 +151,7 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
     # is counted once
     seen_ids: set[int] = set()
 
-    # Compression-machinery subtrees to skip. named_modules() yields parents
-    # before children, so marking a machinery module skips all its descendants.
-    skip_prefixes: list[str] = []
-
-    for name, module in model.named_modules():
-        if any(name == prefix or name.startswith(prefix + ".") for prefix in skip_prefixes):
-            continue
-        if isinstance(module, (_CompressionSimulatorBase, _ParametrizationList)):
-            skip_prefixes.append(name)
-            continue
-
+    for name, module in _named_modules_excluding_compression_machinery(model):
         # Parametrized weights: count the dense original at its compressed cost.
         if _parametrize.is_parametrized(module):
             for tensor_name, param_list in module.parametrizations.items():
@@ -221,6 +212,32 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
         total_bits=total_bits,
         total_weights=total_weights,
     )
+
+
+def _named_modules_excluding_compression_machinery(
+    module: torch.nn.Module, name: str = ""
+) -> Iterator[tuple[str, torch.nn.Module]]:
+    """Yield ``(dotted_name, module)`` for every module that owns logical tensors.
+
+    Compression machinery owns no logical weights of its own, so a machinery
+    module and everything below it is left out by not descending into it.
+
+    Args:
+        module (torch.nn.Module): The subtree root to walk.
+        name (str): Dotted path of ``module`` from the model root
+
+    Yields:
+        tuple[str, torch.nn.Module]: Name and module, parents before children.
+    """
+    if isinstance(module, (_CompressionSimulatorBase, _ParametrizationList)):
+        return
+
+    yield name, module
+
+    for child_name, child in module.named_children():
+        yield from _named_modules_excluding_compression_machinery(
+            child, f"{name}.{child_name}" if name else child_name
+        )
 
 
 def _find_weight_compressor(param_list: _ParametrizationList) -> _WeightCompressor | None:
