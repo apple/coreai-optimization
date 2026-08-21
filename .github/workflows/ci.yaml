@@ -81,6 +81,41 @@ jobs:
       - name: Run `make test-tutorials`
         run: make test-tutorials
 
+  # Build the docs and fail on any error, mirroring the internal `docs-build-check`
+  # pipeline so a PR can't break the Sphinx build. `make test-docs` builds .venv-docs
+  # itself through use_env, so no separate env step is needed.
+  #
+  # The build shells out to mermaid-cli (headless Chrome) and pandoc on top of the
+  # usual venv sync, which is why this is the slowest of the Stage 1 jobs. Caching
+  # the puppeteer download is what keeps it off the critical path — with a warm
+  # cache scripts/ensure_mmdc_chrome.sh probes for the real binary and returns
+  # immediately.
+  docs:
+    name: Linux / make test-docs
+    # Pull requests only. This workflow also runs on push to main, where
+    # docs.yml already builds the same tree to publish it — running here too
+    # would build the docs twice per merge on two runners. Nothing in Stage 2
+    # needs this job, so skipping it on main gates nothing.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      INSTALL_PRECOMMIT: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+      - name: Cache headless Chrome for mermaid-cli
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('scripts/ensure_mmdc_chrome.sh') }}
+      - name: Run `make test-docs`
+        run: make test-docs
+
   # ── Stage 2: full test matrix, gated on Stage 1. ──
   macos-tests:
     name: macOS / make test-highest-pytorch / markers=not-slow

@@ -9,9 +9,14 @@
 # Ensure the `pandoc` binary is available, installing it if needed.
 #
 # nbsphinx shells out to `pandoc` to convert notebook markdown cells during the
-# docs build. On macOS it comes from Homebrew. On Linux the dnf/apt repos do
-# not ship pandoc, so we download the upstream static binary into /usr/local.
-# Override the version with the PANDOC_VERSION environment variable.
+# docs build. On macOS it comes from Homebrew. On Linux the dnf/apt repos do not
+# ship pandoc, so we download the upstream static binary into the repo's own
+# `.local/bin/` (gitignored) rather than a system prefix — CI runners and any
+# other unprivileged environment cannot write to /usr/local, and a docs build
+# should not need root. Override the version with PANDOC_VERSION.
+#
+# Prints nothing but diagnostics on stdout, so callers can capture the install
+# location from `pandoc_bin_dir` below if they need to extend PATH themselves.
 #
 # Usage: ensure_pandoc.sh
 
@@ -19,6 +24,17 @@ set -euo pipefail
 
 # shellcheck source=utils.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/utils.sh"
+
+# Repo-local install prefix. Resolved from this script's location rather than the
+# caller's working directory, so it lands in the same place wherever it runs from.
+_repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+pandoc_prefix="${PANDOC_PREFIX:-$_repo_root/.local}"
+pandoc_bin_dir="$pandoc_prefix/bin"
+
+# An install from a previous run is on disk but not necessarily on PATH.
+if [[ -x "$pandoc_bin_dir/pandoc" ]]; then
+    export PATH="$pandoc_bin_dir:$PATH"
+fi
 
 if command -v pandoc &>/dev/null; then
     echo "pandoc already installed: $(pandoc --version | head -n1)"
@@ -81,14 +97,28 @@ if ! echo "${expected_sha256}  ${tarball}" | (cd "$tmpdir" && sha256sum --check)
     exit 1
 fi
 
-echo "Extracting to /usr/local..."
-if ! tar xz --strip-components=1 -C /usr/local -f "${tmpdir}/${tarball}"; then
+echo "Extracting to ${pandoc_prefix}..."
+mkdir -p "$pandoc_prefix"
+# `--no-same-owner --no-same-permissions` because the upstream tarball records
+# root-owned entries with fixed modes; replaying those as an unprivileged user is
+# what made extraction into a system prefix fail.
+#
+# The whole archive is extracted, not just bin/. Selecting a subset would need a
+# glob, and the two tars disagree about those: GNU tar ignores patterns unless
+# given --wildcards, while BSD tar rejects that flag outright. Extracting
+# everything sidesteps the incompatibility, and the extra man pages are harmless
+# in a prefix we own.
+if ! tar xz --strip-components=1 --no-same-owner --no-same-permissions \
+    -C "$pandoc_prefix" -f "${tmpdir}/${tarball}"; then
     echo "Error: failed to extract ${tarball}." >&2
     exit 1
 fi
+
+export PATH="$pandoc_bin_dir:$PATH"
 
 if ! command -v pandoc &>/dev/null; then
     echo "Error: pandoc installation failed. Please install pandoc manually." >&2
     exit 1
 fi
 echo "pandoc installed successfully: $(pandoc --version | head -n1)"
+echo "Installed to ${pandoc_bin_dir} — add it to PATH to use pandoc directly."

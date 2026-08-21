@@ -1,0 +1,193 @@
+name: Docs
+
+run-name: >-
+  ${{ github.event_name == 'release'
+  && format('Docs · publish {0} · @{1}', github.ref_name, github.actor)
+  || format('Docs · publish main · @{0}', github.actor) }}
+
+# Publishes versioned Sphinx documentation to GitHub Pages.
+#
+# The site holds one independent Sphinx build per version, so publishing one never
+# rebuilds or disturbs another:
+#
+#   /            redirects to main/
+#   /main/       rebuilt on every push to main
+#   /vX.Y.Z/     built once, when the GitHub Release for that tag is published
+#
+# The `gh-pages` branch is the durable copy of the assembled site; Pages itself is
+# served from an Actions artifact (Settings -> Pages -> Source -> GitHub Actions),
+# not from the branch. Those are separate on purpose: a push made with
+# GITHUB_TOKEN does not trigger a branch-source Pages build, so a branch-served
+# site would silently go stale. Keeping the branch as state and deploying through
+# the Pages API gets both a full history of the published site and a reliable
+# deploy.
+#
+# Because each run assembles the whole site from that branch and `deploy-pages`
+# replaces everything it is given, docs/scripts/assemble_versioned_site.py refuses
+# to publish a tree that lost a version rather than taking previously published
+# docs offline.
+on:
+  push:
+    branches: [main]
+  # `published` rather than `created` so a release promoted out of draft still
+  # publishes its docs. This fires independently of release.yml's `v*` tag-push
+  # trigger, so docs for a new version can go live while the PyPI publish is still
+  # waiting on the `pypi` environment's manual approval — accepted, since the docs
+  # describe the tagged source either way, and a rejected release is re-cut.
+  release:
+    types: [published]
+  # Manual re-publish, e.g. after fixing the site shell. Builds whatever ref it is
+  # dispatched from and publishes it as `main`, so it cannot be used to overwrite a
+  # release's frozen docs.
+  workflow_dispatch:
+
+# Least privilege by default; each job opts into exactly what it needs.
+permissions:
+  contents: read
+
+concurrency:
+  # One global group, deliberately NOT keyed on github.ref: every run rewrites the
+  # same gh-pages branch and the same Pages deployment, so two publishes on
+  # different refs would race over shared state rather than run in parallel.
+  group: docs-publish
+  # Never interrupt a publish — a cancelled run can leave gh-pages half written.
+  cancel-in-progress: false
+
+jobs:
+  # ── Build the doc set for this ref and assemble the full site tree. ──
+  build:
+    name: Build and assemble site
+    # Skip pre-releases: they are not the current docs for any version, and
+    # v0.2.0 shipped with prerelease=true, so this is a real case.
+    if: github.event_name != 'release' || github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write # push the assembled site to gh-pages
+    env:
+      INSTALL_PRECOMMIT: "false"
+      # Both assembler invocations share these. Passed through the environment
+      # rather than interpolated into each `run:` string so the values never
+      # become part of the shell command text.
+      ASSEMBLER: source/docs/scripts/assemble_versioned_site.py
+      SITE_DIR: site
+      HTML_DIR: source/docs/build/html
+      URL_PREFIX: /${{ github.event.repository.name }}
+    steps:
+      # No `ref:` — the default is the ref that triggered the run, which is
+      # already what we want: `main` for a push, refs/tags/vX.Y.Z for a release.
+      - name: Check out the source to build
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          path: source
+          persist-credentials: false
+
+      - name: Check out the published site
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: gh-pages
+          path: site
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+
+      - name: Cache headless Chrome for mermaid-cli
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('source/scripts/ensure_mmdc_chrome.sh') }}
+
+      - name: Resolve the version being published
+        id: version
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
+            echo "name=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "name=main" >> "${GITHUB_OUTPUT}"
+          fi
+
+      # The dropdown is rendered into every page at build time, so the version
+      # list has to be known before Sphinx runs. `plan` reports the site as it
+      # will look *after* this publish, including the version being built.
+      - name: Plan the version list
+        id: plan
+        env:
+          DOCS_VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          versions="$(python3 "$ASSEMBLER" --site "$SITE_DIR" --version "$DOCS_VERSION" \
+            --url-prefix "$URL_PREFIX" plan)"
+          echo "Publishing with versions: ${versions}"
+          echo "versions=${versions}" >> "${GITHUB_OUTPUT}"
+
+      # `make docs` rather than sphinx-build: the target owns the mermaid-cli,
+      # headless Chrome, pandoc and .venv-docs setup, and its DOCS_DIR indirection
+      # is what keeps this build identical to the internal one. Calling Sphinx
+      # directly would let the two drift apart silently.
+      - name: Build the documentation
+        working-directory: source
+        env:
+          DOCS_VERSION: ${{ steps.version.outputs.name }}
+          DOCS_VERSIONS: ${{ steps.plan.outputs.versions }}
+        run: make docs
+
+      - name: Assemble the site
+        env:
+          DOCS_VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          python3 "$ASSEMBLER" --site "$SITE_DIR" --version "$DOCS_VERSION" \
+            --url-prefix "$URL_PREFIX" assemble --html "$HTML_DIR"
+
+      - name: Commit the assembled site to gh-pages
+        working-directory: site
+        env:
+          DOCS_VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Site unchanged; nothing to commit."
+            exit 0
+          fi
+          git commit -m "docs: publish ${DOCS_VERSION}"
+          # Retry once against a concurrent publish. The concurrency group above
+          # makes this near-impossible, so a second failure is a real problem and
+          # should fail the run rather than be papered over.
+          git push origin HEAD:gh-pages || {
+            git pull --rebase origin gh-pages
+            git push origin HEAD:gh-pages
+          }
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          # Uploads the gh-pages checkout directly. The action's tar step always
+          # passes `--exclude=.git --exclude=.github`, so the checkout's own git
+          # directory is dropped without staging a copy of the site first.
+          path: site
+          # Required, and not the default: the action otherwise tars with
+          # `--exclude=.[^/]*`, which would drop every .nojekyll and let Jekyll
+          # strip the _static and _images directories from the published site.
+          include-hidden-files: true
+
+  # ── Deploy the artifact. The only job holding Pages credentials. ──
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write # create the Pages deployment
+      id-token: write # mint the OIDC token deploy-pages exchanges for it
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

@@ -1,0 +1,59 @@
+{#-
+  Copyright 2026 Apple Inc.
+
+  Use of this source code is governed by a BSD-3-Clause license that can
+  be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
+-#}
+
+
+{#-
+  Override of shibuya/components/nav-versions.html.
+
+  Same contract as the stock template — renders from the `versions` (list of
+  [label, href] pairs) and `current_version` values conf.py puts in html_context,
+  and renders nothing at all when `versions` is unset, so a local `make docs`
+  without DOCS_VERSIONS is unaffected.
+
+  Differs in two ways:
+
+  * Click to open, not hover. The stock template relies on `:hover` alone, which
+    gives no keyboard or touch affordance and pops open in passing. This uses an
+    aria-expanded button driven by _static/version-switcher.js, matching the
+    Copy page menu on the article.
+  * `aria-current` marks the entry the reader is on, so the active version is
+    identifiable without comparing it to the button text.
+
+  The wrapper keeps the theme's `.nav-versions` / `.nav-versions-choices` class
+  names so shibuya's own dropdown styling still applies; custom.css adjusts what
+  the relocation into the brand cluster needs.
+-#}
+
+{%- if versions -%}
+<div class="nav-versions" id="version-picker">
+  <button
+    class="js-version-menu"
+    type="button"
+    aria-label="{{ _('Select documentation version') }}"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    aria-controls="version-picker-choices"
+  >
+    {#- `milestone` is shibuya's own bundled Lucide icon (a signpost), so it needs
+        no new asset and matches the stroke weight of the theme's other icons. -#}
+    <i class="i-lucide milestone" aria-hidden="true"></i>
+    <span>{{ current_version }}</span>
+    <i class="i-lucide chevron-down" aria-hidden="true"></i>
+  </button>
+  <div class="nav-versions-choices" id="version-picker-choices" role="menu" aria-orientation="vertical">
+    <ul>
+      {%- for version in versions -%}
+        <li>
+          <a role="menuitem" href="{{ version[1] }}"
+            {%- if version[0] == current_version %} aria-current="true"{% endif -%}
+          >{{ version[0] }}</a>
+        </li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</div>
+{%- endif -%}

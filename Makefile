@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-.PHONY: _maybe_patch_pyproject all api-list build build-dev check clean distclean distclean-all docs docs-clean docs-open env env-all env-docs env-highest-torch env-lowest-torch env-tutorial render-api-index set-auto-venv test test-cov test-fast test-highest-pytorch test-lowest-pytorch test-slow test-smoke test-tutorials version version-dev
+.PHONY: _maybe_patch_pyproject all api-list build build-dev check clean distclean distclean-all docs docs-clean docs-open docs-open-multiversions env env-all env-docs env-highest-torch env-lowest-torch env-tutorial render-api-index set-auto-venv test test-cov test-docs test-fast test-highest-pytorch test-lowest-pytorch test-slow test-smoke test-tutorials version version-dev
 
 SHELL := /bin/bash
 
@@ -30,6 +30,20 @@ SCRIPTS := $(MAKEFILE_DIR)scripts
 # subshell (uv run inherits it); tests get the same paths from pytest's `pythonpath`
 # ini option. In the OSS mirror the second entry is just the repo root ($(CURDIR)/./).
 export PYTHONPATH := $(CURDIR):$(CURDIR)/$(MAKEFILE_DIR)
+
+# Repo-local install prefix for tools that aren't pip- or npm-installable and
+# would otherwise need a system prefix. `scripts/ensure_pandoc.sh` downloads the
+# upstream pandoc binary here on Linux, since CI runners and other unprivileged
+# environments can't write to /usr/local and a docs build shouldn't need root.
+#
+# Exported (like PYTHONPATH above) so every recipe subshell inherits it: the
+# `docs` target ensures pandoc in one recipe line and runs sphinx-build in
+# another, so a PATH exported inside the ensure script would be gone by the time
+# nbsphinx shells out to pandoc. Prepended, so a repo-local copy takes precedence
+# over a system one — which only matters when both exist, since the ensure
+# scripts download nothing when the binary is already on PATH.
+LOCAL_BIN := $(CURDIR)/$(MAKEFILE_DIR).local/bin
+export PATH := $(LOCAL_BIN):$(PATH)
 
 # Tell coreai's runtime to skip the symbol-version check against the host's
 # installed /System/Library/Frameworks/CoreAI.framework. Required when the
@@ -325,6 +339,22 @@ test-highest-pytorch:
 	$(RUN_TESTS) $(PYTEST_ARGS) && \
 	echo "All tests passed!"
 
+# Run docs tests only: builds the site with `make docs` and checks the output
+# (index.html, llms.txt, mermaid SVGs) plus API-reference coverage. Excludes the
+# tutorial notebook tests, which need the tutorial env — see test-tutorials.
+# This is the target CI runs as the PR docs gate.
+#
+# The internal Makefile currently defines its own `test-docs` after including this
+# file, which shadows this recipe (Make prints an "overriding commands" warning and
+# keeps the later definition). The two are equivalent once $(DOCS_DIR) expands, so
+# nothing breaks today, but the internal copy should be deleted so this one is the
+# single definition — the same arrangement `docs` and `test-tutorials` already use.
+test-docs:
+	@$(call use_env,VENV_DOCS,--with-docs) && \
+	echo "Running docs tests..." && \
+	uv run --no-sync --active pytest -s $(DOCS_DIR)/tests/ --ignore=$(DOCS_DIR)/tests/test_tutorials.py && \
+	echo "All docs tests passed!"
+
 # Run tutorial notebook tests
 test-tutorials:
 	@$(call use_env,VENV_TUTORIAL,--with-tutorial --with-test) && \
@@ -417,5 +447,52 @@ render-api-index:
 # Build and open documentation in browser
 # Uses --serve so the docs are loaded over HTTP, not file:// — required for
 # the Copy page button (and any other feature using fetch()/clipboard APIs).
+#
+# Opens a single doc set with no version picker, which is what a local build
+# produces: DOCS_VERSION/DOCS_VERSIONS are unset, so conf.py skips html_context
+# and the theme renders no dropdown. For the published multi-version layout, see
+# docs-open-multiversions.
 docs-open: docs
 	@$(DOCS_DIR)/scripts/open_in_browser.py --serve $(DOCS_DIR)/build/html/index.html
+
+# Build the docs and open them inside a local copy of the published site layout.
+#
+# `docs-open` serves the doc set itself as the web root, but the real site nests
+# each version one level down (/main/, /v0.2.1/) with a redirect and versions.json
+# at the root. So the version picker, the root redirect, and the switcher script's
+# versions.json fetch cannot be exercised by `docs-open` at all — its dropdown
+# links would resolve above the server root and 404. This target assembles the
+# same tree the docs workflow publishes and serves that instead.
+#
+# Each version is built from its real source, using the current tree's tooling.
+# A tag contributes source only — its docstrings, prose, and notebooks are staged
+# under .local/docs/<version>/ and built with this conf.py, these docs/scripts/,
+# and this docs environment. Nothing about the build comes from the tag, so a tag
+# cut before versioned docs existed still renders with the version picker and
+# labels itself correctly.
+#
+# Tags without a docs/src + src/coreai_opt to build from are skipped.
+#
+#   make docs-open-multiversions                            # main only
+#   make docs-open-multiversions TAGS="v0.2.1 v0.3.0"       # main + those tags
+#   make docs-open-multiversions ALL_TAGS=1                 # main + every vX.Y.Z tag
+#
+# Tags must be present locally; run `git fetch --tags origin` first.
+TAGS ?=
+ALL_TAGS ?=
+PREVIEW_SITE = $(DOCS_DIR)/build/site
+docs-open-multiversions:
+	@echo ""
+	@echo "════════════════════════════════════════════════════════════════════"
+	@echo "▶ Building a local preview of the published multi-version site"
+	@echo "════════════════════════════════════════════════════════════════════"
+	@rm -rf $(PREVIEW_SITE)
+	@$(MAKEFILE_DIR)docs/scripts/build_versioned_preview.sh \
+		--site $(PREVIEW_SITE) \
+		$(if $(TAGS),--tags "$(TAGS)",) \
+		$(if $(ALL_TAGS),--all-tags,)
+	@echo ""
+	@echo "════════════════════════════════════════════════════════════════════"
+	@echo "Serving $(PREVIEW_SITE) — the root redirect lands on /main/"
+	@echo "════════════════════════════════════════════════════════════════════"
+	@$(DOCS_DIR)/scripts/open_in_browser.py --serve $(PREVIEW_SITE)/index.html

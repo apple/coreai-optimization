@@ -13,6 +13,8 @@
 import enum
 import functools
 import inspect
+import json
+import os
 import pydoc
 import re
 import sys
@@ -46,15 +48,22 @@ else:
     raise RuntimeError(msg)
 sys.path.insert(0, str(coreai_opt_root))
 
+from scripts.assemble_versioned_site import version_label  # noqa: E402
 from scripts.generate_api_index import generate_api_index  # noqa: E402
 
 # -- Project information -----------------------------------------------------
 
 project = "CoreAI-Opt"
-version = "main"
 project_copyright = "2026, Apple, Inc. All rights reserved"
 author = "Apple CoreAI-Opt Team"
-release = "main"
+
+# Version label this build is published under. The docs workflow sets DOCS_VERSION
+# to "main" (built from the main branch) or "vX.Y.Z" (built from a release tag);
+# each lands in its own directory on the published site. A local `make docs` leaves
+# it unset and reads as "main", which is what this file hardcoded previously.
+docs_version = os.environ.get("DOCS_VERSION", "main")
+version = docs_version
+release = docs_version
 
 # -- General configuration ---------------------------------------------------
 
@@ -168,6 +177,18 @@ myst_fence_as_directive = ["mermaid"]
 mermaid_output_format = "svg"
 mermaid_cmd = "mmdc"
 
+# mmdc drives headless Chrome through Puppeteer, and Chrome's own sandbox needs
+# unprivileged user namespaces — which Ubuntu 23.10+ restricts via AppArmor, and
+# containers commonly disallow. Without this, every diagram fails to render with
+# "No usable sandbox!" and the build still *succeeds*, silently falling back to
+# client-side rendering from a CDN. Disabling Chrome's sandbox is safe here
+# because the only input is diagram source from this repo, and the whole thing
+# already runs inside the CI sandbox.
+#
+# `--disable-dev-shm-usage` covers the other common container failure: a small
+# /dev/shm makes Chrome crash partway through rendering instead of at launch.
+mermaid_params = ["--puppeteerConfigFile", str(_docs_dir / "scripts" / "puppeteer-config.json")]
+
 myst_heading_anchors = 4
 
 # -- nbsphinx configuration -------------------------------------------------
@@ -215,7 +236,10 @@ html_static_path = ["_static"]
 # mid-word. See _static/sidebar-wrap.js.
 # copy-page-button.js is the runtime companion for the copy-page-button
 # template override at _templates/components/copy-page-button.html.
-html_js_files = ["sidebar-wrap.js", "copy-page-button.js"]
+# version-switcher.js drives the version picker: opens the menu, refreshes it
+# from versions.json so an already-published doc set lists releases cut after it,
+# and shows a banner when the reader is on a superseded version.
+html_js_files = ["sidebar-wrap.js", "copy-page-button.js", "version-switcher.js"]
 
 # Theme options
 html_theme_options = {
@@ -234,6 +258,36 @@ html_theme_options = {
         },
     ],
 }
+
+# -- Version switcher --------------------------------------------------------
+#
+# Shibuya ships a version dropdown at theme/shibuya/components/nav-versions.html
+# keyed off two template variables the theme never sets itself: `versions` (a list
+# of [label, href] pairs) and `current_version`. Sphinx copies html_context into
+# the template globals, so populating it here is all the picker needs.
+#
+# Both that component and partials/site-head.html are overridden in _templates/:
+# the picker sits next to the project name rather than out among the page controls,
+# and opens on click instead of hover. Styling is in _static/custom.css and the
+# behaviour in _static/version-switcher.js.
+#
+# The docs workflow passes DOCS_VERSIONS as JSON. The override keeps the theme's
+# `{% if versions %}` guard, so a local `make docs` with the variable unset renders
+# no picker at all rather than a broken or single-entry one.
+#
+# hrefs must be absolute from the site root (e.g. /coreai-optimization/main/):
+# a relative "../main/" would resolve against the current page's directory, so it
+# would break on any nested page.
+#
+# `current_version` comes from the same version_label() the workflow used to build
+# the list, so the button text can't drift from the entry it corresponds to —
+# shibuya renders the two from separate template variables and would not complain.
+_docs_versions = os.environ.get("DOCS_VERSIONS", "")
+if _docs_versions:
+    html_context = {
+        "versions": json.loads(_docs_versions),
+        "current_version": version_label(docs_version),
+    }
 
 html_show_sourcelink = False
 
@@ -424,9 +478,13 @@ def setup(app: Sphinx) -> None:
     app.connect("autodoc-skip-member", _autodoc_skip_member)
 
     # Generate api/index.md from the package tree before Sphinx reads sources.
+    # _write_if_changed, not write_text: this file is committed (and guarded by the
+    # check-api-doc-coverage pre-commit hook), so an unconditional rewrite would
+    # touch its mtime on every build and leave the file looking modified to git's
+    # stat cache even when its contents are unchanged.
     api_index = Path(__file__).parent / "api" / "index.md"
     api_index.parent.mkdir(parents=True, exist_ok=True)
-    api_index.write_text(generate_api_index())
+    _write_if_changed(api_index, generate_api_index())
 
     # Auto-generate preset stubs at their user-facing usage paths. Must run
     # after api/index.md exists (discovery reads it) and before Sphinx reads

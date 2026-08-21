@@ -336,6 +336,29 @@ repos:
 
   - repo: local
     hooks:
+      - id: check-api-doc-coverage
+        name: Check API doc coverage
+        description: |
+          Ensure the committed docs/src/api/index.md matches what
+          docs/scripts/generate_api_index.py produces from the package tree, so a
+          new or renamed public symbol can't ship undocumented. Verify-only: it
+          reports the drift but does not edit the file — run
+          `make render-api-index`, then stage the result. Triggers on the inputs
+          the generator reads plus the generated file itself. Runs only the
+          coverage test; the heavier autodoc-filter test in the same module runs
+          under `make test-docs`.
+        entry: env USE_LOCAL_COREAI=1 uv run --no-sync --active pytest -s docs/tests/test_api_doc_coverage.py::test_api_doc_coverage
+        language: system
+        pass_filenames: false
+        files: |
+          (?x)^(
+            src/coreai_opt/.*\.py|
+            docs/src/api/index\.md|
+            docs/scripts/generate_api_index\.py
+          )$
+
+  - repo: local
+    hooks:
       - id: towncrier-check
         name: Check changelog fragments (towncrier)
         entry: scripts/pre_commit/towncrier_check.sh
