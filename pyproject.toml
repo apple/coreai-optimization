@@ -57,7 +57,7 @@ name = "Apple Core AI Optimization Team"
 [project.optional-dependencies]
 coreai = [
     "coreai-core==1.0.0b2",
-    "coreai-torch==0.4.1",
+    "coreai-torch==0.4.2",
     "scikit-learn>=1.7.2",
 ]
 coreml = [
