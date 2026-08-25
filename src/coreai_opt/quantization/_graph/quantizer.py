@@ -75,15 +75,18 @@ from ._annotation_pattern_registry import (
 )
 from ._annotation_utils import (
     _get_input_qspec_map,
-    adjust_output_qspec_for_qscheme_and_propagate,
     annotate_module_level_specs,
-    is_node_annotated,
 )
 from ._conv_bn_utils import fold_conv_bn_weights, remove_conv_bn_zeros_like_dtype
 from ._prepare_for_export import (
     _move_cache_dequant_to_output,
     prepare_for_mil_export,
     prepare_for_mlir_export,
+)
+from ._qspec_reconcile import (
+    _AnnotationContext,
+    _nodes_covered_by,
+    annotate_via_reconciliation,
 )
 from ._utils import (
     force_per_tensor_for_channel_altering_ops,
@@ -200,6 +203,13 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         self._module_name_to_state_names_map = module_name_to_state_names_map
         self._extra_patterns: list[type] = list(extra_patterns or [])
         self._kv_cache_quant_configs = kv_cache_quant_configs or {}
+        # Populated by annotate(): maps each annotated node to the priority
+        # (lower = higher precedence) its winning config carried during
+        # annotation ordering. Exposed via the _node_priorities property so
+        # GraphQuantizer can later resolve a shared FQ module's owning module
+        # using the same priority that decided its DTYPE field (see
+        # GraphQuantizer._get_fake_quantize_modules).
+        self._priority_by_node: dict[torch.fx.Node, int] = {}
 
         # Build reverse map: alias → canonical for O(1) lookup during node matching.
         self._alias_to_canonical: dict[str, str] = {
@@ -208,26 +218,42 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             for alias in aliases
         }
 
+    @property
+    def _node_priorities(self) -> dict[torch.fx.Node, int]:
+        """A copy of the node-priority map, safe for callers to hold onto.
+
+        Returning a copy rather than ``self._priority_by_node`` directly keeps
+        a caller's reference (e.g. ``GraphQuantizer``) from aliasing this
+        instance's internal, mutable state.
+        """
+        return dict(self._priority_by_node)
+
     def _all_patterns(self) -> list[type]:
         """Globally-registered patterns plus per-instance ``extra_patterns``."""
         return list(_AnnotationPatternRegistry.list_registry_values()) + self._extra_patterns
 
-    def _get_shared_observer_nodes(self, model: torch.fx.GraphModule) -> set[torch.fx.Node]:
-        """
-        Return a set of all shared observer nodes in the model.
+    def _get_shared_observer_nodes(
+        self, model: torch.fx.GraphModule
+    ) -> dict[torch.fx.Node, type[SharedObserverModulePattern]]:
+        """Return every shared-observer node in the model, mapped to the
+        pattern class that matched it.
+
+        The pattern class is what owns the node's qspec-sharing semantics
+        (via :meth:`SharedObserverModulePattern.generate_qspec_sharing_constraints`).
+        Callers that only need the node set can take ``.keys()``.
         """
         shared_observer_annotators = [
             a_class
             for a_class in self._all_patterns()
             if issubclass(a_class, SharedObserverModulePattern)
         ]
-        shared_observer_nodes = set()
+        shared_observer_nodes: dict[torch.fx.Node, type[SharedObserverModulePattern]] = {}
         for annotator in shared_observer_annotators:
             node_to_annotator_and_match_dict = annotator._match_all_patterns(model)
-
-            # We only care about the nodes
             for node in node_to_annotator_and_match_dict:
-                shared_observer_nodes.add(node)
+                # First match wins if multiple patterns claim the same node —
+                # deterministic given registry iteration order.
+                shared_observer_nodes.setdefault(node, annotator)
         return shared_observer_nodes
 
     def annotate(self, model: torch.fx.GraphModule) -> torch.fx.GraphModule:
@@ -247,39 +273,68 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         if not isinstance(model, torch.fx.GraphModule):
             raise TypeError("Model must be a torch.fx.GraphModule")
 
-        # Matching phase - apply all annotators to model
+        # Match all annotator patterns.
         node_to_annotator_match_info_dict = self._match_all_annotators(model)
 
-        # Sorting phase - sort all matches in the order to try annotating in
+        # Sort matches into priority order (config-level > pattern-length > topo).
+        # Used to pick each node's winning config when multiple matches touch it.
         sorted_nodes_with_annotation_match_info = self._sort_nodes_in_annotation_order(
             model, node_to_annotator_match_info_dict
         )
 
-        # Annotation phase - go through sorted nodes with matches list to annotate
-        shared_observer_nodes = self._get_shared_observer_nodes(model)
-        # Build pass-invariant context once; shared by all annotator invocations.
+        # Winning config per node + priority + pattern group. Pattern-match
+        # dicts key on a single primary node but annotate every covered node
+        # (Conv+Sigmoid annotates both conv and sigmoid); expand the coverage
+        # so every covered node has (config, priority, pattern_group) for
+        # its slots. Priority = position in the sorted list (lower = higher
+        # priority); used by reconcile() to break dtype ties within a
+        # shared-observer group. self._priority_by_node is populated here
+        # directly (rather than via a local dict copied in afterward) so it's
+        # always in sync with what this annotate() call actually decided.
+        winning_configs: dict[torch.fx.Node, Any] = {}
+        self._priority_by_node = {}
+        pattern_groups: dict[torch.fx.Node, frozenset[torch.fx.Node]] = {}
+        primary_nodes: set[torch.fx.Node] = set()
+        for priority, (primary_node, cfg, match_info) in enumerate(
+            sorted_nodes_with_annotation_match_info
+        ):
+            covered = frozenset(_nodes_covered_by(match_info))
+            for covered_node in covered:
+                if covered_node in winning_configs:
+                    continue  # first (highest-priority) pattern wins
+                winning_configs[covered_node] = cfg
+                self._priority_by_node[covered_node] = priority
+                pattern_groups[covered_node] = covered
+                if covered_node is primary_node:
+                    primary_nodes.add(covered_node)
+
+        shared_observer_node_to_pattern = self._get_shared_observer_nodes(model)
+        # Build pass-invariant AnnotationContext once; still needed for the
+        # kv-cache-override pass below, which reuses the standard annotator
+        # helpers (``_get_input_qspec_map``) to compute its overrides.
         context = AnnotationContext(
             module_name_to_state_names_map=self._module_name_to_state_names_map,
-            shared_observer_nodes=shared_observer_nodes,
         )
-        for node, config, annotator_match_info in sorted_nodes_with_annotation_match_info:
-            if is_node_annotated(node):
-                continue
-            annotation_config = AnnotationConfig.from_quantizer_config(config)
-            annotator_match_info.annotator_func(
-                annotator_match_info.annotator_match,
-                annotation_config,
-                context,
-            )
 
+        # Reconciliation pipeline: every config, op-intrinsic and structural
+        # demand on a tensor becomes a constraint, and a fixed-point loop
+        # settles them. See docs/architecture_notes/graph_annotation.md.
+        ctx = _AnnotationContext(
+            winning_configs=winning_configs,
+            node_priorities=self._priority_by_node,
+            pattern_groups=pattern_groups,
+            primary_nodes=primary_nodes,
+            shared_observer_nodes=shared_observer_node_to_pattern,
+            module_name_to_state_names_map=self._module_name_to_state_names_map,
+        )
+        annotate_via_reconciliation(model, ctx)
+
+        # Module-level input/output/state overrides. TODO: express these as
+        # ordinary constraints so they participate in reconciliation; as a
+        # post-pass they overwrite reconciled specs on module-boundary nodes.
         annotate_module_level_specs(
             self._module_configs, self._module_name_to_state_names_map, model
         )
-
-        # Post-annotation graph pass to go through the model and adjust any qspecs which
-        # are following always affine or fixed range nodes.
-        for node in model.graph.nodes:
-            adjust_output_qspec_for_qscheme_and_propagate(node, shared_observer_nodes)
 
         # Force-apply each cache spec last so it wins over any module-scope
         # annotation that may have claimed the cache op via a wildcard. Cache
@@ -650,6 +705,10 @@ class GraphQuantizer(_BaseQuantizer):
 
         self._validate_config(config)
         super().__init__(model, config)
+        # Set by prepare() from the annotation handler's node priorities; used
+        # by _get_fake_quantize_modules() to resolve a shared FQ module's
+        # owner. Empty until prepare() has run.
+        self._node_priorities: dict[torch.fx.Node, int] = {}
 
     @staticmethod
     def _fill_input_output_specs_to_check_for_module_config(
@@ -983,6 +1042,11 @@ class GraphQuantizer(_BaseQuantizer):
         if torchao_requires_empty_kwargs:
             restore_kwargs(prepared_model.graph, saved_kwargs)
 
+        # Carry over the node priorities computed during annotation so
+        # _get_fake_quantize_modules can later resolve a shared FQ module's
+        # owner using the same priority that decided its DTYPE field.
+        self._node_priorities = quantizer._node_priorities
+
         # Apply post-processing fixes to the prepared model
         self._postprocess_prepared_model(prepared_model)
 
@@ -1249,8 +1313,16 @@ class GraphQuantizer(_BaseQuantizer):
 
         Walks the FX graph to find FQ ``call_module`` nodes and resolves
         each one back to the original (pre-``torch.export``) module name
-        via the ``nn_module_stack`` metadata on the FQ node's consumer
-        nodes.
+        via the ``nn_module_stack`` metadata on the FQ node's neighbor
+        (consumer or producer) nodes.
+
+        When an FQ module is shared by several modules (a tied weight, or a
+        shared activation observer), the neighbors are ranked by
+        ``self._node_priorities`` — the same per-node priority that decided
+        the shared tensor's DTYPE field during annotation (see
+        ``_AnnotationHandler.annotate``) — so the resolved owner matches the
+        module whose config actually won for that tensor, rather than
+        whichever consumer happens to appear first in graph order.
 
         Returns:
             Dict mapping original module name to the list of FQ module
@@ -1259,6 +1331,8 @@ class GraphQuantizer(_BaseQuantizer):
         model = self._model
         modules = dict(model.named_modules(remove_duplicate=False))
         mapping: dict[str, list[FakeQuantizeImplBase]] = defaultdict(list)
+        node_priorities = self._node_priorities
+        unranked = len(node_priorities)
 
         for node in model.graph.nodes:
             if node.op != "call_module":
@@ -1266,11 +1340,18 @@ class GraphQuantizer(_BaseQuantizer):
             fq_mod = modules.get(node.target)
             if not isinstance(fq_mod, FakeQuantizeImplBase):
                 continue
-            # Resolve source module from the FQ node's consumer (user) nodes.
-            # Fall back to producer (arg) nodes if no consumer has nn_module_stack
-            # (e.g. when the FQ feeds directly into the graph output node).
+            # Rank neighbors by annotation priority (lower = higher precedence);
+            # neighbors with no recorded priority sort last but are still tried,
+            # preserving the original users-then-args fallback order among them.
+            neighbors = list(node.users) + list(node.args)
+            ranked_neighbors = sorted(
+                neighbors,
+                key=lambda n: (
+                    node_priorities.get(n, unranked) if isinstance(n, torch.fx.Node) else unranked
+                ),
+            )
             source = None
-            for neighbor in list(node.users) + list(node.args):
+            for neighbor in ranked_neighbors:
                 source = get_source_module_name(neighbor)
                 if source is not None:
                     break

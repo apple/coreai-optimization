@@ -39,7 +39,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "pyyaml>=6.0",
     "rich>=13.0.0",
-    "safetensors>=0.5.3,<=0.7.0",
+    "safetensors>=0.5.3",
     # Required at runtime by torch.utils.cpp_extension
     "setuptools>=42",
     # PyTorch >= 2.9.0 requires torchao >= 0.15.0
@@ -170,13 +170,13 @@ tutorial = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-[tool.setuptools.dynamic]
-version = { attr = "coreai_opt._about.__version__" }
-[tool.setuptools.package-data]
-coreai_opt = [ "deps/_kmeans1d/_core.cpp", "deps/_kmeans1d/LICENSE", "py.typed" ]
 [tool.setuptools.packages]
 find.exclude = [ "coreai_opt_benchmarking*", "tests*" ]
 find.where = [ "src" ]
+[tool.setuptools.package-data]
+coreai_opt = [ "deps/_kmeans1d/_core.cpp", "deps/_kmeans1d/LICENSE", "py.typed" ]
+[tool.setuptools.dynamic]
+version = { attr = "coreai_opt._about.__version__" }
 
 # make env group installed by default with uv sync
 [tool.uv]
