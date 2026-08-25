@@ -22,8 +22,8 @@ from coreai_opt.palettization.spec.errors import (
 )
 from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 from coreai_opt.palettization.spec.training_strategy import (
-    DefaultTrainingConfig,
-    TrainingStrategyConfig,
+    DefaultTrainingSpec,
+    TrainingStrategySpec,
 )
 from coreai_opt.quantization.spec import (
     PerChannelGranularity as _QuantPerChannelGranularity,
@@ -81,7 +81,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         enable_fast_kmeans_mode: bool = True,
         rounding_precision: int = 4,
         op_to_optimize: Callable | None = None,
-        training_strategy_config: TrainingStrategyConfig | None = None,
+        training_strategy_spec: TrainingStrategySpec | None = None,
     ):
         super().__init__(
             n_bits=n_bits,
@@ -136,10 +136,10 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         self._centroids_initialized: bool = False
         self._indices_stale: bool = True
 
-        # Resolve and construct the training strategy from its paired config.
-        if training_strategy_config is None:
-            training_strategy_config = DefaultTrainingConfig()
-        self._training_strategy = training_strategy_config.build_strategy()
+        # Resolve and construct the training strategy from its paired spec.
+        if training_strategy_spec is None:
+            training_strategy_spec = DefaultTrainingSpec()
+        self._training_strategy = training_strategy_spec.build_strategy()
 
     @property
     def sensitivities(self) -> torch.Tensor | None:

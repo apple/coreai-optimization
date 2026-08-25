@@ -17,12 +17,12 @@ from coreai_opt.palettization.kmeans.supported_ops_registry import (
     _KMeansPalettizerSupportedOpsRegistry,
 )
 from coreai_opt.palettization.spec import (
-    DefaultTrainingConfig,
+    DefaultTrainingSpec,
     PalettizationSpec,
     PerGroupedChannelGranularity,
     PerTensorGranularity,
     TrainingStrategy,
-    TrainingStrategyConfig,
+    TrainingStrategySpec,
 )
 from coreai_opt.palettization.spec.errors import (
     _IncompatibleClusterDimError,
@@ -31,6 +31,10 @@ from coreai_opt.palettization.spec.errors import (
 from coreai_opt.palettization.spec.spec import _SUPPORTED_LUT_DTYPES
 from coreai_opt.palettization.spec.training_strategy import _DefaultTrainingStrategy
 from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
+
+_ACCELERATOR = (
+    "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else None
+)
 
 
 def _make_lut_qspec(
@@ -1045,6 +1049,42 @@ class TestInitializationAndStateDict:
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
+    @pytest.mark.skipif(_ACCELERATOR is None, reason="requires a non-CPU accelerator (CUDA or MPS)")
+    @pytest.mark.parametrize("enable_per_channel_scale", [False, True])
+    def test_cpu_checkpoint_load_keeps_buffers_on_module_device(self, enable_per_channel_scale):
+        """A CPU checkpoint (torch.load map_location='cpu') loaded into a module on an
+        accelerator must keep ``centroids``/``per_channel_scale`` on the module's device;
+        otherwise the LUT fake-quant path mixes a CPU lookup table with accelerator
+        qparams and raises a device-mismatch error. ``indices`` stays CPU-resident.
+        """
+        spec = PalettizationSpec(
+            n_bits=2,
+            granularity=PerTensorGranularity(),
+            enable_per_channel_scale=enable_per_channel_scale,
+            lut_qspec=_make_lut_qspec(torch.int8),
+        )
+        src = _KMeansFakePalettize(**spec.__dict__)
+        src._initialize(torch.randn(8, 16))
+        cpu_state_dict = {k: v.cpu() for k, v in src.state_dict().items()}
+
+        dst = _KMeansFakePalettize(**spec.__dict__)
+        dst._initialize(torch.randn(8, 16))
+        dst = dst.to(_ACCELERATOR)
+        dst.load_state_dict(cpu_state_dict)
+
+        assert dst.centroids.device.type == _ACCELERATOR
+        assert dst._lut_fake_quantizer.qparams_calculator.scale.device.type == _ACCELERATOR
+        assert dst.indices.device.type == "cpu"
+        if enable_per_channel_scale:
+            assert dst.per_channel_scale.device.type == _ACCELERATOR
+
+        # The eval forward runs the LUT fake-quant (centroids + scale); it must not
+        # raise a cross-device error.
+        dst.eval()
+        out = dst.forward(torch.randn(8, 16, device=_ACCELERATOR))
+        assert out.device.type == _ACCELERATOR
+        assert torch.isfinite(out).all()
+
 
 class TestLegacyCheckpointCompat:
     """Backward compatibility with pre-refactor checkpoints, which stored
@@ -1700,42 +1740,42 @@ class TestDerivedLutProperties:
 
 
 class TestTrainingStrategy:
-    """The training-strategy config registry and its paired behavior classes.
+    """The training-strategy spec registry and its paired behavior classes.
 
     Scope is the generic OSS machinery (default strategy only); concrete
     strategies defined elsewhere are tested with those strategies.
     """
 
-    def test_default_config_points_at_default_strategy(self):
-        assert DefaultTrainingConfig._strategy_cls is _DefaultTrainingStrategy
-        assert issubclass(DefaultTrainingConfig._strategy_cls, TrainingStrategy)
+    def test_default_training_spec_points_at_default_strategy(self):
+        assert DefaultTrainingSpec._strategy_cls is _DefaultTrainingStrategy
+        assert issubclass(DefaultTrainingSpec._strategy_cls, TrainingStrategy)
 
     def test_build_from_dict_unregistered_raises(self):
         with pytest.raises(KeyError):
-            TrainingStrategyConfig.maybe_build_from_dict({"type": "nonexistent"})
+            TrainingStrategySpec.maybe_build_from_dict({"type": "nonexistent"})
 
-    def test_default_config_builds_default_strategy(self):
-        assert isinstance(DefaultTrainingConfig().build_strategy(), _DefaultTrainingStrategy)
+    def test_default_training_spec_builds_default_strategy(self):
+        assert isinstance(DefaultTrainingSpec().build_strategy(), _DefaultTrainingStrategy)
 
     def test_maybe_build_from_dict(self):
-        config = TrainingStrategyConfig.maybe_build_from_dict({"type": "default"})
-        assert isinstance(config, DefaultTrainingConfig)
+        spec = TrainingStrategySpec.maybe_build_from_dict({"type": "default"})
+        assert isinstance(spec, DefaultTrainingSpec)
 
     def test_serialize_injects_type(self):
-        assert DefaultTrainingConfig().model_dump() == {"type": "default"}
+        assert DefaultTrainingSpec().model_dump() == {"type": "default"}
 
-    def test_spec_default_is_default_config(self):
-        assert isinstance(PalettizationSpec().training_strategy_config, DefaultTrainingConfig)
+    def test_spec_default_is_default_spec(self):
+        assert isinstance(PalettizationSpec().training_strategy_spec, DefaultTrainingSpec)
 
     def test_spec_parses_dict_via_discriminated_field(self):
-        spec = PalettizationSpec(training_strategy_config={"type": "default"})
-        assert isinstance(spec.training_strategy_config, DefaultTrainingConfig)
+        spec = PalettizationSpec(training_strategy_spec={"type": "default"})
+        assert isinstance(spec.training_strategy_spec, DefaultTrainingSpec)
 
-    def test_module_builds_strategy_from_config(self):
+    def test_module_builds_strategy_from_spec(self):
         spec = PalettizationSpec(
             n_bits=2,
             granularity=PerTensorGranularity(),
-            training_strategy_config=DefaultTrainingConfig(),
+            training_strategy_spec=DefaultTrainingSpec(),
         )
         palettizer = _KMeansFakePalettize(**spec.__dict__)
         assert isinstance(palettizer._training_strategy, _DefaultTrainingStrategy)

@@ -149,11 +149,19 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             "centroids",
         }
 
+        # Ensure buffers are loaded on the same device as the model is currently on.
+        # The exception is ``indices`` which stays CPU-resident by design.
+        target_device = self.fake_palett_enabled.device
+        cpu_resident = {"indices"}
+
         for buffer_name in buffer_names:
             prefixed_key = prefix + buffer_name
             if prefixed_key in state_dict:
+                tensor = state_dict[prefixed_key]
+                if buffer_name not in cpu_resident:
+                    tensor = tensor.to(target_device)
                 # Register the buffer with the correct name (without prefix)
-                self.register_buffer(buffer_name, state_dict[prefixed_key])
+                self.register_buffer(buffer_name, tensor)
                 # Remove from unexpected keys if it was there to prevent warnings
                 if prefixed_key in unexpected_keys:
                     unexpected_keys.remove(prefixed_key)
