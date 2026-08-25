@@ -247,3 +247,174 @@ html.dark #copy-page-content img {
 .nboutput.nblast.container {
     margin-bottom: 1.5em;
 }
+
+/* ===========================================================================
+ * Documentation version picker
+ *
+ * Markup: _templates/components/nav-versions.html (overrides shibuya's), placed
+ * in the brand cluster by _templates/partials/site-head.html. Behaviour:
+ * _static/version-switcher.js.
+ *
+ * The theme's own .nav-versions styling still applies — these rules cover what
+ * moving it next to the project name and swapping hover for click require.
+ * =========================================================================== */
+
+/* Separate the picker from the project name the way a breadcrumb divider would,
+ * so it reads as metadata about the title rather than another nav item. The
+ * theme's stock rule adds a right-hand border for its old position between the
+ * search box and the socials; drop that and put the divider on the left.
+ */
+#version-picker {
+    margin-left: 0.75rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid var(--sy-c-divider);
+}
+
+#version-picker > button {
+    gap: 0.4rem;
+    border-right: 0;
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    color: var(--sy-c-text);
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+#version-picker > button:hover {
+    background-color: var(--sy-c-surface);
+}
+
+/* The milestone glyph is decorative next to the version string, so mute it to
+ * match the chevron rather than competing with the label.
+ */
+#version-picker .milestone {
+    color: var(--sy-c-light);
+    font-size: 0.95em;
+}
+
+/* Click-to-open, not hover: the theme reveals .nav-versions-choices on :hover,
+ * which pops the menu open in passing and offers nothing to a keyboard or touch
+ * user. Neutralise that and drive visibility from aria-expanded instead.
+ */
+#version-picker:hover .nav-versions-choices {
+    visibility: hidden;
+}
+
+#version-picker > button[aria-expanded="true"] + .nav-versions-choices {
+    visibility: visible;
+}
+
+#version-picker > button[aria-expanded="true"] {
+    background-color: var(--sy-c-surface);
+}
+
+/* Anchor the menu under the trigger (the theme's rule pins it to the right edge,
+ * correct for its old far-right position, wrong here) and match the Copy page
+ * dropdown's border so the two read as the same component.
+ */
+#version-picker .nav-versions-choices {
+    top: calc(var(--sy-s-navbar-height) - 0.5rem);
+    right: auto;
+    left: 0;
+    min-width: 13rem;
+    border: 1px solid var(--sy-c-divider);
+    padding: 0.5rem;
+}
+
+#version-picker .nav-versions-choices ul {
+    padding: 0;
+}
+
+#version-picker .nav-versions-choices a {
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+}
+
+/* Mark the version being read. Weight rather than colour, so it stays legible
+ * against the accent-tinted background and in both colour modes.
+ */
+#version-picker .nav-versions-choices a[aria-current="true"] {
+    background-color: var(--sy-c-surface);
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+ * Version banners
+ *
+ * Built by version-switcher.js from the theme's own .announcement element, so
+ * they inherit the sticky positioning and the --sy-s-banner-height offset the
+ * theme already accounts for. Only the palette changes: the stock banner uses the
+ * accent colour, which reads as a feature announcement rather than a note about
+ * which version the reader has landed on.
+ *
+ * Two severities, because the two situations are not equally alarming: `main`
+ * documenting unreleased work is a neutral heads-up, while a superseded release
+ * is a caution.
+ * --------------------------------------------------------------------------- */
+.version-banner {
+    font-size: 0.9rem;
+}
+
+.version-banner .announcement-inner {
+    text-align: center;
+}
+
+/* Development: informational blue, matching how the theme's admonitions signal a
+ * note rather than a warning.
+ */
+.version-banner-dev {
+    --sy-c-banner: var(--blue-12);
+    --sy-c-banner-bg: var(--blue-3);
+}
+
+html.dark .version-banner-dev {
+    --sy-c-banner: var(--blue-12);
+    --sy-c-banner-bg: var(--blue-2);
+}
+
+/* Superseded release: caution red. */
+.version-banner-old {
+    --sy-c-banner: var(--red-12);
+    --sy-c-banner-bg: var(--red-3);
+}
+
+html.dark .version-banner-old {
+    --sy-c-banner: var(--red-12);
+    --sy-c-banner-bg: var(--red-2);
+}
+
+/* The call to action is the point of the banner, so give it a button shape
+ * instead of the theme's underlined-link treatment for banner anchors. Colour is
+ * inherited per severity from the rules below.
+ */
+.version-banner a.version-banner-action {
+    margin-left: 0.5rem;
+    border-radius: 6px;
+    padding: 0.25rem 0.7rem;
+    color: #fff;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    display: inline-block;
+    transition: background-color 0.2s;
+}
+
+.version-banner-dev a.version-banner-action {
+    background-color: var(--blue-9);
+}
+
+.version-banner-dev a.version-banner-action:hover {
+    background-color: var(--blue-10);
+}
+
+.version-banner-old a.version-banner-action {
+    background-color: var(--red-9);
+}
+
+.version-banner-old a.version-banner-action:hover {
+    background-color: var(--red-10);
+}

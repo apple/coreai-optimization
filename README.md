@@ -60,6 +60,8 @@ finalized_model = quantizer.finalize()
 
 For APIs, options, and detailed workflows, see the hosted documentation at [apple.github.io/coreai-optimization](https://apple.github.io/coreai-optimization/).
 
+The site is published one doc set per version. `/main/` tracks the `main` branch and may document work that no release includes yet; `/vX.Y.Z/` is the documentation for that release, frozen when it shipped. The version picker in the site header switches between them.
+
 ## Contributing
 
 Contributions are welcome within a defined scope. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request or issue, particularly the section on contribution scope.

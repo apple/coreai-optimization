@@ -1,0 +1,74 @@
+{#-
+  Copyright 2026 Apple Inc.
+
+  Use of this source code is governed by a BSD-3-Clause license that can
+  be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
+-#}
+
+
+{#-
+  Override of shibuya/partials/site-head.html.
+
+  Two changes to the stock header, both to do with versioned docs:
+
+  1. The version picker moves out of `.sy-head-extra` (where the theme puts it,
+     between the search box and the social links on the far right) and into the
+     brand cluster, immediately right of the project name. That is where readers
+     expect it — it labels the whole doc set, so it belongs with the title rather
+     than among the page-level controls. The stock include is dropped from
+     `.sy-head-extra` so the picker is not rendered twice.
+
+  2. `components/nav-versions.html` is replaced by our own markup so the trigger
+     is a real click-to-open menu button (see _static/version-switcher.js) rather
+     than the theme's hover-only reveal, matching the Copy page dropdown on the
+     article. Styling lives in _static/custom.css.
+
+  Everything else is copied verbatim from the theme; keep it in sync when
+  upgrading shibuya.
+-#}
+
+{%- macro render_logo(src, classname) -%}
+  {%- if src and src.startswith(('https://', 'http://')) -%}
+    <img class="{{ classname }}" src="{{ src }}" alt="{{ project }}" height="28" loading="lazy" />
+  {%- elif src -%}
+    <img class="{{ classname }}" src="{{ pathto(src, 1) }}" alt="{{ project }}" height="28" loading="lazy" />
+  {%- elif logo_url -%}
+    <img class="{{ classname }}" src="{{ logo_url }}" alt="{{ project }}" height="28" loading="lazy" />
+  {%- endif -%}
+{%- endmacro -%}
+
+<div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="sy-head-brand-group flex items-center shrink-0">
+      <a class="sy-head-brand" href="{% if theme_logo_target %}{{ theme_logo_target }}{% else %}{{ pathto(root_doc) }}{% endif %}">
+        {{ render_logo(theme_light_logo, 'light-logo') }}
+        {{ render_logo(theme_dark_logo, 'dark-logo') }}
+        <strong>{{ project }}</strong>
+      </a>
+      {%- include "components/nav-versions.html" -%}
+    </div>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"{% if theme_nav_links_align %} data-align={{ theme_nav_links_align }}{% endif %}>
+        {%- if theme_nav_links -%}
+          {% include "components/nav-links.html" %}
+        {%- endif -%}
+      </nav>
+      <div class="sy-head-extra flex items-center print:hidden">
+        {%- include "components/searchbox.html" -%}
+        {%- include "components/nav-languages.html" -%}
+        {%- include "partials/nav-socials.html" -%}
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden">
+      {%- include "components/theme-switch.html" -%}
+      <button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>

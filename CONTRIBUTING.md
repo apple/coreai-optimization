@@ -30,9 +30,16 @@ make docs
 
 # Build the documentation and open it in a browser.
 make docs-open
+
+# Regenerate docs/src/api/index.md from the package tree.
+make render-api-index
 ```
 
 All make targets and their flags are listed in the [Makefile](Makefile).
+
+`docs/src/api/index.md` is generated from the public API and committed, so a reviewer can see
+API-surface changes in the diff. Don't edit it by hand — run `make render-api-index` and stage
+the result. The `check-api-doc-coverage` pre-commit hook fails the commit if it drifts.
 
 ## Submitting issues
 
@@ -70,6 +77,7 @@ Before pushing your changes, run these locally:
 - `make test` — full test suite (parallelized with `pytest-xdist`)
 - `make test-fast` — excludes tests marked `@pytest.mark.slow` for quicker iteration
 - `make test-smoke` — builds the package, installs it into a clean environment, and verifies that imports plus basic quantization and palettization work end to end
+- `make test-docs` — builds the documentation and checks the output, including that the committed API index is current (CI runs this on every pull request)
 
 A clean `make check` and `make test` are required before a pull request will be reviewed.
 

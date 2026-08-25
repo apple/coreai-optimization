@@ -77,6 +77,32 @@ A release branch is the one place where the two match: it sets `latest_released_
 
 Cut the branch before moving `main` to the next dev release.
 
+### Documentation
+
+The documentation site carries one doc set per version, published by `.github/workflows/docs.yml`:
+
+| Trigger                    | What it publishes                         |
+| -------------------------- | ----------------------------------------- |
+| Push (merge) to `main`     | `/main/`, rebuilt from the `main` branch  |
+| A GitHub Release published | `/vX.Y.Z/`, built from that release's tag |
+
+The site root redirects to `/main/`, so that is the default view. Publishing one version
+rewrites only its own directory — every already-published release keeps the docs it shipped
+with. There is nothing to do by hand.
+
+Two things to know when cutting a release:
+
+- **Publish the GitHub Release, don't just push the tag.** Pushing a `vX.Y.Z` tag starts
+  `release.yml` (build, smoke test, PyPI publish); the docs are published by the *release*
+  being created. A tag with no release gets no versioned docs.
+- **The docs publish does not wait for PyPI.** The two triggers fire in parallel, and the PyPI
+  upload is gated behind the `pypi` environment's approval, so `/vX.Y.Z/` can appear while
+  that approval is still pending. The docs describe the tagged source either way. If a release
+  is abandoned after its docs went live, delete the directory from the `gh-pages` branch.
+
+Marking a release as a pre-release skips the docs publish, since a pre-release is not the
+current documentation for any version.
+
 ### Extending the scheme downstream
 
 A repo that uses this one as a submodule and includes this `Makefile` — building one combined wheel from both trees — can add its own 4th number. Set `COREAI_OPT_VERSION_EXTENSION` to the number it's about to release next, then call `make build`, `make build-dev`, or `make version` unchanged.
