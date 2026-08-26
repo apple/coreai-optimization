@@ -56,6 +56,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     StaticQParamsCalculator,
 )
 from tests.models.simple import SimpleModel
+from tests.test_utils.general import get_fake_quant_nodes
 
 
 @pytest.fixture
@@ -92,16 +93,6 @@ def weight_only_config():
             op_output_spec=None,
         )
     )
-
-
-def get_fake_quant_nodes(model: torch.fx.GraphModule) -> list[torch.fx.Node]:
-    """
-    Returns list of fake quant nodes present in the input model
-    """
-    fake_quant_nodes = [
-        node for node in model.graph.nodes if "activation_post_process" in node.name
-    ]
-    return fake_quant_nodes
 
 
 class TestGraphModeQuantizer:
@@ -1472,125 +1463,6 @@ class TestGraphModeQuantizerTrainEval:
             assert not self._is_training(prepared_model)
         assert self._is_training(prepared_model)
         assert prepared_model.training
-
-
-class TestCompositeOpQuantization:
-    """
-    Tests that models with COREAI CompositeOps can be quantized
-    """
-
-    class SDPAModule(torch.nn.Module):
-        def forward(self, query, key, value):
-            from coreai_torch.composite_ops._sdpa import (  # noqa: PLC0415
-                scaled_dot_product_attention as _scaled_dot_product_attention,
-            )
-
-            return _scaled_dot_product_attention(query, key, value, is_causal=True)
-
-    class SimpleSDPAModel(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.proj = torch.nn.Linear(16, 48)
-            self.sdpa = TestCompositeOpQuantization.SDPAModule()
-
-        def forward(self, x):
-            qkv = self.proj(x)
-            q, k, v = qkv.chunk(3, dim=-1)
-            b, s, _ = q.shape
-            q = q.reshape(b, 1, s, 16)
-            k = k.reshape(b, 1, s, 16)
-            v = v.reshape(b, 1, s, 16)
-            return self.sdpa(q, k, v)
-
-    @pytest.fixture
-    def model(self):
-        return self.SimpleSDPAModel()
-
-    @pytest.fixture
-    def example_input(self):
-        return torch.randn(1, 4, 16)
-
-    @pytest.mark.xfail(reason="tracked by coreai-torch issue #309")
-    def test_composite_op_io_quantization(self, model, example_input):
-        """
-        Verify CompositeOps boundaries can be quantized
-        """
-        qspec_dict = {
-            "dtype": "int8",
-            "qscheme": "symmetric",
-            "granularity": {"type": "per_tensor"},
-        }
-        config = QuantizerConfig.from_dict(
-            {
-                "quantization_config": {
-                    "global_config": {"op_state_spec": {"weight": qspec_dict}},
-                    "module_name_configs": {
-                        "sdpa": {
-                            "op_input_spec": None,
-                            "op_output_spec": None,
-                            "op_state_spec": None,
-                            "module_input_spec": {
-                                0: qspec_dict,
-                                1: qspec_dict,
-                                2: qspec_dict,
-                            },
-                            "module_output_spec": {
-                                "*": qspec_dict,
-                            },
-                        }
-                    },
-                }
-            }
-        )
-
-        quantizer = Quantizer(model, config)
-        prepared_model = quantizer.prepare((example_input,))
-        assert isinstance(prepared_model, torch.fx.GraphModule)
-
-        def _is_composite_op(node):
-            return (
-                node.op == "call_function"
-                and isinstance(node.target, torch._ops.OpOverload)
-                and node.target.namespace == "CompositeOps"
-            )
-
-        # Find the SDPA node
-        sdpa_nodes = [
-            n
-            for n in prepared_model.graph.nodes
-            if n.op == "call_function"
-            and isinstance(n.target, torch._ops.OpOverload)
-            and n.target._opname == "scaled_dot_product_attention"
-        ]
-        assert len(sdpa_nodes) == 1, f"Expected 1 SDPA node, got {len(sdpa_nodes)}"
-        sdpa_node = sdpa_nodes[0]
-
-        composite_op_input_nodes = [arg for arg in sdpa_node.args if _is_composite_op(arg)]
-        composite_op_output_nodes = [user for user in sdpa_node.users if _is_composite_op(user)]
-
-        assert len(composite_op_input_nodes) == 3, (
-            f"Expected 3 custom input nodes (q/k/v), got {len(composite_op_input_nodes)}"
-        )
-        assert len(composite_op_output_nodes) == 1, "Expected 1 composite op output node"
-
-        for node in composite_op_input_nodes + composite_op_output_nodes:
-            assert "name" in node.kwargs, f"kwargs not restored for {node.name}"
-            assert "op_name" in node.kwargs, f"kwargs not restored for {node.name}"
-            assert node.kwargs["op_name"] == "scaled_dot_product_attention"
-
-        for node in composite_op_input_nodes:
-            input_node = node.args[0]
-            assert "activation_post_process" in input_node.name, (
-                f"Expected fake quant before {node.name} "
-                f"(input={node.kwargs['name']}), "
-                f"got {input_node.name} instead"
-            )
-
-        for node in composite_op_output_nodes:
-            users = list(node.users.keys())
-            assert any("activation_post_process" in u.name for u in users), (
-                f"Expected fake quant after {node.name}, got users: {[u.name for u in users]}"
-            )
 
 
 class TestFP4MLIRExportValidation:

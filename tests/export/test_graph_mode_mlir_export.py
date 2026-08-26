@@ -10,6 +10,7 @@ from collections.abc import Mapping
 
 import pytest
 import torch
+from coreai_torch import ExternalizeSpec, _patch_model_for_externalization
 
 from coreai_opt import ExportBackend
 from coreai_opt.palettization.kmeans import KMeansPalettizer
@@ -28,7 +29,15 @@ from coreai_opt.quantization.spec import (
 from tests.fixtures.compression import ParametrizedP4A8CompressionConfigs
 from tests.fixtures.fp4 import ParametrizedFP4Configs
 from tests.fixtures.fp8 import ParametrizedFP8Configs
-from tests.fixtures.quantization import ParametrizedQuantConfigs
+from tests.fixtures.quantization import (
+    ParametrizedQuantConfigs,
+    make_graph_mode_module_boundary_config,
+    make_quant_config,
+)
+from tests.models.composite import (
+    CompositeSDPAModel,
+    sdpa_externalize_spec,
+)
 
 from . import export_utils
 
@@ -39,6 +48,8 @@ def _run_graph_mode_mlir_export_test_ex(
     config: QuantizerConfig,
     expected_ops: Mapping[str, int],
     model_dtype: torch.dtype | None = None,
+    calibrate: bool = False,
+    externalized_model: torch.nn.Module | None = None,
 ) -> None:
     """Run graph-mode Core AI export test with expanded configuration parameters.
 
@@ -48,6 +59,10 @@ def _run_graph_mode_mlir_export_test_ex(
         config: graph-mode quantization configuration
         model_dtype: Model dtype (float16, float32, bfloat16, or None for no conversion)
         expected_ops: Expected operation counts in converted model
+        calibrate: If True, run one calibration pass under
+            ``quantizer.calibration_mode()`` before the reference forward.
+        externalized_model: The model patched in place by
+            ``coreai_torch._patch_model_for_externalization``.
     """
     if model_dtype is not None:
         model = model.to(dtype=model_dtype)
@@ -56,6 +71,10 @@ def _run_graph_mode_mlir_export_test_ex(
     model.eval()
     quantizer = Quantizer(model, config)
     prepared_model = quantizer.prepare((input_data,))
+
+    if calibrate:
+        with quantizer.calibration_mode(), torch.no_grad():
+            prepared_model(input_data)
 
     with torch.no_grad():
         prepared_model_output = prepared_model(input_data)
@@ -68,6 +87,7 @@ def _run_graph_mode_mlir_export_test_ex(
         expected_ops=expected_ops,
         export_backend=ExportBackend.CoreAI,
         prepared_model_output=prepared_model_output,
+        externalized_model=externalized_model,
     )
 
 
@@ -437,4 +457,76 @@ def test_integer_quant_minval_export(
             "quantize": 4 if has_activation_quant else 0,
             "dequantize": 4 if has_activation_quant else 0,
         },
+    )
+
+
+# Composite-op externalize export coverage
+
+
+@pytest.mark.parametrize("config_kind", ["w8", "w8a8", "w8a8-boundary"])
+@pytest.mark.parametrize(
+    # (model, externalize spec, composite submodule path, expected coreai.quantize
+    # count per config kind)
+    "model_cls, externalize_spec, composite_module, expected_quantize_counts",
+    [
+        pytest.param(
+            CompositeSDPAModel,
+            sdpa_externalize_spec(),
+            "composite",
+            {"w8": 0, "w8a8": 4, "w8a8-boundary": 8},
+            id="sdpa",
+        ),
+    ],
+)
+def test_composite_externalize_export(
+    model_cls: type[torch.nn.Module],
+    externalize_spec: ExternalizeSpec,
+    composite_module: str,
+    expected_quantize_counts: Mapping[str, int],
+    config_kind: str,
+) -> None:
+    """End-to-end CoreAI export of a model with an externalized composite op.
+
+    Marks the composite op for externalization, runs graph-mode PTQ, then lowers the
+    finalized graph to a .aimodel and runs it. ``convert_and_verify`` handles SNR /
+    PSNR on the runtime output and op-count verification on the exported program
+    (``constexpr_blockwise_shift_scale`` for weight quantizers and ``quantize`` /
+    ``dequantize`` for activation quantizers).
+
+    Three configs:
+
+    - ``w8`` / ``w8a8``: global config only.
+    - ``w8a8-boundary``: adds a module-scoped ``module_input_spec`` /
+      ``module_output_spec`` so the composite op's i/o edges are quantized
+    """
+    model = model_cls().eval().half()
+    input_data = torch.randn(2, 4, 32, dtype=torch.float16)
+
+    _patch_model_for_externalization(model, [externalize_spec])
+
+    if config_kind == "w8a8-boundary":
+        # uint8 boundary edges stay distinguishable from the int8 global ones.
+        config = make_graph_mode_module_boundary_config(
+            module_boundary_dtype=torch.uint8,
+            module_name=composite_module,
+        )
+    else:
+        config = make_quant_config(
+            weight_dtype=torch.int8,
+            act_dtype=torch.int8 if config_kind == "w8a8" else None,
+            execution_mode="graph",
+        )
+
+    expected_quantize_count = expected_quantize_counts[config_kind]
+    _run_graph_mode_mlir_export_test_ex(
+        model=model,
+        input_data=input_data,
+        config=config,
+        expected_ops={
+            "constexpr_blockwise_shift_scale": 2,
+            "quantize": expected_quantize_count,
+            "dequantize": expected_quantize_count,
+        },
+        calibrate=config_kind != "w8",
+        externalized_model=model,
     )

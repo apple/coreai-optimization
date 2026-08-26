@@ -32,6 +32,7 @@ pytest_plugins = [
     "tests.models.mnist",
     "tests.models.resnet",
     "tests.models.simple",
+    "tests.models.composite",
 ]
 
 _DEFAULT_SEED: int = 42

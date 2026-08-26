@@ -56,7 +56,7 @@ VENV_TUTORIAL ?= .venv-tutorial
 # The torch_2_* groups (pyproject.toml [dependency-groups]) currently at
 # each end of the supported range. Bump these two lines — nothing else —
 # when the project's torch version bounds change.
-HIGHEST_TORCH_GROUP := torch_2_11
+HIGHEST_TORCH_GROUP := torch_2_13
 LOWEST_TORCH_GROUP := torch_2_8
 
 # Torch dependency group (pyproject.toml [dependency-groups]) that every
