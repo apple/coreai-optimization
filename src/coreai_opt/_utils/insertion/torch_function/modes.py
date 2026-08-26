@@ -792,14 +792,22 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
         # Even if the func is not a registered function in the registry, allow it to continue in
         # case any module level specs must be applied to the function inputs or outputs.
         # This does not apply to non-interceptable functions, which are always ignored.
-        if (
-            already_traversed_module
-            or not should_process_function
-            or not any_tensor_optimizable(args, kwargs)
-        ):
+        if already_traversed_module or not should_process_function:
             return out
 
         func_base_name = get_func_base_name(func)
+
+        if not any_tensor_optimizable(args, kwargs):
+            # There is nothing to optimize in this call, so no optimizer is preregistered for
+            # it, but the call is still recorded. ActivationEagerOptimizationHandler counts
+            # every call it intercepts, and both passes derive func_count from those counts,
+            # so dropping the record here would shift the func_count of every later call of
+            # the same function, which misaligns optimizer names and trips
+            # RegisteredOptimizersTracker.validate_against_reference later..
+            self.preregistration_tracker.record_function_call(
+                self.current_module_name, func_base_name, func, [], []
+            )
+            return out
 
         curr_func_count = self.preregistration_tracker.get_function_call_count(
             self.current_module_name, func_base_name
