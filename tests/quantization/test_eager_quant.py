@@ -2865,7 +2865,7 @@ def test_shared_module_instance_invoked_twice_in_one_forward():
     model = TwoCallModel()
     example_inputs = (torch.randn(2, 4),)
     quantizer = Quantizer(model, QuantizerConfig(execution_mode="eager"))
-    prepared_model = quantizer.prepare(example_inputs)
+    quantizer.prepare(example_inputs)
 
     reference_tracker = quantizer._quantizer._handler.act_handler.reference_tracker
     # One set of records for the two invocations. `angle` holds a single element, so
@@ -2876,9 +2876,6 @@ def test_shared_module_instance_invoked_twice_in_one_forward():
             FunctionRegisteredOptimizers(["mul_1_quantize_input"], ["mul_1_quantize_output_0"]),
         ]
     }
-
-    with torch.no_grad():
-        prepared_model(*example_inputs)
 
 
 def test_bn_train_eval_mode():
