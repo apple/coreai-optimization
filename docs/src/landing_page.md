@@ -2,9 +2,9 @@
 
 ## What is `coreai-opt`?
 
-`coreai-opt` is a Python library for compressing PyTorch models for deployment on Apple Silicon. It allows you to apply compression-based optimizations (such as quantization or palettization) to any PyTorch model, producing a transformed PyTorch model that can be converted to a Core AI model and run with the [Core AI](https://developer.apple.com/documentation/coreai) framework.
+`coreai-opt` is a Python library for compressing PyTorch models for deployment on Apple silicon. It applies compression-based optimizations (such as quantization or palettization) to any PyTorch model, producing a transformed PyTorch model that can be converted to a Core AI model and run with the [Core AI](https://developer.apple.com/documentation/coreai) framework. For an overview of the Core AI ecosystem and how coreai-opt fits in, see [What is Core AI?](#what-is-core-ai).
 
-Model compression can help reduce the memory footprint of your model (disk size and at runtime), reduce inference latency, reduce power consumption, or optimize them all at once.
+Model compression can help reduce the memory footprint of a model (disk size and at runtime), reduce inference latency, reduce power consumption, or optimize them all at once.
 
 ```{mermaid}
 flowchart LR
@@ -20,11 +20,11 @@ flowchart LR
 
 `coreai-opt` is built around the following ideas:
 
-- **PyTorch native.** All APIs operate on PyTorch models. Compression is another transformation in your PyTorch workflow. The output of every compressor is itself a PyTorch model that can be validated, fine-tuned, and exported like any other model.
+- **PyTorch native.** All APIs operate on PyTorch models. Compression is another transformation in a PyTorch workflow. The output of every compressor is itself a PyTorch model that can be validated, fine-tuned, and exported like any other model.
 
 - **Integrates with existing PyTorch code.** Adding post-training compression, calibration-based, or compression-aware training to an existing PyTorch pipeline takes a few additional lines of code. All three use the same compressor object.
 
-- **Aligned with Apple Silicon.** Default configurations and the majority of the available optimization options align with what the [Core AI](https://developer.apple.com/documentation/coreai) runtime executes efficiently, on one or many of the Apple Silicon platforms. Compressed PyTorch models can be seamlessly converted to `.aimodel` for deployment via Core AI.
+- **Aligned with Apple silicon.** Default configurations and the majority of the available optimization options align with what the [Core AI](https://developer.apple.com/documentation/coreai) runtime executes efficiently, on one or many of the Apple silicon platforms. Compressed PyTorch models can be seamlessly converted to `.aimodel` for deployment via Core AI.
 
 ## Types of compression
 
@@ -44,9 +44,9 @@ The process of applying compression to a model typically involves the following 
 
 - **Calibration-based compression**: Post-training compression with calibration data. Often used when quantizing activations. A small amount of representative data (e.g. ~128 samples) lets compressors observe activation ranges and weight sensitivities.
 
-- **Fine-tuning-based compression**: Compression-aware fine-tuning (e.g. quantization-aware training) with full training data. The compressor is integrated into your training loop so the model adapts to compression error as it trains. The most time-intensive workflow, but typically the only way to recover accuracy at the most aggressive compression ratios for weights (4 bits and below), and/or for models that are sensitive to activation quantization.
+- **Fine-tuning-based compression**: Compression-aware fine-tuning (e.g. quantization-aware training) with full training data. The compressor is integrated into the training loop so the model adapts to compression error as it trains. The most time-intensive workflow, but typically the only way to recover accuracy at the most aggressive compression ratios for weights (4 bits and below), and/or for models that are sensitive to activation quantization.
 
-`coreai-opt`'s APIs allow you to easily move from one stage to the next while evaluating accuracy after each stage and escalating to a more expensive workflow only when needed.
+`coreai-opt`'s APIs make it straightforward to move from one stage to the next while evaluating accuracy after each stage and escalating to a more expensive workflow only when needed.
 
 ## Getting started
 
@@ -54,8 +54,19 @@ For an overview of the generic structure of `coreai-opt` APIs, see [How to use c
 
 For end-to-end examples on API usage and common workflows, see [MNIST examples](examples/toy_models.md) and [model examples](examples/model_examples.md).
 
-## Links to related Core AI components
+## What is Core AI?
 
-- **[coreai-torch](https://github.com/apple/coreai-torch)** — Python library for converting PyTorch models to the Core AI (`.aimodel`) format.
-- **[coreai-models](https://github.com/apple/coreai-models)** — GitHub repository with example models demonstrating how to convert, optimize, and re-author models for deployment with Core AI. Several of the LLMs in there are compressed to ~4–5 bits using `coreai-opt`. The repo also contains a number of AI skills, including some that wrap `coreai-opt` workflows.
-- **[Core AI framework](https://developer.apple.com/documentation/coreai)** — Apple's on-device AI framework that runs `.aimodel` models.
+Core AI is a set of technologies for deploying machine learning models on Apple hardware, covering the full model deployment lifecycle: from model optimization and conversion, to debugging, to app integration. Models run entirely on device on Apple silicon, with no server required.
+
+```{image} _images/core-ai-ecosystem.png
+:alt: Diagram of the Core AI ecosystem. At the top, Core AI Models provides ready-to-use models and examples. Core AI Optimization and Core AI PyTorch Extensions prepare models for deployment, producing a .aimodel file. Core AI Debugger and Xcode support integration and debugging. Core AI Framework runs models on device.
+:align: center
+```
+
+The Core AI ecosystem consists of the following components:
+
+- Convert PyTorch models to the Core AI model format (`.aimodel`) using [Core AI PyTorch Extensions](https://github.com/apple/coreai-torch)
+- Compress models with quantization, palettization, and pruning using [Core AI Optimization](https://github.com/apple/coreai-optimization)
+- Load and run models in an app with the [Core AI Framework](https://developer.apple.com/documentation/coreai)
+- Inspect, debug, and profile models using [Core AI Debugger](https://developer.apple.com/documentation/coreai/inspecting-debugging-and-profiling-core-ai-models)
+- Get popular open-source models with scripts for conversion, re-authoring, and optimization — including LLMs compressed to ~4–5 bits using `coreai-opt` — plus AI skills that wrap `coreai-opt` workflows, using [Core AI Models](https://github.com/apple/coreai-models)
