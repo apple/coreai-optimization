@@ -803,7 +803,7 @@ class RegisterEagerOptimizationMode(ScopedEagerOptimizationModeBase):
             # every call it intercepts, and both passes derive func_count from those counts,
             # so dropping the record here would shift the func_count of every later call of
             # the same function, which misaligns optimizer names and trips
-            # RegisteredOptimizersTracker.validate_against_reference later..
+            # RegisteredOptimizersTracker.validate_against_reference later.
             self.preregistration_tracker.record_function_call(
                 self.current_module_name, func_base_name, func, [], []
             )
