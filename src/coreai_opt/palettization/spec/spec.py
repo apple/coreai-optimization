@@ -95,6 +95,27 @@ class PalettizationSpec(CompressionSpec):
     # Private attribute for compression type
     _compression_type: CompressionType = PrivateAttr(default=CompressionType.PALETTIZATION)
 
+    # Sparsity level, in [0, 1]. Set via the `_sparsity` constructor/dict key.
+    _sparsity: float | None = PrivateAttr(default=None)
+
+    def __init__(self, **data: Any) -> None:
+        sparsity = data.pop("_sparsity", None)
+        super().__init__(**data)
+        if sparsity is not None:
+            if not (0.0 <= sparsity <= 1.0):
+                raise ValueError(f"_sparsity must be in [0, 1], got {sparsity}")
+            self._validate_sparsity(sparsity)
+            self._sparsity = sparsity
+
+    def _validate_sparsity(self, sparsity: float) -> None:
+        """Reject sparsity combined with a position-dependent LUT/scale mapping."""
+        if self.lut_qspec is not None:
+            raise ValueError("lut_qspec not supported for joint sparsity.")
+        if not isinstance(self.granularity, PerTensorGranularity):
+            raise ValueError(f"granularity={self.granularity} not supported for joint sparsity.")
+        if self.enable_per_channel_scale:
+            raise ValueError("enable_per_channel_scale not supported for joint sparsity.")
+
     @model_validator(mode="after")
     def validate_lut_qspec(self) -> "PalettizationSpec":
         """Validate that lut_qspec only uses supported configurations."""

@@ -372,6 +372,18 @@ class QuantizationSpec(CompressionSpec):
     # Private attribute for compression type
     _compression_type: CompressionType = PrivateAttr(default=CompressionType.QUANTIZATION)
 
+    # Sparsity level, in [0, 1]. Set via the `_sparsity` constructor/dict key.
+    _sparsity: float | None = PrivateAttr(default=None)
+
+    def __init__(self, **data: Any) -> None:
+        sparsity = data.pop("_sparsity", None)
+        super().__init__(**data)
+        if sparsity is not None:
+            if not (0.0 <= sparsity <= 1.0):
+                raise ValueError(f"_sparsity must be in [0, 1], got {sparsity}")
+            self._validate_sparsity_zero_preserving(sparsity)
+            self._sparsity = sparsity
+
     # Supported dtypes for quantization (class attribute for testing extensibility)
     SUPPORTED_DTYPES: ClassVar[set[torch.dtype]] = {
         # Signed integer types
@@ -554,6 +566,20 @@ class QuantizationSpec(CompressionSpec):
             )
 
         return self
+
+    def _validate_sparsity_zero_preserving(self, sparsity: float) -> None:
+        """Reject sparsity unless a raw 0 dequantizes to exactly 0.0."""
+        if _is_float4_dtype(self.dtype):
+            raise ValueError("FP4 dtype not supported for joint sparsity.")
+        if self.dtype.is_floating_point:
+            return
+
+        if self.qformulation != QuantizationFormulation.ZP:
+            raise ValueError(f"qformulation={self.qformulation} not supported for joint sparsity.")
+        if self.qscheme == QuantizationScheme.ASYMMETRIC:
+            raise ValueError(f"qscheme={self.qscheme} not supported for joint sparsity.")
+        if not self.dtype.is_signed:
+            raise ValueError(f"unsigned dtype={self.dtype} not supported for joint sparsity.")
 
     def get_extra_args(self) -> dict[str, Any]:
         """

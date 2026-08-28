@@ -203,6 +203,7 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
             "qparams_calculator": qparams_calculator,
             "quantization_target": quantization_target,
             "n_bits": spec.n_bits,
+            "sparsity": spec._sparsity,
         }
 
         # Automatically detect and include any extra arguments
@@ -244,6 +245,7 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
             "quant_max": spec.quant_max,
             "quantization_target": quantization_target,
             "n_bits": spec.n_bits,
+            "sparsity": spec._sparsity,
         }
 
         # Automatically detect and include any extra arguments

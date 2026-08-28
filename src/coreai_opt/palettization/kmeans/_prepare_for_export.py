@@ -6,6 +6,7 @@
 from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -44,6 +45,32 @@ class PalettizationInfo:
     per_channel_scale: torch.Tensor | None = None
     cluster_dim: int = 1
     lut_quantization: LUTQuantizationInfo | None = None
+
+
+class _SparsePalettizeReconstruction(nn.Module):
+    """Parametrization module inserted to reconstruct a sparse-palettized weight.
+
+    Traces ``coreai.lut_to_dense`` and ``coreai.sparse_to_dense`` in that order.
+    """
+
+    def __init__(
+        self,
+        nonzero_indices: torch.Tensor,
+        lut: torch.Tensor,
+        mask: torch.Tensor,
+        vector_axis: int | None,
+    ) -> None:
+        super().__init__()
+        self.register_buffer("nonzero_indices", nonzero_indices)
+        self.register_buffer("lut", lut.reshape(1, lut.shape[-2], lut.shape[-1]))
+        self.register_buffer("mask", mask)
+        self.vector_axis = 0 if vector_axis is None else vector_axis
+
+    def forward(self, _: Any) -> torch.Tensor:
+        nonzero_values = torch.ops.coreai.lut_to_dense(
+            self.nonzero_indices, self.lut, self.vector_axis
+        )
+        return torch.ops.coreai.sparse_to_dense(nonzero_values, self.mask)
 
 
 def _expand_rank(
@@ -210,6 +237,7 @@ def _insert_mlir_custom_op(
     module_name: str,
     param_name: str,
     palett_info: PalettizationInfo,
+    fake_palett_mod: _FakePalettizeImplBase,
     fake_palett_idx: int,
     mmap_dir: str | PathLike[str] | None,
 ) -> None:
@@ -226,6 +254,10 @@ def _insert_mlir_custom_op(
     3. Per-channel scale: lut_to_dense + constexpr_blockwise_shift_scale(pcs)
     4. Both: lut_to_dense(int LUT) + constexpr_blockwise_shift_scale(fused_scale)
        where fused_scale = lut_scale * per_channel_scale
+
+    When ``fake_palett_mod.sparsity`` is set, the LUT lookup runs on the
+    nonzero-only indices and the result is packed via ``coreai::sparse_to_dense``
+    instead of installing a plain Palettize/ScaledPalettize parametrization.
 
     When ``mmap_dir`` is provided, the new MLIR module is serialized to a
     safetensors file under that directory and reloaded via mmap before being
@@ -261,7 +293,20 @@ def _insert_mlir_custom_op(
 
     vector_axis = _DEFAULT_VECTOR_AXIS if palett_info.cluster_dim > 1 else None
 
-    if needs_scale:
+    if fake_palett_mod.sparsity is not None:
+        # Reuses the mask from prepare()'s forward pass. needs_scale is always
+        # False here: PalettizationSpec rejects lut_qspec/enable_per_channel_scale
+        # combined with sparsity, since both are position-dependent and would
+        # be scrambled by flattening to the nonzero-only indices below.
+        mask = fake_palett_mod._sparsity_mask.to(torch.bool)
+        nonzero_indices = palett_info.indices[mask]
+        mlir_palett_mod = _SparsePalettizeReconstruction(
+            nonzero_indices=nonzero_indices,
+            lut=palett_info.lut,
+            mask=mask,
+            vector_axis=vector_axis,
+        )
+    elif needs_scale:
         lut, scale, zero_point = _resolve_mlir_lut_and_scale(palett_info)
         mlir_palett_mod = ScaledPalettizeParametrization(
             indices=palett_info.indices,
@@ -336,7 +381,7 @@ def _process_palettized_parameter(
         _register_mil_compression_metadata(module, param_name, palett_info)
     elif backend == ExportBackend.CoreAI:
         _insert_mlir_custom_op(
-            module, module_name, param_name, palett_info, fake_palett_idx, mmap_dir
+            module, module_name, param_name, palett_info, fake_palett_mod, fake_palett_idx, mmap_dir
         )
 
 

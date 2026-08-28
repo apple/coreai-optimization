@@ -23,6 +23,7 @@ from coreai_opt.palettization.spec.errors import (
     _IncompatibleClusterDimError,
     _IncompatibleGranularityError,
 )
+from coreai_opt.pruning.spec import PruneImplBase, Unstructured
 from coreai_opt.quantization.spec import QuantizationSpec
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         granularity: PalettizationGranularity,
         cluster_dim: int,
         enable_per_channel_scale: bool,
+        sparsity: float | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -57,10 +59,12 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         self.granularity = granularity
         self.cluster_dim = cluster_dim
         self.enable_per_channel_scale = enable_per_channel_scale
+        self.sparsity = sparsity
 
         self.register_buffer("fake_palett_enabled", torch.tensor([1], dtype=torch.uint8))
         self.register_buffer("observer_enabled", torch.tensor([1], dtype=torch.uint8))
         self._disabled = False
+        self.register_buffer("_sparsity_mask", None, persistent=False)
 
         self.register_buffer("lut", None)
         self.register_buffer("indices", None)
@@ -83,6 +87,12 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         # If permanently disabled due to incompatibility, return original tensor
         if self._disabled:
             return tensor
+
+        if self.sparsity is not None:
+            self._sparsity_mask = PruneImplBase.resolve("default").compute_mask(
+                tensor, self.sparsity, Unstructured()
+            )
+            tensor = tensor * self._sparsity_mask
 
         if self.observer_enabled[0] == 1:
             # Cluster weights

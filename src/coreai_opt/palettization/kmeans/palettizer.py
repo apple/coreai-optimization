@@ -432,6 +432,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         # Serialize the spec, then layer in the owning module's compressor-specific
         # settings (e.g. enable_fast_kmeans_mode, rounding_precision).
         args = spec.model_dump_preserve_objects()
+        args["sparsity"] = spec._sparsity
         args.update(module_config._get_compressor_specific_settings())
         return _KMeansFakePalettize.with_args(**args)
 
