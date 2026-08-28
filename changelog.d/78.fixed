@@ -1,1 +1,1 @@
-Fix: align op call counts between capture and optimization passes in eager-mode activation quantization
+Fix eager Quantizer.prepare failing on models that call a supported op whose inputs are all scalars or single-element tensors
