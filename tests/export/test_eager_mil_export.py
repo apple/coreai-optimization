@@ -9,7 +9,7 @@ import pytest
 import torch
 
 from coreai_opt import CoreMLExportError, ExportBackend
-from coreai_opt.quantization import Quantizer, QuantizerConfig
+from coreai_opt.quantization import QuantizerConfig
 from tests.fixtures.quantization import (
     COREML_ACT_REJECT_DTYPES,
     COREML_WEIGHT_REJECT_DTYPES,
@@ -27,35 +27,18 @@ def _run_eager_mil_export_test_ex(
     expected_ops: Mapping[str, int],
     model_dtype: torch.dtype | None = None,
 ) -> None:
-    """Run eager CoreML export test with expanded configuration parameters.
+    """Run the shared export test workflow against the CoreML backend.
 
-    Args:
-        model: PyTorch model to quantize and export
-        input_data: Input tensor for model
-        config: Eager quantization configuration
-        model_dtype: Model dtype (float16, float32, bfloat16, or None for no conversion)
-        expected_ops: Expected operation counts in converted model
-
+    CoreML quantizes to a coarser representation than Core AI, so the SNR/PSNR
+    thresholds are looser than :func:`export_utils.run_export_test`'s defaults.
     """
-    if model_dtype is not None:
-        model = model.to(dtype=model_dtype)
-        input_data = input_data.to(dtype=model_dtype)
-
-    model.eval()
-    quantizer = Quantizer(model, config)
-    prepared_model = quantizer.prepare((input_data,))
-
-    with torch.no_grad():
-        prepared_model_output = prepared_model(input_data)
-
-    finalized_model = quantizer.finalize(backend=ExportBackend.CoreML)
-
-    export_utils.convert_and_verify(
-        finalized_model=finalized_model,
+    export_utils.run_export_test(
+        model=model,
         input_data=input_data,
+        config=config,
         expected_ops=expected_ops,
         export_backend=ExportBackend.CoreML,
-        prepared_model_output=prepared_model_output,
+        model_dtype=model_dtype,
         snr_thresh=18.0,
         psnr_thresh=35.0,
     )

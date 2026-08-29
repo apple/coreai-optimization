@@ -12,11 +12,15 @@ export formats (MIL, MLIR).
 from __future__ import annotations
 
 from collections import OrderedDict
+from collections.abc import Callable
 
 import torch
 from torch import nn
 
+from coreai_opt._utils.torch_utils import is_float4_dtype
+from coreai_opt.common import ExportBackend
 from coreai_opt.config.spec import CompressionTargetTensor
+from coreai_opt.quantization.config.quantization_config import ExecutionMode
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
 from coreai_opt.quantization.spec.granularity import (
     PerBlockGranularity,
@@ -139,8 +143,8 @@ def create_mil_act_quant_seq(
                     ),
                 ),
                 ("dequantize", _MILActivationDequantizeModule()),
-            ],
-        ),
+            ]
+        )
     )
 
 
@@ -217,6 +221,176 @@ def select_export_qparams_by_formulation(
     if fake_quant_mod.qformulation == QuantizationFormulation.MINVAL:
         return None, minval
     raise NotImplementedError(f"Unknown qformulation: {fake_quant_mod.qformulation}")
+
+
+def extract_export_qparams(
+    fake_quant_mod: FakeQuantizeImplBase,
+) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
+    """Extract scale / zero_point / minval, cast and reshape them for Core AI export.
+
+    Args:
+        fake_quant_mod (FakeQuantizeImplBase): The fake quantization module.
+
+    Returns:
+        tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]: The
+        ``(scale, zero_point, minval)`` triple, cast for export and canonicalized
+        to 0-D (per-tensor) or 1-D (per-channel). At most one of ``zero_point``
+        and ``minval`` is not None.
+    """
+    scale, zero_point, minval = extract_quantization_params(fake_quant_mod)
+    zero_point, minval = select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
+
+    compute_dtype = fake_quant_mod.qparams_calculator._compute_dtype_for_export
+    scale = scale.to(dtype=compute_dtype)
+    if minval is not None:
+        minval = minval.to(dtype=compute_dtype)
+
+    if fake_quant_mod.qparams_calculator.scale_dtype == torch.float8_e8m0fnu:
+        scale = scale.to(torch.float8_e8m0fnu)
+
+    granularity = fake_quant_mod.granularity
+    scale = canonicalize_qparam_shape(scale, granularity)
+    if zero_point is not None:
+        zero_point = canonicalize_qparam_shape(zero_point, granularity)
+    if minval is not None:
+        minval = canonicalize_qparam_shape(minval, granularity)
+
+    return scale, zero_point, minval
+
+
+def dequant_output_dtype(fake_quant_mod: FakeQuantizeImplBase) -> torch.dtype | None:
+    """Return the dequantize op's ``output_dtype``, or None to let it infer one.
+
+    An e8m0 scale carries no dtype the consumer can infer a compute dtype from,
+    so the dequantize op has to be told which one to produce.
+    """
+    if fake_quant_mod.qparams_calculator.scale_dtype == torch.float8_e8m0fnu:
+        return fake_quant_mod.qparams_calculator._compute_dtype_for_export
+    return None
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Activation export handlers
+# ──────────────────────────────────────────────────────────────────────
+
+# Emits the quantize/dequantize pair for one fake-quant node and replaces it.
+GraphActivationExportHandler = Callable[
+    [torch.fx.GraphModule, torch.fx.Node, FakeQuantizeImplBase],
+    None,
+]
+
+# Builds the replacement module for one fake-quant module. The caller swaps it in.
+EagerActivationExportHandler = Callable[[FakeQuantizeImplBase], nn.Module]
+
+_GRAPH_ACTIVATION_EXPORT_HANDLERS: dict[
+    type[QuantizationGranularity],
+    GraphActivationExportHandler,
+] = {}
+_EAGER_ACTIVATION_EXPORT_HANDLERS: dict[
+    type[QuantizationGranularity],
+    EagerActivationExportHandler,
+] = {}
+
+
+def register_graph_activation_export_handler(
+    granularity_cls: type[QuantizationGranularity],
+    handler: GraphActivationExportHandler,
+) -> None:
+    """Register a graph-mode activation export handler for a granularity.
+
+    Args:
+        granularity_cls (type[QuantizationGranularity]): Granularity type the
+            handler applies to, matched exactly rather than by subclass.
+        handler (GraphActivationExportHandler): Called with
+            ``(model, node, fake_quant_mod)``; must replace ``node``.
+    """
+    _GRAPH_ACTIVATION_EXPORT_HANDLERS[granularity_cls] = handler
+
+
+def register_eager_activation_export_handler(
+    granularity_cls: type[QuantizationGranularity],
+    handler: EagerActivationExportHandler,
+) -> None:
+    """Register an eager-mode activation export handler for a granularity.
+
+    Args:
+        granularity_cls (type[QuantizationGranularity]): Granularity type the
+            handler applies to, matched exactly rather than by subclass.
+        handler (EagerActivationExportHandler): Called with
+            ``(fake_quant_mod)``; must return the replacement module.
+    """
+    _EAGER_ACTIVATION_EXPORT_HANDLERS[granularity_cls] = handler
+
+
+def get_activation_export_handler(
+    granularity: QuantizationGranularity,
+    execution_mode: ExecutionMode,
+) -> GraphActivationExportHandler | EagerActivationExportHandler | None:
+    """Return the handler registered for a granularity in ``execution_mode``, if any.
+
+    Args:
+        granularity (QuantizationGranularity): The activation's granularity.
+        execution_mode (ExecutionMode): Which registry to look in.
+
+    Returns:
+        GraphActivationExportHandler | EagerActivationExportHandler | None: The
+        registered handler, or None when the built-in export path applies.
+    """
+    if execution_mode == ExecutionMode.EAGER:
+        return _EAGER_ACTIVATION_EXPORT_HANDLERS.get(type(granularity))
+    return _GRAPH_ACTIVATION_EXPORT_HANDLERS.get(type(granularity))
+
+
+def can_export_stateless_fake_quant(
+    fake_quant_mod: FakeQuantizeImplBase,
+    backend: ExportBackend,
+    execution_mode: ExecutionMode,
+) -> bool:
+    """Return whether a recompute-every-forward calculator can still be exported.
+
+    The built-in export paths bake qparams into buffers, so a calculator that
+    recomputes them every forward has nothing to bake. A registered activation handler
+    emits its own ops and can express the recomputation, so it lifts the
+    restriction for the activation it covers.
+
+    Args:
+        fake_quant_mod (FakeQuantizeImplBase): The module whose calculator is stateless.
+        backend (ExportBackend): The export target.
+        execution_mode (ExecutionMode): The quantizer's execution mode.
+
+    Returns:
+        bool: True if a registered handler covers this module.
+    """
+    return (
+        backend == ExportBackend.CoreAI
+        and fake_quant_mod.quantization_target == CompressionTargetTensor.ACTIVATION
+        and get_activation_export_handler(fake_quant_mod.granularity, execution_mode) is not None
+    )
+
+
+def validate_activation_export_supported(fake_quant_mod: FakeQuantizeImplBase) -> None:
+    """Reject activation configurations the built-in Core AI export path cannot express.
+
+    Only called once no registered handler claimed the granularity, so both
+    messages can point at the extension hook as an alternative.
+
+    Args:
+        fake_quant_mod (FakeQuantizeImplBase): The activation fake quantization module.
+
+    Raises:
+        ValueError: If the dtype is FP4, or the granularity is per-block.
+    """
+    if is_float4_dtype(fake_quant_mod.dtype):
+        raise ValueError("Core AI export does not support FP4 activation quantization.")
+
+    if isinstance(fake_quant_mod.granularity, PerBlockGranularity):
+        raise ValueError(
+            "Core AI export does not support PerBlockGranularity on activations: a "
+            "per-block scale cannot be canonicalized to 0-D or 1-D. Use "
+            "PerTensorGranularity or PerChannelGranularity, export with "
+            "backend=ExportBackend._TORCH, or install and activate an extension "
+            "package that registers an activation export handler for this granularity."
+        )
 
 
 def validate_qformulation_for_mil_export(fake_quant_mod: FakeQuantizeImplBase) -> None:
@@ -352,3 +526,37 @@ def validate_fp4_export(
             f"the last axis, no blocking elsewhere). Got resolved block sizes "
             f"{resolved_block_size} from granularity={granularity!r}."
         )
+
+
+def validate_e8m0_int_export(model: nn.Module) -> None:
+    """Reject an integer dtype with an e8m0 scale on a weight, before anything mutates.
+
+    ``constexpr_blockwise_shift_scale``, which the weight paths emit, leaves the scale in
+    e8m0 for an integer input, and the consuming matmul then sees a scale whose dtype does
+    not match its other operand. Activations are unaffected -- their path casts the scale.
+
+    Runs over the whole model rather than per module: both weight paths free or erase as
+    they go, so raising mid-walk would leave the model half-rewritten.
+
+    Args:
+        model (nn.Module): The prepared model to check.
+
+    Raises:
+        ValueError: If any weight carries an integer dtype with an e8m0 scale.
+    """
+    offenders = [
+        name
+        for name, mod in model.named_modules()
+        if is_module_fake_quant_target(mod, CompressionTargetTensor.WEIGHT)
+        and not mod.dtype.is_floating_point
+        and mod.qparams_calculator.scale_dtype == torch.float8_e8m0fnu
+    ]
+    if offenders:
+        msg = (
+            "An e8m0 scale_dtype on an integer dtype is not supported for weights during "
+            "Core AI export, only for activations. constexpr_blockwise_shift_scale does "
+            "not accept an e8m0 scale with an integer input. Affected FakeQuantize "
+            f"modules: {offenders}. Set scale_dtype=None for those weights, or use a "
+            "floating-point dtype."
+        )
+        raise ValueError(msg)

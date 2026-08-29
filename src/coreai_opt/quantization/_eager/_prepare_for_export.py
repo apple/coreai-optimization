@@ -21,14 +21,17 @@ from coreai_opt._utils.torch_utils import (
 )
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
-    canonicalize_qparam_shape,
+    dequant_output_dtype,
+    extract_export_qparams,
     extract_quantization_params,
+    get_activation_export_handler,
     pack_fp4_to_float4tensor,
     select_export_qparams_by_formulation,
+    validate_activation_export_supported,
     validate_fp4_export,
 )
+from coreai_opt.quantization.config.quantization_config import ExecutionMode
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
-from coreai_opt.quantization.spec.granularity import PerBlockGranularity
 
 logger = logging.getLogger(__name__)
 
@@ -169,11 +172,33 @@ def _process_weight_quantization(model: nn.Module, mmap_dir: str | PathLike[str]
             fq_id_to_dequant_mod[id(fake_quant_mod)] = weight_dequant_mod
 
 
-def _process_activation_quantization(model: nn.Module):
+def _build_activation_replacement_module(
+    fake_quant_module: FakeQuantizeImplBase,
+) -> nn.Module:
     """
-    Replace FakeQuantizeImplBase modules with ActivationQuantizeParametrization
-    followed by ActivationDequantizeParametrization.
+    Build the module that replaces one activation fake quantization module.
+
+    Mirrors the graph path's ``_process_mlir_activation_quantization``: a registered
+    handler for the granularity takes precedence, and the built-in axis-based path is
+    the fallback. Only the shape differs -- graph mode rewrites the node in place,
+    while this returns a module for the caller to swap in.
+
+    Args:
+        fake_quant_module (FakeQuantizeImplBase): The activation fake quantization
+            module being replaced.
+
+    Returns:
+        nn.Module: The replacement, a ``Sequential`` of a quantize and a dequantize
+            module for the built-in path, or whatever a registered handler returns.
     """
+    # A registered handler owns this granularity end to end, including its own
+    # dtype and shape validation, and returns the replacement module; the
+    # caller's swap is shared.
+    handler = get_activation_export_handler(fake_quant_module.granularity, ExecutionMode.EAGER)
+    if handler is not None:
+        return handler(fake_quant_module)  # type: ignore[call-arg,return-value]
+
+    validate_activation_export_supported(fake_quant_module)
 
     # Lazy import: coreai_torch is required for MLIR export
     def _import_coreai_torch_modules():
@@ -188,97 +213,69 @@ def _process_activation_quantization(model: nn.Module):
         _import_coreai_torch_modules
     )
 
+    scale, zero_point, minval = extract_export_qparams(fake_quant_module)
+
+    axis = fake_quant_module.qparams_calculator._resolved_axis
+    axis = axis if axis is not None else 0
+
+    # Create the replacement module sequence
+    # First: ActivationQuantizeParametrization
+    quant_module = ActivationQuantizeModule(
+        scale=scale,
+        output_dtype=fake_quant_module.dtype,
+        zero_point=zero_point.clone() if zero_point is not None else None,
+        minval=minval.clone() if minval is not None else None,
+        axis=axis,
+    )
+
+    # Pass input_dtype for integer quantization
+    # needed for determining n_bits for subbyte (eg. int4) quantization
+    input_dtype = fake_quant_module.dtype if not fake_quant_module.dtype.is_floating_point else None
+
+    # Second: ActivationDequantizeParametrization
+    dequant_module = ActivationDequantizeModule(
+        scale=scale.clone(),  # make one more copy for dequantize module buffers
+        zero_point=zero_point.clone() if zero_point is not None else None,
+        minval=minval.clone() if minval is not None else None,
+        axis=axis,
+        input_dtype=input_dtype,
+        output_dtype=dequant_output_dtype(fake_quant_module),
+    )
+
+    # Create a sequential module to combine both operations
+    return nn.Sequential(
+        OrderedDict(
+            [
+                ("quantize", quant_module),
+                ("dequantize", dequant_module),
+            ]
+        )
+    )
+
+
+def _process_activation_quantization(model: nn.Module):
+    """
+    Replace FakeQuantizeImplBase modules with ActivationQuantizeParametrization
+    followed by ActivationDequantizeParametrization.
+    """
     modules_to_replace = []
 
     # Collect modules that need to be replaced
     # If there are duplicated fake quant modules they should ideally have duplicated
     # parent modules as well, unless manually inserted. Since we don't yet support
     # manual insertion, we aren't handling duplicates separately (remove_duplicate=True)
+    #
+    # Collect before mutating: named_modules() walks the live tree, so replacing a
+    # module mid-iteration would invalidate the traversal.
     for name, module in list(model.named_modules(remove_duplicate=True)):
         if isinstance(module, FakeQuantizeImplBase) and module.quantization_target in (
             CompressionTargetTensor.ACTIVATION,
         ):
-            if is_float4_dtype(module.dtype):
-                raise ValueError("Core AI export does not support FP4 activation quantization.")
-            if isinstance(module.granularity, PerBlockGranularity):
-                raise ValueError(
-                    "Core AI export does not support PerBlockGranularity on activations."
-                )
             modules_to_replace.append((name, module))
 
     # Replace each FakeQuantizeImplBase module
     for name, fake_quant_module in modules_to_replace:
-        # Extract quantization parameters
-        scale, zero_point, minval = extract_quantization_params(fake_quant_module)
-
-        # Drop one of the offsets so that the export
-        # module / runtime selects the right dequant path.
-        zero_point, minval = select_export_qparams_by_formulation(
-            fake_quant_module, zero_point, minval
-        )
-
-        # Cast scale and minval to appropriate dtype for MLIR backend inference
-        _compute_dtype_for_export = fake_quant_module.qparams_calculator._compute_dtype_for_export
-        scale = scale.to(dtype=_compute_dtype_for_export)
-        if minval is not None:
-            minval = minval.to(dtype=_compute_dtype_for_export)
-
-        if fake_quant_module.qparams_calculator.scale_dtype == torch.float8_e8m0fnu:
-            scale = scale.to(torch.float8_e8m0fnu)
-
-        # Canonicalize scale/zero_point/minval to 0-D (per-tensor) or 1-D (per-channel)
-        granularity = fake_quant_module.granularity
-        scale = canonicalize_qparam_shape(scale, granularity)
-        if zero_point is not None:
-            zero_point = canonicalize_qparam_shape(zero_point, granularity)
-        if minval is not None:
-            minval = canonicalize_qparam_shape(minval, granularity)
-
-        axis = fake_quant_module.qparams_calculator._resolved_axis
-        axis = axis if axis is not None else 0
-
-        # Create the replacement module sequence
-        # First: ActivationQuantizeParametrization
-        quant_module = ActivationQuantizeModule(
-            scale=scale,
-            output_dtype=fake_quant_module.dtype,
-            zero_point=zero_point.clone() if zero_point is not None else None,
-            minval=minval.clone() if minval is not None else None,
-            axis=axis,
-        )
-
-        # Second: ActivationDequantizeParametrization
-        if fake_quant_module.qparams_calculator.scale_dtype == torch.float8_e8m0fnu:
-            output_dtype = _compute_dtype_for_export
-        else:
-            output_dtype = None
-
-        # Pass input_dtype for integer quantization
-        # needed for determining n_bits for subbyte (eg. int4) quantization
-        input_dtype = (
-            fake_quant_module.dtype if not fake_quant_module.dtype.is_floating_point else None
-        )
-
-        dequant_module = ActivationDequantizeModule(
-            scale=scale.clone(),  # make one more copy for dequantize module buffers
-            zero_point=zero_point.clone() if zero_point is not None else None,
-            minval=minval.clone() if minval is not None else None,
-            axis=axis,
-            input_dtype=input_dtype,
-            output_dtype=output_dtype,
-        )
-
-        # Create a sequential module to combine both operations
-        replacement_module = nn.Sequential(
-            OrderedDict(
-                [
-                    ("quantize", quant_module),
-                    ("dequantize", dequant_module),
-                ]
-            )
-        )
-
-        # Replace the module in the model
+        replacement_module = _build_activation_replacement_module(fake_quant_module)
         parent_module, attr_name = get_parent_module_and_attr_name(model, name)
         setattr(parent_module, attr_name, replacement_module)
 

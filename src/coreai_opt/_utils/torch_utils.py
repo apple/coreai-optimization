@@ -23,10 +23,11 @@ logger = logging.getLogger(__name__)
 
 # Mapping from dtype to the largest power-of-2 component of its max value.
 # Used by e8m0 scale computation (OCP Microscaling spec, FLOOR mode).
-FP_DTYPE_TO_MAX_POW2: dict[torch.dtype, int] = {
+E8M0_TARGET_MAX_POW2: dict[torch.dtype, int] = {
     torch.float4_e2m1fn_x2: 2,
     torch.float8_e4m3fn: 8,  # max = 448.0 = 1.75 * 2^8
     torch.float8_e5m2: 15,  # max = 57344.0 = 1.75 * 2^15
+    torch.int8: 0,  # max = 127 / 64 = 1.984375
 }
 
 # Constants for e8m0 scale computation.

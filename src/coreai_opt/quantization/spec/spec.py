@@ -19,6 +19,7 @@ from pydantic import (
 )
 
 from coreai_opt._utils.torch_utils import (
+    E8M0_TARGET_MAX_POW2 as _E8M0_TARGET_MAX_POW2,
     get_n_bits_from_dtype as _get_n_bits_from_dtype,
     is_float4_dtype as _is_float4_dtype,
 )
@@ -26,6 +27,7 @@ from coreai_opt.config.spec import CompressionSpec, CompressionType
 
 from .fake_quantize import FakeQuantizeImplBase
 from .granularity import (
+    PerBlockGranularity,
     PerChannelGranularity,
     PerTensorGranularity,
     QuantizationGranularity,
@@ -316,7 +318,9 @@ class QuantizationSpec(CompressionSpec):
               (defaults to e8m0)
             - FP8 (float8_e4m3fn, float8_e5m2): scale_dtype must be
               torch.float8_e8m0fnu or None (defaults to None)
-            - Integer dtypes: scale_dtype must be None (defaults to None)
+            - int8: scale_dtype may be torch.float8_e8m0fnu, but only together with
+              PerBlockGranularity, qscheme=SYMMETRIC and qformulation=ZP
+            - Every other integer dtype: scale_dtype must be None (defaults to None)
 
             Default: None
 
@@ -537,21 +541,54 @@ class QuantizationSpec(CompressionSpec):
 
         Rules:
             - Only None or torch.float8_e8m0fnu are supported.
-            - Integer dtypes: scale_dtype must be None.
-            - FP8 dtypes: scale_dtype may be None or torch.float8_e8m0fnu.
+            - The dtype must have an e8m0 target exponent, i.e. be a key of
+              ``E8M0_TARGET_MAX_POW2``.
+            - Integer dtypes additionally require PerBlockGranularity,
+              qscheme=SYMMETRIC and qformulation=ZP.
             - FP4 dtypes: scale_dtype is resolved to torch.float8_e8m0fnu
               by resolve_scale_dtype (before validator).
         """
-        if self.scale_dtype is not None and self.scale_dtype != torch.float8_e8m0fnu:
+        if self.scale_dtype is None:
+            return self
+
+        if self.scale_dtype != torch.float8_e8m0fnu:
             raise ValueError(
                 f"Unsupported scale_dtype: {self.scale_dtype}. "
                 f"Only None or torch.float8_e8m0fnu are supported."
             )
 
-        if not self.dtype.is_floating_point and self.scale_dtype is not None:
+        if self.dtype not in _E8M0_TARGET_MAX_POW2:
             raise ValueError(
-                f"scale_dtype must be None for integer dtypes, "
-                f"got scale_dtype={self.scale_dtype} with dtype={self.dtype}."
+                f"scale_dtype must be None for dtype={self.dtype}, got "
+                f"scale_dtype={self.scale_dtype}. No e8m0 target exponent is defined "
+                f"for it; supported dtypes are {list(_E8M0_TARGET_MAX_POW2)}."
+            )
+
+        if self.dtype.is_floating_point:
+            return self
+
+        # An integer dtype with an e8m0 scale carries no offsets, so it can only
+        # express a symmetric, block-wise, zero-point range.
+        if not isinstance(self.granularity, PerBlockGranularity):
+            raise ValueError(
+                f"An e8m0 scale_dtype on {self.dtype} requires PerBlockGranularity, "
+                f"got {type(self.granularity).__name__}. The per-tensor and "
+                f"per-channel export path divides by the scale without casting it, "
+                f"which torch cannot do for an fp8 type."
+            )
+        if self.qscheme != QuantizationScheme.SYMMETRIC:
+            raise ValueError(
+                f"An e8m0 scale_dtype on {self.dtype} requires "
+                f"qscheme=QuantizationScheme.SYMMETRIC, got qscheme={self.qscheme}. "
+                f"This configuration carries no offsets, so it cannot express an "
+                f"asymmetric range."
+            )
+        if self.qformulation != QuantizationFormulation.ZP:
+            raise ValueError(
+                f"An e8m0 scale_dtype on {self.dtype} requires "
+                f"qformulation=QuantizationFormulation.ZP, got "
+                f"qformulation={self.qformulation}. This configuration carries no "
+                f"offsets, so it cannot express a minimum-value bias."
             )
 
         return self
