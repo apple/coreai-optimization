@@ -24,12 +24,15 @@ from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMeta
 from coreai_opt._utils.torch_utils import is_float4_dtype, sanitize_module_name
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
-    canonicalize_qparam_shape,
     convert_dtype_for_torch_quantize,
     create_mil_act_quant_seq,
+    dequant_output_dtype,
+    extract_export_qparams,
     extract_quantization_params,
+    get_activation_export_handler,
     pack_fp4_to_float4tensor,
     select_export_qparams_by_formulation,
+    validate_activation_export_supported,
     validate_fp4_export,
     validate_qformulation_for_mil_export,
 )
@@ -37,8 +40,8 @@ from coreai_opt.quantization._graph._utils import (
     remove_fake_quant_module,
     resolve_attr,
 )
+from coreai_opt.quantization.config.quantization_config import ExecutionMode
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
-from coreai_opt.quantization.spec.granularity import PerBlockGranularity
 
 logger = logging.getLogger(__name__)
 
@@ -332,11 +335,14 @@ def _process_mlir_activation_quantization(
         node: The fake quantization node to replace
         fake_quant_mod: The fake quantization module
     """
-    if is_float4_dtype(fake_quant_mod.dtype):
-        raise ValueError("Core AI export does not support FP4 activation quantization.")
+    # A registered handler owns this granularity end to end, including its own
+    # dtype and shape validation.
+    handler = get_activation_export_handler(fake_quant_mod.granularity, ExecutionMode.GRAPH)
+    if handler is not None:
+        handler(model, node, fake_quant_mod)  # type: ignore[call-arg]
+        return
 
-    if isinstance(fake_quant_mod.granularity, PerBlockGranularity):
-        raise ValueError("Core AI export does not support PerBlockGranularity on activations.")
+    validate_activation_export_supported(fake_quant_mod)
 
     def _import_coreai_custom_ops():
         import coreai_torch._compression.custom_layers  # noqa: PLC0415, F401
@@ -349,29 +355,7 @@ def _process_mlir_activation_quantization(
     if not node.args:
         raise ValueError(f"Node {node} has no input arguments")
 
-    # Extract and prepare quantization parameters
-    scale, zero_point, minval = extract_quantization_params(fake_quant_mod)
-
-    # Drop the offset the active formulation doesn't consume so the runtime op
-    # selects the right dequant path.
-    zero_point, minval = select_export_qparams_by_formulation(fake_quant_mod, zero_point, minval)
-
-    # Cast scale and minval to appropriate dtype for MLIR backend inference
-    _compute_dtype_for_export = fake_quant_mod.qparams_calculator._compute_dtype_for_export
-    scale = scale.to(dtype=_compute_dtype_for_export)
-    if minval is not None:
-        minval = minval.to(dtype=_compute_dtype_for_export)
-
-    if fake_quant_mod.qparams_calculator.scale_dtype == torch.float8_e8m0fnu:
-        scale = scale.to(torch.float8_e8m0fnu)
-
-    # Canonicalize scale/zero_point/minval to 0-D (per-tensor) or 1-D (per-channel)
-    granularity = fake_quant_mod.granularity
-    scale = canonicalize_qparam_shape(scale, granularity)
-    if zero_point is not None:
-        zero_point = canonicalize_qparam_shape(zero_point, granularity)
-    if minval is not None:
-        minval = canonicalize_qparam_shape(minval, granularity)
+    scale, zero_point, minval = extract_export_qparams(fake_quant_mod)
 
     # Register buffers and get buffer names
     base_name = node.name.replace(".", "_")
@@ -383,10 +367,7 @@ def _process_mlir_activation_quantization(
     axis = fake_quant_mod.qparams_calculator._resolved_axis
 
     # Determine output_dtype for dequantize (needed for FP8 when scale is float8_e8m0fnu)
-    if fake_quant_mod.qparams_calculator.scale_dtype == torch.float8_e8m0fnu:
-        dequant_output_dtype = _compute_dtype_for_export
-    else:
-        dequant_output_dtype = None
+    output_dtype = dequant_output_dtype(fake_quant_mod)
 
     # Create graph nodes and replace fake quantization
     with model.graph.inserting_before(node):
@@ -413,7 +394,7 @@ def _process_mlir_activation_quantization(
 
         # coreai.dequantize(input, scale, zero_point=, minval=, axis=, input_dtype=, output_dtype=)
         dequant_args = (quantize_node, scale_node)
-        dequant_kwargs = {"output_dtype": dequant_output_dtype}
+        dequant_kwargs = {"output_dtype": output_dtype}
         if zp_node is not None:
             # output = scale * (input - zero_point)
             dequant_kwargs["zero_point"] = zp_node
