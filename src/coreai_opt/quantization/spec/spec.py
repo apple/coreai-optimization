@@ -379,8 +379,6 @@ class QuantizationSpec(CompressionSpec):
         sparsity = data.pop("_sparsity", None)
         super().__init__(**data)
         if sparsity is not None:
-            if not (0.0 <= sparsity <= 1.0):
-                raise ValueError(f"_sparsity must be in [0, 1], got {sparsity}")
             self._validate_sparsity_zero_preserving(sparsity)
             self._sparsity = sparsity
 
@@ -569,6 +567,8 @@ class QuantizationSpec(CompressionSpec):
 
     def _validate_sparsity_zero_preserving(self, sparsity: float) -> None:
         """Reject sparsity unless a raw 0 dequantizes to exactly 0.0."""
+        if not (0.0 <= sparsity <= 1.0):
+            raise ValueError(f"_sparsity must be in [0, 1], got {sparsity}")
         if _is_float4_dtype(self.dtype):
             raise ValueError("FP4 dtype not supported for joint sparsity.")
         if self.dtype.is_floating_point:

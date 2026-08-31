@@ -102,13 +102,13 @@ class PalettizationSpec(CompressionSpec):
         sparsity = data.pop("_sparsity", None)
         super().__init__(**data)
         if sparsity is not None:
-            if not (0.0 <= sparsity <= 1.0):
-                raise ValueError(f"_sparsity must be in [0, 1], got {sparsity}")
             self._validate_sparsity(sparsity)
             self._sparsity = sparsity
 
     def _validate_sparsity(self, sparsity: float) -> None:
         """Reject sparsity combined with a position-dependent LUT/scale mapping."""
+        if not (0.0 <= sparsity <= 1.0):
+            raise ValueError(f"_sparsity must be in [0, 1], got {sparsity}")
         if self.lut_qspec is not None:
             raise ValueError("lut_qspec not supported for joint sparsity.")
         if not isinstance(self.granularity, PerTensorGranularity):

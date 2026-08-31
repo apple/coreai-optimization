@@ -62,6 +62,8 @@ class _SparsePalettizeReconstruction(nn.Module):
     ) -> None:
         super().__init__()
         self.register_buffer("nonzero_indices", nonzero_indices)
+        # nonzero_indices is rank 1 (flattened by masking), so lut must be
+        # reshaped to rank 3 (lut_to_dense requires lut.rank == indices.rank + 2).
         self.register_buffer("lut", lut.reshape(1, lut.shape[-2], lut.shape[-1]))
         self.register_buffer("mask", mask)
         self.vector_axis = 0 if vector_axis is None else vector_axis
@@ -294,10 +296,8 @@ def _insert_mlir_custom_op(
     vector_axis = _DEFAULT_VECTOR_AXIS if palett_info.cluster_dim > 1 else None
 
     if fake_palett_mod.sparsity is not None:
-        # Reuses the mask from prepare()'s forward pass. needs_scale is always
-        # False here: PalettizationSpec rejects lut_qspec/enable_per_channel_scale
-        # combined with sparsity, since both are position-dependent and would
-        # be scrambled by flattening to the nonzero-only indices below.
+        # Reuses the mask from prepare()'s forward pass. needs_scale is always False here:
+        # PalettizationSpec rejects lut_qspec/enable_per_channel_scale combined with sparsity.
         mask = fake_palett_mod._sparsity_mask.to(torch.bool)
         nonzero_indices = palett_info.indices[mask]
         mlir_palett_mod = _SparsePalettizeReconstruction(
