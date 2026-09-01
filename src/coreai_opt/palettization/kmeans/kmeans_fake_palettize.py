@@ -5,6 +5,7 @@
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -36,6 +37,23 @@ from .kmeans_support_mixins import _LinearPalettizationMixin
 from .supported_ops_registry import _KMeansPalettizerSupportedOpsRegistry
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _WeightVectorization:
+    """Context to invert ``vectorize``.
+
+    Attributes:
+        axis (int): Axis blocks were split along.
+        block_shape (torch.Size): Shared ``(rows, cols)`` shape of every block.
+        weight_shape (torch.Size): Original (pre-scale, pre-reshape) weight shape.
+        weight_dtype (torch.dtype): Original weight dtype.
+    """
+
+    axis: int
+    block_shape: torch.Size
+    weight_shape: torch.Size
+    weight_dtype: torch.dtype
 
 
 @_FakePalettizeImplBase.register("default")
@@ -303,6 +321,11 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         self._maybe_refresh_indices(weight)
         return self._palettize(self.lut, self.indices, weight)
 
+    @property
+    def _resolved_axis(self) -> int:
+        """Palettization axis, defaulting to 0 for per-tensor granularity (``axis`` is None)."""
+        return self.granularity.axis if self.granularity.axis else 0
+
     def _blocks_to_cluster(self, weight_2d: torch.Tensor, axis: int) -> list[torch.Tensor]:
         """Validate cluster_dim divisibility and split a 2D weight/sensitivity
         tensor into per-partition blocks.
@@ -319,6 +342,30 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
                 )
         return self.granularity.get_blocks_to_cluster(weight_2d)
 
+    def _scale_reshape_and_block(self, weight: torch.Tensor) -> tuple[list[torch.Tensor], int]:
+        """Scale (if enabled), reshape to 2D, and split into per-block tensors.
+
+        Shared prefix of the clustering, index-assignment, and vectorization paths.
+
+        Args:
+            weight (torch.Tensor): Weight tensor in its original shape.
+
+        Returns:
+            tuple[list[torch.Tensor], int]: The per-block 2D tensors and the
+            resolved palettization axis.
+        """
+        if self.enable_per_channel_scale:
+            weight = self._scale_by_per_channel_scale(weight)
+        axis = self._resolved_axis
+
+        # Produce a 2d tensor with output channel axis remaining as is, and all other axes flattened
+        # into the input channel axis.
+        weight_2d = self.reshape_strategy.reshape_for_kmeans(weight, axis)
+
+        # Split along the palettization axis into per-partition blocks: a single block
+        # for per-tensor, or group_size-sized blocks for per-grouped-channel.
+        return self._blocks_to_cluster(weight_2d, axis), axis
+
     @torch.no_grad()
     def _cluster_to_centroids(
         self, original_weights: torch.Tensor, sensitivities: torch.Tensor | None = None
@@ -330,12 +377,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         cluster assignment produced directly by the clustering algorithm.
         """
         weight = original_weights.cpu()
-        if self.enable_per_channel_scale:
-            weight = self._scale_by_per_channel_scale(weight)
-
-        axis = self.granularity.axis if self.granularity.axis else 0
-        weight = self.reshape_strategy.reshape_for_kmeans(weight, axis)
-        block_weights_to_cluster = self._blocks_to_cluster(weight, axis)
+        block_weights_to_cluster, axis = self._scale_reshape_and_block(weight)
 
         if sensitivities is not None:
             sensitivities = sensitivities.cpu()
@@ -378,18 +420,12 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         """Nearest-centroid hard assignment of ``original_weights`` against a
         given ``centroids`` (P, K, D) tensor.
         """
-        weight = original_weights.detach().cpu()
-        if self.enable_per_channel_scale:
-            weight = self._scale_by_per_channel_scale(weight)
-
-        axis = self.granularity.axis if self.granularity.axis else 0
-        weight_2d = self.reshape_strategy.reshape_for_kmeans(weight, axis)
-        blocks = self._blocks_to_cluster(weight_2d, axis)
+        blocks, axis = self._scale_reshape_and_block(original_weights.detach().cpu())
         centroids_cpu = centroids.detach().cpu().float()
 
         block_indices = []
         for block_idx, block_weight in enumerate(blocks):
-            vec = self._vectorize(block_weight)
+            vec = self._vectorize_block(block_weight)
             dist = torch.cdist(vec.float(), centroids_cpu[block_idx])
             clusters = dist.argmin(dim=-1)
             block_indices.append(self._build_block_indices(clusters, block_weight).to(torch.uint8))
@@ -438,7 +474,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             along the grouped axis, so all blocks have the same size.
         """
         clustered_weight = None
-        axis = self.granularity.axis if self.granularity.axis else 0
+        axis = self._resolved_axis
 
         lut = lut.to(indices.device)
 
@@ -646,13 +682,13 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         num_clusters = 2**self.n_bits
 
         # Vectorize: reshape block_weight to (N, cluster_dim) along axis 0
-        vectorized = self._vectorize(block_weight)
+        vectorized = self._vectorize_block(block_weight)
         num_clusters = min(len(vectorized), num_clusters)
 
         # Prepare sample weights from sensitivities
         sample_weight = None
         if block_sensitivity is not None:
-            sens_vectorized = self._vectorize(block_sensitivity)
+            sens_vectorized = self._vectorize_block(block_sensitivity)
             # Sum sensitivities along cluster_dim for per-vector importance
             sample_weight = sens_vectorized.sum(dim=-1, keepdim=True)
 
@@ -674,7 +710,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
 
         return centroids, labels
 
-    def _vectorize(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _vectorize_block(self, tensor: torch.Tensor) -> torch.Tensor:
         """Reshape a 2D tensor into (N, cluster_dim) vectors for k-means.
 
         Vectors are always formed along axis 0 (output channel axis). This transposes
@@ -684,6 +720,68 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         if self.cluster_dim == 1:
             return tensor.reshape(-1, 1)
         return tensor.transpose(0, 1).reshape(-1, self.cluster_dim)
+
+    def _vectorize(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Alias of _vectorize_block, to be removed."""
+        return self._vectorize_block(tensor)
+
+    def _devectorize_block(self, vec: torch.Tensor, rows: int, cols: int) -> torch.Tensor:
+        """Reconstruct a ``(rows, cols)`` block from its ``(N, cluster_dim)``
+        vectors — the inverse of ``_vectorize_block``.
+        """
+        if self.cluster_dim == 1:
+            return vec.reshape(rows, cols)
+        return vec.reshape(cols, rows).transpose(0, 1)
+
+    def vectorize(self, weight: torch.Tensor) -> tuple[torch.Tensor, _WeightVectorization]:
+        """Scale (if enabled), reshape, block-split, and vectorize a weight into
+        stacked ``(num_blocks, vectors_per_block, cluster_dim)`` k-means vectors.
+
+        Applies per-channel scaling when ``enable_per_channel_scale`` is set,
+        matching the clustering path, then produces the vector layout k-means
+        operates on. Device-preserving. Invert via ``devectorize``.
+
+        Args:
+            weight (torch.Tensor): Weight tensor in its original shape.
+
+        Returns:
+            tuple[torch.Tensor, _WeightVectorization]: The stacked ``(P, N, D)``
+            vectors and the context needed to reconstruct the weight.
+        """
+        weight_shape, weight_dtype = weight.shape, weight.dtype
+        blocks, axis = self._scale_reshape_and_block(weight)
+        block_shape = blocks[0].shape  # all blocks share one shape
+        vectors = torch.stack([self._vectorize_block(block) for block in blocks])
+
+        context = _WeightVectorization(axis, block_shape, weight_shape, weight_dtype)
+        return vectors, context
+
+    def devectorize(self, vectors: torch.Tensor, context: _WeightVectorization) -> torch.Tensor:
+        """Reconstruct a weight from stacked ``(P, N, D)`` vectors — the inverse
+        of ``vectorize``.
+
+        Undoes the vectorization and block-split, restores the original shape,
+        then unscales when ``enable_per_channel_scale`` is set.
+
+        Args:
+            vectors (torch.Tensor): Stacked ``(num_blocks, vectors_per_block,
+                cluster_dim)`` vectors.
+            context (_WeightVectorization): Context from ``vectorize``.
+
+        Returns:
+            torch.Tensor: Weight in the original shape and dtype.
+        """
+        blocks = [
+            self._devectorize_block(vectors[p], *context.block_shape)
+            for p in range(vectors.shape[0])
+        ]
+        clustered = torch.cat(blocks, dim=context.axis)
+        clustered = self.reshape_strategy.reshape_to_original(
+            clustered, context.axis, context.weight_shape
+        )
+        if self.enable_per_channel_scale:
+            clustered = self._unscale_by_per_channel_scale(clustered)
+        return clustered.to(context.weight_dtype)
 
     def _lookup_result_to_block(self, looked_up: torch.Tensor) -> torch.Tensor:
         """Reshape a vector LUT lookup result back to 2D weight shape.

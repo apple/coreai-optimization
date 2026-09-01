@@ -2000,3 +2000,40 @@ def test_device_placement_on_accelerator(accelerator_device):
     out = palettizer.hard_assign(weight)
     assert out.device.type == device
     assert out.shape == weight.shape
+
+
+_ROUNDTRIP_SPECS = [
+    pytest.param(PerTensorGranularity(), 1, id="pt-cd1"),
+    pytest.param(PerTensorGranularity(), 2, id="pt-cd2"),
+    pytest.param(PerTensorGranularity(), 4, id="pt-cd4"),
+    pytest.param(PerGroupedChannelGranularity(axis=0, group_size=8), 1, id="pgc-ax0-gs8-cd1"),
+    pytest.param(PerGroupedChannelGranularity(axis=0, group_size=16), 4, id="pgc-ax0-gs16-cd4"),
+    pytest.param(PerGroupedChannelGranularity(axis=1, group_size=8), 1, id="pgc-ax1-gs8-cd1"),
+]
+
+
+@pytest.mark.parametrize("enable_per_channel_scale", [False, True], ids=["no-pcs", "pcs"])
+@pytest.mark.parametrize("granularity, cluster_dim", _ROUNDTRIP_SPECS)
+def test_vectorize_devectorize_round_trip(granularity, cluster_dim, enable_per_channel_scale):
+    """``devectorize`` inverts ``vectorize``.
+
+    Covers scaling on/off across granularity and cluster_dim, independent of
+    clustering — the round trip must reconstruct the original weight.
+    """
+    torch.manual_seed(0)
+    spec = PalettizationSpec(
+        n_bits=4,
+        granularity=granularity,
+        cluster_dim=cluster_dim,
+        enable_per_channel_scale=enable_per_channel_scale,
+        lut_qspec=None,
+    )
+    palettizer = _KMeansFakePalettize(**spec.__dict__)
+    weight = torch.randn(16, 32)
+
+    vectors, context = palettizer.vectorize(weight)
+    reconstructed = palettizer.devectorize(vectors, context)
+
+    assert reconstructed.shape == weight.shape
+    assert reconstructed.dtype == weight.dtype
+    assert torch.allclose(reconstructed, weight, atol=1e-5)
