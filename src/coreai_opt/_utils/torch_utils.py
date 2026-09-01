@@ -17,7 +17,7 @@ from typing import Any, Final, NamedTuple
 import torch
 import torch.nn.utils.parametrize as P
 
-from coreai_opt._utils.version_utils import version_ge as _version_ge
+from coreai_opt._utils.version_utils import version_ge
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,19 @@ FP_DTYPE_TO_MAX_POW2: dict[torch.dtype, int] = {
 # Constants for e8m0 scale computation.
 E8M0_EXPONENT_BIAS: Final[int] = 127
 F32_MIN_NORMAL: Final[float] = 2**-126  # ~1.175e-38
+
+# Maps a graph-mode aten ``OpOverload`` to the ``nn.Module`` type it corresponds
+# to.
+ATEN_OP_TO_MODULE_TYPE: dict[torch._ops.OpOverload, type[torch.nn.Module]] = {
+    torch.ops.aten.conv1d.default: torch.nn.Conv1d,
+    torch.ops.aten.conv2d.default: torch.nn.Conv2d,
+    torch.ops.aten.conv3d.default: torch.nn.Conv3d,
+    torch.ops.aten.conv_transpose1d.default: torch.nn.ConvTranspose1d,
+    torch.ops.aten.conv_transpose2d.input: torch.nn.ConvTranspose2d,
+    torch.ops.aten.conv_transpose3d.input: torch.nn.ConvTranspose3d,
+    torch.ops.aten.linear.default: torch.nn.Linear,
+    torch.ops.aten.embedding.default: torch.nn.Embedding,
+}
 
 
 class NamedModule(NamedTuple):
@@ -56,6 +69,23 @@ def flatten_tensors_to_list(obj: Any) -> list[torch.Tensor]:
             result.extend(flatten_tensors_to_list(value))
         return result
     return []
+
+
+def normalize_axis(axis: int, ndim: int) -> int:
+    """Resolve a negative axis against a tensor rank.
+
+    A non-negative axis is returned unchanged. The caller must validate the range,
+    since an axis below ``-ndim`` stays negative here.
+
+    Args:
+        axis (int): Axis in standard Python style indexing.
+        ndim (int): Rank of the tensor the axis refers to.
+
+    Returns:
+        int: ``axis + ndim`` when axis is negative, otherwise axis unchanged.
+
+    """
+    return axis + ndim if axis < 0 else axis
 
 
 def get_module_name(model: torch.nn.Module, module: torch.nn.Module) -> str | None:
@@ -390,12 +420,13 @@ def export_model(
     Args:
         model (torch.nn.Module): The model to export.
         example_inputs (tuple[Any, ...]): Example inputs for tracing.
-        dynamic_shapes: Dynamic shapes specification for torch.export.
+        dynamic_shapes (dict[str, Any] | tuple[Any] | list[Any] | None):
+                        Dynamic shapes specification for torch.export.
                         Can be a dict mapping input names to dynamic dimensions,
                         a tuple/list of dynamic shapes per input, or None for
                         static shapes. Used to specify which dimensions can vary
                         at runtime during model export.
-        export_with_no_grad: Whether to call torch.export.export within a
+        export_with_no_grad (bool): Whether to call torch.export.export within a
                              torch.no_grad() context.
 
     Returns:
@@ -410,14 +441,33 @@ def export_model(
             exported_program = torch.export.export(
                 model, example_inputs, dynamic_shapes=dynamic_shapes
             )
-            if _version_ge(torch, "2.9"):
+            if version_ge(torch, "2.9"):
                 exported_model = exported_program.module(check_guards=False)
             else:
                 exported_model = exported_program.module()
         return exported_model
     except Exception as e:
+        no_grad_hint = (
+            "  - Try export_with_no_grad=False — the torch.no_grad() context can "
+            "modify tracing behavior for some models.\n"
+            if export_with_no_grad
+            else "  - Try export_with_no_grad=True — exporting with torch.no_grad() "
+            "simplifies the traced graph.\n"
+        )
+        _dynamic_shapes_url = (
+            "https://docs.pytorch.org"
+            "/tutorials/intermediate/torch_export_tutorial.html"
+            "#constraints-dynamic-shapes"
+        )
         raise RuntimeError(
-            f"Failed to trace the model with torch.export.export(), received error: {e}"
+            f"Failed to trace the model with torch.export.export(), received error: "
+            f"{e}\n\n"
+            f"Debugging hints:\n"
+            f"{no_grad_hint}"
+            f"  - If the error mentions shape constraints, try specifying "
+            f"dynamic_shapes. See: {_dynamic_shapes_url}\n"
+            f"  - As a last resort, consider using EAGER execution mode: "
+            f"config.execution_mode = ExecutionMode.EAGER"
         ) from e
 
 
@@ -426,12 +476,23 @@ def mmap_module_state_dict(module: torch.nn.Module, path: str | PathLike[str]) -
     reload it via mmap, replacing the module's parameters/buffers with mmap
     views so the in-RAM tensors can be released.
 
+    Handles ``SubbyteTensor`` subclasses (e.g. ``Float4Tensor``) that safetensors
+    cannot serialize directly by unwrapping to plain uint8 for storage and
+    re-wrapping after reload.
+
     Requires all tensors in ``module.state_dict()`` to be on CPU. Raises
     ``ValueError`` otherwise — mmap is a CPU-only mechanism
     """
+    from coreai_torch._compression._floatx import SubbyteTensor as _SubbyteTensor  # noqa: PLC0415
     from safetensors.torch import load_file, save_file  # noqa: PLC0415
 
     state_dict = module.state_dict()
+
+    # Keys whose tensors are SubbyteTensor wrappers (Float4Tensor, etc.) that
+    # safetensors cannot serialize. Track their class for re-wrapping after load.
+    subbyte_keys: dict[str, type] = {}
+    tensors_to_save: dict[str, torch.Tensor] = {}
+
     for name, tensor in state_dict.items():
         if not isinstance(tensor, torch.Tensor):
             continue
@@ -439,10 +500,17 @@ def mmap_module_state_dict(module: torch.nn.Module, path: str | PathLike[str]) -
             raise ValueError(
                 f"mmap_module_state_dict requires CPU tensors; '{name}' is on {tensor.device}."
             )
+        if isinstance(tensor, _SubbyteTensor):
+            subbyte_keys[name] = type(tensor)
+            tensors_to_save[name] = tensor.elem.contiguous()
+        else:
+            tensors_to_save[name] = tensor.contiguous()
 
-    save_file(
-        {k: v.contiguous() for k, v in state_dict.items() if isinstance(v, torch.Tensor)},
-        path,
-    )
+    save_file(tensors_to_save, path)
     mmap_sd = load_file(path, device="cpu")
+
+    # Re-wrap SubbyteTensor keys from their underlying uint8 representation.
+    for name, tensor_cls in subbyte_keys.items():
+        mmap_sd[name] = tensor_cls(mmap_sd[name])
+
     module.load_state_dict(mmap_sd, assign=True)

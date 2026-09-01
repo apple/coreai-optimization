@@ -24,7 +24,7 @@ from coreai_opt.inspection import (
 from coreai_opt.inspection._eager_mode import _EagerOpDiscoveryMode
 from coreai_opt.inspection.types import BoundaryEdge, InputEdge, OpInfo
 from coreai_opt.palettization import KMeansPalettizer
-from coreai_opt.quantization import Quantizer
+from coreai_opt.quantization import InvalidExecutionModeError, Quantizer
 from coreai_opt.quantization.config.quantization_config import ExecutionMode
 
 execution_modes = pytest.mark.parametrize(
@@ -1138,9 +1138,9 @@ class TestModelInspectorValidation:
             ModelInspector(gm, (torch.randn(1, 10),), execution_mode="eager")
 
     def test_invalid_execution_mode_raises(self) -> None:
-        """Verify ValueError for unrecognized execution mode."""
+        """Verify InvalidExecutionModeError for unrecognized execution mode."""
         model = nn.Linear(10, 5)
-        with pytest.raises(ValueError, match="Unknown execution_mode"):
+        with pytest.raises(InvalidExecutionModeError):
             ModelInspector(model, (torch.randn(1, 10),), execution_mode="invalid")
 
     def test_unsupported_compressor_raises(self) -> None:

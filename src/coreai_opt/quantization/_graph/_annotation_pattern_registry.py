@@ -4,10 +4,9 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Generic, TypeAlias, TypeVar
+from typing import Generic, TypeVar
 
 import torch
 from torch.fx.passes.utils.matcher_utils import InternalMatch
@@ -16,47 +15,43 @@ from torch.fx.passes.utils.source_matcher_utils import SourcePartition
 from coreai_opt._utils.registry_utils import ClassRegistryMixin
 
 from . import _annotation_utils
-from ._annotation_config import (
-    AnnotationConfig as _AnnotationConfig,
-    AnnotationContext as _AnnotationContext,
+from ._annotation_utils import OpsListPattern
+from ._qspec_constraints import (
+    Constraint,
+    ShareFields,
+    ShareObserverInstance,
 )
-from ._annotation_utils import (
-    OpsListPattern as _OpsListPattern,
+from ._qspec_types import (
+    FieldName,
+    NodeSlot,
+    ProvisionalQSpec,
+    ProvisionalQSpecMap,
+    SlotKind,
 )
 
 # Generic type variable for match results
 MatchType = TypeVar("MatchType")
 
-# Generic annotator function type.
-# The function is expected to take exactly 3 inputs:
-# 1. Matched nodes to annotate. The type of this entity is flexible depending
-#    on the implementation of the AnnotationPattern subclass. Whatever entity
-#    is returned in the subclass's match_single_pattern dictionary values will
-#    be passed into this function as the first input.
-# 2. Quantization Config to use when annotating the matched nodes (per-match,
-#    derived from OpQuantizerConfig).
-# 3. Annotation pass context. Holds pass-invariant inputs the annotator may
-#    need (the model's module-name-to-state-names map and the set of shared
-#    observer nodes computed at the start of this annotation pass).
-AnnotatorFunc: TypeAlias = Callable[[MatchType, _AnnotationConfig, _AnnotationContext], Any]
+# A pattern node of any other kind is an op the pattern spans, which is what both
+# get_pattern_length and _nodes_covered_by count.
+_OPERAND_NODE_OPS = frozenset({"get_attr", "placeholder", "output"})
 
 
 @dataclass(frozen=True)
 class AnnotatorMatchInfo(Generic[MatchType]):
-    """
-    Holds info related to nodes matched with a particular annotator.
+    """Info about a single annotator's match on the graph.
 
-    annotator_func: A function used to annotate nodes in annotator_match
-    annotator_match: Nodes in the model matched with the annotator
-    pattern_length: Length of the annotation pattern
+    Attributes:
+        annotator_match (MatchType): Nodes in the model matched with the
+            annotator.
+        pattern_length (int): Length of the annotation pattern.
     """
 
-    annotator_func: AnnotatorFunc[MatchType]
     annotator_match: MatchType
     pattern_length: int
 
 
-def _get_all_patterns_with_activations_appended(starting_pattern: _OpsListPattern):
+def _get_all_patterns_with_activations_appended(starting_pattern: OpsListPattern):
     """
     Given a starting ops list pattern, return a new list of patterns containing the
     combination of the starting pattern with all activation types appended to the
@@ -67,19 +62,19 @@ def _get_all_patterns_with_activations_appended(starting_pattern: _OpsListPatter
         _annotation_utils._supported_activations
         + _annotation_utils._supported_activations_no_inplace
     ):
-        patterns.append(_OpsListPattern(starting_pattern.pattern + [act_fn.__name__]))
+        patterns.append(OpsListPattern(starting_pattern.pattern + [act_fn.__name__]))
     return patterns
 
 
 def _get_all_patterns_from_base_ops(
     base_ops: set[str], use_act: bool = False
-) -> list[_OpsListPattern]:
+) -> list[OpsListPattern]:
     patterns = []
     for base_op in base_ops:
         if use_act:
-            patterns.extend(_get_all_patterns_with_activations_appended(_OpsListPattern([base_op])))
+            patterns.extend(_get_all_patterns_with_activations_appended(OpsListPattern([base_op])))
         else:
-            patterns.append(_OpsListPattern([base_op]))
+            patterns.append(OpsListPattern([base_op]))
     return patterns
 
 
@@ -88,30 +83,16 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
     Base class for annotation patterns.
 
     Each pattern class should implement:
-    - get_annotator_func(): Returns a function used to annotate nodes in accordance with
-                            the Annotation pattern.
     - generate_patterns(): Returns list of graph modules representing
                            the patterns to match
     - match_single_pattern(): Matches graph for a single pattern
     """
 
     # Class-level cache for patterns
-    _patterns: list[torch.fx.GraphModule | _OpsListPattern] | None = None
+    _patterns: list[torch.fx.GraphModule | OpsListPattern] | None = None
 
     @classmethod
-    @abstractmethod
-    def get_annotator_func(cls) -> AnnotatorFunc[MatchType]:
-        """
-        Return a function which is used to annotate nodes in accordance with a
-        particular Annotation pattern.
-
-        Returns:
-            Function used to annotate nodes.
-        """
-        raise NotImplementedError
-
-    @classmethod
-    def get_patterns(cls) -> list[torch.fx.GraphModule | _OpsListPattern]:
+    def get_patterns(cls) -> list[torch.fx.GraphModule | OpsListPattern]:
         """
         Returns a cached list of graph modules representing the patterns
         this annotator can match. Patterns are generated once and cached.
@@ -146,7 +127,7 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
         pattern_len = 0
         # Account for AnnotationPattern classes using get_sequential_partition with a
         # list of types.
-        if isinstance(pattern, _OpsListPattern):
+        if isinstance(pattern, OpsListPattern):
             return len(pattern.pattern)
         for node in pattern.graph.nodes:
             # Sanity check to make sure we account for all node.op types
@@ -158,7 +139,7 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
                 "call_method",
                 "call_module",
             ]
-            if node.op not in ["get_attr", "placeholder", "output"]:
+            if node.op not in _OPERAND_NODE_OPS:
                 pattern_len += 1
         return pattern_len
 
@@ -170,12 +151,12 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
 
     @classmethod
     @abstractmethod
-    def generate_patterns(cls) -> list[torch.fx.GraphModule | _OpsListPattern]:
+    def generate_patterns(cls) -> list[torch.fx.GraphModule | OpsListPattern]:
         """
         Generate the patterns for this annotator. Called once and cached.
 
         Returns:
-            List of torch.fx.GraphModule or _OpsListPattern objects representing
+            List of torch.fx.GraphModule or OpsListPattern objects representing
             different patterns
         """
         pass
@@ -183,7 +164,7 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
     @classmethod
     @abstractmethod
     def match_single_pattern(
-        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | _OpsListPattern
+        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
     ) -> dict[torch.fx.Node, MatchType]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
@@ -191,7 +172,7 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
 
         Args:
             model (torch.fx.GraphModule): Exported GraphModule model to match
-            pattern (torch.fx.GraphModule | _OpsListPattern): Pattern used to match
+            pattern (torch.fx.GraphModule | OpsListPattern): Pattern used to match
 
         Returns:
             dict[torch.fx.Node, MatchType]: Dictionary mapping nodes to matches.
@@ -239,7 +220,6 @@ class BaseAnnotationPattern(Generic[MatchType], ABC):
                 {
                     node: AnnotatorMatchInfo(
                         pattern_length=cls.get_pattern_length(),
-                        annotator_func=cls.get_annotator_func(),
                         annotator_match=match,
                     )
                     for node, match in node_to_match_dict.items()
@@ -265,16 +245,8 @@ class WeightedModulePattern(BaseAnnotationPattern[InternalMatch]):
     """
 
     @classmethod
-    def get_annotator_func(cls) -> AnnotatorFunc[InternalMatch]:
-        """
-        Return a function which is used to annotate nodes in accordance with
-        WeightedModulePattern.
-        """
-        return _annotation_utils.annotate_weighted_mod_match
-
-    @classmethod
     def match_single_pattern(
-        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | _OpsListPattern
+        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
     ) -> dict[torch.fx.Node, InternalMatch]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
@@ -311,24 +283,16 @@ class NAryActPattern(BaseAnnotationPattern[tuple[SourcePartition]]):
     """
 
     @classmethod
-    def get_annotator_func(cls) -> AnnotatorFunc[tuple[SourcePartition]]:
-        """
-        Return a function which is used to annotate nodes in accordance with
-        NAryActPattern.
-        """
-        return _annotation_utils.annotate_n_ary_act_match
-
-    @classmethod
     def match_single_pattern(
-        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | _OpsListPattern
+        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
     ) -> dict[torch.fx.Node, tuple[SourcePartition]]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
         nodes to matches.
         """
-        if not isinstance(pattern, _OpsListPattern):
+        if not isinstance(pattern, OpsListPattern):
             error_msg = (
-                "NAryActPattern expects patterns of type _OpsListPattern, but "
+                "NAryActPattern expects patterns of type OpsListPattern, but "
                 f"got type {type(pattern)}.)"
             )
             raise RuntimeError(error_msg)
@@ -349,15 +313,31 @@ class SharedObserverModulePattern(BaseAnnotationPattern[tuple[SourcePartition]])
 
     Subclasses must implement the generate_patterns() method to define the
     specific patterns they want to match (e.g., maxpool, avgpool, flatten, etc.).
+
+    Subclasses must implement :meth:`generate_qspec_sharing_constraints` to
+    declare how specs are shared across the op's input and output slots.
     """
 
     @classmethod
-    def get_annotator_func(cls) -> AnnotatorFunc[tuple[SourcePartition]]:
+    @abstractmethod
+    def generate_qspec_sharing_constraints(
+        cls,
+        node: torch.fx.Node,
+        qspecs: ProvisionalQSpecMap,
+    ) -> list[Constraint]:
+        """Return the constraints binding this op's input and output slots.
+
+        Called once per matched node, and may inspect the current state — concat's
+        decision depends on the output slot's granularity.
+
+        Args:
+            node (torch.fx.Node): The matched op node.
+            qspecs (ProvisionalQSpecMap): Current state.
+
+        Returns:
+            list[Constraint]: Empty means this op enforces no sharing.
         """
-        Return a function which is used to annotate nodes in accordance with
-        SharedObserverModulePattern.
-        """
-        return _annotation_utils.annotate_shared_observer_match
+        raise NotImplementedError
 
     @classmethod
     def _validate_patterns_length(cls):
@@ -372,20 +352,38 @@ class SharedObserverModulePattern(BaseAnnotationPattern[tuple[SourcePartition]])
 
     @classmethod
     def match_single_pattern(
-        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | _OpsListPattern
+        cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
     ) -> dict[torch.fx.Node, tuple[SourcePartition]]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
         nodes to matches.
         """
-        if not isinstance(pattern, _OpsListPattern):
+        if not isinstance(pattern, OpsListPattern):
             error_msg = (
                 "SharedObserverModulePattern expects patterns of type "
-                f"_OpsListPattern, but got type {type(pattern)}.)"
+                f"OpsListPattern, but got type {type(pattern)}.)"
             )
             raise RuntimeError(error_msg)
 
         return _annotation_utils.match_pattern_with_sequential_partitions(model, pattern)
+
+
+def _shared_op_boundary_slots(node: torch.fx.Node) -> tuple[NodeSlot, list[NodeSlot]]:
+    """Return the output slot and the input slots on a shared-observer node."""
+    output_slot = NodeSlot(node=node, kind=SlotKind.OUTPUT, arg_index=0)
+    input_slots = [
+        NodeSlot(node=node, kind=SlotKind.INPUT, arg_index=arg_index)
+        for arg_index in range(len(node.all_input_nodes))
+    ]
+    return output_slot, input_slots
+
+
+def _any_input_slot_populated(input_slots: list[NodeSlot], qspecs: ProvisionalQSpecMap) -> bool:
+    """Whether any input slot has a proposal yet.
+
+    With none, there is nothing for the sharing to enforce.
+    """
+    return any(input_slot in qspecs for input_slot in input_slots)
 
 
 class _AnnotationPatternRegistry(ClassRegistryMixin):
@@ -680,7 +678,7 @@ class MatMulPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns matmul pattern."""
         return _get_all_patterns_from_base_ops({"matmul"})
 
@@ -692,7 +690,7 @@ class MatMulActPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns matmul act pattern."""
         return _get_all_patterns_from_base_ops({"matmul"}, use_act=True)
 
@@ -704,7 +702,7 @@ class AddPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns add pattern."""
         return _get_all_patterns_from_base_ops({"add", "add_"})
 
@@ -727,7 +725,7 @@ class MulPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns mul pattern."""
         return _get_all_patterns_from_base_ops({"mul", "mul_"})
 
@@ -750,7 +748,7 @@ class SubPattern(NAryActPattern):
     """
 
     @classmethod
-    def generate_patterns(cls) -> list[_OpsListPattern]:
+    def generate_patterns(cls) -> list[OpsListPattern]:
         """Returns sub pattern."""
         # Multiple types of sub need to be listed since torchao doesn't include sub in
         # pt2e.graph_utils._EQUIVALENT_TYPES dict
@@ -769,7 +767,7 @@ def _make_kv_cache_update_pattern(op_name: str) -> type[NAryActPattern]:
         """input -> kv-cache-update op -> output"""
 
         @classmethod
-        def generate_patterns(cls) -> list[_OpsListPattern]:
+        def generate_patterns(cls) -> list[OpsListPattern]:
             return _get_all_patterns_from_base_ops({op_name}, use_act=False)
 
     return KVCacheUpdatePattern
@@ -786,6 +784,13 @@ class FlattenPattern(SharedObserverModulePattern):
     def generate_patterns(cls) -> list[torch.fx.GraphModule]:
         """Returns flatten pattern."""
         return _get_all_patterns_from_base_ops({"flatten"})
+
+    @classmethod
+    def generate_qspec_sharing_constraints(
+        cls, node: torch.fx.Node, qspecs: ProvisionalQSpecMap
+    ) -> list[Constraint]:
+        """All slots share one observer instance — flatten preserves values."""
+        return _all_slots_share_observer(node, qspecs)
 
 
 @_AnnotationPatternRegistry.register("maxpool")
@@ -804,6 +809,13 @@ class MaxPoolPattern(SharedObserverModulePattern):
                 "max_pool3d",
             }
         )
+
+    @classmethod
+    def generate_qspec_sharing_constraints(
+        cls, node: torch.fx.Node, qspecs: ProvisionalQSpecMap
+    ) -> list[Constraint]:
+        """All slots share one observer instance — maxpool preserves values."""
+        return _all_slots_share_observer(node, qspecs)
 
 
 @_AnnotationPatternRegistry.register("avgpool")
@@ -827,6 +839,13 @@ class AvgPoolPattern(SharedObserverModulePattern):
             }
         )
 
+    @classmethod
+    def generate_qspec_sharing_constraints(
+        cls, node: torch.fx.Node, qspecs: ProvisionalQSpecMap
+    ) -> list[Constraint]:
+        """All slots share one observer instance — averaging preserves range roughly."""
+        return _all_slots_share_observer(node, qspecs)
+
 
 @_AnnotationPatternRegistry.register("concat")
 class ConcatPattern(SharedObserverModulePattern):
@@ -838,3 +857,80 @@ class ConcatPattern(SharedObserverModulePattern):
     def generate_patterns(cls) -> list[torch.fx.GraphModule]:
         """Returns concat pattern."""
         return _get_all_patterns_from_base_ops({"cat", "concat"})
+
+    @classmethod
+    def generate_qspec_sharing_constraints(
+        cls, node: torch.fx.Node, qspecs: ProvisionalQSpecMap
+    ) -> list[Constraint]:
+        """Inputs must observe together unless the output is per-channel along the
+        concat axis, in which case each keeps its own scale and they need only
+        agree on ``DTYPE``.
+        """
+        output_slot, input_slots = _shared_op_boundary_slots(node)
+        if not _any_input_slot_populated(input_slots, qspecs):
+            return []
+
+        all_slots = frozenset([output_slot, *input_slots])
+
+        concat_dim = _concat_dim(node)
+        output_fields = qspecs.get(output_slot, ProvisionalQSpec()).fields
+        output_granularity = output_fields.get(FieldName.GRANULARITY)
+
+        # A per-tensor granularity has ``axis is None``.
+        granularity_axis = output_granularity.value.axis if output_granularity is not None else None
+        per_channel_along_concat_axis = granularity_axis is not None and _same_axis(
+            granularity_axis, concat_dim, node
+        )
+        if not per_channel_along_concat_axis:
+            # Sharing an instance subsumes sharing fields, since the merged group
+            # reconciles all of them.
+            return [ShareObserverInstance(_slots=all_slots)]
+
+        # Each input keeps its own scale, so they need only agree on the
+        # axis-independent fields.
+        return [ShareFields(_slots=all_slots, fields=frozenset({FieldName.DTYPE}))]
+
+
+def _all_slots_share_observer(node: torch.fx.Node, qspecs: ProvisionalQSpecMap) -> list[Constraint]:
+    """Tie every input and output slot into one observer instance.
+
+    For shared-observer ops whose sharing doesn't depend on any spec field.
+    """
+    output_slot, input_slots = _shared_op_boundary_slots(node)
+    if not _any_input_slot_populated(input_slots, qspecs):
+        return []
+    return [ShareObserverInstance(_slots=frozenset([output_slot, *input_slots]))]
+
+
+def _concat_dim(node: torch.fx.Node) -> int:
+    """Concat dim from ``aten.cat(tensors, dim=?)``, defaulting to 0.
+
+    As written on the node, so possibly negative — ``torch.export`` does not
+    normalize it. Compare with :func:`_same_axis`.
+    """
+    if len(node.args) >= 2:
+        return int(node.args[1])
+    return int(node.kwargs.get("dim", 0))
+
+
+def _same_axis(ch_axis: int, concat_dim: int, node: torch.fx.Node) -> bool:
+    """Whether ``ch_axis`` and ``concat_dim`` name the same dimension.
+
+    They need not agree on sign — for a rank-4 output ``1`` and ``-3`` are one
+    dimension. Falls back to exact comparison without tensor metadata.
+    """
+    if ch_axis == concat_dim:
+        return True
+    rank = _output_tensor_rank(node)
+    if rank is None:
+        return False
+    return ch_axis % rank == concat_dim % rank
+
+
+def _output_tensor_rank(node: torch.fx.Node) -> int | None:
+    """Rank of ``node``'s output tensor from fx metadata, or ``None``."""
+    val = node.meta.get("val")
+    shape = getattr(val, "shape", None)
+    if shape is None:
+        return None
+    return len(shape)

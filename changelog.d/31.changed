@@ -1,0 +1,1 @@
+Replace the coremltools-based 1D k-means used by palettization with a vendored C++ core that is JIT-compiled at runtime via `torch.utils.cpp_extension`. `coremltools` is no longer a runtime dependency (it is now an optional dependency, installable via the `coreml` extra). This requires a C++ compiler to be available on the host at runtime.

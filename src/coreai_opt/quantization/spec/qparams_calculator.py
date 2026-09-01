@@ -82,6 +82,11 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         """Getter for granularity."""
         return self._granularity
 
+    @property
+    def quantization_target(self):
+        """Whether the quantized tensor is a weight or an activation."""
+        return self.range_calculator.quantization_target
+
     @granularity.setter
     def granularity(self, granularity: QuantizationGranularity) -> None:
         """Update granularity for this calculator and its range calculator.
@@ -117,7 +122,9 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         Return a tensor with dimensions equal to num blocks in each dimension, comprised
         of values equal to scalar.
         """
-        block_size_list = self.granularity.get_block_size(input_tensor.shape)
+        block_size_list = self.granularity.get_block_size(
+            input_tensor.shape, self.quantization_target
+        )
         num_blocks_list = [
             inp_size // block_size
             for inp_size, block_size in zip(input_tensor.shape, block_size_list, strict=True)
@@ -130,13 +137,17 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         taken from float_range setting.
         """
         min_val = (
-            self._get_tensor_with_granularity_from_scalar(self.float_range[0], tensor)
+            torch.clamp(
+                self._get_tensor_with_granularity_from_scalar(self.float_range[0], tensor), max=0
+            )
             if self.float_range[0] is not None
             else None
         )
 
         max_val = (
-            self._get_tensor_with_granularity_from_scalar(self.float_range[1], tensor)
+            torch.clamp(
+                self._get_tensor_with_granularity_from_scalar(self.float_range[1], tensor), min=0
+            )
             if self.float_range[1] is not None
             else None
         )
@@ -225,7 +236,7 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             min_val=min_val,
             max_val=max_val,
             mapping_type=QuantizationScheme._to_mapping_type(self.qscheme),
-            block_size=self.granularity.get_block_size(tensor.shape),
+            block_size=self.granularity.get_block_size(tensor.shape, self.quantization_target),
             target_dtype=self.target_dtype,
             quant_min=self.quant_min,
             quant_max=self.quant_max,

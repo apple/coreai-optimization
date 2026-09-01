@@ -9,12 +9,12 @@ from typing import Annotated, Any, Literal
 import torch
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
-from coreai_opt._utils.registry_utils import ConfigRegistryMixin
+from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegistryMixin
 
 from .errors import _IncompatibleGranularityError
 
 
-class PalettizationGranularity(BaseModel, ConfigRegistryMixin):
+class PalettizationGranularity(BaseModel, _ConfigRegistryMixin):
     """
     Base class for palettization granularity specifications.
     """
@@ -123,7 +123,7 @@ class PerGroupedChannelGranularity(PalettizationGranularity):
     """
 
     axis: Annotated[int | None, Field(default=None, ge=0, le=1)]
-    group_size: int
+    group_size: Annotated[int, Field(gt=0)]
 
     def num_blocks_to_cluster(self, weight: torch.Tensor) -> int:
         if self.axis is None:

@@ -29,9 +29,10 @@ from tests.test_utils.general import verify_snr_psnr as _verify_snr_psnr
 if platform.system() == "Darwin":
     from coreai.runtime import ComputeUnitKind, SpecializationOptions
 
-# Substring of the dtype guard message raised by the CoreML export validation. Shared so
-# test files asserting the rejection don't drift from one another.
-COREML_DTYPE_REJECTION_MATCH = "CoreML export does not support"
+# Substring of the guard message raised by CoreML export validation (dtype or
+# granularity/config rejection). Shared so test files asserting the rejection
+# don't drift from one another.
+COREML_REJECTION_MATCH = "CoreML export does not support"
 
 # Compute unit selection driven by the --compute-unit-kind pytest option (see
 # tests/conftest.py). Default is "interpreter" so a plain `pytest` run uses the
@@ -87,17 +88,18 @@ def _get_test_specialization_options() -> "SpecializationOptions | None":
     raise ValueError(msg)
 
 
-def assert_coreml_finalize_rejects_unsupported_dtype(finalizer: Any) -> None:
-    """Assert ``finalizer.finalize(backend=CoreML)`` rejects an unsupported dtype.
+def assert_coreml_finalize_rejects(finalizer: Any) -> None:
+    """Assert ``finalizer.finalize(backend=CoreML)`` rejects an unsupported config.
 
     CoreML does not support FP4, FP8, INT2, or UINT2 quantization or
-    palettization dtypes, so finalize must raise a ``CoreMLExportError`` rather
-    than emit an invalid model.
+    palettization dtypes, nor per-channel/per-block activation quantization
+    granularity, so finalize must raise a ``CoreMLExportError`` rather than
+    emit an invalid model.
 
     Args:
         finalizer (Any): A prepared ``Quantizer`` or ``KMeansPalettizer``.
     """
-    with pytest.raises(CoreMLExportError, match=COREML_DTYPE_REJECTION_MATCH):
+    with pytest.raises(CoreMLExportError, match=COREML_REJECTION_MATCH):
         finalizer.finalize(backend=ExportBackend.CoreML)
 
 
@@ -434,10 +436,14 @@ class MLIRConverter(ModelConverter):
         self,
         traced_model: torch.export.ExportedProgram,
         input_data: torch.Tensor,
+        externalized_model: torch.nn.Module | None = None,
         **kwargs: Any,
     ) -> AIProgram:
         _, _ = input_data, kwargs
-        coreai_program = self._lower_to_coreai(traced_model)
+        coreai_program = self._lower_to_coreai(
+            traced_model,
+            externalized_model=externalized_model,
+        )
         assert type(coreai_program) is AIProgram
 
         return coreai_program
@@ -457,9 +463,9 @@ class MLIRConverter(ModelConverter):
         """Async implementation of MLIR inference."""
         with tempfile.TemporaryDirectory(
             prefix="mlir_converter_inference",
-            suffix=".aimodel",
         ) as tmpdir:
-            asset = converted_model.save_asset(Path(tmpdir))
+            asset_path = Path(tmpdir) / "asset.aimodel"
+            asset = converted_model.save_asset(asset_path)
             async with asset.executable(
                 specialization_options=_get_test_specialization_options(),
             ) as ai_model:
@@ -524,10 +530,25 @@ class MLIRConverter(ModelConverter):
     @staticmethod
     def _lower_to_coreai(
         exported_program: torch.export.ExportedProgram,
+        externalized_model: torch.nn.Module | None = None,
     ) -> AIProgram:
-        """Lower exported program to Core AI."""
+        """Lower exported program to Core AI.
+
+        Args:
+            exported_program: The exported program to lower.
+            externalized_model: Optional ``torch.nn.Module`` that was marked in
+                place by ``coreai_torch._patch_model_for_externalization``.
+        """
         converter = coreai_torch.TorchConverter()
-        converter.add_exported_program(exported_program)
+        externalized_exported_programs = (
+            coreai_torch._subexport_and_restore(externalized_model, exported_program)
+            if externalized_model is not None
+            else None
+        )
+        converter.add_exported_program(
+            exported_program,
+            _externalized_exported_programs=externalized_exported_programs,
+        )
         return converter.to_coreai()
 
 
@@ -552,6 +573,7 @@ def convert_and_verify(
     expected_ops: Mapping[str, int],
     export_backend: ExportBackend,
     prepared_model_output: torch.Tensor | tuple[torch.Tensor, ...],
+    externalized_model: torch.nn.Module | None = None,
     snr_thresh: float = 20.0,
     psnr_thresh: float = 22.0,
     skip_finalized_model_verify: bool = False,
@@ -566,6 +588,9 @@ def convert_and_verify(
         export_backend: Target inference stack (CoreML or CoreAI)
         prepared_model_output: Pre-computed reference output from the prepared
             PyTorch model (single tensor or tuple).
+        externalized_model: Optional ``torch.nn.Module`` that was patched in place by
+            ``coreai_torch._patch_model_for_externalization``. Only supported by the
+            CoreAI backend.
         snr_thresh: Minimum acceptable SNR value
         psnr_thresh: Minimum acceptable PSNR value
         skip_finalized_model_verify: If True, skip forward pass verification on
@@ -576,8 +601,19 @@ def convert_and_verify(
     Returns:
         The converted model in the specified format
 
+    Raises:
+        ValueError: If externalized_model is given for a non-CoreAI backend.
+
     """
     converter = create_converter(export_backend)
+
+    if externalized_model is not None:
+        if export_backend is not ExportBackend.CoreAI:
+            msg = (
+                f"externalized_model is only supported by the CoreAI backend, got {export_backend}"
+            )
+            raise ValueError(msg)
+        converter_kwargs["externalized_model"] = externalized_model
 
     # Run finalized model forward pass BEFORE tracing. torch.export.export()
     # (called in trace) may mutate the model (e.g., strip parametrizations on

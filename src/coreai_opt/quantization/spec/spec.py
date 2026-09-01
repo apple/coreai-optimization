@@ -19,7 +19,7 @@ from pydantic import (
 )
 
 from coreai_opt._utils.torch_utils import (
-    get_n_bits_from_dtype,
+    get_n_bits_from_dtype as _get_n_bits_from_dtype,
     is_float4_dtype as _is_float4_dtype,
 )
 from coreai_opt.config.spec import CompressionSpec, CompressionType
@@ -65,7 +65,8 @@ class QuantizationSpec(CompressionSpec):
             Quantization scheme determining how values are mapped to the quantized
             range.
             Valid inputs:
-             - "symmetric" (default), "symmetric_with_clipping", "asymmetric"
+
+            - "symmetric" (default), "symmetric_with_clipping", "asymmetric"
 
             On how it affects the quantization and dequantization formulae,
             please refer to the `qformulation` description below.
@@ -627,7 +628,7 @@ class QuantizationSpec(CompressionSpec):
         Raises:
             RuntimeError: If unable to extract bits from the dtype
         """
-        return get_n_bits_from_dtype(dtype)
+        return _get_n_bits_from_dtype(dtype)
 
     @classmethod
     def get_target_dtype(cls, dtype: torch.dtype) -> torch.dtype:

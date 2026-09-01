@@ -313,12 +313,17 @@ def validate_fp4_export(
 ) -> None:
     """Validate that FP4 quantization config is supported for MLIR export.
 
-    FP4 export only supports weight-only quantization on 2D weight tensors
-    (Linear layers) with PerBlockGranularity and block_size=32.
+    FP4 export requires weight-only quantization with ``PerBlockGranularity``
+    that resolves to blocks of size 32 along the weight's last axis and no
+    blocking along any other axis (i.e. resolved block sizes
+    ``(1, ..., 1, 32)``). This covers 2D Linear weights, which resolve to
+    ``(1, 32)``, and higher-rank weights such as MoE experts that resolve to
+    ``(1, ..., 1, 32)``.
 
     Args:
         fake_quant_mod (FakeQuantizeImplBase): The fake quantization module to validate.
-        quantized_data (torch.Tensor | None): The quantized weight tensor to validate shape.
+        quantized_data (torch.Tensor | None): The quantized weight tensor used
+            to resolve per-axis block sizes against the actual weight shape.
 
     Raises:
         ValueError: If the FP4 configuration is not supported for export.
@@ -329,20 +334,21 @@ def validate_fp4_export(
             f"Got quantization_target={fake_quant_mod.quantization_target}."
         )
 
-    if quantized_data is not None and quantized_data.ndim != 2:
+    granularity = fake_quant_mod._granularity
+    if not isinstance(granularity, PerBlockGranularity):
         raise ValueError(
-            "FP4 weight quantization export is only supported for "
-            f"2D weight tensors (Linear layers). Got {quantized_data.ndim}D tensor."
+            f"FP4 quantization requires PerBlockGranularity. Got {type(granularity).__name__}."
         )
 
-    granularity = fake_quant_mod._granularity
-    if (
-        not isinstance(granularity, PerBlockGranularity)
-        or granularity.block_size != _FP4_EXPORT_BLOCK_SIZE
-    ):
+    if quantized_data is None:
+        return
+
+    resolved_block_size = granularity.get_block_size(quantized_data.shape)
+    expected_block_size = (1,) * (quantized_data.ndim - 1) + (_FP4_EXPORT_BLOCK_SIZE,)
+    if resolved_block_size != expected_block_size:
         raise ValueError(
-            f"FP4 quantization requires PerBlockGranularity with "
-            f"block_size={_FP4_EXPORT_BLOCK_SIZE}. "
-            f"Got {type(granularity).__name__} with "
-            f"block_size={getattr(granularity, 'block_size', 'N/A')}."
+            f"FP4 export requires per-axis block sizes {expected_block_size} for a "
+            f"{quantized_data.ndim}D weight (blocks of {_FP4_EXPORT_BLOCK_SIZE} along "
+            f"the last axis, no blocking elsewhere). Got resolved block sizes "
+            f"{resolved_block_size} from granularity={granularity!r}."
         )

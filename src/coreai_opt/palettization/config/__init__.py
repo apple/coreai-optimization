@@ -9,10 +9,12 @@ from .palettization_config import (
     KMeansPalettizerConfig,
     ModuleKMeansPalettizerConfig,
     OpKMeansPalettizerConfig,
+    PATSchedule,
 )
 
 __all__ = [
     "KMeansPalettizerConfig",
     "ModuleKMeansPalettizerConfig",
     "OpKMeansPalettizerConfig",
+    "PATSchedule",
 ]

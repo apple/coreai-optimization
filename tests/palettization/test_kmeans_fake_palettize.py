@@ -17,16 +17,24 @@ from coreai_opt.palettization.kmeans.supported_ops_registry import (
     _KMeansPalettizerSupportedOpsRegistry,
 )
 from coreai_opt.palettization.spec import (
+    DefaultTrainingSpec,
     PalettizationSpec,
     PerGroupedChannelGranularity,
     PerTensorGranularity,
+    TrainingStrategy,
+    TrainingStrategySpec,
 )
 from coreai_opt.palettization.spec.errors import (
     _IncompatibleClusterDimError,
     _IncompatibleGranularityError,
 )
 from coreai_opt.palettization.spec.spec import _SUPPORTED_LUT_DTYPES
+from coreai_opt.palettization.spec.training_strategy import _DefaultTrainingStrategy
 from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
+
+_ACCELERATOR = (
+    "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else None
+)
 
 
 def _make_lut_qspec(
@@ -39,6 +47,17 @@ def _make_lut_qspec(
     if lut_qscheme is None:
         lut_qscheme = QuantizationScheme.SYMMETRIC
     return QuantizationSpec(dtype=lut_dtype, qscheme=lut_qscheme)
+
+
+def _initialize_and_get_lut_indices(
+    palettizer: _KMeansFakePalettize, weight: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Initialize the palettizer from ``weight`` and return its ``(lut, indices)``,
+    for tests that want the clustering result without going through the
+    lazy-init ``forward()`` path.
+    """
+    palettizer._initialize(weight)
+    return palettizer.lut, palettizer.indices
 
 
 def _valid_lut_dtype_qscheme_combinations():
@@ -92,7 +111,7 @@ class Test_KMeansFakePalettize:
         )
 
         # Verify centroid properties
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
         assert lut.shape == (1, 1, 2**spec.n_bits, 1)
         assert lut.dtype == weight.dtype
 
@@ -130,7 +149,7 @@ class Test_KMeansFakePalettize:
         # Positive sensitivities prevent a zero-total-weight cluster from yielding a NaN centroid.
         palettizer.sensitivities = torch.rand_like(weight) + 1.0
 
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
         assert lut.dtype == weight.dtype
         assert lut.shape == (1, 1, 2**spec.n_bits, cluster_dim)
 
@@ -155,7 +174,7 @@ class Test_KMeansFakePalettize:
             enable_per_channel_scale=spec.enable_per_channel_scale,
         )
 
-        centroids, indices = palettizer._calculate_centroids(weight)
+        centroids, indices = _initialize_and_get_lut_indices(palettizer, weight)
 
         assert centroids.shape == (1, 1, 2**spec.n_bits, 1)
 
@@ -199,7 +218,7 @@ class Test_KMeansFakePalettize:
             enable_per_channel_scale=spec.enable_per_channel_scale,
         )
 
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
 
         # Test weight reconstruction for per-grouped-channel granularity
         palettized_weight = palettizer._palettize(lut, indices, weight)
@@ -241,7 +260,7 @@ class Test_KMeansFakePalettize:
             enable_per_channel_scale=spec.enable_per_channel_scale,
         )
 
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
 
         # Test weight reconstruction for per-grouped-channel granularity
         palettized_weight = palettizer._palettize(lut, indices, weight)
@@ -291,8 +310,10 @@ class Test_KMeansFakePalettize:
             enable_fast_kmeans_mode=False,
         )
 
-        centroids_fast, clusters_fast = palettizer_fast._calculate_centroids(weight)
-        centroids_regular, clusters_regular = palettizer_regular._calculate_centroids(weight)
+        centroids_fast, clusters_fast = _initialize_and_get_lut_indices(palettizer_fast, weight)
+        centroids_regular, clusters_regular = _initialize_and_get_lut_indices(
+            palettizer_regular, weight
+        )
 
         # Both should produce valid results
         assert len(centroids_fast) <= 4
@@ -360,7 +381,7 @@ class Test_KMeansFakePalettize:
                 enable_per_channel_scale=False,
             )
 
-            lut, indices = fake_palettize._calculate_centroids(weight)
+            lut, indices = _initialize_and_get_lut_indices(fake_palettize, weight)
             assert lut is not None
             assert indices is not None
             num_blocks = fake_palettize.granularity.num_blocks_to_cluster(weight)
@@ -389,7 +410,7 @@ class Test_KMeansFakePalettize:
             )
 
             with pytest.raises(_IncompatibleGranularityError):
-                fake_palettize._calculate_centroids(weight)
+                _initialize_and_get_lut_indices(fake_palettize, weight)
 
         def test_group_size_divisibility_validation_insufficient_dimensions(self):
             """Test that validation warns for insufficient parameter dimensions."""
@@ -408,7 +429,7 @@ class Test_KMeansFakePalettize:
 
             # Should warn and skip because parameter is 1D but axis 1 was specified
             with pytest.raises(_IncompatibleGranularityError):
-                fake_palettize._calculate_centroids(weight)
+                _initialize_and_get_lut_indices(fake_palettize, weight)
 
     def test_disabled_flag_behavior(self):
         """Test that _disabled flag works correctly and permanently
@@ -429,9 +450,9 @@ class Test_KMeansFakePalettize:
         # Initially not disabled
         assert fake_palettize._disabled is False
 
-        # Spy on _calculate_centroids to verify it's called
-        original__calculate_centroids = fake_palettize._calculate_centroids
-        fake_palettize._calculate_centroids = Mock(side_effect=original__calculate_centroids)
+        # Spy on _cluster_to_centroids to verify it's called
+        original__cluster_to_centroids = fake_palettize._cluster_to_centroids
+        fake_palettize._cluster_to_centroids = Mock(side_effect=original__cluster_to_centroids)
 
         # Call forward - this should trigger the _IncompatibleGranularityError
         # and set _disabled = True
@@ -441,8 +462,8 @@ class Test_KMeansFakePalettize:
         assert fake_palettize._disabled is True
         assert torch.equal(result, weight)  # Should return original tensor
 
-        # _calculate_centroids should have been called once
-        assert fake_palettize._calculate_centroids.call_count == 1
+        # _cluster_to_centroids should have been called once
+        assert fake_palettize._cluster_to_centroids.call_count == 1
 
         # Call forward again - should immediately return original tensor
         result2 = fake_palettize.forward(weight)
@@ -451,15 +472,14 @@ class Test_KMeansFakePalettize:
         assert fake_palettize._disabled is True
         assert torch.equal(result2, weight)
 
-        # _calculate_centroids should still have been called only once
+        # _cluster_to_centroids should still have been called only once
         # (not called the second time)
-        assert fake_palettize._calculate_centroids.call_count == 1
+        assert fake_palettize._cluster_to_centroids.call_count == 1
 
     @pytest.mark.skipif(not torch.backends.mps.is_available(), reason="MPS not available")
     def test_mps_device_handling(self):
-        """
-        Test that palettization preserves MPS device for weights while
-        using CPU for computation.
+        """Palettization keeps the LUT on the weight's device while the weight-sized
+        indices stay CPU-resident, and reconstruction returns on the original device.
         """
         # Create weights on MPS device
         weight = torch.randn(4, 8, dtype=torch.float32, device="mps")
@@ -477,14 +497,15 @@ class Test_KMeansFakePalettize:
             enable_per_channel_scale=spec.enable_per_channel_scale,
         )
 
-        # Calculate centroids - this should move computation to CPU internally
-        lut, indices = palettizer._calculate_centroids(weight)
+        # Clustering runs on CPU internally, but centroids are placed on the weight's device.
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
 
-        # Verify LUT and indices are on CPU (expected behavior)
-        assert lut.device.type == "cpu"
+        # The LUT follows the weight's device (kept on-device so training-time LUT
+        # quantization stays on-device); the weight-sized indices stay CPU-resident.
+        assert lut.device.type == "mps"
         assert indices.device.type == "cpu"
 
-        # Palettize the weights - this should return result on original device (MPS)
+        # Reconstruction gathers against the CPU indices and returns on the original device (MPS).
         palettized_weight = palettizer._palettize(lut, indices, weight)
 
         # Verify the palettized weights are back on MPS
@@ -605,8 +626,8 @@ class TestQuantizedLUT:
         palettizer_base = _KMeansFakePalettize(**spec_base.__dict__)
         palettizer_quant = _KMeansFakePalettize(**spec_quant.__dict__)
 
-        lut_base, indices_base = palettizer_base._calculate_centroids(weight)
-        lut_quant, indices_quant = palettizer_quant._calculate_centroids(weight)
+        lut_base, indices_base = _initialize_and_get_lut_indices(palettizer_base, weight)
+        lut_quant, indices_quant = _initialize_and_get_lut_indices(palettizer_quant, weight)
 
         # LUT shapes should be the same
         assert lut_base.shape == lut_quant.shape
@@ -694,7 +715,7 @@ class TestQuantizedLUT:
         )
 
         palettizer = _KMeansFakePalettize(**spec.__dict__)
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
 
         # LUT shape: [1, 1, 4, 1] for per-tensor with 2-bit, cluster_dim=1
         assert lut.shape == (1, 1, 4, 1)
@@ -751,7 +772,7 @@ class TestQuantizedLUT:
             enable_fast_kmeans_mode=True,
         )
 
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
         palettized = palettizer._palettize(lut, indices, weight)
 
         # Shape should be preserved
@@ -884,7 +905,7 @@ class TestPerChannelScaling:
         )
         palettizer_with_scale = _KMeansFakePalettize(**spec_with_scale.__dict__)
 
-        lut, indices = palettizer_with_scale._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer_with_scale, weight)
         palettized_with_scale = palettizer_with_scale._palettize(lut, indices, weight)
         mse_with_scale = torch.mean((weight - palettized_with_scale) ** 2)
 
@@ -909,29 +930,25 @@ class TestInitializationAndStateDict:
         weight = torch.randn(4, 8)
 
         # Initially, the module should not be initialized
-        assert not palettizer._initialized
+        assert palettizer.indices is None
 
         # Before initialization, buffers should be None
         # Note: state_dict() only includes buffers that are not None
         initial_state_dict = palettizer.state_dict()
-        assert "lut" not in initial_state_dict
         assert "indices" not in initial_state_dict
         assert "per_channel_scale" not in initial_state_dict
 
         # Initialize by running forward pass
         palettizer.forward(weight)
 
-        # After initialization, check the module is initialized
-        assert palettizer._initialized
+        # After initialization, check indices exists
+        assert palettizer.indices is not None
+        assert isinstance(palettizer.lut, torch.Tensor)
+        assert palettizer.lut.shape == (1, 1, 4, 1)  # 2^2 = 4 clusters
+        assert palettizer.lut.dtype == weight.dtype
 
         # Check state_dict contains proper values
         state_dict = palettizer.state_dict()
-
-        # LUT should be a tensor with shape (1, 1, num_clusters, 1)
-        assert state_dict["lut"] is not None
-        assert isinstance(state_dict["lut"], torch.Tensor)
-        assert state_dict["lut"].shape == (1, 1, 4, 1)  # 2^2 = 4 clusters
-        assert state_dict["lut"].dtype == weight.dtype
 
         # Indices should be a tensor with same shape as weight
         assert state_dict["indices"] is not None
@@ -950,55 +967,33 @@ class TestInitializationAndStateDict:
             assert palettizer.per_channel_scale is None
 
         # Verify we can access params without error
-        assert torch.equal(palettizer.lut, state_dict["lut"])
         assert torch.equal(palettizer.indices, state_dict["indices"])
 
-    def test_observer_modes(self):
-        """Test that initialization behavior respects observer modes."""
+    def test_lazy_initialization_regardless_of_fake_palett_enabled(self):
+        """Test that centroid/lut initialization happens on first forward
+        regardless of ``fake_palett_enabled``.
+        """
         spec = PalettizationSpec(
             n_bits=2, granularity=PerTensorGranularity(), enable_per_channel_scale=False
         )
         palettizer = _KMeansFakePalettize(**spec.__dict__)
         weight = torch.randn(3, 4)
 
-        # Test with observer enabled, fake_palett disabled
-        palettizer.enable_observer(True)
         palettizer.enable_fake_palett(False)
 
-        # Should initialize but return original tensor
         output = palettizer.forward(weight)
-        assert palettizer._initialized
-        # Should return original since fake_palett disabled
+        assert palettizer.indices is not None
         assert torch.equal(output, weight)
 
         # State dict should have initialized values
         state_dict = palettizer.state_dict()
-        assert state_dict["lut"] is not None
         assert state_dict["indices"] is not None
 
-        # Test with observer disabled
         palettizer2 = _KMeansFakePalettize(**spec.__dict__)
-        palettizer2.enable_observer(False)
 
-        # Should not initialize
         output2 = palettizer2.forward(weight)
-        assert not palettizer2._initialized
-        # Should return original since not initialized
-        assert torch.equal(output2, weight)
-
-        # Test with both disabled
-        palettizer2 = _KMeansFakePalettize(**spec.__dict__)
-        palettizer2.enable_observer(False)
-
-        # Should not enabled
-        palettizer3 = _KMeansFakePalettize(**spec.__dict__)
-        palettizer3.enable_observer(True)
-        palettizer3.enable_fake_palett(True)
-
-        output3 = palettizer3.forward(weight)
-        assert palettizer3._initialized
-        # Should return different output
-        assert not torch.equal(output3, weight)
+        assert palettizer2.indices is not None
+        assert not torch.equal(output2, weight)
 
     def test_save_load_state_dict_preserves_palettization(self):
         """Test that saving and loading state_dict preserves palettization behavior."""
@@ -1022,10 +1017,7 @@ class TestInitializationAndStateDict:
         original_output = original_palettizer.forward(weight)
 
         # Verify it's initialized
-        assert original_palettizer._initialized
-
-        # Disable observer
-        original_palettizer.enable_observer(False)
+        assert original_palettizer.indices is not None
 
         # Save state_dict to temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pth") as tmp_file:
@@ -1037,17 +1029,16 @@ class TestInitializationAndStateDict:
             loaded_palettizer = _KMeansFakePalettize(**spec.__dict__)
 
             # Verify it starts uninitialized
-            assert not loaded_palettizer._initialized
+            assert loaded_palettizer.indices is None
 
             # Load state_dict
             state_dict = torch.load(temp_path, weights_only=True)
             loaded_palettizer.load_state_dict(state_dict)
 
             # Verify it's now initialized after loading
-            assert loaded_palettizer._initialized
+            assert loaded_palettizer.indices is not None
 
             assert loaded_palettizer.fake_palett_enabled.item() == 1
-            assert loaded_palettizer.observer_enabled.item() == 0
 
             loaded_output = loaded_palettizer.forward(weight)
 
@@ -1057,6 +1048,132 @@ class TestInitializationAndStateDict:
             # Clean up temporary file
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
+
+    @pytest.mark.skipif(_ACCELERATOR is None, reason="requires a non-CPU accelerator (CUDA or MPS)")
+    @pytest.mark.parametrize("enable_per_channel_scale", [False, True])
+    def test_cpu_checkpoint_load_keeps_buffers_on_module_device(self, enable_per_channel_scale):
+        """A CPU checkpoint (torch.load map_location='cpu') loaded into a module on an
+        accelerator must keep ``centroids``/``per_channel_scale`` on the module's device;
+        otherwise the LUT fake-quant path mixes a CPU lookup table with accelerator
+        qparams and raises a device-mismatch error. ``indices`` stays CPU-resident.
+        """
+        spec = PalettizationSpec(
+            n_bits=2,
+            granularity=PerTensorGranularity(),
+            enable_per_channel_scale=enable_per_channel_scale,
+            lut_qspec=_make_lut_qspec(torch.int8),
+        )
+        src = _KMeansFakePalettize(**spec.__dict__)
+        src._initialize(torch.randn(8, 16))
+        cpu_state_dict = {k: v.cpu() for k, v in src.state_dict().items()}
+
+        dst = _KMeansFakePalettize(**spec.__dict__)
+        dst._initialize(torch.randn(8, 16))
+        dst = dst.to(_ACCELERATOR)
+        dst.load_state_dict(cpu_state_dict)
+
+        assert dst.centroids.device.type == _ACCELERATOR
+        assert dst._lut_fake_quantizer.qparams_calculator.scale.device.type == _ACCELERATOR
+        assert dst.indices.device.type == "cpu"
+        if enable_per_channel_scale:
+            assert dst.per_channel_scale.device.type == _ACCELERATOR
+
+        # The eval forward runs the LUT fake-quant (centroids + scale); it must not
+        # raise a cross-device error.
+        dst.eval()
+        out = dst.forward(torch.randn(8, 16, device=_ACCELERATOR))
+        assert out.device.type == _ACCELERATOR
+        assert torch.isfinite(out).all()
+
+
+class TestLegacyCheckpointCompat:
+    """Backward compatibility with pre-refactor checkpoints, which stored
+    ``observer_enabled``/``lut``/``quantized_lut``/``lut_quantization_scale``/
+    ``lut_quantization_zero_point`` as buffers instead of deriving them.
+    """
+
+    @staticmethod
+    def _legacy_state_dict(ref: _KMeansFakePalettize) -> dict:
+        """Rewrite an initialized module's state dict into the pre-refactor
+        layout: drop ``centroids`` and add the old ``lut`` (+ quant) buffers.
+        """
+        sd = ref.state_dict()
+        sd.pop("centroids")
+        sd["lut"] = ref.lut
+        if ref.quantized_lut is not None:
+            sd["quantized_lut"] = ref.quantized_lut
+            sd["lut_quantization_scale"] = ref.lut_quantization_scale
+            if ref.lut_quantization_zero_point is not None:
+                sd["lut_quantization_zero_point"] = ref.lut_quantization_zero_point
+        return sd
+
+    @pytest.mark.parametrize("lut_dtype", [None, torch.int8])
+    def test_load_reconstructs_centroids_from_legacy_lut(self, lut_dtype):
+        spec = PalettizationSpec(
+            n_bits=2,
+            granularity=PerTensorGranularity(),
+            lut_qspec=_make_lut_qspec(lut_dtype),
+            enable_per_channel_scale=False,
+        )
+        weight = torch.randn(4, 8)
+        ref = _KMeansFakePalettize(**spec.__dict__)
+        ref.forward(weight)
+        ref_out = ref.hard_assign(weight)
+
+        legacy_sd = self._legacy_state_dict(ref)
+        assert "centroids" not in legacy_sd and "lut" in legacy_sd
+
+        loaded = _KMeansFakePalettize(**spec.__dict__)
+        if lut_dtype is not None:
+            # Loading a LUT-quantized checkpoint requires the LUT quantizer's
+            # qparams buffers to be sized first (pre-existing quantization
+            # requirement, independent of this reconstruction path).
+            loaded.forward(weight)
+        loaded.load_state_dict(legacy_sd)  # strict=True: must not raise on legacy keys
+
+        # centroids reconstructed and the derived LUT reproduces the stored one
+        assert loaded.centroids is not None
+        assert torch.equal(loaded.lut, ref.lut)
+        if lut_dtype is None:
+            # plain palettization is bit-exact end to end
+            assert torch.equal(loaded.hard_assign(weight), ref_out)
+
+    def test_observer_enabled_defaults_off_and_loads(self):
+        spec = PalettizationSpec(
+            n_bits=2, granularity=PerTensorGranularity(), enable_per_channel_scale=False
+        )
+        p = _KMeansFakePalettize(**spec.__dict__)
+        assert p.observer_enabled.item() == 0
+        # Non-persistent: not serialized into new checkpoints.
+        assert "observer_enabled" not in p.state_dict()
+
+        p.forward(torch.randn(4, 8))
+        sd = p.state_dict()
+        assert "observer_enabled" not in sd
+        # A legacy checkpoint that carries observer_enabled=1 is honored on load.
+        sd["observer_enabled"] = torch.tensor([1], dtype=torch.uint8)
+        loaded = _KMeansFakePalettize(**spec.__dict__)
+        loaded.load_state_dict(sd)
+        assert loaded.observer_enabled.item() == 1
+
+    def test_observer_enabled_recomputes_every_forward(self):
+        spec = PalettizationSpec(
+            n_bits=2, granularity=PerTensorGranularity(), enable_per_channel_scale=False
+        )
+        p = _KMeansFakePalettize(**spec.__dict__)
+        low = torch.linspace(0.0, 1.0, 32).reshape(4, 8)
+        high = torch.linspace(10.0, 11.0, 32).reshape(4, 8)
+
+        # observer off (default): centroids are computed once and not recomputed.
+        p.forward(low)
+        first = p.centroids.clone()
+        p.forward(high)
+        assert torch.equal(p.centroids, first)
+
+        # observer on: re-clusters against the new tensor on every forward.
+        p.observer_enabled[0] = 1
+        p.forward(high)
+        assert not torch.equal(p.centroids, first)
 
 
 class TestSensitivityBasedPalettization:
@@ -1096,14 +1213,16 @@ class TestSensitivityBasedPalettization:
         )
         palettizer_with_sens = _KMeansFakePalettize(**spec.__dict__, sensitivities=sensitivities)
 
-        lut_with_sens, indices_with_sens = palettizer_with_sens._calculate_centroids(weight)
+        lut_with_sens, indices_with_sens = _initialize_and_get_lut_indices(
+            palettizer_with_sens, weight
+        )
         palettized_with_sens = palettizer_with_sens._palettize(
             lut_with_sens, indices_with_sens, weight
         )
 
         # Palettize without sensitivities
         palettizer_no_sens = _KMeansFakePalettize(**spec.__dict__, sensitivities=None)
-        lut_no_sens, indices_no_sens = palettizer_no_sens._calculate_centroids(weight)
+        lut_no_sens, indices_no_sens = _initialize_and_get_lut_indices(palettizer_no_sens, weight)
         palettized_no_sens = palettizer_no_sens._palettize(lut_no_sens, indices_no_sens, weight)
 
         # Calculate reconstruction errors for each region
@@ -1152,7 +1271,7 @@ class TestSensitivityBasedPalettization:
         )
 
         palettizer_with_sens = _KMeansFakePalettize(**spec.__dict__, sensitivities=sensitivities)
-        lut_with_sens, _ = palettizer_with_sens._calculate_centroids(weight)
+        lut_with_sens, _ = _initialize_and_get_lut_indices(palettizer_with_sens, weight)
 
         # The centroids should be more concentrated around the low values (1-4)
         # because they have high sensitivity
@@ -1191,7 +1310,7 @@ class TestSensitivityBasedPalettization:
             sensitivities=sensitivities.clone(),
             enable_fast_kmeans_mode=True,
         )
-        lut_fast, indices_fast = palettizer_fast._calculate_centroids(weight)
+        lut_fast, indices_fast = _initialize_and_get_lut_indices(palettizer_fast, weight)
         palettized_fast = palettizer_fast._palettize(lut_fast, indices_fast, weight)
 
         # Regular mode
@@ -1200,7 +1319,7 @@ class TestSensitivityBasedPalettization:
             sensitivities=sensitivities.clone(),
             enable_fast_kmeans_mode=False,
         )
-        lut_regular, indices_regular = palettizer_regular._calculate_centroids(weight)
+        lut_regular, indices_regular = _initialize_and_get_lut_indices(palettizer_regular, weight)
         palettized_regular = palettizer_regular._palettize(lut_regular, indices_regular, weight)
 
         # Calculate reconstruction errors
@@ -1241,11 +1360,11 @@ class TestSensitivityBasedPalettization:
         palettizer_uniform = _KMeansFakePalettize(
             **spec.__dict__, sensitivities=sensitivities_uniform
         )
-        lut_uniform, indices_uniform = palettizer_uniform._calculate_centroids(weight)
+        lut_uniform, indices_uniform = _initialize_and_get_lut_indices(palettizer_uniform, weight)
 
         # Without sensitivities
         palettizer_none = _KMeansFakePalettize(**spec.__dict__, sensitivities=None)
-        lut_none, indices_none = palettizer_none._calculate_centroids(weight)
+        lut_none, indices_none = _initialize_and_get_lut_indices(palettizer_none, weight)
 
         # Errors should be very close
         assert torch.equal(lut_none, lut_uniform), (
@@ -1289,7 +1408,7 @@ class TestSensitivityBasedPalettization:
             enable_fast_kmeans_mode=enable_fast_kmeans,
         )
 
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
         palettized = palettizer._palettize(lut, indices, weight)
 
         # Verify shape is preserved
@@ -1320,7 +1439,7 @@ class TestVectorPalettization:
 
         palettizer = _KMeansFakePalettize(**spec.__dict__)
 
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
 
         # LUT shape: [1, 1, 2^n_bits, cluster_dim]
         num_clusters = 2**spec.n_bits
@@ -1353,7 +1472,7 @@ class TestVectorPalettization:
 
         palettizer = _KMeansFakePalettize(**spec.__dict__)
 
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
 
         # LUT shape depends on axis
         num_clusters = 2**spec.n_bits
@@ -1417,7 +1536,7 @@ class TestVectorPalettization:
         palettizer = _KMeansFakePalettize(**spec.__dict__)
 
         with pytest.raises(_IncompatibleClusterDimError):
-            palettizer._calculate_centroids(weight)
+            _initialize_and_get_lut_indices(palettizer, weight)
 
     @pytest.mark.parametrize("lut_dtype", _SUPPORTED_LUT_DTYPES)
     def test_vector_palettization_with_quantized_lut(self, lut_dtype):
@@ -1433,7 +1552,7 @@ class TestVectorPalettization:
 
         palettizer = _KMeansFakePalettize(**spec.__dict__)
 
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
 
         # LUT shape: [1, 1, num_clusters, cluster_dim]
         assert lut.shape == (1, 1, 2**spec.n_bits, 2)
@@ -1467,7 +1586,7 @@ class TestVectorPalettization:
 
         palettizer = _KMeansFakePalettize(**spec.__dict__)
 
-        lut, indices = palettizer._calculate_centroids(weight)
+        lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
 
         # Per-channel scale should be populated
         assert palettizer.per_channel_scale is not None
@@ -1495,7 +1614,7 @@ class TestVectorPalettization:
             cluster_dim=1,
         )
         palettizer_scalar = _KMeansFakePalettize(**spec_scalar.__dict__)
-        lut_s, idx_s = palettizer_scalar._calculate_centroids(weight)
+        lut_s, idx_s = _initialize_and_get_lut_indices(palettizer_scalar, weight)
         palettized_scalar = palettizer_scalar._palettize(lut_s, idx_s, weight)
         mse_scalar = torch.mean((weight - palettized_scalar) ** 2)
 
@@ -1506,7 +1625,7 @@ class TestVectorPalettization:
             cluster_dim=2,
         )
         palettizer_vector = _KMeansFakePalettize(**spec_vector.__dict__)
-        lut_v, idx_v = palettizer_vector._calculate_centroids(weight)
+        lut_v, idx_v = _initialize_and_get_lut_indices(palettizer_vector, weight)
         palettized_vector = palettizer_vector._palettize(lut_v, idx_v, weight)
         mse_vector = torch.mean((weight - palettized_vector) ** 2)
 
@@ -1516,3 +1635,368 @@ class TestVectorPalettization:
         assert mse_vector < mse_scalar, (
             f"Expected Vector MSE: {mse_vector:.4f} to be lower than Scale MSE: {mse_scalar:.4f}"
         )
+
+
+class TestDerivedLutProperties:
+    """`lut`/`quantized_lut`/`lut_quantization_scale`/`lut_quantization_zero_point`
+    are computed from `centroids` on each access. They read frozen qparams
+    (never re-observing), so repeated reads are stable and mutually consistent.
+    """
+
+    @staticmethod
+    def _make_palettizer(
+        *, lut_qspec: QuantizationSpec | None, n_bits: int = 2
+    ) -> _KMeansFakePalettize:
+        spec = PalettizationSpec(
+            n_bits=n_bits,
+            granularity=PerTensorGranularity(),
+            lut_qspec=lut_qspec,
+        )
+        return _KMeansFakePalettize(**spec.__dict__)
+
+    def test_none_before_initialization(self):
+        """With no centroids yet, every derived property is None."""
+        palettizer = self._make_palettizer(lut_qspec=_make_lut_qspec(torch.int8))
+        assert palettizer.centroids is None
+        assert palettizer.lut is None
+        assert palettizer.quantized_lut is None
+        assert palettizer.lut_quantization_scale is None
+        assert palettizer.lut_quantization_zero_point is None
+
+    def test_valid_after_initialize_only(self):
+        """A single _initialize() (no further quantize_lut() calls) seeds the LUT
+        observer, so the derived properties are already valid.
+        """
+        palettizer = self._make_palettizer(lut_qspec=_make_lut_qspec(torch.int8))
+        palettizer._initialize(torch.randn(8, 8))
+
+        assert palettizer.lut is not None
+        assert torch.isfinite(palettizer.lut).all()
+        assert palettizer.quantized_lut is not None
+        assert not palettizer.quantized_lut.dtype.is_floating_point
+        scale = palettizer.lut_quantization_scale
+        assert scale is not None and (scale > 0).all()
+
+    def test_passthrough_without_lut_quantizer(self):
+        """With no lut_qspec, lut is the raw (reshaped) centroids and the
+        quantization properties are None.
+        """
+        palettizer = self._make_palettizer(lut_qspec=None)
+        palettizer._initialize(torch.randn(8, 8))
+
+        assert palettizer.lut is not None
+        assert palettizer.quantized_lut is None
+        assert palettizer.lut_quantization_scale is None
+        assert palettizer.lut_quantization_zero_point is None
+
+    def test_repeated_reads_idempotent_with_moving_average(self):
+        """Reading the derived properties must not perturb a moving-average LUT
+        observer -- repeated reads over frozen centroids are byte-identical.
+        """
+        lut_qspec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            qparam_calculator_cls="moving_average",
+            averaging_constant=0.5,
+        )
+        palettizer = self._make_palettizer(lut_qspec=lut_qspec)
+        palettizer._initialize(torch.randn(8, 8))
+
+        # Advance the observer with several distinct centroid snapshots, as a
+        # training loop's quantize_lut() calls would.
+        for _ in range(5):
+            palettizer.centroids = palettizer.centroids + torch.randn_like(palettizer.centroids)
+            palettizer.quantize_lut(palettizer._raw_lut(palettizer.centroids))
+
+        # Centroids now frozen: two consecutive reads must match exactly.
+        first = (
+            palettizer.lut,
+            palettizer.quantized_lut,
+            palettizer.lut_quantization_scale,
+        )
+        second = (
+            palettizer.lut,
+            palettizer.quantized_lut,
+            palettizer.lut_quantization_scale,
+        )
+        for a, b in zip(first, second, strict=True):
+            assert torch.equal(a, b)
+
+    def test_lut_small_quantization_error(self):
+        """The dequantized `lut` reconstructs the raw centroids within one
+        quantization step.
+        """
+        palettizer = self._make_palettizer(lut_qspec=_make_lut_qspec(torch.int8))
+        palettizer._initialize(torch.randn(8, 8))
+
+        raw = palettizer._raw_lut(palettizer.centroids)
+        scale = palettizer.lut_quantization_scale.max().item()
+        torch.testing.assert_close(
+            palettizer.lut.squeeze(),
+            raw.squeeze(),
+            atol=scale,
+            rtol=0,
+        )
+
+
+class TestTrainingStrategy:
+    """The training-strategy spec registry and its paired behavior classes.
+
+    Scope is the generic OSS machinery (default strategy only); concrete
+    strategies defined elsewhere are tested with those strategies.
+    """
+
+    def test_default_training_spec_points_at_default_strategy(self):
+        assert DefaultTrainingSpec._strategy_cls is _DefaultTrainingStrategy
+        assert issubclass(DefaultTrainingSpec._strategy_cls, TrainingStrategy)
+
+    def test_build_from_dict_unregistered_raises(self):
+        with pytest.raises(KeyError):
+            TrainingStrategySpec.maybe_build_from_dict({"type": "nonexistent"})
+
+    def test_default_training_spec_builds_default_strategy(self):
+        assert isinstance(DefaultTrainingSpec().build_strategy(), _DefaultTrainingStrategy)
+
+    def test_maybe_build_from_dict(self):
+        spec = TrainingStrategySpec.maybe_build_from_dict({"type": "default"})
+        assert isinstance(spec, DefaultTrainingSpec)
+
+    def test_serialize_injects_type(self):
+        assert DefaultTrainingSpec().model_dump() == {"type": "default"}
+
+    def test_spec_default_is_default_spec(self):
+        assert isinstance(PalettizationSpec().training_strategy_spec, DefaultTrainingSpec)
+
+    def test_spec_parses_dict_via_discriminated_field(self):
+        spec = PalettizationSpec(training_strategy_spec={"type": "default"})
+        assert isinstance(spec.training_strategy_spec, DefaultTrainingSpec)
+
+    def test_module_builds_strategy_from_spec(self):
+        spec = PalettizationSpec(
+            n_bits=2,
+            granularity=PerTensorGranularity(),
+            training_strategy_spec=DefaultTrainingSpec(),
+        )
+        palettizer = _KMeansFakePalettize(**spec.__dict__)
+        assert isinstance(palettizer._training_strategy, _DefaultTrainingStrategy)
+
+    def test_module_defaults_to_default_strategy(self):
+        palettizer = _KMeansFakePalettize(
+            n_bits=2,
+            lut_qspec=None,
+            granularity=PerTensorGranularity(),
+            cluster_dim=1,
+            enable_per_channel_scale=False,
+        )
+        assert isinstance(palettizer._training_strategy, _DefaultTrainingStrategy)
+
+    def test_default_strategy_train_matches_eval_output(self):
+        """The default strategy's train_forward() delegates to hard_assign(), so
+        the forward output is identical in train and eval mode.
+        """
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
+        palettizer = _KMeansFakePalettize(**spec.__dict__)
+        weight = torch.randn(8, 8)
+        palettizer._initialize(weight)
+
+        palettizer.train()
+        out_train = palettizer(weight)
+        palettizer.eval()
+        out_eval = palettizer(weight)
+        assert torch.equal(out_train, out_eval)
+
+
+class TestLazyInitAndStaleness:
+    """Lazy centroid init and index staleness tracking on _KMeansFakePalettize."""
+
+    @staticmethod
+    def _make() -> _KMeansFakePalettize:
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
+        return _KMeansFakePalettize(**spec.__dict__)
+
+    def test_initial_flags(self):
+        palettizer = self._make()
+        assert palettizer._centroids_initialized is False
+        assert palettizer._indices_stale is True
+
+    def test_first_forward_initializes(self):
+        palettizer = self._make()
+        palettizer(torch.randn(8, 8))
+        assert palettizer._centroids_initialized is True
+        assert palettizer._indices_stale is False
+
+    def test_setting_sensitivities_resets_flags(self):
+        palettizer = self._make()
+        weight = torch.randn(8, 8)
+        palettizer(weight)
+        assert palettizer._centroids_initialized is True
+
+        palettizer.sensitivities = torch.rand_like(weight) + 1.0
+        assert palettizer._centroids_initialized is False
+        assert palettizer._indices_stale is True
+
+        # Next forward re-initializes.
+        palettizer(weight)
+        assert palettizer._centroids_initialized is True
+        assert palettizer._indices_stale is False
+
+    def test_hard_assign_refreshes_when_stale(self):
+        palettizer = self._make()
+        weight = torch.randn(8, 8)
+        palettizer._initialize(weight)  # leaves indices fresh
+
+        palettizer._indices_stale = True
+        indices_before = palettizer.indices
+        palettizer.hard_assign(weight)
+        assert palettizer._indices_stale is False
+        assert palettizer.indices is not indices_before  # recomputed
+
+    def test_hard_assign_skips_refresh_when_fresh(self):
+        palettizer = self._make()
+        weight = torch.randn(8, 8)
+        palettizer._initialize(weight)  # _indices_stale is False
+
+        indices_before = palettizer.indices
+        palettizer.hard_assign(weight)
+        assert palettizer.indices is indices_before  # untouched
+
+    def test_load_from_state_dict_marks_initialized_but_stale(self):
+        """Loading centroids from a checkpoint marks the module initialized AND
+        stale (unlike _initialize(), which leaves indices fresh) -- indices are
+        reconstructed lazily against the loaded centroids on next use.
+        """
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
+        source = _KMeansFakePalettize(**spec.__dict__)
+        source._initialize(torch.randn(8, 8))
+
+        target = _KMeansFakePalettize(**spec.__dict__)
+        assert target._centroids_initialized is False
+        target.load_state_dict(source.state_dict())
+        assert target._centroids_initialized is True
+        assert target._indices_stale is True
+
+
+class TestQuantizeLutSTE:
+    """quantize_lut() fake-quantizes the LUT through a straight-through estimator."""
+
+    @staticmethod
+    def _make(lut_qspec: QuantizationSpec | None) -> _KMeansFakePalettize:
+        spec = PalettizationSpec(
+            n_bits=2,
+            granularity=PerTensorGranularity(),
+            lut_qspec=lut_qspec,
+        )
+        return _KMeansFakePalettize(**spec.__dict__)
+
+    def test_gradient_flows_through(self):
+        """quantize_lut() passes gradient through to the input LUT."""
+        palettizer = self._make(_make_lut_qspec(torch.int8))
+        lut = torch.randn(1, 4, requires_grad=True)
+
+        palettizer.quantize_lut(lut).sum().backward()
+
+        assert lut.grad is not None
+        assert torch.count_nonzero(lut.grad) > 0
+
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
+    def test_output_dtype_matches_input(self, dtype):
+        palettizer = self._make(_make_lut_qspec(torch.int8))
+        lut = torch.randn(1, 4, dtype=dtype)
+        assert palettizer.quantize_lut(lut).dtype == dtype
+
+    def test_noop_without_lut_quantizer(self):
+        palettizer = self._make(lut_qspec=None)
+        lut = torch.randn(1, 4)
+        assert palettizer.quantize_lut(lut) is lut
+
+
+class TestClustering:
+    """The k-means clustering utilities: _cluster_to_centroids, _assign_indices,
+    and _blocks_to_cluster.
+    """
+
+    def test_cluster_to_centroids_shapes_scalar(self):
+        weight = torch.randn(4, 16)
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity(), cluster_dim=1)
+        palettizer = _KMeansFakePalettize(**spec.__dict__)
+
+        centroids, indices = palettizer._cluster_to_centroids(weight)
+        # (num_blocks, num_clusters, cluster_dim)
+        assert centroids.shape == (1, 4, 1)
+        assert indices.shape == weight.shape
+
+    def test_cluster_to_centroids_shapes_vector(self):
+        weight = torch.randn(4, 16)
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity(), cluster_dim=2)
+        palettizer = _KMeansFakePalettize(**spec.__dict__)
+
+        centroids, indices = palettizer._cluster_to_centroids(weight)
+        assert centroids.shape == (1, 4, 2)
+        # Vector palettization reduces axis 0 by cluster_dim.
+        assert indices.shape == (weight.shape[0] // 2, weight.shape[1])
+
+    def test_indices_consistent_with_centroids(self):
+        """The indices from _cluster_to_centroids agree with a nearest-centroid
+        reassignment against the returned centroids. Well-separated values keep
+        this unambiguous under fast-mode fp16 rounding.
+        """
+        row = torch.tensor([-10.0, 0.0, 10.0, 20.0])
+        weight = row.repeat(4, 4)  # (4, 16), four well-separated values
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
+        palettizer = _KMeansFakePalettize(**spec.__dict__)
+
+        centroids, indices = palettizer._cluster_to_centroids(weight)
+        reassigned = palettizer._assign_indices(weight, centroids)
+        assert torch.equal(indices, reassigned)
+
+    def test_blocks_to_cluster_raises_on_indivisible_cluster_dim(self):
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity(), cluster_dim=3)
+        palettizer = _KMeansFakePalettize(**spec.__dict__)
+        weight_2d = torch.randn(4, 16)  # axis-0 size 4 not divisible by cluster_dim 3
+        with pytest.raises(_IncompatibleClusterDimError):
+            palettizer._blocks_to_cluster(weight_2d, axis=0)
+
+
+def test_device_placement_on_accelerator(accelerator_device):
+    """LUT quantization and reconstruction device behavior on an accelerator.
+
+    Checks in one pass that:
+      - centroids follow the model device; ``indices`` stays on CPU (memory),
+      - ``_raw_lut`` and the ``lut`` property follow the device (not forced to CPU),
+      - ``quantize_lut`` (the training-side observe path) stays on the input device
+        with no forced CPU round-trip,
+      - ``hard_assign`` (eval) gathers against the CPU ``indices`` and returns on the
+        weight's device -- no accelerator/cpu device mismatch.
+    """
+    device = accelerator_device
+
+    spec = PalettizationSpec(
+        n_bits=2,
+        granularity=PerTensorGranularity(),
+        cluster_dim=1,
+        lut_qspec=_make_lut_qspec(torch.int8),
+    )
+    palettizer = _KMeansFakePalettize(**spec.__dict__)
+    weight = torch.randn(8, 8, device=device)
+
+    # Clusters on CPU, places centroids on the weight's device, and seeds the LUT
+    # quantizer on-device via quantize_lut(_raw_lut(centroids)).
+    palettizer._initialize(weight)
+
+    # centroids follow the model device; the weight-sized indices stay CPU-resident.
+    assert palettizer.centroids.device.type == device
+    assert palettizer.indices.device.type == "cpu"
+
+    # _raw_lut and the lut property follow the centroids' device (not forced CPU).
+    raw_lut = palettizer._raw_lut(palettizer.centroids)
+    assert raw_lut.device.type == device
+    assert palettizer.lut.device.type == device
+
+    # Quantizing an on-device LUT stays on-device.
+    assert palettizer.quantize_lut(raw_lut).device.type == device
+
+    # Eval path: reconstruction gathers against the CPU indices and returns on the
+    # weight's device.
+    out = palettizer.hard_assign(weight)
+    assert out.device.type == device
+    assert out.shape == weight.shape

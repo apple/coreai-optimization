@@ -17,6 +17,7 @@ from coreai_opt._utils.spec_utils import (
     PartialConstructor as _PartialConstructor,
     with_args as _with_args,
 )
+from coreai_opt._utils.torch_utils import normalize_axis as _normalize_axis
 from coreai_opt.config.spec import CompressionSimulatorBase
 
 from .scheme import ChannelStructured, PruningScheme
@@ -170,6 +171,12 @@ class _MagnitudePruneImpl(PruneImplBase):
         Channel importance is measured by L1 norm. The least-important
         channels are pruned entirely.
         """
+        if not (-weight.ndim <= axis < weight.ndim):
+            raise ValueError(
+                f"Invalid axis. Should be in range [{-weight.ndim}, {weight.ndim}), but got {axis}"
+            )
+        axis = _normalize_axis(axis, weight.ndim)
+
         num_channels = weight.shape[axis]
         num_prune = math.floor(num_channels * sparsity)
 

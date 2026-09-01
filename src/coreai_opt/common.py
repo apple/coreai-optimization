@@ -163,8 +163,15 @@ class ExportBackend(_StrEnum, metaclass=_DeprecatedMemberEnumMeta):
 class CoreMLExportError(ValueError):
     """Raised when a model cannot be exported to the CoreML backend."""
 
-    def __init__(self, dtype: Any, context: str) -> None:
-        super().__init__(
-            f"CoreML export does not support dtype {dtype} on {context}. "
-            f"Use backend=ExportBackend.CoreAI instead."
-        )
+    def __init__(self, message: str) -> None:
+        super().__init__(f"{message} Use backend=ExportBackend.CoreAI instead.")
+
+    @classmethod
+    def from_dtype(cls, dtype: Any, context: str) -> CoreMLExportError:
+        """Build the error for an unsupported weight/activation/LUT dtype."""
+        return cls(f"CoreML export does not support dtype {dtype} on {context}.")
+
+    @classmethod
+    def from_config(cls, config: object, context: str) -> CoreMLExportError:
+        """Build the error for an unsupported quantization config attribute (e.g. granularity)."""
+        return cls(f"CoreML export does not support {type(config).__name__} on {context}.")

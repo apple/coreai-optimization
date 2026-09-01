@@ -30,7 +30,7 @@ from coreai_opt._utils.insertion.torch_function.utils import (
     get_func_base_name,
     get_func_name,
 )
-from coreai_opt._utils.python_utils import fqn as _fqn
+from coreai_opt._utils.python_utils import fqn
 from coreai_opt._utils.torch_utils import NamedModule, flatten_tensors_to_list
 from coreai_opt.base_model_compressor import _BaseModelCompressor
 from coreai_opt.palettization import KMeansPalettizer
@@ -287,7 +287,7 @@ class _EagerOpDiscoveryMode(TorchFunctionMode):
 
     def _get_module_stack(self) -> tuple[ModuleContext, ...]:
         return tuple(
-            ModuleContext(module_name=named_mod.name, module_type=_fqn(type(named_mod.module)))
+            ModuleContext(module_name=named_mod.name, module_type=fqn(type(named_mod.module)))
             for named_mod in self.parents
         )
 
@@ -574,7 +574,7 @@ def parse_ops_for_eager(
     finally:
         mode.remove_hooks()
 
-    root = build_module_tree(_fqn(type(model)), mode.all_ops)
+    root = build_module_tree(fqn(type(model)), mode.all_ops)
 
     # Pre-partition mode.all_ops by module subtree in a single O(N × D) pass, where N is
     # the total op count and D is the average module stack depth. Each op is appended to

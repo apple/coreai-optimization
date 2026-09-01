@@ -20,6 +20,7 @@ from coreai_opt._utils.insertion.torch_function.registered_optimizers_tracker im
     FunctionRegisteredOptimizers,
     RegisteredOptimizersTracker,
 )
+from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization import (
     ModuleQuantizerConfig,
     QuantizationSpec,
@@ -442,51 +443,79 @@ class TestEagerQuantizer:
         else:
             assert files == []
 
-    @pytest.mark.parametrize(
-        "shared_weight_model",
-        [True, False],
-        ids=["shared_weights", "no_sharing"],
-    )
-    def test_finalize_mmap_matches_non_mmap_output(
-        self, basic_config, tmp_path, shared_weight_model
-    ):
-        """Finalize with and without ``mmap_dir`` produces numerically identical
-        outputs, including for models with shared (weight-tied) layers."""
-        if shared_weight_model:
-            model_cls = SharedWeightModel
-            example_input_shape = (1, 4)
-        else:
-            model_cls = SimpleLinearModel
-            example_input_shape = (1, 10)
-
-        model_no_mmap = model_cls()
-        model_with_mmap = copy.deepcopy(model_no_mmap)
-        example_input = torch.rand(*example_input_shape)
+    def _finalize_with_and_without_mmap(self, model, config, example_input, tmp_path):
+        """Finalize ``model`` for the CoreAI backend both without and with
+        ``mmap_dir``, returning the ``(no_mmap, with_mmap)`` finalized models."""
+        model_with_mmap = copy.deepcopy(model)
 
         finalized_no_mmap = self._quantize_model(
-            model_no_mmap, basic_config, example_input, None, ExportBackend.CoreAI
+            model, config, example_input, None, ExportBackend.CoreAI
         )
         finalized_with_mmap = self._quantize_model(
-            model_with_mmap, basic_config, example_input, str(tmp_path), ExportBackend.CoreAI
+            model_with_mmap, config, example_input, str(tmp_path), ExportBackend.CoreAI
+        )
+        return finalized_no_mmap, finalized_with_mmap
+
+    @staticmethod
+    def _assert_forward_outputs_equal(model_a, model_b, example_input):
+        """Assert two models produce numerically identical forward outputs."""
+        with torch.no_grad():
+            out_a = model_a(example_input)
+            out_b = model_b(example_input)
+        assert torch.equal(out_a, out_b)
+
+    def test_finalize_mmap_matches_non_mmap_output(self, basic_config, tmp_path):
+        """Standard per-tensor quantization: finalize with and without
+        ``mmap_dir`` produces numerically identical outputs."""
+        example_input = torch.rand(1, 10)
+        finalized_no_mmap, finalized_with_mmap = self._finalize_with_and_without_mmap(
+            SimpleLinearModel(), basic_config, example_input, tmp_path
+        )
+        self._assert_forward_outputs_equal(finalized_no_mmap, finalized_with_mmap, example_input)
+
+    def test_finalize_mmap_preserves_weight_sharing(self, basic_config, tmp_path):
+        """Weight-tied modules keep a single shared dequant parametrization after
+        finalize, both with and without ``mmap_dir`` and ensure outputs still match."""
+        example_input = torch.rand(1, 4)
+        finalized_no_mmap, finalized_with_mmap = self._finalize_with_and_without_mmap(
+            SharedWeightModel(), basic_config, example_input, tmp_path
+        )
+        self._assert_forward_outputs_equal(finalized_no_mmap, finalized_with_mmap, example_input)
+
+        for label, finalized in (("no-mmap", finalized_no_mmap), ("mmap", finalized_with_mmap)):
+            assert (
+                finalized.linear1.parametrizations.weight[0]
+                is finalized.linear2.parametrizations.weight[0]
+            ), f"{label} finalize did not preserve sharing for weight-tied modules"
+
+    def test_finalize_mmap_matches_non_mmap_output_fp4_per_block(self, tmp_path):
+        """FP4 per-block weights stored as Float4Tensor finalize identically
+        with and without ``mmap_dir``, and the mmap path emits a safetensors
+        file for the weight."""
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={
+                    "weight": QuantizationSpec(
+                        dtype="float4_e2m1fn",
+                        qscheme=QuantizationScheme.SYMMETRIC,
+                        granularity=PerBlockGranularity(axis=1, block_size=32),
+                    ),
+                },
+                op_input_spec=None,
+                op_output_spec=None,
+            ),
+            execution_mode="eager",
         )
 
-        if shared_weight_model:
-            # Tied-weight modules should share a single dequant parametrization
-            # post-finalize, both with and without mmap.
-            assert (
-                finalized_no_mmap.linear1.parametrizations.weight[0]
-                is finalized_no_mmap.linear2.parametrizations.weight[0]
-            ), "no-mmap finalize did not preserve sharing for weight-tied modules"
-            assert (
-                finalized_with_mmap.linear1.parametrizations.weight[0]
-                is finalized_with_mmap.linear2.parametrizations.weight[0]
-            ), "mmap finalize did not preserve sharing for weight-tied modules"
+        example_input = torch.randn(1, 64)
+        finalized_no_mmap, finalized_with_mmap = self._finalize_with_and_without_mmap(
+            nn.Linear(64, 32, bias=False), config, example_input, tmp_path
+        )
+        self._assert_forward_outputs_equal(finalized_no_mmap, finalized_with_mmap, example_input)
 
-        with torch.no_grad():
-            out_no_mmap = finalized_no_mmap(example_input)
-            out_with_mmap = finalized_with_mmap(example_input)
-
-        assert torch.equal(out_no_mmap, out_with_mmap)
+        # FP4 weights are stored as Float4Tensor; a safetensors file must be
+        # emitted for the mmap-backed weight.
+        assert any(f.endswith(".safetensors") for f in os.listdir(tmp_path))
 
     def test_finalize_state_dict_safetensors_roundtrip(self, basic_config, tmp_path):
         """An mmap-finalized model survives a state_dict save → load_file →
@@ -529,23 +558,30 @@ class TestEagerQuantizer:
 
         assert torch.equal(out_before_roundtrip, out_after_roundtrip)
 
-    def test_calibration_mode(self, simple_model, input_activation_only_config, example_input):
+    def test_calibration_mode(self, simple_model, basic_config, example_input):
         """
         Test that calibration mode works as expected, and scales are getting updated
         """
-        quantizer = Quantizer(simple_model, input_activation_only_config)
+        quantizer = Quantizer(simple_model, basic_config)
         simple_model.eval()
         prepared_model = quantizer.prepare((example_input,))
 
         fake_quant_modules = [
             m for m in prepared_model.modules() if isinstance(m, FakeQuantizeImplBase)
         ]
+        activation_fake_quant_modules = [
+            m
+            for m in fake_quant_modules
+            if m.quantization_target == CompressionTargetTensor.ACTIVATION
+        ]
 
         for module in fake_quant_modules:
             assert module.observer_enabled.item() == 0
             assert module.fake_quant_enabled.item() == 1
 
-        pre_calibration_scales = [mod.calculate_qparams()[0].clone() for mod in fake_quant_modules]
+        pre_calibration_scales = [
+            mod.calculate_qparams()[0].clone() for mod in activation_fake_quant_modules
+        ]
 
         with quantizer.calibration_mode():
             simple_model.eval()
@@ -554,10 +590,20 @@ class TestEagerQuantizer:
 
             for module in fake_quant_modules:
                 assert module.observer_enabled.item() == 1
-                assert module.fake_quant_enabled.item() == 0
+                # Weight FQ stays on so activation observers see quantized weights;
+                # activation FQ is off so observers collect statistics on the raw
+                # (post-weight-quant) activations.
+                expected_fq = (
+                    1 if module.quantization_target == CompressionTargetTensor.WEIGHT else 0
+                )
+                assert module.fake_quant_enabled.item() == expected_fq
 
-        post_calibration_scales = [mod.calculate_qparams()[0].clone() for mod in fake_quant_modules]
+        post_calibration_scales = [
+            mod.calculate_qparams()[0].clone() for mod in activation_fake_quant_modules
+        ]
 
+        # Only activation scales are expected to move here: weight ranges are
+        # fixed at prepare time and don't depend on calibration data.
         for pre_scale, post_scale in zip(
             pre_calibration_scales, post_calibration_scales, strict=True
         ):
@@ -1732,8 +1778,10 @@ class TestEagerQuantizer:
         with quantizer.calibration_mode():
             prepared_out = prepared_model(example_input_2)
             original_out = base_model(example_input_2)
-            # prepare model output should match base model, since fake quant is disabled
-            assert torch.equal(prepared_out, original_out)
+            # prepared model output should NOT match base model: weight fake
+            # quant stays on during calibration so activation observers see the
+            # effect of quantized weights. Only activation FQ is disabled.
+            assert not torch.equal(prepared_out, original_out)
 
         pre_finalize_out = prepared_model(example_input_3)
 
@@ -1963,7 +2011,12 @@ def test_warn_on_nonquantizable_tensor(caplog, config, warning_msg):
 
     quantizer = Quantizer(model, config)
     _ = quantizer.prepare(example_input)
-    if "*" in config.global_config.op_input_spec or "*" in config.global_config.op_state_spec:
+    # A wildcard *spec* sweeping up the int tensor stays silent. A wildcard
+    # holding None is an opt-out, not a spec, so it does not suppress the warning.
+    if (
+        config.global_config.op_input_spec.get("*") is not None
+        or config.global_config.op_state_spec.get("*") is not None
+    ):
         assert len(caplog.records) == 0
     else:
         assert len(caplog.records) == 1
@@ -2735,6 +2788,96 @@ def test_op_name_local_counter_per_submodule():
     assert fq_modules["submodule_b.add_1_quantize_output_0"].dtype == dtype_b1
 
 
+def test_op_call_with_no_quantizable_tensor_is_still_counted():
+    """
+    Test that an op call with nothing to quantize is still counted by both eager
+    passes.
+
+    In the example model below, the self.scale * 2's mul call gets no quantizers, but it still
+    has to be counted while registering, because the optimization pass counts
+    every call it intercepts. When left uncounted, the two passes disagree
+    both on how many times `mul` was called and on which call each
+    `mul_<n>_quantize_*` name referred to, and validation raised at the end of the
+    first forward pass.
+    """
+
+    class ScalarMulModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.register_buffer("scale", torch.tensor([2.0]))
+
+        def forward(self, x):
+            scale = self.scale * 2.0
+            return (x + x) * scale
+
+    model = ScalarMulModel()
+    example_inputs = (torch.randn(2, 4),)
+    quantizer = Quantizer(model, QuantizerConfig(execution_mode="eager"))
+    quantizer.prepare(example_inputs)
+
+    reference_tracker = quantizer._quantizer._handler.act_handler.reference_tracker
+    # Two mul calls in order: `self.scale * 2.0` and `... * scale`. The first has nothing
+    # quantizable, so it takes the mul slot with no quantizers and the second becomes mul_1.
+    # mul_1 has no `..._quantize_other` because its second operand, the single-element
+    # `scale`, is not quantizable either. The add in between is quantized as usual.
+    assert reference_tracker.get_module_registrations("") == {
+        "mul": [
+            FunctionRegisteredOptimizers([], []),  # self.scale * 2.0, no quantizers
+            FunctionRegisteredOptimizers(["mul_1_quantize_input"], ["mul_1_quantize_output_0"]),
+        ],
+        "add": [
+            FunctionRegisteredOptimizers(
+                ["add_quantize_input", "add_quantize_other"],
+                ["add_quantize_output_0"],
+            )
+        ],
+    }
+
+
+def test_shared_module_instance_invoked_twice_in_one_forward():
+    """
+    Test that an uncountable op call inside a shared submodule is counted.
+
+    `self.freq * 2.0` has nothing quantizable, so leaving it uncounted while registering
+    makes the two passes disagree on how many times `mul` was called in `rotate`. The
+    submodule is also invoked twice per forward, which registration records only once
+    while the optimization pass validates and resets on every exit, so a single set of
+    records has to hold for both invocations.
+    """
+
+    class Rotate(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.register_buffer("freq", torch.tensor([2.0]))
+
+        def forward(self, x):
+            angle = self.freq * 2.0
+            return x * angle
+
+    class TwoCallModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.rotate = Rotate()
+
+        def forward(self, x):
+            return self.rotate(x) + self.rotate(x)
+
+    model = TwoCallModel()
+    example_inputs = (torch.randn(2, 4),)
+    quantizer = Quantizer(model, QuantizerConfig(execution_mode="eager"))
+    quantizer.prepare(example_inputs)
+
+    reference_tracker = quantizer._quantizer._handler.act_handler.reference_tracker
+    # One set of records for the two invocations. `angle` holds a single element, so
+    # it is not quantizable and mul_1 only gets a quantizer for its first input.
+    assert reference_tracker.get_module_registrations("rotate") == {
+        "mul": [
+            FunctionRegisteredOptimizers([], []),
+            FunctionRegisteredOptimizers(["mul_1_quantize_input"], ["mul_1_quantize_output_0"]),
+        ]
+    }
+
+
 def test_bn_train_eval_mode():
     """
     Test preparing a model with BN in train mode and evaluating in eval"""
@@ -3315,7 +3458,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerTensorGranularity(),
                 False,
-                "FP4 quantization requires PerBlockGranularity with block_size=32",
+                "FP4 quantization requires PerBlockGranularity",
                 id="per_tensor_granularity_rejected",
             ),
             pytest.param(
@@ -3323,7 +3466,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerBlockGranularity(axis=1, block_size=16),
                 False,
-                "FP4 quantization requires PerBlockGranularity with block_size=32",
+                r"FP4 export requires per-axis block sizes \(1, 32\) for a 2D weight",
                 id="wrong_block_size_rejected",
             ),
             pytest.param(
@@ -3331,7 +3474,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32),
                 PerBlockGranularity(axis=1, block_size=32),
                 True,
-                "FP4 activation quantization is not supported for MLIR export",
+                "Core AI export does not support FP4 activation quantization",
                 id="fp4_activation_rejected",
             ),
             pytest.param(
@@ -3339,7 +3482,7 @@ class TestFP4MLIRExportValidation:
                 torch.randn(1, 32, 5, 5),
                 PerBlockGranularity(axis=1, block_size=32),
                 False,
-                "FP4 weight quantization export is only supported for 2D weight tensors",
+                r"FP4 export requires per-axis block sizes \(1, 1, 1, 32\) for a 4D weight",
                 id="conv_layer_rejected",
             ),
         ],

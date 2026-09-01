@@ -19,6 +19,18 @@ logger = logging.getLogger(__name__)
 ALL_TENSORS = "*"
 
 
+def spec_dict_is_active(spec_dict: Mapping[Any, Any] | None) -> bool:
+    """Whether ``spec_dict`` asks for compression on any tensor.
+
+    ``{}`` and ``{"*": None}`` are both inactive. Consumers that care about the
+    difference — "no opinion" vs "explicitly disabled" — should inspect the dict
+    directly; this only answers whether anything is being compressed.
+    """
+    if not spec_dict:
+        return False
+    return any(spec is not None for spec in spec_dict.values())
+
+
 def get_last_matching_spec(
     identifiers: Iterable[int | str],
     spec_dict: Mapping[int | str, Any],

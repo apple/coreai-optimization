@@ -11,10 +11,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
-from coreai_opt._utils.registry_utils import ConfigRegistryMixin
+from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegistryMixin
 
 
-class PruningScheme(BaseModel, ConfigRegistryMixin):
+class PruningScheme(BaseModel, _ConfigRegistryMixin):
     """Base class for pruning scheme specifications.
 
     A pruning scheme defines the structural pattern of sparsity applied
@@ -70,6 +70,9 @@ class ChannelStructured(PruningScheme):
     Entire channels (slices along ``axis``) are pruned or kept together.
     Channel importance is determined by the pruning algorithm (e.g. L1 norm
     of each channel for magnitude-based pruning).
+
+    Note:
+        ``axis`` can be negatively indexed as per standard Python style indexing.
     """
 
     axis: int = Field(default=0, description="Axis along which channels are pruned.")
