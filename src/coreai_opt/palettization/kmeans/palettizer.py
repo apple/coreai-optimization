@@ -36,7 +36,7 @@ from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleCompressionConfig, ModuleConfigDict
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.config.spec.base import CompressionSpec
-from coreai_opt.config.spec.compression_simulator import record_tensor_fqns_eager
+from coreai_opt.config.spec.compression_simulator import _record_tensor_fqns_eager
 from coreai_opt.palettization.base_palettizer import _BasePalettizer
 from coreai_opt.palettization.config.palettization_config import (
     KMeansPalettizerConfig,
@@ -199,7 +199,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         logger.info("Preparing model for palettization")
         prepared_model = self._handler.prepare(self._model, example_inputs=example_inputs)
 
-        record_tensor_fqns_eager(prepared_model)
+        _record_tensor_fqns_eager(prepared_model)
 
         # Load precomputed sensitivities if provided
         if sensitivity_path is not None:

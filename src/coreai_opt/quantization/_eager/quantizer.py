@@ -31,7 +31,7 @@ from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleCompressionConfig
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.config.spec.base import CompressionSpec
-from coreai_opt.config.spec.compression_simulator import record_tensor_fqns_eager
+from coreai_opt.config.spec.compression_simulator import _record_tensor_fqns_eager
 from coreai_opt.quantization._axis_defaults import (
     apply_weight_axis_defaults_eager as _apply_weight_axis_defaults,
     validate_activation_axes,
@@ -224,7 +224,7 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
         Args:
             model (nn.Module): The model after eager prepare().
         """
-        record_tensor_fqns_eager(model)
+        _record_tensor_fqns_eager(model)
 
         _apply_weight_axis_defaults(model)
         validate_activation_axes(model)

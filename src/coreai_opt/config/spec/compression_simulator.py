@@ -49,7 +49,7 @@ class CompressionSimulatorBase(_ClassRegistryMixin, nn.Module):
         pass
 
 
-def record_tensor_fqns_eager(model: nn.Module) -> None:
+def _record_tensor_fqns_eager(model: nn.Module) -> None:
     """Record the FQN of each parametrized tensor on the simulator compressing it."""
     for module_name, module in model.named_modules():
         if not P.is_parametrized(module):
@@ -61,7 +61,7 @@ def record_tensor_fqns_eager(model: nn.Module) -> None:
                     simulator.tensor_fqn = name
 
 
-def record_tensor_fqns_graph(model: torch.fx.GraphModule) -> None:
+def _record_tensor_fqns_graph(model: torch.fx.GraphModule) -> None:
     """Record the FQN of each compressed parameter on the simulator compressing it.
 
     A simulator reading from anything other than a ``get_attr`` node keeps the
