@@ -119,7 +119,7 @@ pre-commit = [
     "pre-commit>=3.0.0",
     "pre-commit-hooks>=5.0.0",
     "pymarkdownlnt>=0.9.33",
-    "pyproject-fmt==2.29.2",
+    "pyproject-fmt==2.28.2",
     "python-kacl",
     "ruff>=0.14.8",
     "taplo>=0.9.3",
