@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-.PHONY: _maybe_patch_pyproject all api-list build build-dev check clean distclean distclean-all docs docs-clean docs-open env env-all env-docs env-highest-torch env-lowest-torch env-tutorial render-api-index set-auto-venv test test-cov test-fast test-highest-pytorch test-lowest-pytorch test-slow test-smoke test-tutorials version
+.PHONY: _maybe_patch_pyproject all api-list build build-dev check clean distclean distclean-all docs docs-clean docs-open env env-all env-docs env-highest-torch env-lowest-torch env-tutorial render-api-index set-auto-venv test test-cov test-fast test-highest-pytorch test-lowest-pytorch test-slow test-smoke test-tutorials version version-dev
 
 SHELL := /bin/bash
 
@@ -56,7 +56,7 @@ VENV_TUTORIAL ?= .venv-tutorial
 # The torch_2_* groups (pyproject.toml [dependency-groups]) currently at
 # each end of the supported range. Bump these two lines — nothing else —
 # when the project's torch version bounds change.
-HIGHEST_TORCH_GROUP := torch_2_11
+HIGHEST_TORCH_GROUP := torch_2_13
 LOWEST_TORCH_GROUP := torch_2_8
 
 # Torch dependency group (pyproject.toml [dependency-groups]) that every
@@ -356,12 +356,18 @@ distclean-all:
 set-auto-venv:
 	@$(SCRIPTS)/make/set_auto_venv.sh $(DEFAULT_VENV) $(SHELL_RC)
 
-# Show the development version carried on the tree (e.g. 0.2.2.dev0), including
-# any COREAI_OPT_VERSION_EXTENSION (e.g. 0.2.2.1.dev0). Reads _about.py as plain
-# text, so no venv is needed — but `uv run --no-project` is still what guarantees
-# a >= 3.11 interpreter (a bare `python3` is 3.9 on stock macOS, and `python` may
-# not exist at all) without requiring `make env` first.
+# Show the version a release would publish (e.g. 0.2.2), including any
+# COREAI_OPT_VERSION_EXTENSION (e.g. 0.2.2.1). This is the same computation the
+# release workflow's tag guard uses, so the two cannot drift. Reads _about.py as
+# plain text, so no venv is needed — but `uv run --no-project` is still what
+# guarantees a >= 3.11 interpreter (a bare `python3` is 3.9 on stock macOS, and
+# `python` may not exist at all) without requiring `make env` first.
 version:
+	@uv run --no-config --no-project --python '>=3.11' $(SCRIPTS)/make/print_version.py --release
+
+# Show the development version carried on the tree (e.g. 0.2.2.dev0), i.e.
+# `version` with the .dev0 marker the tree carries between releases.
+version-dev:
 	@uv run --no-config --no-project --python '>=3.11' $(SCRIPTS)/make/print_version.py
 
 # =============================================================================
@@ -404,9 +410,13 @@ docs-clean:
 # Regenerate docs/src/api/index.md from the package tree.
 #
 # Runs the same generator `make docs` invokes during the Sphinx build, so the
-# API index can be refreshed on its own using the base dev env.
+# API index can be refreshed on its own using the base dev env. Uses DOCS_DIR
+# (not MAKEFILE_DIR) so this and the Sphinx build always run the same generator:
+# a distribution that overrides DOCS_DIR documents a different set of root
+# packages, and pointing these two entry points at different files would make
+# them write conflicting indexes.
 render-api-index:
-	@$(call use_env,VENV) && uv run --no-sync --active python $(MAKEFILE_DIR)docs/scripts/generate_api_index.py
+	@$(call use_env,VENV) && uv run --no-sync --active python $(DOCS_DIR)/scripts/generate_api_index.py
 
 # Build and open documentation in browser
 # Uses --serve so the docs are loaded over HTTP, not file:// — required for

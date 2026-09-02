@@ -9,6 +9,7 @@ import pytest
 import torch
 import torch.nn as nn
 
+from coreai_opt._utils.config_utils import spec_dict_is_active
 from coreai_opt.pruning.config import (
     MagnitudePrunerConfig,
     ModuleMagnitudePrunerConfig,
@@ -313,4 +314,4 @@ class TestPruningConfig:
         """Setting global_config to None disables pruning globally."""
         config = MagnitudePrunerConfig(global_config=None)
         assert config.global_config is not None
-        assert not config.global_config.op_state_spec
+        assert not spec_dict_is_active(config.global_config.op_state_spec)

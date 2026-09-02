@@ -1,0 +1,1 @@
+Fix graph-mode `Quantizer` resolving a tied weight's QAT schedule from a different module than its dtype. A shared fake-quantize module's owning module is now picked by the same config priority that decides its `dtype`, instead of by graph order, so the schedule and dtype for a shared weight always come from one consistent module.

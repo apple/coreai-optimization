@@ -2012,7 +2012,12 @@ def test_warn_on_nonquantizable_tensor(caplog, config, warning_msg):
 
     quantizer = Quantizer(model, config)
     _ = quantizer.prepare(example_input)
-    if "*" in config.global_config.op_input_spec or "*" in config.global_config.op_state_spec:
+    # A wildcard *spec* sweeping up the int tensor stays silent. A wildcard
+    # holding None is an opt-out, not a spec, so it does not suppress the warning.
+    if (
+        config.global_config.op_input_spec.get("*") is not None
+        or config.global_config.op_state_spec.get("*") is not None
+    ):
         assert len(caplog.records) == 0
     else:
         assert len(caplog.records) == 1
@@ -2782,6 +2787,96 @@ def test_op_name_local_counter_per_submodule():
     assert fq_modules["submodule_a.add_1_quantize_output_0"].dtype == dtype_a1
     assert fq_modules["submodule_b.add_quantize_output_0"].dtype == dtype_b0
     assert fq_modules["submodule_b.add_1_quantize_output_0"].dtype == dtype_b1
+
+
+def test_op_call_with_no_quantizable_tensor_is_still_counted():
+    """
+    Test that an op call with nothing to quantize is still counted by both eager
+    passes.
+
+    In the example model below, the self.scale * 2's mul call gets no quantizers, but it still
+    has to be counted while registering, because the optimization pass counts
+    every call it intercepts. When left uncounted, the two passes disagree
+    both on how many times `mul` was called and on which call each
+    `mul_<n>_quantize_*` name referred to, and validation raised at the end of the
+    first forward pass.
+    """
+
+    class ScalarMulModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.register_buffer("scale", torch.tensor([2.0]))
+
+        def forward(self, x):
+            scale = self.scale * 2.0
+            return (x + x) * scale
+
+    model = ScalarMulModel()
+    example_inputs = (torch.randn(2, 4),)
+    quantizer = Quantizer(model, QuantizerConfig(execution_mode="eager"))
+    quantizer.prepare(example_inputs)
+
+    reference_tracker = quantizer._quantizer._handler.act_handler.reference_tracker
+    # Two mul calls in order: `self.scale * 2.0` and `... * scale`. The first has nothing
+    # quantizable, so it takes the mul slot with no quantizers and the second becomes mul_1.
+    # mul_1 has no `..._quantize_other` because its second operand, the single-element
+    # `scale`, is not quantizable either. The add in between is quantized as usual.
+    assert reference_tracker.get_module_registrations("") == {
+        "mul": [
+            FunctionRegisteredOptimizers([], []),  # self.scale * 2.0, no quantizers
+            FunctionRegisteredOptimizers(["mul_1_quantize_input"], ["mul_1_quantize_output_0"]),
+        ],
+        "add": [
+            FunctionRegisteredOptimizers(
+                ["add_quantize_input", "add_quantize_other"],
+                ["add_quantize_output_0"],
+            )
+        ],
+    }
+
+
+def test_shared_module_instance_invoked_twice_in_one_forward():
+    """
+    Test that an uncountable op call inside a shared submodule is counted.
+
+    `self.freq * 2.0` has nothing quantizable, so leaving it uncounted while registering
+    makes the two passes disagree on how many times `mul` was called in `rotate`. The
+    submodule is also invoked twice per forward, which registration records only once
+    while the optimization pass validates and resets on every exit, so a single set of
+    records has to hold for both invocations.
+    """
+
+    class Rotate(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.register_buffer("freq", torch.tensor([2.0]))
+
+        def forward(self, x):
+            angle = self.freq * 2.0
+            return x * angle
+
+    class TwoCallModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.rotate = Rotate()
+
+        def forward(self, x):
+            return self.rotate(x) + self.rotate(x)
+
+    model = TwoCallModel()
+    example_inputs = (torch.randn(2, 4),)
+    quantizer = Quantizer(model, QuantizerConfig(execution_mode="eager"))
+    quantizer.prepare(example_inputs)
+
+    reference_tracker = quantizer._quantizer._handler.act_handler.reference_tracker
+    # One set of records for the two invocations. `angle` holds a single element, so
+    # it is not quantizable and mul_1 only gets a quantizer for its first input.
+    assert reference_tracker.get_module_registrations("rotate") == {
+        "mul": [
+            FunctionRegisteredOptimizers([], []),
+            FunctionRegisteredOptimizers(["mul_1_quantize_input"], ["mul_1_quantize_output_0"]),
+        ]
+    }
 
 
 def test_bn_train_eval_mode():

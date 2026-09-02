@@ -10,10 +10,10 @@ helpers that target Apple's internal index live in
 ``scripts/release/release.py`` and stay internal-only.
 
 ``_about.py`` hard-codes ``latest_released_version`` (the last tagged release,
-e.g. ``"0.2.1"``); ``__version__`` is that release with one added to its last
-number, plus ``.dev0`` (e.g. ``"0.2.2.dev0"``). Everything here computes from
-``latest_released_version`` — never from ``__version__``, which must not be
-treated as already released.
+e.g. ``"0.2.1"``) and ``__version__``, the release the tree is working toward
+(e.g. ``"0.2.2.dev0"``). A build takes its version from ``__version__``, which
+is what lets a minor or major release be declared rather than only a
+last-digit bump.
 
 A repo that vendors this one as a submodule can add its own extra release
 number via ``COREAI_OPT_VERSION_EXTENSION``; see ``next_release_base``. See
@@ -42,9 +42,12 @@ _ABOUT_PATH_CANDIDATES = (
 VERSION_EXTENSION_ENV_VAR = "COREAI_OPT_VERSION_EXTENSION"
 DEV_VERSION_ENV_VAR = "DEV_VERSION"
 
-# Cap on the tag fetch in `latest_release_tag`. It runs from a pre-commit hook,
-# so an unreachable `origin` (VPN down, laptop offline mid-handshake) must not
-# stall the commit for the OS connect timeout.
+# Branch a release is stabilized on before it is tagged, e.g. `release/0.2.2`.
+RELEASE_BRANCH_PREFIX = "release/"
+
+# Cap on the `origin` fetch in `latest_release_tag`. It runs from a pre-commit
+# hook, so an unreachable `origin` (VPN down, laptop offline mid-handshake) must
+# not stall the commit for the OS connect timeout.
 _FETCH_TIMEOUT_SECONDS = 5
 
 
@@ -110,7 +113,7 @@ def latest_release_tag(repo_root: Path) -> str | None:
     """
     try:
         subprocess.run(
-            ["git", "fetch", "--tags", "origin"],
+            ["git", "fetch", "--tags", "--prune", "origin"],
             cwd=repo_root,
             capture_output=True,
             check=False,  # offline / no `origin` remote: fall back to local tags
@@ -127,6 +130,41 @@ def latest_release_tag(repo_root: Path) -> str | None:
     )
     tags = result.stdout.split()
     return tags[0].removeprefix("v") if tags else None
+
+
+def release_branch_exists(repo_root: Path, version: str) -> bool:
+    """Return whether ``origin`` has a ``release/<version>`` branch.
+
+    A release branch is cut before its tag exists, and ``main`` moves to the
+    next candidate as soon as the cut happens — so for the length of the
+    stabilization window ``latest_released_version`` names a release that is
+    branched but not yet tagged. This reports whether that window is open; see
+    ``scripts/pre_commit/check_about_version.py``.
+
+    Only the remote-tracking ref is consulted, so a local branch of the same
+    name cannot satisfy the check. ``latest_release_tag`` fetches from
+    ``origin`` before this runs, which is what keeps that ref current.
+
+    Args:
+        repo_root: Repository root to run ``git`` in.
+        version: Release the branch is named for, e.g. ``"0.2.2"``.
+
+    Returns:
+        bool: ``True`` if ``origin`` has ``release/<version>``.
+    """
+    result = subprocess.run(
+        [
+            "git",
+            "for-each-ref",
+            "--format=%(refname)",
+            f"refs/remotes/origin/{RELEASE_BRANCH_PREFIX}{version}",
+        ],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return bool(result.stdout.strip())
 
 
 # =============================================================================
@@ -159,15 +197,46 @@ def apply_version_extension(version: str, extension: str | None) -> str:
     return f"{version}.{extension}" if extension else version
 
 
-def bump_last_segment(version: str) -> str:
-    """Add one to the last number in a version.
+def valid_next_versions(version: str) -> list[str]:
+    """Return every release that may directly follow ``version``.
 
-    ``"0.2.1"`` -> ``"0.2.2"``; ``"0.2.1.1"`` -> ``"0.2.1.2"``. ``version``
-    must be a plain release (no ``.dev`` suffix) whose last number is an
-    integer.
+    Exactly one number goes up by one and everything after it resets to zero,
+    so ``"1.0.1"`` -> ``["2.0.0", "1.1.0", "1.0.2"]`` — a major, a minor, and a
+    patch. Ordered most-significant first. Anything else is either a skipped
+    number or a move backwards.
+
+    Args:
+        version: A plain release (no ``.dev`` suffix), e.g. ``"1.0.1"``.
+
+    Returns:
+        list[str]: The releases that may follow, most-significant bump first.
     """
-    *head, last = version.split(".")
-    return ".".join((*head, str(int(last) + 1)))
+    numbers = [int(part) for part in version.split(".")]
+    return [
+        ".".join(str(n) for n in numbers[:i] + [numbers[i] + 1] + [0] * (len(numbers) - i - 1))
+        for i in range(len(numbers))
+    ]
+
+
+def release_branch_version(latest_released_version: str) -> str:
+    """Return the ``__version__`` a ``release/<version>`` branch carries.
+
+    A release branch names its own release: ``latest_released_version`` is set
+    to the version the branch produces, so ``__version__`` is that same version
+    plus ``.dev0`` rather than a next candidate. On ``main`` the two always
+    differ, which is what tells a release branch apart from ``main``.
+
+    Making the branch self-describing is what lets a downstream repo pin
+    ``external/`` to a release branch and still resolve the right baseline —
+    ``latest_released_version`` then means the same thing on every commit.
+
+    Args:
+        latest_released_version: The release the branch produces, e.g. ``"1.1.0"``.
+
+    Returns:
+        str: The ``__version__`` that branch carries, e.g. ``"1.1.0.dev0"``.
+    """
+    return f"{latest_released_version}.dev0"
 
 
 # =============================================================================
@@ -175,20 +244,26 @@ def bump_last_segment(version: str) -> str:
 # =============================================================================
 
 
-def next_release_base(latest_released_version: str, extension: str | None = None) -> str:
+def next_release_base(
+    latest_released_version: str, version: str, extension: str | None = None
+) -> str:
     """Compute the release ``build.py`` should build next.
 
-    With no extension, adds one to the last number of
-    ``latest_released_version`` — this is OSS's own ``main``, with nothing
-    downstream involved. With an extension, appends it exactly as given — the
-    downstream repo has already picked the number it's about to release:
+    With no extension, this is ``version`` (``_about.py``'s ``__version__``)
+    with its ``.dev`` suffix removed — the tree states the release it is
+    working toward, so a minor or major is expressed by editing ``__version__``
+    rather than being inferred. With an extension, the downstream repo has
+    already picked the number it is about to release, and it is appended to the
+    last *published* release instead:
 
-    * no extension: ``"0.2.1"`` -> ``"0.2.2"``
-    * extension ``"1"`` (the next number to release): ``"0.2.1"`` ->
+    * no extension: ``__version__`` ``"0.2.2.dev0"`` -> ``"0.2.2"``
+    * no extension: ``__version__`` ``"1.1.0.dev0"`` -> ``"1.1.0"``
+    * extension ``"1"``: ``latest_released_version`` ``"0.2.1"`` ->
       ``"0.2.1.1"``
 
     Args:
         latest_released_version: The last tagged release, e.g. ``"0.2.1"``.
+        version: ``_about.py``'s ``__version__``, e.g. ``"0.2.2.dev0"``.
         extension: The extra number to release next, or ``None``.
 
     Returns:
@@ -196,25 +271,26 @@ def next_release_base(latest_released_version: str, extension: str | None = None
     """
     if extension:
         return apply_version_extension(latest_released_version, extension)
-    return bump_last_segment(latest_released_version)
+    return strip_dev_suffix(version)
 
 
-def next_candidate_version(latest_released_version: str, extension: str | None = None) -> str:
-    """Compute the ``.dev0`` version that ``_about.py`` should carry.
+def next_candidate_version(
+    latest_released_version: str, version: str, extension: str | None = None
+) -> str:
+    """Compute the ``.dev0`` version the tree is working toward.
 
     Same as ``next_release_base`` with ``.dev0`` added at the end, e.g.
-    ``"0.2.1"`` -> ``"0.2.2.dev0"``. This is the value ``__version__`` must
-    hold on the tree; see ``scripts/pre_commit/check_about_version.py``.
+    ``"0.2.2.dev0"`` with extension ``"1"`` -> ``"0.2.1.1.dev0"``.
 
     Args:
         latest_released_version: The last tagged release, e.g. ``"0.2.1"``.
+        version: ``_about.py``'s ``__version__``, e.g. ``"0.2.2.dev0"``.
         extension: The extra number to release next, or ``None``.
 
     Returns:
-        str: The ``.dev0`` version to write into ``_about.py``'s
-            ``__version__``.
+        str: The ``.dev0`` version this tree is working toward.
     """
-    return f"{next_release_base(latest_released_version, extension)}.dev0"
+    return f"{next_release_base(latest_released_version, version, extension)}.dev0"
 
 
 def timestamped_dev_version(

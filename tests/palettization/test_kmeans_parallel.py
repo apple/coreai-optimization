@@ -227,7 +227,7 @@ class TestCrossLayerParallel:
 
         Runs calibration on two copies of the same model -- one prepared with
         ``num_workers=1``, the other with ``num_workers=2`` -- and asserts the
-        post-calibration LUTs, indices, observer/fake_palett state, and model
+        post-calibration LUTs, indices, fake_palett state, and model
         outputs match. Same calibration inputs are used for both so any
         divergence would point to the recompute path itself rather than RNG.
         """
@@ -258,13 +258,9 @@ class TestCrossLayerParallel:
             torch.testing.assert_close(seq_fp.indices, par_fp.indices)
 
             # After calibration_mode exits, both paths should have restored
-            # fake_palett=on / observer=off. The parallel path swaps fp_modules
-            # into parametrization slots, so the subsequent apply(_enable_fake_palett)
-            # and apply(_disable_observer) must reach the new modules.
+            # fake_palett=on.
             assert seq_fp.fake_palett_enabled.item() == 1
             assert par_fp.fake_palett_enabled.item() == 1
-            assert seq_fp.observer_enabled.item() == 0
-            assert par_fp.observer_enabled.item() == 0
 
         with torch.no_grad():
             torch.testing.assert_close(

@@ -7,4 +7,5 @@ basics
 overview
 config
 advanced
+composite_op_quantization
 ```

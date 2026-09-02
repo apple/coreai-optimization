@@ -20,7 +20,7 @@ import torch.nn as nn
 from torchao.quantization.pt2e import disable_fake_quant
 from torchao.quantization.pt2e.export_utils import _EXPORTED_TRAINING_ATTR
 
-from coreai_opt._utils.config_utils import ALL_TENSORS as _ALL_TENSORS
+from coreai_opt._utils.config_utils import ALL_TENSORS as _ALL_TENSORS, spec_dict_is_active
 from coreai_opt.quantization import (
     ModuleQuantizerConfig,
     Quantizer,
@@ -1384,8 +1384,13 @@ class TestAnnotationPatternRegistry:
         quantize_nodes = [
             node for node in prepared_model.graph.nodes if "activation_post_process" in node.name
         ]
-        assert len(quantize_nodes) == 1
-        assert quantize_nodes[0] in flatten_node.users.keys()
+        # The output spec outranks the input's None — they are one tensor — so the
+        # flatten is observed at both of its slots by a single quantizer module.
+        assert len(quantize_nodes) == 2
+        assert any(node in flatten_node.users for node in quantize_nodes)
+        assert any(node in flatten_node.all_input_nodes for node in quantize_nodes)
+        modules = {getattr(prepared_model, node.name) for node in quantize_nodes}
+        assert len(modules) == 1
 
     def test_shared_observer_no_qspec_set(self):
         """
@@ -3564,7 +3569,7 @@ class TestAnnotationPatternRegistry:
         add_first_input_quantizer = getattr(prepared_model, add_first_input_node_name)
         assert add_first_input_quantizer.dtype == torch.int8
 
-        if config.global_config.op_state_spec:
+        if spec_dict_is_active(config.global_config.op_state_spec):
             flatten_preceding_quantizer = getattr(prepared_model, flatten_preceding_quantizer_name)
             assert flatten_preceding_quantizer is flatten_succeeding_quantizer
             assert flatten_preceding_quantizer.dtype == torch.int4
@@ -4074,6 +4079,12 @@ class TestAnnotationPattern:
 
                 patterns = [mock_pattern_1]
                 return patterns
+
+            @classmethod
+            def generate_qspec_sharing_constraints(cls, node, qspecs):
+                # Stub — abstract on the base class; unused by this test,
+                # which only exercises the length-validation branch.
+                return []
 
         pattern = Pattern()
         with pytest.raises(RuntimeError):

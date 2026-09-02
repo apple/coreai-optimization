@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import logging
 from abc import abstractmethod
 
 import torch
@@ -19,13 +18,7 @@ from coreai_opt.config.spec import CompressionSimulatorBase
 from coreai_opt.palettization.spec import (
     PalettizationGranularity,
 )
-from coreai_opt.palettization.spec.errors import (
-    _IncompatibleClusterDimError,
-    _IncompatibleGranularityError,
-)
 from coreai_opt.quantization.spec import QuantizationSpec
-
-logger = logging.getLogger(__name__)
 
 
 class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
@@ -33,12 +26,8 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
     reconstruction methods.
     """
 
-    lut: torch.Tensor
     indices: torch.Tensor
     per_channel_scale: torch.Tensor | None
-    quantized_lut: torch.Tensor | None
-    lut_quantization_scale: torch.Tensor | None
-    lut_quantization_zero_point: torch.Tensor | None
     fake_palett_enabled: torch.Tensor
     observer_enabled: torch.Tensor
 
@@ -59,20 +48,15 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         self.enable_per_channel_scale = enable_per_channel_scale
 
         self.register_buffer("fake_palett_enabled", torch.tensor([1], dtype=torch.uint8))
-        self.register_buffer("observer_enabled", torch.tensor([1], dtype=torch.uint8))
+        # Non-persistent (kept out of new checkpoints); when set to 1 (at runtime or
+        # via a legacy checkpoint) the forward pass re-clusters centroids every call.
+        self.register_buffer(
+            "observer_enabled", torch.tensor([0], dtype=torch.uint8), persistent=False
+        )
         self._disabled = False
 
-        self.register_buffer("lut", None)
         self.register_buffer("indices", None)
         self.register_buffer("per_channel_scale", None)
-        self.register_buffer("quantized_lut", None)
-        self.register_buffer("lut_quantization_scale", None)
-        self.register_buffer("lut_quantization_zero_point", None)
-
-    @property
-    def _initialized(self) -> bool:
-        """Return True if lut and indices have been initialized (not None)."""
-        return self.lut is not None and self.indices is not None
 
     def is_disabled(self) -> bool:
         """Return True if fake palettization has been disabled."""
@@ -90,58 +74,49 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         self._disabled = True
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Apply fake palettization to input tensor"""
-        # If permanently disabled due to incompatibility, return original tensor
+        """Fake-palettize ``tensor`` through the enable/disable lifecycle.
+
+        Delegates representation-specific work to ``ensure_initialized`` and
+        ``forward_enabled``.
+        """
         if self._disabled:
             return tensor
 
-        if self.observer_enabled[0] == 1:
-            # Cluster weights
-            try:
-                lut, indices = self._calculate_centroids(tensor)
-            except _IncompatibleGranularityError as e:
-                self._warn_and_disable("granularity", e, tensor.shape)
-                return tensor
-            except _IncompatibleClusterDimError as e:
-                self._warn_and_disable("cluster_dim", e, tensor.shape)
-                return tensor
+        self.ensure_initialized(tensor)
 
-            self.lut = lut.detach()
-            self.indices = indices.detach()
-        else:
-            # Check that recomputed statistics exist
-            if not self._initialized:
-                # Not initialized yet, return original tensor
-                return tensor
+        # Check for self._disabled again in case ensure_initialized disabled the palettizer.
+        if self._disabled:
+            return tensor
+        if self.fake_palett_enabled[0] == 0:
+            return tensor
+        return self.forward_enabled(tensor)
 
-        if self.fake_palett_enabled[0] == 1:
-            return self._palettize(lut=self.lut, indices=self.indices, original_weights=tensor)
+    @abstractmethod
+    def ensure_initialized(self, tensor: torch.Tensor) -> None:
+        """Initialize compression parameters from ``tensor`` on first use.
 
-        return tensor
+        Set ``self._disabled = True`` if ``tensor`` is incompatible with the
+        configured spec.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def forward_enabled(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Return the palettized output for ``tensor`` when enabled."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def hard_assign(self, weight: torch.Tensor) -> torch.Tensor:
+        """Return the hard-assigned (deployable) palettized reconstruction of ``weight``."""
+        raise NotImplementedError()
 
     @abstractmethod
     def _palettize(
         self, lut: torch.Tensor, indices: torch.Tensor, original_weights: torch.Tensor
     ) -> torch.Tensor:
-        """Reconstruct palettized weights from lookup table and indices."""
-        raise NotImplementedError()
+        """Reconstruct palettized weights from lookup table and indices.
 
-    @abstractmethod
-    def _calculate_centroids(self, weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Cluster weights and return lookup table (LUT) and corresponding indices.
-
-        If tensor is incompatible with the specified granularity, this method
-        should set self._disabled = True and return dummy values.
-
-        Args:
-            weight: The weight tensor to cluster
-
-        Returns:
-            Tuple of (lut, indices) where:
-                - lut: Lookup table of cluster centroids
-                - indices: Index tensor mapping each weight to its cluster
-
-        LUT shape must be of the following form:
+        ``lut`` shape must be of the following form:
             [NUM_LUT_AXIS_0, NUM_LUT_AXIS_1, NUM_PALETTES, VECTOR_SIZE]
         where,
             NUM_LUT_* is the number of LUTs for the corresponding axis. The computation
@@ -153,7 +128,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             VECTOR_SIZE is lut.shape[-1] and is added to support vector palettization.
                 When VECTOR_SIZE is 1, it is scalar palettization.
 
-        Indices shape much match the shape of the palettized weight.
+        ``indices`` shape must match the shape of the palettized weight.
         """
         raise NotImplementedError()
 
@@ -171,7 +146,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
     ):
         """Custom state dict loading for palettization-specific buffers.
 
-        This method handles the loading of palettization-specific buffers (lut, indices,
+        This method handles the loading of palettization-specific buffers (indices,
         per_channel_scale) that may be dynamically created during forward passes. By
         registering them here, we ensure they are properly loaded from saved checkpoints
          and don't generate unexpected key warnings.
@@ -180,19 +155,24 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         load_state_dict, etc.) and should not be called directly.
         """
         buffer_names = {
-            "lut",
             "indices",
             "per_channel_scale",
-            "quantized_lut",
-            "lut_quantization_scale",
-            "lut_quantization_zero_point",
+            "centroids",
         }
+
+        # Ensure buffers are loaded on the same device as the model is currently on.
+        # The exception is ``indices`` which stays CPU-resident by design.
+        target_device = self.fake_palett_enabled.device
+        cpu_resident = {"indices"}
 
         for buffer_name in buffer_names:
             prefixed_key = prefix + buffer_name
             if prefixed_key in state_dict:
+                tensor = state_dict[prefixed_key]
+                if buffer_name not in cpu_resident:
+                    tensor = tensor.to(target_device)
                 # Register the buffer with the correct name (without prefix)
-                self.register_buffer(buffer_name, state_dict[prefixed_key])
+                self.register_buffer(buffer_name, tensor)
                 # Remove from unexpected keys if it was there to prevent warnings
                 if prefixed_key in unexpected_keys:
                     unexpected_keys.remove(prefixed_key)
@@ -201,17 +181,30 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
         )
 
+        obs_key = prefix + "observer_enabled"
+        if obs_key in state_dict:
+            self.observer_enabled.copy_(state_dict[obs_key])
+            if obs_key in unexpected_keys:
+                unexpected_keys.remove(obs_key)
+
+        # Accept (and ignore) buffers from legacy checkpoints that are now
+        # derived properties, so old state dicts load without unexpected-key errors.
+        # ``lut`` is consumed by the subclass to reconstruct ``centroids``.
+        for legacy_name in (
+            "lut",
+            "quantized_lut",
+            "lut_quantization_scale",
+            "lut_quantization_zero_point",
+        ):
+            prefixed_key = prefix + legacy_name
+            if prefixed_key in unexpected_keys:
+                unexpected_keys.remove(prefixed_key)
+
     def enable_fake_palett(self, enabled: bool = True) -> None:
         self.fake_palett_enabled[0] = 1 if enabled else 0
 
     def disable_fake_palett(self):
         self.enable_fake_palett(False)
-
-    def enable_observer(self, enabled: bool = True) -> None:
-        self.observer_enabled[0] = 1 if enabled else 0
-
-    def disable_observer(self):
-        self.enable_observer(False)
 
 
 def _enable_fake_palett(mod):
@@ -224,15 +217,3 @@ def _disable_fake_palett(mod):
     """Disable fake palettization for the module."""
     if isinstance(mod, _FakePalettizeImplBase):
         mod.disable_fake_palett()
-
-
-def _enable_observer(mod):
-    """Enable observation for this module."""
-    if isinstance(mod, _FakePalettizeImplBase):
-        mod.enable_observer()
-
-
-def _disable_observer(mod):
-    """Disable observation for this module."""
-    if isinstance(mod, _FakePalettizeImplBase):
-        mod.disable_observer()

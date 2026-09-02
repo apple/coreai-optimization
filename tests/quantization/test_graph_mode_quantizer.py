@@ -16,6 +16,11 @@ import torch
 import torch.nn as nn
 from torch.export.dynamic_shapes import Dim
 from torch.ops import coreai
+from torchao.quantization.pt2e.quantizer import (
+    QuantizationSpec as TorchAOQuantizationSpec,
+    SharedQuantizationSpec,
+)
+from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 
 from coreai_opt import ExportBackend
 from coreai_opt._utils.metadata_utils import (
@@ -39,6 +44,7 @@ from coreai_opt.quantization._graph._prepare_for_export import (
 from coreai_opt.quantization._graph.quantizer import _AnnotationHandler
 from coreai_opt.quantization.spec import (
     PerBlockGranularity,
+    PerChannelGranularity,
     PerTensorGranularity,
     QuantizationScheme,
     default_activation_quantization_spec,
@@ -51,6 +57,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
 )
 from tests.fixtures.quantization import make_quant_config
 from tests.models.simple import SimpleModel
+from tests.test_utils.general import get_fake_quant_nodes
 
 
 @pytest.fixture
@@ -87,16 +94,6 @@ def weight_only_config():
             op_output_spec=None,
         )
     )
-
-
-def get_fake_quant_nodes(model: torch.fx.GraphModule) -> list[torch.fx.Node]:
-    """
-    Returns list of fake quant nodes present in the input model
-    """
-    fake_quant_nodes = [
-        node for node in model.graph.nodes if "activation_post_process" in node.name
-    ]
-    return fake_quant_nodes
 
 
 class TestGraphModeQuantizer:
@@ -681,6 +678,251 @@ class TestAnnotationHandler:
         )
 
 
+class TestInPlaceActivationPatternCoverage:
+    """An in-place activation must not fragment its conv-bn-relu pattern group.
+
+    ResNet50 is the motivating shape: ReLU is in-place throughout, and
+    ``prepare_qat_pt2e`` reparameterizes conv-bn rather than folding it, so a
+    fragmented group puts observers on ``conv2d -> div`` and ``batch_norm ->
+    relu_``. On a W8A8 benchmark that was 66 extra activation fake-quants, 0.22 pp
+    top-1 and ~13% eval time.
+    """
+
+    @staticmethod
+    def _w8a8_config() -> QuantizerConfig:
+        """Per-tensor int8 activations, per-channel int8 weights."""
+        act = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerTensorGranularity(),
+        )
+        weight = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerChannelGranularity(axis=0),
+        )
+        return QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_input_spec={"*": act},
+                op_output_spec={"*": act},
+                op_state_spec={"weight": weight},
+            )
+        ).set_execution_mode("graph")
+
+    class _ConvBnRelu(nn.Module):
+        """The minimal unit: conv -> bn -> relu, in-place or not."""
+
+        def __init__(self, inplace: bool) -> None:
+            super().__init__()
+            self.conv = nn.Conv2d(4, 4, 1, bias=False)
+            self.bn = nn.BatchNorm2d(4)
+            self.relu = nn.ReLU(inplace=inplace)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return self.relu(self.bn(self.conv(x)))
+
+    class _Bottleneck(nn.Module):
+        """ResNet50 bottleneck: two conv-bn-relu_, then conv-bn, add, relu_."""
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv1 = nn.Conv2d(4, 4, 1, bias=False)
+            self.bn1 = nn.BatchNorm2d(4)
+            self.conv2 = nn.Conv2d(4, 4, 3, padding=1, bias=False)
+            self.bn2 = nn.BatchNorm2d(4)
+            self.conv3 = nn.Conv2d(4, 4, 1, bias=False)
+            self.bn3 = nn.BatchNorm2d(4)
+            self.relu = nn.ReLU(inplace=True)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            out = self.relu(self.bn1(self.conv1(x)))
+            out = self.relu(self.bn2(self.conv2(out)))
+            out = self.bn3(self.conv3(out))
+            return self.relu(out + x)
+
+    _INPUT = (torch.randn(2, 4, 8, 8),)
+
+    def _prepare(self, model: nn.Module):
+        return Quantizer(model.eval(), self._w8a8_config()).prepare(example_inputs=self._INPUT)
+
+    @staticmethod
+    def _fake_quant_consumers(prepared) -> dict[str, int]:
+        """Count fake-quant modules by the op that consumes each one."""
+        fq_targets = {
+            name
+            for name, module in prepared.named_modules()
+            if isinstance(module, FakeQuantizeImplBase)
+        }
+        counts: dict[str, int] = {}
+        for node in prepared.graph.nodes:
+            if node.op != "call_module" or node.target not in fq_targets:
+                continue
+            for user in node.users:
+                key = str(user.target) if user.op == "call_function" else user.op
+                counts[key] = counts.get(key, 0) + 1
+        return counts
+
+    def test_inplace_relu_quantizes_same_as_out_of_place(self) -> None:
+        """The two models are numerically identical, so they must quantize alike."""
+        inplace = self._fake_quant_consumers(self._prepare(self._ConvBnRelu(True)))
+        out_of_place = self._fake_quant_consumers(self._prepare(self._ConvBnRelu(False)))
+
+        # Keyed by consumer op, which differs only in the relu variant itself.
+        assert inplace.pop("aten.relu_.default", 0) == 0
+        assert out_of_place.pop("aten.relu.default", 0) == 0
+        assert inplace == out_of_place
+
+    @pytest.mark.parametrize("inplace", [True, False])
+    def test_no_observer_on_pattern_internal_edges(self, inplace: bool) -> None:
+        """``conv2d -> div`` and ``bn -> relu`` are internal to the pattern.
+
+        ``div`` is a reparameterization artifact, not a quantizable pattern, so an
+        observer feeding it means the group fragmented.
+        """
+        consumers = self._fake_quant_consumers(self._prepare(self._ConvBnRelu(inplace)))
+        assert "aten.div.Tensor" not in consumers
+        assert "aten.relu_.default" not in consumers
+        assert "aten.relu.default" not in consumers
+
+    def test_bottleneck_observers_only_at_block_boundaries(self) -> None:
+        """A bottleneck quantizes its conv weights and the residual add, nothing else."""
+        consumers = self._fake_quant_consumers(self._prepare(self._Bottleneck()))
+
+        assert consumers.get("aten.conv2d.default") == 6  # 3 activations + 3 weights
+        assert consumers.get("aten.add.Tensor") == 2  # both residual-add inputs
+        assert "aten.div.Tensor" not in consumers
+        assert "aten.relu_.default" not in consumers
+
+
+class TestCatOfSigmoidReconciliation:
+    """End-to-end reconciliation on a YOLOX-shape cat-of-sigmoid model.
+
+    Exercises the full annotation pipeline (pattern match → reconcile →
+    resolve) on the pattern that motivated the reconciler: a ``cat`` group
+    whose branches disagree on qscheme (one plain conv branch wants
+    symmetric; two sigmoid branches want affine via op-intrinsic override).
+    The reconciler must lattice-join to affine, pick a topo-first anchor,
+    and give every other slot a SharedQuantizationSpec pointing at it.
+    """
+
+    class _CatOfSigmoid(nn.Module):
+        """``cat([reg_conv(x), sigmoid(obj_conv(x)), sigmoid(cls_conv(x))])``."""
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.reg = nn.Conv2d(3, 4, kernel_size=1)
+            self.obj = nn.Conv2d(3, 1, kernel_size=1)
+            self.cls = nn.Conv2d(3, 8, kernel_size=1)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            r = self.reg(x)
+            o = torch.sigmoid(self.obj(x))
+            c = torch.sigmoid(self.cls(x))
+            return torch.cat([r, o, c], dim=1)
+
+    @staticmethod
+    def _by_target(model: torch.fx.GraphModule, needle: str) -> list[torch.fx.Node]:
+        return [n for n in model.graph.nodes if n.op == "call_function" and needle in str(n.target)]
+
+    @staticmethod
+    def _annotation(node: torch.fx.Node):
+        return node.meta.get(Q_ANNOTATION_KEY)
+
+    def test_cat_of_sigmoid_shared_observer_topology(self, weight_input_act_output_act_config):
+        """Every branch in the cat group should end up pointing at one anchor.
+
+        Load-bearing invariants:
+
+        - ``conv2d`` (the ``reg`` branch — topologically first covered node
+          in the cat group) carries the concrete ``QuantizationSpec``.
+        - Its qscheme is ``ASYMMETRIC``, not symmetric — the two sigmoid
+          branches propose asymmetric at ``OP_INTRINSIC_PRIORITY``, which
+          outranks the conv branch's user-config symmetric.
+
+          Asserted on the **qparams calculator**, not on
+          ``QuantizationSpec.qscheme``. ``_convert_to_pt2e_spec``
+          deliberately leaves the torchao-level ``qscheme`` unset, because
+          only the qscheme inside the observer's calculator is read
+          downstream. Checking the calculator is what proves the reconciled
+          value actually reaches runtime — the gap that motivated making the
+          reconciled fields, rather than a pre-built observer partial, the
+          source of truth.
+        - ``sigmoid``, ``sigmoid_1``, and ``cat`` all have
+          ``output_qspec = SharedQuantizationSpec(edge_or_node=conv2d)``.
+        - The cat's three input slots also share on ``conv2d``.
+        - ``conv2d_1`` / ``conv2d_2`` (the two convs feeding the sigmoids
+          inside the pattern group) have no ``output_qspec`` — the
+          internal-edge slot is intentionally left unannotated so torchao
+          doesn't insert a second observer between them and their sigmoid.
+        """
+        model = self._CatOfSigmoid().eval()
+        example_inputs = (torch.randn(1, 3, 8, 8),)
+
+        prepared = Quantizer(model, weight_input_act_output_act_config).prepare(example_inputs)
+
+        convs = self._by_target(prepared, "conv2d")
+        sigmoids = self._by_target(prepared, "sigmoid")
+        cats = self._by_target(prepared, "cat")
+
+        assert [n.name for n in convs] == ["conv2d", "conv2d_1", "conv2d_2"]
+        assert [n.name for n in sigmoids] == ["sigmoid", "sigmoid_1"]
+        assert [n.name for n in cats] == ["cat"]
+
+        anchor, internal_conv_1, internal_conv_2 = convs
+        sigmoid_a, sigmoid_b = sigmoids
+        (cat_node,) = cats
+
+        # Anchor carries a concrete spec, lattice-joined to affine.
+        anchor_ann = self._annotation(anchor)
+        assert anchor_ann is not None and anchor_ann._annotated
+        assert isinstance(anchor_ann.output_qspec, TorchAOQuantizationSpec)
+        assert anchor_ann.output_qspec.dtype == torch.int8
+        # The reconciled qscheme has to land where it is actually read: inside
+        # the observer's qparams calculator.
+        anchor_calculator = anchor_ann.output_qspec.observer_or_fake_quant_ctr.callable_args[
+            "qparams_calculator"
+        ]()
+        assert anchor_calculator.qscheme == QuantizationScheme.ASYMMETRIC, (
+            f"reconciled qscheme did not reach the calculator: got {anchor_calculator.qscheme}"
+        )
+
+        # The two convs feeding the sigmoid pattern get no output_qspec:
+        # the sigmoid is annotated on the shared side and the intermediate
+        # edge is pattern-internal.
+        for internal in (internal_conv_1, internal_conv_2):
+            internal_ann = self._annotation(internal)
+            assert internal_ann is not None
+            assert internal_ann.output_qspec is None, (
+                f"{internal.name} is a pattern-internal producer feeding "
+                f"sigmoid; its output slot must not be annotated."
+            )
+
+        # Every other slot in the group shares on the anchor.
+        for sharer in (sigmoid_a, sigmoid_b, cat_node):
+            sharer_ann = self._annotation(sharer)
+            assert sharer_ann is not None and sharer_ann._annotated
+            assert isinstance(sharer_ann.output_qspec, SharedQuantizationSpec)
+            assert sharer_ann.output_qspec.edge_or_node is anchor, (
+                f"{sharer.name}.output_qspec should share on {anchor.name}, "
+                f"got {sharer_ann.output_qspec.edge_or_node}"
+            )
+
+        # cat's three inputs share on the anchor too.
+        cat_ann = self._annotation(cat_node)
+        cat_input_producers = list(cat_ann.input_qspec_map.keys())
+        assert cat_input_producers == [anchor, sigmoid_a, sigmoid_b]
+        for producer, input_spec in cat_ann.input_qspec_map.items():
+            assert isinstance(input_spec, SharedQuantizationSpec), (
+                f"cat.input[{producer.name}] should be a SharedQuantizationSpec, "
+                f"got {type(input_spec).__name__}"
+            )
+            assert input_spec.edge_or_node is anchor
+
+        # Sanity: model still runs forward after annotation.
+        out = prepared(*example_inputs)
+        assert out.shape == (1, 4 + 1 + 8, 8, 8)
+
+
 class TestAPIOrdering:
     def test_multiple_prepare_calls(
         self, simple_conv_linear_model, basic_config, simple_model_input
@@ -1224,125 +1466,6 @@ class TestGraphModeQuantizerTrainEval:
         assert prepared_model.training
 
 
-class TestCompositeOpQuantization:
-    """
-    Tests that models with COREAI CompositeOps can be quantized
-    """
-
-    class SDPAModule(torch.nn.Module):
-        def forward(self, query, key, value):
-            from coreai_torch.composite_ops._sdpa import (  # noqa: PLC0415
-                scaled_dot_product_attention as _scaled_dot_product_attention,
-            )
-
-            return _scaled_dot_product_attention(query, key, value, is_causal=True)
-
-    class SimpleSDPAModel(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.proj = torch.nn.Linear(16, 48)
-            self.sdpa = TestCompositeOpQuantization.SDPAModule()
-
-        def forward(self, x):
-            qkv = self.proj(x)
-            q, k, v = qkv.chunk(3, dim=-1)
-            b, s, _ = q.shape
-            q = q.reshape(b, 1, s, 16)
-            k = k.reshape(b, 1, s, 16)
-            v = v.reshape(b, 1, s, 16)
-            return self.sdpa(q, k, v)
-
-    @pytest.fixture
-    def model(self):
-        return self.SimpleSDPAModel()
-
-    @pytest.fixture
-    def example_input(self):
-        return torch.randn(1, 4, 16)
-
-    @pytest.mark.xfail(reason="tracked by coreai-torch issue #309")
-    def test_composite_op_io_quantization(self, model, example_input):
-        """
-        Verify CompositeOps boundaries can be quantized
-        """
-        qspec_dict = {
-            "dtype": "int8",
-            "qscheme": "symmetric",
-            "granularity": {"type": "per_tensor"},
-        }
-        config = QuantizerConfig.from_dict(
-            {
-                "quantization_config": {
-                    "global_config": {"op_state_spec": {"weight": qspec_dict}},
-                    "module_name_configs": {
-                        "sdpa": {
-                            "op_input_spec": None,
-                            "op_output_spec": None,
-                            "op_state_spec": None,
-                            "module_input_spec": {
-                                0: qspec_dict,
-                                1: qspec_dict,
-                                2: qspec_dict,
-                            },
-                            "module_output_spec": {
-                                "*": qspec_dict,
-                            },
-                        }
-                    },
-                }
-            }
-        )
-
-        quantizer = Quantizer(model, config)
-        prepared_model = quantizer.prepare((example_input,))
-        assert isinstance(prepared_model, torch.fx.GraphModule)
-
-        def _is_composite_op(node):
-            return (
-                node.op == "call_function"
-                and isinstance(node.target, torch._ops.OpOverload)
-                and node.target.namespace == "CompositeOps"
-            )
-
-        # Find the SDPA node
-        sdpa_nodes = [
-            n
-            for n in prepared_model.graph.nodes
-            if n.op == "call_function"
-            and isinstance(n.target, torch._ops.OpOverload)
-            and n.target._opname == "scaled_dot_product_attention"
-        ]
-        assert len(sdpa_nodes) == 1, f"Expected 1 SDPA node, got {len(sdpa_nodes)}"
-        sdpa_node = sdpa_nodes[0]
-
-        composite_op_input_nodes = [arg for arg in sdpa_node.args if _is_composite_op(arg)]
-        composite_op_output_nodes = [user for user in sdpa_node.users if _is_composite_op(user)]
-
-        assert len(composite_op_input_nodes) == 3, (
-            f"Expected 3 custom input nodes (q/k/v), got {len(composite_op_input_nodes)}"
-        )
-        assert len(composite_op_output_nodes) == 1, "Expected 1 composite op output node"
-
-        for node in composite_op_input_nodes + composite_op_output_nodes:
-            assert "name" in node.kwargs, f"kwargs not restored for {node.name}"
-            assert "op_name" in node.kwargs, f"kwargs not restored for {node.name}"
-            assert node.kwargs["op_name"] == "scaled_dot_product_attention"
-
-        for node in composite_op_input_nodes:
-            input_node = node.args[0]
-            assert "activation_post_process" in input_node.name, (
-                f"Expected fake quant before {node.name} "
-                f"(input={node.kwargs['name']}), "
-                f"got {input_node.name} instead"
-            )
-
-        for node in composite_op_output_nodes:
-            users = list(node.users.keys())
-            assert any("activation_post_process" in u.name for u in users), (
-                f"Expected fake quant after {node.name}, got users: {[u.name for u in users]}"
-            )
-
-
 class TestFP4MLIRExportValidation:
     """Test that FP4 export validation rejects unsupported configurations."""
 
@@ -1575,7 +1698,9 @@ class TestFixedQParamsActivations:
         assert fq.qscheme == expected_qscheme
         assert fq.qparams_calculator.qscheme == expected_qscheme
         assert fq.qscheme == fq.qparams_calculator.qscheme
-        assert fq.qparams_calculator.float_range == expected_float_range
+        # float_range is a list once it round-trips through QuantizationSpec;
+        # compare values, not container type.
+        assert tuple(fq.qparams_calculator.float_range) == tuple(expected_float_range)
         scale, _, _ = fq.calculate_qparams()
         torch.testing.assert_close(scale, torch.full_like(scale, expected_scale))
 
@@ -1700,7 +1825,7 @@ class TestFixedQParamsActivations:
         assert fq.qscheme == QuantizationScheme.ASYMMETRIC
         assert fq.qparams_calculator.qscheme == QuantizationScheme.ASYMMETRIC
         assert fq.qscheme == fq.qparams_calculator.qscheme
-        assert fq.qparams_calculator.float_range == (0.0, None)
+        assert tuple(fq.qparams_calculator.float_range) == (0.0, None)
 
         # Min is pinned to 0 — zero_point should stay at -128 across all phases.
         _, zp, _ = fq.calculate_qparams()
@@ -1727,8 +1852,26 @@ class TestFixedQParamsActivations:
         assert torch.all(zp == -128)
 
     def test_relu_qparams_propagated_through_passthrough_ops(self):
-        """Relu's ASYMMETRIC qscheme and pinned-min float_range propagate through
-        passthrough ops (view, squeeze, unsqueeze) to the following quantizable op's input FQ."""
+        """Relu's ASYMMETRIC qscheme and pinned-min float_range reach the
+        following quantizable op's input FQ, across ``view``, ``squeeze`` and
+        ``unsqueeze``.
+
+        Two FQ modules carry the relu-derived qparams — relu's own output and
+        ``linear2``'s input — not one. That is deliberate, not a missed
+        deduplication: these ops change tensor rank, and a single
+        ``QParamsCalculator`` cannot span a rank change (it caches
+        ``_resolved_axis`` on first use and sizes its running buffers to the
+        first tensor it sees; ``QParamsCalculatorBase._resolve_axis`` states the
+        invariant directly). So the two ends keep separate, correctly-shaped
+        observers and the reconciler copies the *facts* between them via
+        ``InheritFields``.
+
+        Those facts are safe to copy precisely because a passthrough changes no
+        values: the tensor at ``linear2``'s input is the same tensor relu
+        produced, so relu's proven range still holds. Contrast
+        ``cat([relu(a), b])``, where one observer covers two *different*
+        tensors and relu's pin is correctly relaxed to cover ``b``.
+        """
 
         class LinearReluPassthroughLinear(nn.Module):
             def __init__(self):
@@ -1751,18 +1894,17 @@ class TestFixedQParamsActivations:
         prepared_model = quantizer.prepare((example_input,))
         prepared_model(example_input)
 
-        # Both relu's output FQ and linear2's input FQ (reached through the passthrough chain)
-        # should carry the relu-adjusted spec.
         fqs_with_relu_range = [
             (name, m)
             for name, m in prepared_model.named_modules()
             if isinstance(m, FakeQuantizeImplBase)
-            and getattr(m.qparams_calculator, "float_range", None) == (0.0, None)
+            and tuple(getattr(m.qparams_calculator, "float_range", ()) or ()) == (0.0, None)
         ]
         assert len(fqs_with_relu_range) == 2, (
-            f"Expected 2 FQ modules with float_range=(0.0, None) "
-            f"(relu output + linear2 input via passthrough propagation), "
-            f"got {len(fqs_with_relu_range)}: {[n for n, _ in fqs_with_relu_range]}"
+            f"Expected 2 FQ modules with float_range=(0.0, None) — relu's own "
+            f"output plus linear2's input, reached through the "
+            f"view/squeeze/unsqueeze chain. Got {len(fqs_with_relu_range)}: "
+            f"{[n for n, _ in fqs_with_relu_range]}"
         )
         for name, fq in fqs_with_relu_range:
             assert fq.qscheme == QuantizationScheme.ASYMMETRIC, (

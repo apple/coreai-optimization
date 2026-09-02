@@ -11,11 +11,15 @@ from .granularity import (
     PerTensorGranularity,
 )
 from .spec import PalettizationSpec, default_weight_palettization_spec
+from .training_strategy import DefaultTrainingSpec, TrainingStrategy, TrainingStrategySpec
 
 __all__ = [
+    "DefaultTrainingSpec",
     "PalettizationGranularity",
     "PalettizationSpec",
     "PerGroupedChannelGranularity",
     "PerTensorGranularity",
+    "TrainingStrategy",
+    "TrainingStrategySpec",
     "default_weight_palettization_spec",
 ]

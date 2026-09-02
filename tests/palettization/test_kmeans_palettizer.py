@@ -27,11 +27,7 @@ from coreai_opt.palettization.spec import (
     default_weight_palettization_spec,
 )
 from coreai_opt.palettization.spec.errors import _IncompatibleGranularityError
-from coreai_opt.palettization.spec.fake_palettize import (
-    _disable_observer,
-    _enable_observer,
-    _FakePalettizeImplBase,
-)
+from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
 
 
@@ -816,30 +812,26 @@ class TestKMeansPalettizerCalibrationMode:
 
         assert luts_changed, "LUTs were not recomputed after calibration"
 
-    def test_calibration_mode_observer_states(
+    def test_calibration_mode_fake_palett_state(
         self, simple_conv_linear_model, basic_config, simple_model_input
     ):
-        """Test that observer and fake palettize states are managed correctly."""
+        """Test that fake palettize state is managed correctly around calibration."""
         palettizer = KMeansPalettizer(simple_conv_linear_model, basic_config)
         prepared_model = palettizer.prepare((simple_model_input,))
 
-        # After prepare, observers should be disabled and fake palettize enabled
+        # After prepare, fake palettize should be enabled
         for module in prepared_model.modules():
             if isinstance(module, _KMeansFakePalettize):
-                assert not module.observer_enabled, "Observer should be disabled after prepare"
                 assert module.fake_palett_enabled, "Fake palettize should be enabled after prepare"
 
         # Create dummy batch
         dummy_input = simple_model_input
         dummy_target = torch.randint(0, 10, (1,))
 
-        # Inside calibration context, observers and fake palettize are disabled
+        # Inside calibration context, fake palettize is disabled
         with palettizer.calibration_mode(loss_fn=nn.functional.cross_entropy) as skm:
             for module in prepared_model.modules():
                 if isinstance(module, _KMeansFakePalettize):
-                    assert not module.observer_enabled, (
-                        "Observer should be disabled during calibration"
-                    )
                     assert not module.fake_palett_enabled, (
                         "Fake palettize should be disabled during calibration"
                     )
@@ -847,10 +839,9 @@ class TestKMeansPalettizerCalibrationMode:
             output = prepared_model(dummy_input)
             skm.step(output, dummy_target)
 
-        # After calibration, observers should be disabled and fake palettize enabled
+        # After calibration, fake palettize should be enabled again
         for module in prepared_model.modules():
             if isinstance(module, _KMeansFakePalettize):
-                assert not module.observer_enabled, "Observer should be disabled after calibration"
                 assert module.fake_palett_enabled, (
                     "Fake palettize should be enabled after calibration"
                 )
@@ -1046,70 +1037,6 @@ class TestKMeansPalettizerCalibrationMode:
                 assert saved_sensitivities[name].shape == param.shape, (
                     f"Sensitivity shape for {name} should match parameter shape"
                 )
-
-    def test_stale_centroids_warning_when_sensitivities_set(
-        self, simple_conv_linear_model, basic_config, simple_model_input, caplog
-    ):
-        """
-        Test that a warning is logged when sensitivities are set on a
-        _KMeansFakePalettize module but centroids are not recomputed before use.
-        """
-        palettizer = KMeansPalettizer(simple_conv_linear_model, basic_config)
-        prepared_model = palettizer.prepare((simple_model_input,))
-
-        # Find a _KMeansFakePalettize module
-        fake_palettize_module = None
-        for module in prepared_model.modules():
-            if isinstance(module, _KMeansFakePalettize):
-                fake_palettize_module = module
-                break
-
-        assert fake_palettize_module is not None, "Should have a _KMeansFakePalettize module"
-
-        # Verify centroids are not stale initially
-        assert not fake_palettize_module._centroids_stale
-
-        # Manually set sensitivities without going through calibration_mode
-        # This simulates a user incorrectly setting sensitivities directly
-        fake_sensitivities = torch.ones_like(prepared_model.conv.parametrizations.weight.original)
-        fake_palettize_module.sensitivities = fake_sensitivities
-
-        # Verify centroids are now stale
-        assert fake_palettize_module._centroids_stale
-
-        # Run a forward pass with observer disabled (default after prepare)
-        # This should log a warning about stale centroids
-        with caplog.at_level(logging.WARNING):
-            _ = prepared_model(simple_model_input)
-
-        # Check that the warning was logged
-        assert any(
-            "Sensitivities were updated but centroids have not been recomputed" in record.message
-            for record in caplog.records
-        ), "Expected warning about stale centroids was not logged"
-
-        # Now recompute centroids by enabling observer and running a forward pass
-        prepared_model.apply(_enable_observer)
-
-        with torch.no_grad():
-            _ = prepared_model(simple_model_input)
-
-        # Disable observer for normal operation
-        prepared_model.apply(_disable_observer)
-
-        # Verify centroids are no longer stale
-        assert not fake_palettize_module._centroids_stale
-
-        # Clear the log and run another forward pass
-        caplog.clear()
-        with caplog.at_level(logging.WARNING):
-            _ = prepared_model(simple_model_input)
-
-        # Verify the warning is NOT logged after recomputing centroids
-        assert not any(
-            "Sensitivities were updated but centroids have not been recomputed" in record.message
-            for record in caplog.records
-        ), "Warning should not be logged after centroids are recomputed"
 
     def test_save_sensitivities_before_prepare_raises_error(
         self, simple_conv_linear_model, basic_config, tmp_path

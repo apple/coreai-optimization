@@ -17,7 +17,6 @@ from scripts.release.release_utils import (
     VERSION_EXTENSION_ENV_VAR,
     AboutFile,
     apply_version_extension,
-    bump_last_segment,
     get_dev_version_override,
     get_version_extension,
     latest_release_tag,
@@ -26,11 +25,14 @@ from scripts.release.release_utils import (
     read_about,
     read_latest_released_version,
     read_version,
+    release_branch_exists,
+    release_branch_version,
     resolve_about_path,
     resolve_build_version,
     restore_about,
     strip_dev_suffix,
     timestamped_dev_version,
+    valid_next_versions,
     write_version,
 )
 
@@ -40,7 +42,7 @@ _FIXED_SHA = "abc1234"
 
 
 class TestVersionArithmetic:
-    """Tests for strip_dev_suffix, bump_last_segment, and apply_version_extension."""
+    """Tests for strip_dev_suffix and apply_version_extension."""
 
     @pytest.mark.parametrize(
         ("version", "expected"),
@@ -57,17 +59,6 @@ class TestVersionArithmetic:
         assert strip_dev_suffix(version) == expected
 
     @pytest.mark.parametrize(
-        ("version", "expected"),
-        [
-            ("0.2.1", "0.2.2"),
-            ("0.2.1.1", "0.2.1.2"),
-            ("1.0.9", "1.0.10"),
-        ],
-    )
-    def test_bump_last_segment(self, version: str, expected: str) -> None:
-        assert bump_last_segment(version) == expected
-
-    @pytest.mark.parametrize(
         ("version", "extension", "expected"),
         [
             ("0.2.1", "1", "0.2.1.1"),
@@ -82,36 +73,81 @@ class TestVersionArithmetic:
         assert apply_version_extension(version, extension) == expected
 
 
+class TestValidNextVersions:
+    """Tests for valid_next_versions, the set a release may advance to."""
+
+    @pytest.mark.parametrize(
+        ("version", "expected"),
+        [
+            ("1.0.1", ["2.0.0", "1.1.0", "1.0.2"]),
+            ("1.0.0", ["2.0.0", "1.1.0", "1.0.1"]),
+            ("0.2.1", ["1.0.0", "0.3.0", "0.2.2"]),
+            ("1.9.9", ["2.0.0", "1.10.0", "1.9.10"]),
+        ],
+    )
+    def test_one_number_up_and_the_rest_reset(self, version: str, expected: list[str]) -> None:
+        assert valid_next_versions(version) == expected
+
+    @pytest.mark.parametrize("skipped", ["1.0.3", "1.2.0", "3.0.0", "1.1.1", "1.0.1", "0.9.0"])
+    def test_excludes_skips_partial_resets_and_moves_backwards(self, skipped: str) -> None:
+        # 1.0.3 / 1.2.0 / 3.0.0 skip a number, 1.1.1 bumps the minor without
+        # resetting the patch, 1.0.1 stands still, 0.9.0 goes backwards.
+        assert skipped not in valid_next_versions("1.0.1")
+
+
+class TestReleaseBranchVersion:
+    """Tests for release_branch_version, the shape a release branch carries."""
+
+    @pytest.mark.parametrize(
+        ("latest_released", "expected"),
+        [("1.1.0", "1.1.0.dev0"), ("2.0.0", "2.0.0.dev0"), ("0.2.1", "0.2.1.dev0")],
+    )
+    def test_names_its_own_release(self, latest_released: str, expected: str) -> None:
+        assert release_branch_version(latest_released) == expected
+
+    def test_differs_from_every_next_candidate(self) -> None:
+        # On `main` the two never coincide, which is what tells the two apart.
+        latest = "1.1.0"
+        assert release_branch_version(latest) not in [
+            f"{c}.dev0" for c in valid_next_versions(latest)
+        ]
+
+
 class TestNextVersion:
     """Tests for next_release_base and next_candidate_version."""
 
     @pytest.mark.parametrize(
-        ("latest_released", "extension", "expected"),
+        ("latest_released", "version", "extension", "expected"),
         [
-            # No extension: add one to the external release's own last number.
-            ("0.2.1", None, "0.2.2"),
+            # No extension: the tree states the release it is working toward,
+            # so a patch, a minor, and a major all come straight from __version__.
+            ("0.2.1", "0.2.2.dev0", None, "0.2.2"),
+            ("1.0.1", "1.1.0.dev0", None, "1.1.0"),
+            ("1.0.1", "2.0.0.dev0", None, "2.0.0"),
             # extension is the number the downstream repo is about to release
-            # next, used exactly as given (see the next_release_base docstring).
-            ("0.2.1", "1", "0.2.1.1"),  # first release off 0.2.1
-            ("0.2.1", "2", "0.2.1.2"),  # second release off 0.2.1
+            # next, appended to the last published release and used exactly as
+            # given (see the next_release_base docstring).
+            ("0.2.1", "0.2.2.dev0", "1", "0.2.1.1"),  # first release off 0.2.1
+            ("0.2.1", "0.2.2.dev0", "2", "0.2.1.2"),  # second release off 0.2.1
         ],
     )
     def test_next_release_base(
-        self, latest_released: str, extension: str | None, expected: str
+        self, latest_released: str, version: str, extension: str | None, expected: str
     ) -> None:
-        assert next_release_base(latest_released, extension) == expected
+        assert next_release_base(latest_released, version, extension) == expected
 
     @pytest.mark.parametrize(
-        ("latest_released", "extension", "expected"),
+        ("latest_released", "version", "extension", "expected"),
         [
-            ("0.2.1", None, "0.2.2.dev0"),
-            ("0.2.1", "1", "0.2.1.1.dev0"),
+            ("0.2.1", "0.2.2.dev0", None, "0.2.2.dev0"),
+            ("1.0.1", "1.1.0.dev0", None, "1.1.0.dev0"),
+            ("0.2.1", "0.2.2.dev0", "1", "0.2.1.1.dev0"),
         ],
     )
     def test_next_candidate_version_is_next_release_base_plus_dev0(
-        self, latest_released: str, extension: str | None, expected: str
+        self, latest_released: str, version: str, extension: str | None, expected: str
     ) -> None:
-        assert next_candidate_version(latest_released, extension) == expected
+        assert next_candidate_version(latest_released, version, extension) == expected
 
     def test_pep440_sort_order(self) -> None:
         ordered = [
@@ -156,13 +192,21 @@ class TestResolveBuildVersion:
         # caller passes it a release_base already computed by next_release_base.
         assert resolve_build_version("0.2.2", dev=False) == "0.2.2"
 
-    def test_build_pipeline_computes_release_base_from_latest_released(self) -> None:
-        # This is what build.py does: next_release_base(latest_released, extension),
-        # then resolve_build_version. It never reads the on-tree __version__.
-        release_base = next_release_base("0.2.1", "1")
+    def test_build_pipeline_with_an_extension_uses_the_last_published_release(self) -> None:
+        # This is what build.py does: next_release_base(latest_released,
+        # __version__, extension), then resolve_build_version. With an
+        # extension the downstream number is appended to the last published
+        # release, so __version__ is not what the build follows.
+        release_base = next_release_base("0.2.1", "0.2.2.dev0", "1")
         assert resolve_build_version(release_base, dev=False) == "0.2.1.1"
         version = resolve_build_version(release_base, dev=True)
         assert version.startswith("0.2.1.1.dev")
+
+    def test_build_pipeline_without_an_extension_follows_the_declared_version(self) -> None:
+        # Without an extension the tree states the release it is working
+        # toward, so a minor declared in __version__ is what gets built.
+        release_base = next_release_base("1.0.1", "1.1.0.dev0")
+        assert resolve_build_version(release_base, dev=False) == "1.1.0"
 
 
 class TestResolveAboutPath:
@@ -290,7 +334,7 @@ class TestWriteVersion:
         # Writes locate the assignment with ast, the same way reads do, so any
         # spelling that reads here can also be rewritten. A line-oriented
         # pattern would accept only the first two and fail the release build on
-        # the rest, long after `make version` and the pre-commit hook passed.
+        # the rest, long after `make version-dev` and the pre-commit hook passed.
         about = self._about(tmp_path, source)
         write_version(about, "0.2.2")
         assert read_version(about.path.read_text(encoding="utf-8")) == "0.2.2"
@@ -376,3 +420,50 @@ class TestRepoAndEnvInputs:
 
         monkeypatch.setattr("scripts.release.release_utils.subprocess.run", fake_run)
         assert latest_release_tag(tmp_path) == "0.3.0"
+
+
+class TestReleaseBranchExists:
+    """Tests for release_branch_exists, which opens the untagged-release window."""
+
+    @staticmethod
+    def _init_repo(repo: Path) -> str:
+        subprocess.run(["git", "init", "--quiet"], cwd=repo, check=True)
+        subprocess.run(["git", "config", "commit.gpgSign", "false"], cwd=repo, check=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+        subprocess.run(["git", "commit", "--quiet", "--allow-empty", "-m", "init"], cwd=repo)
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True
+        )
+        return head.stdout.strip()
+
+    @staticmethod
+    def _track(repo: Path, branch: str, sha: str) -> None:
+        # Stand in for what `git fetch origin` leaves behind, without a remote.
+        subprocess.run(
+            ["git", "update-ref", f"refs/remotes/origin/{branch}", sha], cwd=repo, check=True
+        )
+
+    def test_finds_a_branch_on_origin(self, tmp_path: Path) -> None:
+        sha = self._init_repo(tmp_path)
+        self._track(tmp_path, "release/0.2.2", sha)
+
+        assert release_branch_exists(tmp_path, "0.2.2") is True
+
+    def test_returns_false_when_no_branch_was_cut(self, tmp_path: Path) -> None:
+        self._init_repo(tmp_path)
+
+        assert release_branch_exists(tmp_path, "0.2.2") is False
+
+    def test_does_not_match_a_different_version(self, tmp_path: Path) -> None:
+        sha = self._init_repo(tmp_path)
+        self._track(tmp_path, "release/0.2.2", sha)
+
+        assert release_branch_exists(tmp_path, "0.2.3") is False
+
+    def test_ignores_a_local_only_branch(self, tmp_path: Path) -> None:
+        # A local branch must not satisfy the check — anyone could create one.
+        self._init_repo(tmp_path)
+        subprocess.run(["git", "branch", "release/0.2.2"], cwd=tmp_path, check=True)
+
+        assert release_branch_exists(tmp_path, "0.2.2") is False
