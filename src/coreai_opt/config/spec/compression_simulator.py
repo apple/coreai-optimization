@@ -28,7 +28,7 @@ class CompressionSimulatorBase(_ClassRegistryMixin, nn.Module):
     """
 
     # FQN of the compressed tensor
-    source_name: str = "<unknown>"
+    tensor_fqn: str = "<unknown>"
 
     @abstractmethod
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
@@ -49,7 +49,7 @@ class CompressionSimulatorBase(_ClassRegistryMixin, nn.Module):
         pass
 
 
-def record_source_names_eager(model: nn.Module) -> None:
+def record_tensor_fqns_eager(model: nn.Module) -> None:
     """Record the FQN of each parametrized tensor on the simulator compressing it."""
     for module_name, module in model.named_modules():
         if not P.is_parametrized(module):
@@ -58,10 +58,10 @@ def record_source_names_eager(model: nn.Module) -> None:
             name = f"{module_name}.{param_name}" if module_name else param_name
             for simulator in parametrizations:
                 if isinstance(simulator, CompressionSimulatorBase):
-                    simulator.source_name = name
+                    simulator.tensor_fqn = name
 
 
-def record_source_names_graph(model: torch.fx.GraphModule) -> None:
+def record_tensor_fqns_graph(model: torch.fx.GraphModule) -> None:
     """Record the FQN of each compressed parameter on the simulator compressing it.
 
     A simulator reading from anything other than a ``get_attr`` node keeps the
@@ -74,4 +74,4 @@ def record_source_names_graph(model: torch.fx.GraphModule) -> None:
             continue
         simulator = simulators.get(str(node.target))
         if isinstance(simulator, CompressionSimulatorBase) and node.args[0].op == "get_attr":
-            simulator.source_name = str(node.args[0].target)
+            simulator.tensor_fqn = str(node.args[0].target)

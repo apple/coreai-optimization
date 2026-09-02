@@ -133,7 +133,7 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         logger.warning(
             "Tensor '%s' (target: %s, shape: %s) incompatible with block size "
             "configuration: %s. Skipping quantization.",
-            self.source_name,
+            self.tensor_fqn,
             self.quantization_target,
             tuple(shape),
             error,

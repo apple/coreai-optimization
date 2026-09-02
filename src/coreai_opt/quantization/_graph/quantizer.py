@@ -46,7 +46,7 @@ from coreai_opt._utils.torch_utils import export_model, move_model_to_eval, move
 from coreai_opt._utils.version_utils import version_ge
 from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleConfigDict, _build_module_alias_map
-from coreai_opt.config.spec.compression_simulator import record_source_names_graph
+from coreai_opt.config.spec.compression_simulator import record_tensor_fqns_graph
 from coreai_opt.quantization._axis_defaults import (
     apply_weight_axis_defaults_graph as _apply_weight_axis_defaults,
     validate_activation_axes,
@@ -1380,7 +1380,7 @@ class GraphQuantizer(_BaseQuantizer):
         # granularity is mathematically incorrect. Force per-tensor.
         force_per_tensor_for_channel_altering_ops(model)
 
-        record_source_names_graph(model)
+        record_tensor_fqns_graph(model)
 
         # Apply weight axis defaults for per channel and per block quantization
         _apply_weight_axis_defaults(model)

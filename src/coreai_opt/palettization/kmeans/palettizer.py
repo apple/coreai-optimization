@@ -36,7 +36,7 @@ from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleCompressionConfig, ModuleConfigDict
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.config.spec.base import CompressionSpec
-from coreai_opt.config.spec.compression_simulator import record_source_names_eager
+from coreai_opt.config.spec.compression_simulator import record_tensor_fqns_eager
 from coreai_opt.palettization.base_palettizer import _BasePalettizer
 from coreai_opt.palettization.config.palettization_config import (
     KMeansPalettizerConfig,
@@ -97,7 +97,7 @@ def _calculate_centroids_for_module(
             fp_module(weight)
     except Exception as e:
         raise RuntimeError(
-            f"Centroid calculation failed for weight {fp_module.source_name!r}"
+            f"Centroid calculation failed for weight {fp_module.tensor_fqn!r}"
         ) from e
 
     return fp_module
@@ -199,7 +199,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         logger.info("Preparing model for palettization")
         prepared_model = self._handler.prepare(self._model, example_inputs=example_inputs)
 
-        record_source_names_eager(prepared_model)
+        record_tensor_fqns_eager(prepared_model)
 
         # Load precomputed sensitivities if provided
         if sensitivity_path is not None:
@@ -588,7 +588,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         """
         for info, new_fp in zip(fp_info, results, strict=True):
             if new_fp.is_disabled():
-                logger.warning("Disabling palettization for weight '%s'", new_fp.source_name)
+                logger.warning("Disabling palettization for weight '%s'", new_fp.tensor_fqn)
             info.module.parametrizations[info.attr_name][info.idx] = new_fp
 
     @staticmethod

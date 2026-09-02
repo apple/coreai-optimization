@@ -168,7 +168,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             logger.warning(
                 "Tensor '%s' (shape: %s) incompatible with configured spec: %s. "
                 "Skipping palettization.",
-                self.source_name,
+                self.tensor_fqn,
                 tuple(tensor.shape),
                 str(e).rstrip("."),
             )
