@@ -46,4 +46,3 @@ class CompressionSimulatorBase(_ClassRegistryMixin, nn.Module):
             flowing through
         """
         pass
-
