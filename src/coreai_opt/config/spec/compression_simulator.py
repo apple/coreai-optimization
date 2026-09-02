@@ -27,8 +27,7 @@ class CompressionSimulatorBase(_ClassRegistryMixin, nn.Module):
     compression simulation is performed during training.
     """
 
-    # FQN of the compressed tensor, recorded during prepare() because a module
-    # cannot discover its own name from forward().
+    # FQN of the compressed tensor
     source_name: str = "<unknown>"
 
     @abstractmethod
