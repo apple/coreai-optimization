@@ -313,8 +313,8 @@ class TestKMeansPalettizer:
         skip_messages = [msg for msg in caplog.messages if "Skipping palettization" in msg]
         assert len(skip_messages) == 1, f"Expected one skip warning, got {skip_messages}"
         assert skip_messages[0] == (
-            "Tensor '0.weight' (shape: (12, 8)) incompatible with granularity: Tensor size 12 "
-            "along axis 0 is not divisible by group_size 8. For per-grouped-channel "
+            "Tensor '0.weight' (shape: (12, 8)) incompatible with configured spec: Tensor size "
+            "12 along axis 0 is not divisible by group_size 8. For per-grouped-channel "
             "palettization, the tensor shape along the specified axis must be divisible by "
             "group_size. Skipping palettization."
         )

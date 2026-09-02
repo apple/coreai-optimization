@@ -166,7 +166,11 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             self._initialize(tensor.detach())
         except (_IncompatibleClusterDimError, _IncompatibleGranularityError) as e:
             logger.warning(
-                f"Tensor incompatible with configured spec: {e}. Skipping palettization."
+                "Tensor '%s' (shape: %s) incompatible with configured spec: %s. "
+                "Skipping palettization.",
+                self.source_name,
+                tuple(tensor.shape),
+                str(e).rstrip("."),
             )
             self._disabled = True
 

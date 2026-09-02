@@ -55,9 +55,10 @@ def record_source_names_eager(model: nn.Module) -> None:
         if not P.is_parametrized(module):
             continue
         for param_name, parametrizations in module.parametrizations.items():
+            name = f"{module_name}.{param_name}" if module_name else param_name
             for simulator in parametrizations:
                 if isinstance(simulator, CompressionSimulatorBase):
-                    simulator.source_name = f"{module_name}.{param_name}"
+                    simulator.source_name = name
 
 
 def record_source_names_graph(model: torch.fx.GraphModule) -> None:

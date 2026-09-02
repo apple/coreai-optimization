@@ -62,17 +62,6 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         """Return True if fake palettization has been disabled."""
         return self._disabled
 
-    def _warn_and_disable(self, setting: str, error: Exception, shape: torch.Size) -> None:
-        """Log a warning naming the offending weight and disable this module."""
-        logger.warning(
-            "Tensor '%s' (shape: %s) incompatible with %s: %s. Skipping palettization.",
-            self.source_name,
-            tuple(shape),
-            setting,
-            str(error).rstrip("."),
-        )
-        self._disabled = True
-
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         """Fake-palettize ``tensor`` through the enable/disable lifecycle.
 

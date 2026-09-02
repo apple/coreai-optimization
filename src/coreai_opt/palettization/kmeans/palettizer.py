@@ -65,19 +65,14 @@ class _FakePalettInfo:
     """Metadata about _KMeansFakePalettize module and its associated module / param"""
 
     module: torch.nn.Module
-    module_name: str
     attr_name: str
     idx: int
     fp_module: _KMeansFakePalettize
     weight: torch.Tensor
 
-    @property
-    def layer_name(self) -> str:
-        return f"{self.module_name}.{self.attr_name}" if self.module_name else self.attr_name
-
 
 def _calculate_centroids_for_module(
-    args: tuple[_KMeansFakePalettize, torch.Tensor, str],
+    args: tuple[_KMeansFakePalettize, torch.Tensor],
 ) -> _KMeansFakePalettize:
     """Compute centroids for a single _KMeansFakePalettize module.
 
@@ -88,20 +83,22 @@ def _calculate_centroids_for_module(
     Invokes ``fp_module.forward(weight)`` to mirror the sequential path.
 
     Args:
-        args (tuple[_KMeansFakePalettize, torch.Tensor, str]): Tuple of
-            ``(fp_module, weight, layer_name)``.
+        args (tuple[_KMeansFakePalettize, torch.Tensor]): Tuple of
+            ``(fp_module, weight)``.
 
     Returns:
         _KMeansFakePalettize: The mutated module, ready to be swapped into
             the parent's parametrization slot.
     """
-    fp_module, weight, layer_name = args
+    fp_module, weight = args
 
     try:
         with torch.no_grad():
             fp_module(weight)
     except Exception as e:
-        raise RuntimeError(f"Centroid calculation failed for layer {layer_name!r}") from e
+        raise RuntimeError(
+            f"Centroid calculation failed for weight {fp_module.source_name!r}"
+        ) from e
 
     return fp_module
 
@@ -508,7 +505,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         shipped to a spawned worker process.
         """
         fp_info: list[_FakePalettInfo] = []
-        for module_name, module in self._model.named_modules(remove_duplicate=True):
+        for _module_name, module in self._model.named_modules(remove_duplicate=True):
             if not P.is_parametrized(module):
                 continue
             for attr_name, parametrizations in module.parametrizations.items():
@@ -520,7 +517,6 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                         fp_info.append(
                             _FakePalettInfo(
                                 module=module,
-                                module_name=module_name,
                                 attr_name=attr_name,
                                 idx=idx,
                                 fp_module=p,
@@ -544,7 +540,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             return
 
         results = [
-            _calculate_centroids_for_module((info.fp_module, info.weight, info.layer_name))
+            _calculate_centroids_for_module((info.fp_module, info.weight))
             for info in tqdm(fp_info, desc="Palettizing layers (num_workers=1)")
         ]
         self._apply_centroid_results(fp_info, results)
@@ -564,7 +560,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
         # spawn (not fork) so workers don't inherit the parent's CUDA context
         # or other process-global state.
-        pool_args = [(info.fp_module, info.weight, info.layer_name) for info in fp_info]
+        pool_args = [(info.fp_module, info.weight) for info in fp_info]
         ctx = mp.get_context("spawn")
         with ctx.Pool(processes=effective_workers) as pool:
             results = list(
@@ -591,16 +587,8 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         (mutated in place), so the assignment is a harmless no-op there.
         """
         for info, new_fp in zip(fp_info, results, strict=True):
-<<<<<<< HEAD
-            if getattr(new_fp, "_disabled", False):
-                logger.warning("Disabling palettization for weight '%s'", new_fp.source_name)
-            # ParametrizationList supports item assignment; this swaps the
-            # worker's mutated module into the live model without touching
-            # the surrounding parametrization registration.
-=======
             if new_fp.is_disabled():
-                logger.warning("Disabling palettization for layer %r", info.layer_name)
->>>>>>> main
+                logger.warning("Disabling palettization for weight '%s'", new_fp.source_name)
             info.module.parametrizations[info.attr_name][info.idx] = new_fp
 
     @staticmethod
