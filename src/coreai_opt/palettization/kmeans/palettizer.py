@@ -397,8 +397,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             new_state = schedule._compute_state(self._step_count)
             # On the warm-up -> enabled transition, re-cluster from the current
             # (warmed-up) weights instead of the frozen prepare-time centroids.
-            reinitialize = new_state and not fp_module.fake_palett_enabled[0]
-            fp_module.enable_fake_palett(new_state, reinitialize=reinitialize)
+            fp_module.enable_fake_palett(new_state, reinitialize=new_state)
 
     def _validate_mmap_dir_constraints(
         self,

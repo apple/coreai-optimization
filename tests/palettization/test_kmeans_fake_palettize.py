@@ -1877,8 +1877,9 @@ class TestLazyInitAndStaleness:
 
 
 class TestReinitializeOnEnable:
-    """enable_fake_palett(reinitialize=True) invalidates cached params so the
-    next forward re-clusters from the current weights.
+    """enable_fake_palett(reinitialize=True) invalidates cached params on a
+    disabled -> enabled switch so the next forward re-clusters from the current
+    weights.
     """
 
     @staticmethod
@@ -1892,6 +1893,7 @@ class TestReinitializeOnEnable:
         assert palettizer._centroids_initialized is True
         centroids_before = palettizer.centroids.clone()
 
+        palettizer.disable_fake_palett()
         palettizer.enable_fake_palett(True, reinitialize=True)
         assert palettizer._centroids_initialized is False
         assert palettizer._indices_stale is True
@@ -1901,11 +1903,24 @@ class TestReinitializeOnEnable:
         assert palettizer._centroids_initialized is True
         assert not torch.equal(palettizer.centroids, centroids_before)
 
+    def test_reinitialize_noop_when_already_enabled(self):
+        palettizer = self._make()
+        palettizer(torch.randn(8, 8))
+        assert palettizer.fake_palett_enabled[0] == 1
+        centroids_before = palettizer.centroids.clone()
+
+        # Already enabled: reinitialize is ignored, centroids survive.
+        palettizer.enable_fake_palett(True, reinitialize=True)
+        assert palettizer._centroids_initialized is True
+        palettizer(torch.randn(8, 8))
+        assert torch.equal(palettizer.centroids, centroids_before)
+
     def test_default_keeps_centroids(self):
         palettizer = self._make()
         palettizer(torch.randn(8, 8))
         centroids_before = palettizer.centroids.clone()
 
+        palettizer.disable_fake_palett()
         palettizer.enable_fake_palett(True)  # reinitialize defaults False
         assert palettizer._centroids_initialized is True
         # A forward pass with different weights does not affect centroids
