@@ -82,6 +82,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         rounding_precision: int = 4,
         op_to_optimize: Callable | None = None,
         training_strategy_spec: TrainingStrategySpec | None = None,
+        sparsity: float | None = None,
     ):
         super().__init__(
             n_bits=n_bits,
@@ -89,6 +90,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             granularity=granularity,
             cluster_dim=cluster_dim,
             enable_per_channel_scale=enable_per_channel_scale,
+            sparsity=sparsity,
         )
 
         self.enable_fast_kmeans_mode = enable_fast_kmeans_mode

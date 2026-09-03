@@ -18,6 +18,7 @@ from coreai_opt.config.spec import CompressionSimulatorBase
 from coreai_opt.palettization.spec import (
     PalettizationGranularity,
 )
+from coreai_opt.pruning.spec import PruneImplBase, Unstructured
 from coreai_opt.quantization.spec import QuantizationSpec
 
 
@@ -38,6 +39,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         granularity: PalettizationGranularity,
         cluster_dim: int,
         enable_per_channel_scale: bool,
+        sparsity: float | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -46,6 +48,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         self.granularity = granularity
         self.cluster_dim = cluster_dim
         self.enable_per_channel_scale = enable_per_channel_scale
+        self.sparsity = sparsity
 
         self.register_buffer("fake_palett_enabled", torch.tensor([1], dtype=torch.uint8))
         # Non-persistent (kept out of new checkpoints); when set to 1 (at runtime or
@@ -54,6 +57,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             "observer_enabled", torch.tensor([0], dtype=torch.uint8), persistent=False
         )
         self._disabled = False
+        self.register_buffer("_sparsity_mask", None, persistent=False)
 
         self.register_buffer("indices", None)
         self.register_buffer("per_channel_scale", None)
@@ -70,6 +74,12 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         """
         if self._disabled:
             return tensor
+
+        if self.sparsity is not None:
+            self._sparsity_mask = PruneImplBase.resolve("default").compute_mask(
+                tensor, self.sparsity, Unstructured()
+            )
+            tensor = tensor * self._sparsity_mask
 
         self.ensure_initialized(tensor)
 

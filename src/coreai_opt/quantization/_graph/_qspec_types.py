@@ -61,6 +61,7 @@ class FieldName(enum.Enum):
     QPARAM_CALCULATOR_CLS = enum.auto()
     RANGE_CALCULATOR_CLS = enum.auto()
     SCALE_DTYPE = enum.auto()
+    SPARSITY = enum.auto()  # QuantizationSpec's private, settable `_sparsity` input
     # Weight or activation, set by which config dict the spec came from. Not a
     # QuantizationSpec attribute, but an input to construct_partial alongside
     # them, so resolution needs it to rebuild the observer.

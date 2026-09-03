@@ -267,8 +267,13 @@ def _process_mlir_weight_quantization(
     if minval is not None:
         minval = minval.to(dtype=_compute_dtype_for_export)
 
-    # Construct quantized weights
+    # Construct quantized weights, reusing the mask computed during
+    # prepare()'s forward pass if sparsity is set.
     dense_weight = resolve_attr(model, input_node.target).data
+    mask: torch.Tensor | None = None
+    if fake_quant_mod.sparsity is not None:
+        mask = fake_quant_mod._sparsity_mask.to(torch.bool)
+        dense_weight = dense_weight * mask
     quantized_data = fake_quant_mod.quantize(dense_weight, scale, zero_point, minval)
 
     # Drop one of the offsets so that the export
@@ -284,13 +289,28 @@ def _process_mlir_weight_quantization(
 
     # Register buffers and get buffer names
     param_name = str(input_node.target).replace(".", "_")
-    buffer_names = _register_quantization_buffers(
-        model, param_name, scale, zero_point, quantized_data, minval
-    )
+    if mask is not None:
+        nonzero_data = quantized_data[mask]
+        buffer_names = _register_quantization_buffers(
+            model, param_name, scale, zero_point, minval=minval
+        )
+        model.register_buffer(f"{param_name}_nonzero", nonzero_data)
+        model.register_buffer(f"{param_name}_mask", mask)
+    else:
+        buffer_names = _register_quantization_buffers(
+            model, param_name, scale, zero_point, quantized_data, minval
+        )
 
     # Create graph nodes and replace fake quantization
     with model.graph.inserting_before(node):
-        quantized_data_node = model.graph.get_attr(buffer_names["quantized_data"])
+        if mask is not None:
+            nonzero_node = model.graph.get_attr(f"{param_name}_nonzero")
+            mask_node = model.graph.get_attr(f"{param_name}_mask")
+            quantized_data_node = model.graph.call_function(
+                coreai.sparse_to_dense, (nonzero_node, mask_node)
+            )
+        else:
+            quantized_data_node = model.graph.get_attr(buffer_names["quantized_data"])
         scale_node = model.graph.get_attr(buffer_names["scale"])
 
         if zero_point is not None:

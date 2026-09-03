@@ -26,6 +26,7 @@ from coreai_opt._utils.torch_utils import (
     is_float_quant_dtype as _is_float_quant_dtype,
 )
 from coreai_opt.config.spec import CompressionSimulatorBase, CompressionTargetTensor
+from coreai_opt.pruning.spec import PruneImplBase, Unstructured
 from coreai_opt.quantization._utils import get_quantization_shapes as _get_quantization_shapes
 from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 from coreai_opt.quantization.spec.qscheme import QuantizationScheme
@@ -54,6 +55,7 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         quant_max: int | float,
         qparams_calculator: QParamsCalculatorBase,
         n_bits: int | None = None,
+        sparsity: float | None = None,
         **kwargs,
     ):
         super().__init__()
@@ -64,7 +66,9 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         self.quant_min = quant_min
         self.quant_max = quant_max
         self.qparams_calculator = qparams_calculator
+        self.sparsity = sparsity
         self.register_buffer("_disabled", torch.tensor(False))
+        self.register_buffer("_sparsity_mask", None, persistent=False)
 
         # Infer n_bits from dtype if not provided
         if n_bits is None:
@@ -147,6 +151,12 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         """
         if self._disabled.item():
             return tensor
+
+        if self.sparsity is not None:
+            self._sparsity_mask = PruneImplBase.resolve("default").compute_mask(
+                tensor, self.sparsity, Unstructured()
+            )
+            tensor = tensor * self._sparsity_mask
 
         if self.observer_enabled[0] == 1:
             # Call the forward function of the qparams_calculator
