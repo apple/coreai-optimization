@@ -1876,6 +1876,51 @@ class TestLazyInitAndStaleness:
         assert target._indices_stale is True
 
 
+class TestReinitializeOnEnable:
+    """enable_fake_palett(reinitialize=True) invalidates cached params so the
+    next forward re-clusters from the current weights.
+    """
+
+    @staticmethod
+    def _make() -> _KMeansFakePalettize:
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
+        return _KMeansFakePalettize(**spec.__dict__)
+
+    def test_reinitialize_invalidates_and_reclusters(self):
+        palettizer = self._make()
+        palettizer(torch.tensor([-1.0, 1.0]).repeat(4, 4))
+        assert palettizer._centroids_initialized is True
+        centroids_before = palettizer.centroids.clone()
+
+        palettizer.enable_fake_palett(True, reinitialize=True)
+        assert palettizer._centroids_initialized is False
+        assert palettizer._indices_stale is True
+
+        # Next forward re-clusters from the new weights, not the old centroids.
+        palettizer(torch.tensor([-4.0, 4.0]).repeat(4, 4))
+        assert palettizer._centroids_initialized is True
+        assert not torch.equal(palettizer.centroids, centroids_before)
+
+    def test_default_keeps_centroids(self):
+        palettizer = self._make()
+        palettizer(torch.randn(8, 8))
+        centroids_before = palettizer.centroids.clone()
+
+        palettizer.enable_fake_palett(True)  # reinitialize defaults False
+        assert palettizer._centroids_initialized is True
+        # A forward pass with different weights does not affect centroids
+        palettizer(torch.randn(8, 8))
+        assert torch.equal(palettizer.centroids, centroids_before)
+
+    def test_reinitialize_requires_enabled(self):
+        palettizer = self._make()
+        palettizer(torch.randn(8, 8))
+
+        with pytest.raises(ValueError, match="reinitialize=True requires enabled=True"):
+            palettizer.enable_fake_palett(False, reinitialize=True)
+        assert palettizer._centroids_initialized is True
+
+
 class TestQuantizeLutSTE:
     """quantize_lut() fake-quantizes the LUT through a straight-through estimator."""
 

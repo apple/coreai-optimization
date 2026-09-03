@@ -155,6 +155,11 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         self._centroids_initialized = False
         self._indices_stale = True
 
+    def _invalidate(self) -> None:
+        """Invalidate centroids so the next forward re-clusters from the current weights."""
+        self._centroids_initialized = False
+        self._indices_stale = True
+
     def ensure_initialized(self, tensor: torch.Tensor) -> None:
         """Cluster centroids on first use; disable on an incompatible tensor.
 
