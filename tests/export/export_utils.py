@@ -641,3 +641,28 @@ def convert_and_verify(
     )
 
     return converted_model
+
+
+def coreai_export_size_bytes(
+    finalized_model: torch.nn.Module,
+    input_data: torch.Tensor,
+) -> int:
+    """Export a finalized model to a Core AI asset and return its weight payload size.
+
+    Args:
+        finalized_model: A model finalized to the Core AI backend.
+        input_data: Example input used to trace the model.
+
+    Returns:
+        int: Size in bytes of the serialized program.
+    """
+    converter = create_converter(ExportBackend.CoreAI)
+    traced_model = converter.trace(finalized_model, input_data, expected_ops={})
+    program = converter.convert(traced_model, input_data)
+    with tempfile.TemporaryDirectory(suffix=".aimodel") as tmpdir:
+        program.save_asset(Path(tmpdir))
+        payload_files = list(Path(tmpdir).rglob("*.mlirb"))
+        assert len(payload_files) == 1, (
+            f"Expected exactly one serialized program in the exported bundle, found {payload_files}"
+        )
+        return payload_files[0].stat().st_size
