@@ -19,6 +19,7 @@ from pydantic import (
 )
 
 from coreai_opt._utils.torch_utils import (
+    E8M0_TARGET_MAX_POW2 as _E8M0_TARGET_MAX_POW2,
     get_n_bits_from_dtype as _get_n_bits_from_dtype,
     is_float4_dtype as _is_float4_dtype,
 )
@@ -537,21 +538,25 @@ class QuantizationSpec(CompressionSpec):
 
         Rules:
             - Only None or torch.float8_e8m0fnu are supported.
-            - Integer dtypes: scale_dtype must be None.
-            - FP8 dtypes: scale_dtype may be None or torch.float8_e8m0fnu.
+            - The dtype must have an e8m0 target exponent, i.e. be a key of
+              ``E8M0_TARGET_MAX_POW2``.
             - FP4 dtypes: scale_dtype is resolved to torch.float8_e8m0fnu
               by resolve_scale_dtype (before validator).
         """
-        if self.scale_dtype is not None and self.scale_dtype != torch.float8_e8m0fnu:
+        if self.scale_dtype is None:
+            return self
+
+        if self.scale_dtype != torch.float8_e8m0fnu:
             raise ValueError(
                 f"Unsupported scale_dtype: {self.scale_dtype}. "
                 f"Only None or torch.float8_e8m0fnu are supported."
             )
 
-        if not self.dtype.is_floating_point and self.scale_dtype is not None:
+        if self.dtype not in _E8M0_TARGET_MAX_POW2:
             raise ValueError(
-                f"scale_dtype must be None for integer dtypes, "
-                f"got scale_dtype={self.scale_dtype} with dtype={self.dtype}."
+                f"scale_dtype must be None for dtype={self.dtype}, got "
+                f"scale_dtype={self.scale_dtype}. No e8m0 target exponent is defined "
+                f"for it; supported dtypes are {list(_E8M0_TARGET_MAX_POW2)}."
             )
 
         return self

@@ -26,6 +26,9 @@ from coreai_opt._utils.export_utils import (
 from coreai_opt._utils.torch_utils import get_module_name as _get_module_name
 from coreai_opt.common import ExportBackend
 from coreai_opt.quantization._eager import EagerQuantizer as _EagerQuantizer
+from coreai_opt.quantization._export_utils import (
+    can_export_stateless_fake_quant as _can_export_stateless_fake_quant,
+)
 from coreai_opt.quantization._graph import GraphQuantizer as _GraphQuantizer
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config.quantization_config import (
@@ -414,6 +417,8 @@ class Quantizer(_BaseQuantizer):
     ) -> None:
         """Reject CoreAI/CoreML export when any qparams calculator is a
         ``StatelessQParamsCalculatorBase`` (e.g. dynamic quantization).
+
+        A registered activation export handler lifts the restriction.
         """
         if backend == ExportBackend._TORCH:
             return
@@ -423,6 +428,7 @@ class Quantizer(_BaseQuantizer):
             for name, mod in model_to_check.named_modules()
             if isinstance(mod, FakeQuantizeImplBase)
             and isinstance(mod.qparams_calculator, StatelessQParamsCalculatorBase)
+            and not _can_export_stateless_fake_quant(mod, backend, self._execution_mode)
         ]
         if stateless_fq_names:
             raise NotImplementedError(

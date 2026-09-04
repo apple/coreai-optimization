@@ -24,6 +24,7 @@ from coreai.runtime import NDArray
 from coremltools import ComputeUnit
 
 from coreai_opt import CoreMLExportError, ExportBackend
+from coreai_opt.quantization import Quantizer, QuantizerConfig
 from tests.test_utils.general import verify_snr_psnr as _verify_snr_psnr
 
 if platform.system() == "Darwin":
@@ -641,3 +642,67 @@ def convert_and_verify(
     )
 
     return converted_model
+
+
+def run_export_test(
+    model: torch.nn.Module,
+    input_data: torch.Tensor,
+    config: QuantizerConfig,
+    expected_ops: Mapping[str, int],
+    export_backend: ExportBackend,
+    model_dtype: torch.dtype | None = None,
+    calibrate: bool = False,
+    externalized_model: torch.nn.Module | None = None,
+    snr_thresh: float = 20.0,
+    psnr_thresh: float = 22.0,
+) -> None:
+    """Quantize, finalize, export and verify a model against its prepared forward.
+
+    The whole export test workflow, in the order it has to run: the prepared
+    forward happens before finalize, because finalize is what replaces the
+    fake-quantize modules with the export ops. The execution mode comes from
+    ``config``, so one function serves eager and graph mode.
+
+    Args:
+        model: PyTorch model to quantize and export
+        input_data: Input tensor for model
+        config: Quantization configuration, carrying the execution mode
+        expected_ops: Expected operation counts in converted model
+        export_backend: Target inference stack (CoreML or CoreAI)
+        model_dtype: Model dtype (float16, float32, bfloat16, or None for no conversion)
+        calibrate: If True, run one calibration pass under
+            ``quantizer.calibration_mode()`` before the reference forward.
+        externalized_model: The model patched in place by
+            ``coreai_torch._patch_model_for_externalization``. Only supported by the
+            CoreAI backend.
+        snr_thresh: Minimum acceptable SNR value
+        psnr_thresh: Minimum acceptable PSNR value
+
+    """
+    if model_dtype is not None:
+        model = model.to(dtype=model_dtype)
+        input_data = input_data.to(dtype=model_dtype)
+
+    model.eval()
+    quantizer = Quantizer(model, config)
+    prepared_model = quantizer.prepare((input_data,))
+
+    if calibrate:
+        with quantizer.calibration_mode(), torch.no_grad():
+            prepared_model(input_data)
+
+    with torch.no_grad():
+        prepared_model_output = prepared_model(input_data)
+
+    finalized_model = quantizer.finalize(backend=export_backend)
+
+    convert_and_verify(
+        finalized_model=finalized_model,
+        input_data=input_data,
+        expected_ops=expected_ops,
+        export_backend=export_backend,
+        prepared_model_output=prepared_model_output,
+        externalized_model=externalized_model,
+        snr_thresh=snr_thresh,
+        psnr_thresh=psnr_thresh,
+    )
