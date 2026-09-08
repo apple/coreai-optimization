@@ -67,5 +67,5 @@ Likewise, the per-layer setting being varied across candidate configs does not h
 
 ## Examples
 
-- [Mixed-precision palettization with ResNet50](../examples/mixed_precision_palettization.md) — applies palettization with 2/4/6-bit per-tensor candidate configs and the greedy approach targeting a BPW of 4.
+- [Mixed-precision palettization with ResNet50](../examples/model_examples/mixed_precision_palettization.md) — applies palettization with 2/4/6-bit per-tensor candidate configs and the greedy approach targeting a BPW of 4.
 - [coreai-models](https://github.com/apple/coreai-models) — the same workflow is applied to a few LLMs in this repository to produce mixed precision compression recipes. Users can find the mixed precision configs in the repo and apply them with `coreai-opt`.

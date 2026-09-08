@@ -112,4 +112,4 @@ final_model = quantizer.finalize(backend=opt.ExportBackend.CoreAI)
 
 - For a working end-to-end example, see `test_p4a8_compression_mnist_accuracy` in `tests/test_joint_compression.py`.
 - For export-related tests, see `test_mnist_p4a8_compression_export` in `tests/export/test_pt2e_mlir_export.py`.
-- We explore applying joint compression to the EDSR model [here](../examples/edsr.md).
+- We explore applying joint compression to the EDSR model [here](../examples/model_examples/edsr.md).
