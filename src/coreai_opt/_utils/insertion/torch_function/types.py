@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 import torch
 
+from coreai_opt._utils.config_utils import spec_dict_is_active
 from coreai_opt._utils.spec_utils import PartialConstructor
 from coreai_opt.config.spec import CompressionSimulatorBase
 
@@ -52,12 +53,15 @@ class OpCompressionComponents:
 
     def has_activation_component(self) -> bool:
         """
-        Check if any activation compression components are set.
+        Check whether any activation tensor has an active component.
 
         Returns:
-            True if any activation is set, False if all activations are unset.
+            True if any activation has an active component, False if all activation
+            entries are unset or disabled.
         """
-        return bool(self.op_input_components or self.op_output_components)
+        return spec_dict_is_active(self.op_input_components) or spec_dict_is_active(
+            self.op_output_components
+        )
 
 
 @dataclass(frozen=True)
@@ -127,16 +131,17 @@ class ModuleCompressionComponents:
 
     def has_activation_component(self) -> bool:
         """
-        Check if any activation compression components are set.
+        Check whether any activation tensor has an active component.
 
         Returns:
-            True if any activations or op activation components are set, False otherwise.
+            True if any activation or op activation component is active, False if all
+            activation entries are unset or disabled.
         """
-        return bool(
-            self.input_activation
-            or self.output_activation
-            or self.module_input_components
-            or self.module_output_components
+        return (
+            spec_dict_is_active(self.input_activation)
+            or spec_dict_is_active(self.output_activation)
+            or spec_dict_is_active(self.module_input_components)
+            or spec_dict_is_active(self.module_output_components)
             or any(
                 op_comp.has_activation_component() for op_comp in self.op_type_components.values()
             )
