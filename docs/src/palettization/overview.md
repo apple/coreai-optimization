@@ -98,7 +98,7 @@ For more details on how to use {class}`~coreai_opt.palettization.config.KMeansPa
 
 A `KMeansPalettizer` palettized model can still be fine-tuned in a training pipeline. As palettization is a hard assignment lookup, gradients cannot be propagated for palettized weights, meaning any parameter which is palettized will not update during `optimizer.step()` (the palettization codebook and index assignments will also be fixed).
 
-Any parameters not being palettized can still update and learn so that one can fine-tune any non-palettized portion of the model while being palettization-aware, i.e. incurring palettization noise from any parameters which are palettized.
+Any parameters not being palettized can still update and learn so that one can fine-tune any non-palettized portion of the model while being palettization-aware, i.e. adapting to other parameters which are palettized.
 
 Run the training loop inside `palettizer.training_mode()`, which places the model in train mode and restores its original train/eval state on exit:
 
