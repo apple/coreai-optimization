@@ -325,11 +325,14 @@ test-highest-pytorch:
 	$(RUN_TESTS) $(PYTEST_ARGS) && \
 	echo "All tests passed!"
 
+# Space-separated list of tutorial test files to run.
+TUTORIAL_TEST_PATHS ?= $(DOCS_DIR)/tests/test_tutorials.py
+
 # Run tutorial notebook tests
 test-tutorials:
 	@$(call use_env,VENV_TUTORIAL,--with-tutorial --with-test) && \
 	echo "Running tutorial notebook tests..." && \
-	$(RUN_TESTS) --path $(DOCS_DIR)/tests/test_tutorials.py $(PYTEST_ARGS) && \
+	$(RUN_TESTS) --path "$(TUTORIAL_TEST_PATHS)" $(PYTEST_ARGS) && \
 	echo "All tutorial tests passed!"
 
 # =============================================================================
