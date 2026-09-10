@@ -214,15 +214,44 @@ class TestKMeansPalettizer:
         assert torch.equal(original_linear_weight, prepared_model.linear.weight)
 
     @pytest.mark.parametrize(
-        "exclusion",
+        ("exclusion", "is_linear_compressed"),
         [
-            {"module_name_configs": {"linear": None}},
-            {"module_type_configs": {nn.Linear: None}},
+            ({"module_name_configs": {"linear": None}}, False),
+            ({"module_type_configs": {nn.Linear: None}}, False),
+            (
+                {
+                    "module_name_configs": {
+                        "linear": ModuleKMeansPalettizerConfig(
+                            op_state_spec={"*": None},
+                            op_input_spec={"*": None},
+                            op_output_spec={"*": None},
+                        )
+                    }
+                },
+                False,
+            ),
+            (
+                {
+                    "module_name_configs": {
+                        "linear": ModuleKMeansPalettizerConfig(
+                            op_state_spec={"weight": default_weight_palettization_spec()},
+                            op_input_spec={"*": None},
+                            op_output_spec={"*": None},
+                        )
+                    }
+                },
+                True,
+            ),
         ],
-        ids=["by_name", "by_type"],
+        ids=[
+            "by_name",
+            "by_type",
+            "explicit_sentinel_no_weight",
+            "weight_compressed_no_activation",
+        ],
     )
     def test_skipped_layer_builds_no_activation_handler(
-        self, simple_conv_linear_model, simple_model_input, exclusion
+        self, simple_conv_linear_model, simple_model_input, exclusion, is_linear_compressed
     ):
         """A skipped layer must leave palettization weight-only."""
         config = KMeansPalettizerConfig(**exclusion)
@@ -231,7 +260,7 @@ class TestKMeansPalettizer:
         prepared_model = palettizer.prepare((simple_model_input,))
 
         assert is_parametrized(prepared_model.conv, "weight")
-        assert not is_parametrized(prepared_model.linear, "weight")
+        assert is_parametrized(prepared_model.linear, "weight") is is_linear_compressed
 
         assert palettizer._handler.act_handler is None
 
