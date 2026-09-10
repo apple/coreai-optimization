@@ -213,6 +213,28 @@ class TestKMeansPalettizer:
         # Linear weight should be unchanged
         assert torch.equal(original_linear_weight, prepared_model.linear.weight)
 
+    @pytest.mark.parametrize(
+        "exclusion",
+        [
+            {"module_name_configs": {"linear": None}},
+            {"module_type_configs": {nn.Linear: None}},
+        ],
+        ids=["by_name", "by_type"],
+    )
+    def test_skipped_layer_builds_no_activation_handler(
+        self, simple_conv_linear_model, simple_model_input, exclusion
+    ):
+        """A skipped layer must leave palettization weight-only."""
+        config = KMeansPalettizerConfig(**exclusion)
+
+        palettizer = KMeansPalettizer(simple_conv_linear_model, config)
+        prepared_model = palettizer.prepare((simple_model_input,))
+
+        assert is_parametrized(prepared_model.conv, "weight")
+        assert not is_parametrized(prepared_model.linear, "weight")
+
+        assert palettizer._handler.act_handler is None
+
     def test_weight_palettization(self, simple_conv_linear_model, basic_config, simple_model_input):
         """
         Test that weight palettization is taking place
