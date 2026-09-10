@@ -232,8 +232,32 @@ class TestKMeansPalettizer:
             ),
             (
                 {
+                    "module_type_configs": {
+                        nn.Linear: ModuleKMeansPalettizerConfig(
+                            op_state_spec={"*": None},
+                            op_input_spec={"*": None},
+                            op_output_spec={"*": None},
+                        )
+                    }
+                },
+                False,
+            ),
+            (
+                {
                     "module_name_configs": {
                         "linear": ModuleKMeansPalettizerConfig(
+                            op_state_spec={"weight": default_weight_palettization_spec()},
+                            op_input_spec={"*": None},
+                            op_output_spec={"*": None},
+                        )
+                    }
+                },
+                True,
+            ),
+            (
+                {
+                    "module_type_configs": {
+                        nn.Linear: ModuleKMeansPalettizerConfig(
                             op_state_spec={"weight": default_weight_palettization_spec()},
                             op_input_spec={"*": None},
                             op_output_spec={"*": None},
@@ -246,8 +270,10 @@ class TestKMeansPalettizer:
         ids=[
             "by_name",
             "by_type",
-            "explicit_sentinel_no_weight",
-            "weight_compressed_no_activation",
+            "explicit_sentinel_no_weight_by_name",
+            "explicit_sentinel_no_weight_by_type",
+            "weight_compressed_no_activation_by_name",
+            "weight_compressed_no_activation_by_type",
         ],
     )
     def test_skipped_layer_builds_no_activation_handler(
