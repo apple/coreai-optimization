@@ -5,6 +5,7 @@
 
 import copy
 import logging
+import os
 
 import pytest
 import torch
@@ -13,6 +14,7 @@ import torch.nn.utils.parametrize as P
 from torch.nn.utils.parametrize import is_parametrized
 
 from coreai_opt import ExportBackend
+from coreai_opt.base_model_compressor import _CompressorLifecycle
 from coreai_opt.palettization import (
     KMeansPalettizer,
     KMeansPalettizerConfig,
@@ -1183,6 +1185,96 @@ class TestKMeansPalettizerCalibrationMode:
                                 "module sensitivity",
                             )
                             break
+
+    def test_calibration_mode_exception_cleans_up_checkpoint_and_restores_state(
+        self, simple_conv_linear_model, basic_config, simple_model_input, monkeypatch
+    ):
+        """Test that if an exception occurs during calibration_mode:
+        1. The checkpoint file is deleted.
+        2. The caller's exception is preserved (not masked).
+        3. Model weights are restored to pre-calibration state.
+        4. Fake palettization is re-enabled.
+        5. Palettizer lifecycle is reset to IDLE.
+        """
+        palettizer = KMeansPalettizer(simple_conv_linear_model, basic_config)
+        prepared_model = palettizer.prepare((simple_model_input,))
+
+        saved_checkpoints: list[str] = []
+        orig_save = palettizer._save_model_checkpoint
+
+        def spy_save(model: nn.Module) -> str:
+            path = orig_save(model)
+            saved_checkpoints.append(path)
+            return path
+
+        monkeypatch.setattr(palettizer, "_save_model_checkpoint", spy_save)
+        pre_weights = {name: p.clone() for name, p in prepared_model.named_parameters()}
+
+        class PreStepError(Exception):
+            pass
+
+        # Case 1: Exception before step() - ensure original exception is
+        # preserved rather than being masked by RuntimeError.
+        with pytest.raises(PreStepError, match="abort before step"):
+            with palettizer.calibration_mode(loss_fn=nn.functional.cross_entropy) as skm:
+                raise PreStepError("abort before step")
+
+        assert len(saved_checkpoints) == 1
+        assert not os.path.exists(saved_checkpoints[-1]), "Checkpoint was leaked on pre-step abort"
+        for m in prepared_model.modules():
+            if isinstance(m, _KMeansFakePalettize):
+                assert m.fake_palett_enabled, (
+                    "Fake palettize should be re-enabled after pre-step abort"
+                )
+        assert palettizer._lifecycle == _CompressorLifecycle.IDLE
+
+        class PostStepError(Exception):
+            pass
+
+        # Case 2: Exception after step() - ensure weights are rolled back and checkpoint cleaned up
+        dummy_target = torch.randint(0, 10, (1,))
+        with pytest.raises(PostStepError, match="abort after step"):
+            with palettizer.calibration_mode(loss_fn=nn.functional.cross_entropy) as skm:
+                output = prepared_model(simple_model_input)
+                # Mutate weight data during calibration
+                for p in prepared_model.parameters():
+                    if p.requires_grad:
+                        p.data.add_(1.0)
+                skm.step(output, dummy_target)
+                raise PostStepError("abort after step")
+
+        assert len(saved_checkpoints) == 2
+        assert not os.path.exists(saved_checkpoints[-1]), (
+            "Checkpoint file was leaked on post-step abort"
+        )
+        for name, p in prepared_model.named_parameters():
+            torch.testing.assert_close(
+                p, pre_weights[name], msg=f"Weight {name} was not rolled back"
+            )
+        for m in prepared_model.modules():
+            if isinstance(m, _KMeansFakePalettize):
+                assert m.fake_palett_enabled, (
+                    "Fake palettize should be re-enabled after post-step abort"
+                )
+        assert palettizer._lifecycle == _CompressorLifecycle.IDLE
+
+    def test_calibration_mode_root_module(self, basic_config):
+        """Test calibration_mode on a standalone root module (module_name == '')."""
+        model = nn.Linear(4, 4)
+        input_tensor = torch.randn(2, 4)
+        palettizer = KMeansPalettizer(model, basic_config)
+        prepared_model = palettizer.prepare((input_tensor,))
+
+        with palettizer.calibration_mode(loss_fn=lambda out, target: out.sum()) as skm:
+            output = prepared_model(input_tensor)
+            skm.step(output, torch.zeros(2, 4))
+
+        for module in prepared_model.modules():
+            if isinstance(module, _KMeansFakePalettize):
+                assert module.sensitivities is not None, (
+                    "Sensitivities should be set for root module"
+                )
+                assert torch.all(module.sensitivities > 0), "Sensitivities should be positive"
 
 
 class TestKMeansPalettizerPrepareWithSensitivities:

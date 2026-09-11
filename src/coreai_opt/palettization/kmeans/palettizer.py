@@ -282,6 +282,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 f"Cannot enter calibration_mode() while palettizer is {self._lifecycle.value}"
             )
         self._lifecycle = _CompressorLifecycle.CALIBRATING
+        checkpoint_path: str | None = None
         try:
             # Save model checkpoint before modifying gradients
             checkpoint_path = self._save_model_checkpoint(self._model)
@@ -305,38 +306,48 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             calibration_helper = CalibrationHelper(loss_fn)
 
             with self._register_grad_square_hooks(self._model):
-                try:
-                    yield calibration_helper
-                finally:
-                    # Ensure step() was called at least once
-                    if not calibration_helper.step_called:
-                        raise RuntimeError(
-                            "calibration_mode requires at least one call to step(). "
-                            "No calibration data was processed."
-                        )
+                yield calibration_helper
 
-                    # Construct sensitivities
-                    sensitivities = self._construct_sensitivities(sensitivity_path)
+            # Ensure step() was called at least once
+            if not calibration_helper.step_called:
+                raise RuntimeError(
+                    "calibration_mode requires at least one call to step(). "
+                    "No calibration data was processed."
+                )
 
-                    # Restore model from checkpoint
-                    self._load_model_checkpoint(self._model, checkpoint_path)
+            # Construct sensitivities
+            sensitivities = self._construct_sensitivities(sensitivity_path)
 
-                    # Set sensitivities in fake palettize modules
-                    self._set_sensitivities_in_fake_palettize_modules(sensitivities)
+            # Restore model from checkpoint
+            self._load_model_checkpoint(self._model, checkpoint_path)
+            checkpoint_path = None
 
-                    # Zero out gradients to clean up squared gradient values from hooks
-                    self._model.zero_grad()
+            # Set sensitivities in fake palettize modules
+            self._set_sensitivities_in_fake_palettize_modules(sensitivities)
 
-                    # Recompute centroids with sensitivities, matching the
-                    # parallelism the user opted into at prepare() time.
-                    if self._num_workers > 1:
-                        self._calculate_centroids_parallel(self._num_workers)
-                    else:
-                        self._calculate_centroids_sequential()
+            # Zero out gradients to clean up squared gradient values from hooks
+            self._model.zero_grad()
 
-                    # Restore normal operation
-                    self._model.apply(_enable_fake_palett)
+            # Recompute centroids with sensitivities, matching the
+            # parallelism the user opted into at prepare() time.
+            if self._num_workers > 1:
+                self._calculate_centroids_parallel(self._num_workers)
+            else:
+                self._calculate_centroids_sequential()
+
         finally:
+            if checkpoint_path is not None and os.path.exists(checkpoint_path):
+                # Roll back model to pre-calibration state if checkpoint wasn't loaded
+                try:
+                    self._model.load_state_dict(torch.load(checkpoint_path, weights_only=True))
+                except Exception:
+                    pass
+                try:
+                    os.unlink(checkpoint_path)
+                except OSError:
+                    pass
+            # Restore normal operation
+            self._model.apply(_enable_fake_palett)
             self._lifecycle = _CompressorLifecycle.IDLE
 
     @contextmanager
@@ -683,7 +694,10 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                     for p in parametrizations:
                         if isinstance(p, _KMeansFakePalettize):
                             param_name = ".".join(
-                                [module_name, "parametrizations", attr_name, "original"]
+                                filter(
+                                    None,
+                                    [module_name, "parametrizations", attr_name, "original"],
+                                )
                             )
                             if param_name not in sensitivity_dict:
                                 logger.error(f"No sensitivity value found for {param_name}")
@@ -765,7 +779,10 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                             continue
                         if p.sensitivities is not None:
                             param_name = ".".join(
-                                [module_name, "parametrizations", attr_name, "original"]
+                                filter(
+                                    None,
+                                    [module_name, "parametrizations", attr_name, "original"],
+                                )
                             )
                             sensitivity_dict[param_name] = p.sensitivities.cpu()
                         break
@@ -785,7 +802,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             return checkpoint_path
 
     @staticmethod
-    def _load_model_checkpoint(model: torch.nn.Module, checkpoint_path: str):
+    def _load_model_checkpoint(model: torch.nn.Module, checkpoint_path: str) -> None:
         """Restore model checkpoint from specified checkpoint path."""
         if checkpoint_path is None or not os.path.exists(checkpoint_path):
             raise RuntimeError(f"Failed to load model checkpoint from path: {checkpoint_path}")
@@ -793,9 +810,12 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             f"Restoring model from checkpoint {checkpoint_path} "
             "before setting sensitivities and recomputing centroids"
         )
-        model.load_state_dict(torch.load(checkpoint_path, weights_only=True))
-        logger.debug(f"Removing temporary checkpoint {checkpoint_path}")
-        os.unlink(checkpoint_path)
+        try:
+            model.load_state_dict(torch.load(checkpoint_path, weights_only=True))
+        finally:
+            logger.debug(f"Removing temporary checkpoint {checkpoint_path}")
+            if os.path.exists(checkpoint_path):
+                os.unlink(checkpoint_path)
 
     @staticmethod
     def _remove_disabled_fake_palett_modules(model: torch.nn.Module) -> None:
