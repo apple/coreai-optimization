@@ -86,6 +86,7 @@ def _get_kmeans_lookup_table_and_weight(
         weight = _reshape_weight_for_vector_lut(weight, cluster_dim, vector_axis)
 
     weight = weight.reshape(-1, cluster_dim)
+    num_samples = weight.shape[0]
     lut = np.zeros((lut_len, cluster_dim))
 
     is_better_to_use_kmeans1d = (
@@ -113,7 +114,7 @@ def _get_kmeans_lookup_table_and_weight(
                 "It would be better to use kmeans1d but that is not available. "
                 "Using scikit-learn for K-means."
             )
-        n_clusters = min(num_weights, lut_len)
+        n_clusters = min(num_samples, lut_len)
         kmeans = KMeans(n_clusters, init="k-means++", tol=1e-2, n_init=1, random_state=0).fit(
             weight
         )
