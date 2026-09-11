@@ -382,7 +382,8 @@ class QuantizationSpec(CompressionSpec):
         sparsity = data.pop("_sparsity", None)
         super().__init__(**data)
         if sparsity is not None:
-            self._validate_sparsity_zero_preserving(sparsity)
+            if not (0.0 <= sparsity <= 1.0):
+                raise ValueError(f"_sparsity must be in [0, 1], got {sparsity}")
             self._sparsity = sparsity
 
     # Supported dtypes for quantization (class attribute for testing extensibility)
@@ -587,22 +588,6 @@ class QuantizationSpec(CompressionSpec):
             )
             raise ValueError(error_msg)
         return self
-
-    def _validate_sparsity_zero_preserving(self, sparsity: float) -> None:
-        """Reject sparsity unless a raw 0 dequantizes to exactly 0.0."""
-        if not (0.0 <= sparsity <= 1.0):
-            raise ValueError(f"_sparsity must be in [0, 1], got {sparsity}")
-        if _is_float4_dtype(self.dtype):
-            raise ValueError("FP4 dtype not supported for joint sparsity.")
-        if self.dtype.is_floating_point:
-            return
-
-        if self.qformulation != QuantizationFormulation.ZP:
-            raise ValueError(f"qformulation={self.qformulation} not supported for joint sparsity.")
-        if self.qscheme == QuantizationScheme.ASYMMETRIC:
-            raise ValueError(f"qscheme={self.qscheme} not supported for joint sparsity.")
-        if not self.dtype.is_signed:
-            raise ValueError(f"unsigned dtype={self.dtype} not supported for joint sparsity.")
 
     def get_extra_args(self) -> dict[str, Any]:
         """

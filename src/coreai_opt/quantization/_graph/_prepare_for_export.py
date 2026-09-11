@@ -265,6 +265,22 @@ def _mmap_quantized_buffers(
     mmapped_params.add(param_name)
 
 
+def _validate_sparsity_for_export(
+    fake_quant_mod: FakeQuantizeImplBase, zero_point: torch.Tensor | None
+) -> None:
+    """Reject sparsity combined with anything ``sparse_to_dense``'s raw-0 padding can't represent.
+
+    ``sparse_to_dense`` always pads pruned positions with a raw literal 0, so joint
+    sparsity is only correct when that 0 dequantizes to exactly 0.0, i.e. ``zero_point``
+    is 0 (or absent). FP4 is rejected separately: its packing runs before the nonzero
+    values are extracted, and would misalign against the full-resolution mask.
+    """
+    if is_float4_dtype(fake_quant_mod.dtype):
+        raise ValueError("FP4 dtype not supported for joint sparsity.")
+    if zero_point is not None and not torch.all(zero_point == 0):
+        raise ValueError("nonzero zero_point not supported for joint sparsity.")
+
+
 def _process_mlir_weight_quantization(
     model: torch.fx.GraphModule,
     node: Node,
@@ -312,6 +328,7 @@ def _process_mlir_weight_quantization(
     dense_weight = resolve_attr(model, input_node.target).data
     mask: torch.Tensor | None = None
     if fake_quant_mod.sparsity is not None:
+        _validate_sparsity_for_export(fake_quant_mod, zero_point)
         mask = fake_quant_mod._sparsity_mask.to(torch.bool)
         dense_weight = dense_weight * mask
     quantized_data = fake_quant_mod.quantize(dense_weight, scale, zero_point, minval)
@@ -508,10 +525,21 @@ def _process_mil_weight_quantization(
     # Get the module that owns the weight parameter
     weight_module: torch.nn.Module = _get_weight_module(modules, module_name)
 
+    # coremltools' own torch-frontend converter auto-detects sparsity from raw
+    # zeros in the registered weight value when compression_type lists PRUNING
+    # first, then chains QUANTIZATION onto its constexpr_sparse_to_dense output
+    # (see coremltools.converters.mil.frontend.torch.converter._construct_compression_op).
+    # That chain has the same raw-0-pads-pruned-positions contract as our own
+    # sparse_to_dense, so it needs the same zero-preserving guarantee.
+    compression_type = [CompressionType.QUANTIZATION]
+    if fake_quant_mod.sparsity is not None:
+        _validate_sparsity_for_export(fake_quant_mod, zero_point)
+        compression_type = [CompressionType.PRUNING, CompressionType.QUANTIZATION]
+
     # Create and register metadata
     metadata = MILCompressionMetadata(
         param_name=param_name,
-        compression_type=CompressionType.QUANTIZATION,
+        compression_type=compression_type,
         quantization_n_bits=fake_quant_mod.n_bits,
         quantization_scale=scale,
         zero_point=zero_point,

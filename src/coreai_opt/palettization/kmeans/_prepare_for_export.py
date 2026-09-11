@@ -24,6 +24,7 @@ from coreai_opt.common import ExportBackend
 from coreai_opt.palettization.spec.fake_palettize import (
     _FakePalettizeImplBase,
 )
+from coreai_opt.palettization.spec.granularity import PerTensorGranularity
 
 _DEFAULT_VECTOR_AXIS = 0
 
@@ -145,6 +146,7 @@ def _register_mil_compression_metadata(
     module: nn.Module,
     param_name: str,
     palett_info: PalettizationInfo,
+    fake_palett_mod: _FakePalettizeImplBase,
 ) -> None:
     """
     Remove the fake palettization parametrization from the module
@@ -161,12 +163,20 @@ def _register_mil_compression_metadata(
         leave_parametrized=True,
     )
 
-    # Determine compression type(s)
+    # Determine compression type(s). coremltools' own torch-frontend converter
+    # auto-detects sparsity from raw zeros in the traced weight value when
+    # compression_type lists PRUNING first, then chains PALETTIZATION onto its
+    # constexpr_sparse_to_dense output (constexpr_lut_to_sparse) -- which has the
+    # same flatten-to-nonzero-only-indices contract as our own CoreAI reconstruction,
+    # so it needs the same per-tensor/scalar guarantee.
     lut_quant = palett_info.lut_quantization
     if lut_quant is not None:
         compression_type = [CompressionType.PALETTIZATION, CompressionType.QUANTIZATION]
     else:
-        compression_type = CompressionType.PALETTIZATION
+        compression_type = [CompressionType.PALETTIZATION]
+    if fake_palett_mod.sparsity is not None:
+        _validate_sparsity_for_export(fake_palett_mod)
+        compression_type = [CompressionType.PRUNING, *compression_type]
 
     metadata = MILCompressionMetadata(
         param_name=param_name,
@@ -232,6 +242,31 @@ def _resolve_mlir_lut_and_scale(
     return lut, scale, offset
 
 
+def _validate_sparsity_for_export(fake_palett_mod: _FakePalettizeImplBase) -> None:
+    """Reject sparsity combined with anything that isn't a single, position-independent LUT.
+
+    Masking flattens indices to rank 1 before the LUT lookup, which only preserves
+    meaning when every element shares one scalar codebook: per-tensor granularity
+    (not per-channel/grouped, which use multiple LUTs) and cluster_dim == 1 (not
+    vector palettization, whose indices are already at a reduced, position-dependent
+    rank). A quantized LUT or per-channel scale would also apply a position-dependent
+    mapping that flattening would scramble.
+    """
+    if not isinstance(fake_palett_mod.granularity, PerTensorGranularity):
+        raise ValueError(
+            f"granularity={fake_palett_mod.granularity} not supported for joint sparsity."
+        )
+    if fake_palett_mod.cluster_dim != 1:
+        raise ValueError(
+            f"cluster_dim={fake_palett_mod.cluster_dim} (vector palettization) "
+            "not supported for joint sparsity."
+        )
+    if fake_palett_mod.lut_qspec is not None:
+        raise ValueError("lut_qspec not supported for joint sparsity.")
+    if fake_palett_mod.enable_per_channel_scale:
+        raise ValueError("enable_per_channel_scale not supported for joint sparsity.")
+
+
 def _insert_mlir_custom_op(
     module: nn.Module,
     module_name: str,
@@ -294,8 +329,8 @@ def _insert_mlir_custom_op(
     vector_axis = _DEFAULT_VECTOR_AXIS if palett_info.cluster_dim > 1 else None
 
     if fake_palett_mod.sparsity is not None:
-        # Reuses the mask from prepare()'s forward pass. needs_scale is always False here:
-        # PalettizationSpec rejects lut_qspec/enable_per_channel_scale combined with sparsity.
+        _validate_sparsity_for_export(fake_palett_mod)
+        # Reuses the mask from prepare()'s forward pass.
         mask = fake_palett_mod._sparsity_mask.to(torch.bool)
         nonzero_indices = palett_info.indices[mask]
         mlir_palett_mod = _SparsePalettizeReconstruction(
@@ -376,7 +411,7 @@ def _process_palettized_parameter(
     )
 
     if backend == ExportBackend.CoreML:
-        _register_mil_compression_metadata(module, param_name, palett_info)
+        _register_mil_compression_metadata(module, param_name, palett_info, fake_palett_mod)
     elif backend == ExportBackend.CoreAI:
         _insert_mlir_custom_op(
             module, module_name, param_name, palett_info, fake_palett_mod, fake_palett_idx, mmap_dir
