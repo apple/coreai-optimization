@@ -9,12 +9,14 @@ They are simpler as pruning applies only to the weights in the model.
 {class}`~coreai_opt.pruning.spec.PruningSpec` defines the following key properties (for full list see API reference):
 
 - `target_sparsity`: Fraction of elements to zero, in `[0, 1]`. Default: 0.5.
-- `pruning_scheme`: Structural pattern of sparsity. Allowed: {class}`~coreai_opt.pruning.spec.Unstructured`() or {class}`~coreai_opt.pruning.spec.ChannelStructured`(axis=...), defaults to the former.
+- `pruning_scheme`: Structural pattern of sparsity. Allowed: {class}`~coreai_opt.pruning.spec.Unstructured`(), {class}`~coreai_opt.pruning.spec.ChannelStructured`(axis=...), {class}`~coreai_opt.pruning.spec.BlockStructured`(axis=..., block_size=...), or {class}`~coreai_opt.pruning.spec.NMStructured`(axis=..., n=..., m=...). Defaults to `Unstructured`.
 
 ```python
 from coreai_opt.pruning import PruningSpec
 from coreai_opt.pruning.spec import (
+    BlockStructured,
     ChannelStructured,
+    NMStructured,
     default_weight_pruning_spec,
 )
 
@@ -24,18 +26,45 @@ spec = default_weight_pruning_spec()
 # 75% unstructured
 spec = PruningSpec(target_sparsity=0.75)
 
-# 50% channel-structured along axis 0 — entire channels are pruned together
+# 50% channel-structured along axis 0 — entire channels are pruned together,
+# ranked by L1 norm
 spec = PruningSpec(
     target_sparsity=0.5,
     pruning_scheme=ChannelStructured(axis=0),
 )
+
+# 50% block-structured along axis 0 — contiguous blocks of 2 channels are
+# pruned together, ranked by L2 norm
+spec = PruningSpec(
+    target_sparsity=0.5,
+    pruning_scheme=BlockStructured(axis=0, block_size=2),
+)
+
+# 2:4 structured sparsity along axis 1 — a hardware-friendly pattern with a
+# fixed sparsity ratio of n / m
+spec = PruningSpec(pruning_scheme=NMStructured(axis=1, n=2, m=4))
 ```
 
 :::{note}
-**Realized sparsity for `ChannelStructured`**:
+**Realized sparsity for `ChannelStructured` and `BlockStructured`**:
 
-Channel-structured pruning prunes whole channels along `axis`, so the realized sparsity is rounded down to the nearest multiple of `1/num_channels`. For `num_channels=10` and `target_sparsity=0.5`, exactly 5 channels are pruned and the realized sparsity matches the target. For `num_channels=7` and the same target sparsity, only 3 channels are pruned, giving 3/7 ≈ 43% realized sparsity. `Unstructured` rounds at the element level, so this is only a concern for `ChannelStructured`.
+Both schemes prune whole channels (or blocks of channels) along `axis`, so the realized sparsity is rounded down to the nearest multiple of `1/num_channels` (or `1/num_blocks`). For `num_channels=10` and `target_sparsity=0.5`, exactly 5 channels are pruned and the realized sparsity matches the target. For `num_channels=7` and the same target sparsity, only 3 channels are pruned, giving 3/7 ≈ 43% realized sparsity. `Unstructured` rounds at the element level, so this is only a concern for the structured schemes. `weight`'s size along `axis` must also be evenly divisible by `block_size` for `BlockStructured`.
 :::
+
+:::{note}
+**`NMStructured` ignores `target_sparsity`**:
+
+Unlike the other schemes, `NMStructured`'s sparsity is fixed by construction at `n / m` — `target_sparsity` has no effect when this scheme is selected. `weight`'s size along `axis` must be evenly divisible by `m`.
+:::
+
+In YAML, `pruning_scheme` is written as a `type` tag plus its fields:
+
+```yaml
+pruning_scheme: { type: unstructured }
+pruning_scheme: { type: channel_structured, axis: 0 }
+pruning_scheme: { type: block_structured, axis: 0, block_size: 2 }
+pruning_scheme: { type: n_m_structured, axis: 1, n: 2, m: 4 }
+```
 
 ## Config classes and their defaults
 

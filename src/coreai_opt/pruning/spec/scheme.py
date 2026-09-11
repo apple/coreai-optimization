@@ -25,14 +25,15 @@ class PruningScheme(BaseModel, _ConfigRegistryMixin):
     A pruning scheme defines the structural pattern of sparsity applied
     to a tensor, and knows how to turn ``(weight, sparsity)`` into a binary
     mask. Call the public :meth:`compute_mask` to get a mask; subclasses
-    implement the abstract :meth:`_compute_mask`, which handles sparsity
+    implement the abstract :meth:`compute_mask_impl`, which handles sparsity
     strictly between 0 and 1 (the 0.0 / 1.0 edge cases are handled once, in
     the base class).
 
     The sole exception is :class:`NMStructured`, whose achieved sparsity is
-    fixed by construction (``n / m``) rather than a free parameter — it
-    overrides :meth:`compute_mask` directly and ignores the ``sparsity``
-    argument entirely.
+    fixed by construction (``n / m``): it overrides :meth:`compute_mask` to
+    substitute ``n / m`` for the incoming ``sparsity`` before delegating to
+    the base class, so ``PruningSpec.target_sparsity`` has no effect when
+    this scheme is selected.
 
     Attributes:
         axis (int | None): The axis along which structured pruning is applied.
@@ -80,10 +81,10 @@ class PruningScheme(BaseModel, _ConfigRegistryMixin):
             return torch.ones_like(weight)
         if sparsity >= 1.0:
             return torch.zeros_like(weight)
-        return self._compute_mask(weight, sparsity)
+        return self.compute_mask_impl(weight, sparsity)
 
     @abstractmethod
-    def _compute_mask(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
+    def compute_mask_impl(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
         """Compute a mask for *sparsity* strictly between 0 and 1.
 
         Subclasses implement the scheme-specific masking logic here; the
@@ -102,7 +103,7 @@ class Unstructured(PruningScheme):
 
     axis: Literal[None] = None
 
-    def _compute_mask(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
+    def compute_mask_impl(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
         num_elements = weight.numel()
         num_keep = num_elements - math.floor(num_elements * sparsity)
         abs_weight = weight.abs()
@@ -125,7 +126,7 @@ class ChannelStructured(PruningScheme):
 
     axis: int = Field(default=0, description="Axis along which channels are pruned.")
 
-    def _compute_mask(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
+    def compute_mask_impl(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
         if not (-weight.ndim <= self.axis < weight.ndim):
             raise ValueError(
                 f"Invalid axis. Should be in range [{-weight.ndim}, {weight.ndim}), "
@@ -170,7 +171,7 @@ class BlockStructured(PruningScheme):
     axis: int = Field(default=0, description="Axis along which blocks are formed.")
     block_size: int = Field(gt=0, description="Number of contiguous slices per block along axis.")
 
-    def _compute_mask(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
+    def compute_mask_impl(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
         num_along_axis = weight.shape[self.axis]
         if num_along_axis % self.block_size != 0:
             raise _BlockSizeMismatchError(
@@ -191,7 +192,7 @@ class BlockStructured(PruningScheme):
         moved = torch.movedim(weight, self.axis, 0)
         other_dims = moved.shape[1:]
         grouped = moved.view(num_blocks, self.block_size, *other_dims)
-        block_norms = grouped.pow(2).sum(dim=tuple(range(1, grouped.ndim))).sqrt()
+        block_norms = torch.linalg.vector_norm(grouped, dim=tuple(range(1, grouped.ndim)))
 
         num_keep = num_blocks - num_prune
         _, keep_indices = torch.topk(block_norms, num_keep, largest=True)
@@ -214,10 +215,10 @@ class NMStructured(PruningScheme):
     group of ``m`` elements along ``axis`` — a hardware-friendly sparsity
     pattern with a fixed sparsity ratio of ``n / m``.
 
-    Unlike other schemes, the achieved sparsity is fixed by construction and
-    does not depend on ``PruningSpec.target_sparsity``: :meth:`compute_mask`
-    overrides the base class directly and **ignores** its ``sparsity``
-    argument.
+    Unlike other schemes, the achieved sparsity is fixed by construction:
+    :meth:`compute_mask` substitutes ``n / m`` for the incoming ``sparsity``
+    before delegating to the base class, so ``PruningSpec.target_sparsity``
+    has no effect when this scheme is selected.
 
     The size of ``weight`` along ``axis`` must be evenly divisible by ``m``.
     """
@@ -232,20 +233,21 @@ class NMStructured(PruningScheme):
             raise ValueError(f"n ({self.n}) must be less than m ({self.m})")
         return self
 
-    def _compute_mask(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
-        """Unreachable: :meth:`compute_mask` is overridden directly below and never
-        delegates here. Defined only to satisfy the base class's abstract method.
-        """
-        raise NotImplementedError(
-            "NMStructured overrides compute_mask directly; _compute_mask is unused."
-        )
-
     def compute_mask(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
         """Compute the N:M mask.
 
         ``sparsity`` is accepted for interface compatibility with
-        :class:`PruneImplBase` but is ignored — achieved sparsity is fixed
-        at ``n / m`` by construction.
+        :class:`PruneImplBase` but is unused: ``n / m`` is substituted here
+        and threaded through the base class's ``compute_mask``, which handles
+        the ``0.0``/``1.0`` early exits before calling :meth:`compute_mask_impl`.
+        """
+        return super().compute_mask(weight, self.n / self.m)
+
+    def compute_mask_impl(self, weight: torch.Tensor, sparsity: float) -> torch.Tensor:
+        """Zero the ``n`` smallest-magnitude elements in every group of ``m``.
+
+        ``sparsity`` is always ``n / m`` here — :meth:`compute_mask` only
+        reaches this method when ``0 < n / m < 1``.
         """
         num_along_axis = weight.shape[self.axis]
         if num_along_axis % self.m != 0:
@@ -253,9 +255,6 @@ class NMStructured(PruningScheme):
                 f"Tensor size {num_along_axis} along axis {self.axis} is not "
                 f"divisible by m {self.m}. Full tensor shape: {tuple(weight.shape)}"
             )
-
-        if self.n == 0:
-            return torch.ones_like(weight)
 
         # axis is now at position -1; all other dims keep their relative order.
         moved = torch.movedim(weight, self.axis, -1)
