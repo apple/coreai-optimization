@@ -200,6 +200,54 @@ class SimpleMatMulOperatorModel(nn.Module):
         return x
 
 
+class SimpleEinsumModel(nn.Module):
+    """Simple model with a two-operand einsum operation.
+
+    ``equation`` is parametrizable because einsum stays a single aten op
+    regardless of operand layout, so the same model covers plain batched
+    matmul as well as the transposed attention layouts.
+    """
+
+    def __init__(self, equation="bij,bjk->bik", use_act=False):
+        super().__init__()
+        self.equation = equation
+        self.use_act = use_act
+        self.relu = nn.ReLU()
+
+    def forward(self, x1, x2):
+        x = torch.einsum(self.equation, x1, x2)
+        if self.use_act:
+            x = self.relu(x)
+        return x
+
+
+class SimpleThreeOperandEinsumModel(nn.Module):
+    """Simple model with a three-operand einsum operation.
+
+    einsum takes all of its operands inside a single list argument, so this
+    exercises the n-ary (more than two inputs) side of NAryActPattern.
+    """
+
+    def forward(self, x1, x2, x3):
+        return torch.einsum("bij,bjk,bkl->bil", x1, x2, x3)
+
+
+class SimpleEinsumAttentionModel(nn.Module):
+    """Two chained einsums in the channels-first attention layout.
+
+    This is the shape attention takes when heads are folded into the channel
+    axis rather than transposed out of it: the QK product is
+    ``bchq,bkhc->bkhq`` and the attention-weight/value product is
+    ``bkhq,bchk->bchq``. Chaining them means the second einsum's first operand
+    is the first einsum's output, so it also covers two adjacent annotated
+    einsums sharing the quantizer on the edge between them.
+    """
+
+    def forward(self, q, k, v):
+        weights = torch.einsum("bchq,bkhc->bkhq", q, k)
+        return torch.einsum("bkhq,bchk->bchq", weights, v)
+
+
 class SimpleFlattenModel(nn.Module):
     """Simple model with flatten operation."""
 
@@ -436,6 +484,21 @@ class NestedModel2(torch.nn.Module):
         return x
 
 
+def _flatten_args(args: tuple) -> list:
+    """Flatten one level of list/tuple args so operands passed as a list are visible.
+
+    Ops like einsum and cat take their tensor operands inside a single list
+    argument rather than as separate positional args.
+    """
+    flat = []
+    for arg in args:
+        if isinstance(arg, (list, tuple)):
+            flat.extend(arg)
+        else:
+            flat.append(arg)
+    return flat
+
+
 def analyze_graph_structure(model: torch.fx.GraphModule) -> dict[str, any]:
     """
     Analyze the graph structure to find fake quantize placement relative to operations.
@@ -489,7 +552,7 @@ def analyze_graph_structure(model: torch.fx.GraphModule) -> dict[str, any]:
         # from activation inputs
         before_types = []
         weights = {}
-        for arg in node.args:
+        for arg in _flatten_args(node.args):
             if isinstance(arg, torch.fx.Node):
                 arg_type = get_node_type(arg)
                 if is_weight(arg):
@@ -1118,6 +1181,69 @@ class TestAnnotationPatternRegistry:
                 {
                     "matmul": {"input_fq": [True, True], "output_fq": False},
                     "relu": {"input_fq": False, "output_fq": True},
+                },
+                False,
+            ),
+            # Einsum pattern tests
+            pytest.param(
+                SimpleEinsumModel(),
+                (torch.randn(2, 3, 4), torch.randn(2, 4, 5)),
+                "activation_only",
+                None,
+                {"einsum": {"input_fq": [True, True], "output_fq": True}},
+                False,
+            ),
+            pytest.param(
+                SimpleEinsumModel(use_act=True),
+                (torch.randn(2, 3, 4), torch.randn(2, 4, 5)),
+                "activation_only",
+                None,
+                {
+                    "einsum": {"input_fq": [True, True], "output_fq": False},
+                    "relu": {"input_fq": False, "output_fq": True},
+                },
+                False,
+            ),
+            pytest.param(
+                SimpleThreeOperandEinsumModel(),
+                (torch.randn(2, 3, 4), torch.randn(2, 4, 5), torch.randn(2, 5, 6)),
+                "activation_only",
+                None,
+                {"einsum": {"input_fq": [True, True, True], "output_fq": True}},
+                False,
+            ),
+            # Einsum in the channels-first attention layout: the head axis sits
+            # between the contracted and free axes instead of leading, so the
+            # operands are effectively transposed relative to a plain batched
+            # matmul. einsum stays one aten op, so the pattern still matches.
+            pytest.param(
+                SimpleEinsumModel(equation="bchq,bkhc->bkhq"),
+                (torch.randn(2, 4, 3, 5), torch.randn(2, 6, 3, 4)),
+                "activation_only",
+                None,
+                {"einsum": {"input_fq": [True, True], "output_fq": True}},
+                False,
+            ),
+            pytest.param(
+                SimpleEinsumModel(equation="bchq,bkhc->bkhq", use_act=True),
+                (torch.randn(2, 4, 3, 5), torch.randn(2, 6, 3, 4)),
+                "activation_only",
+                None,
+                {
+                    "einsum": {"input_fq": [True, True], "output_fq": False},
+                    "relu": {"input_fq": False, "output_fq": True},
+                },
+                False,
+            ),
+            # Both attention layouts chained, as they appear in a real block.
+            pytest.param(
+                SimpleEinsumAttentionModel(),
+                (torch.randn(2, 4, 3, 5), torch.randn(2, 6, 3, 4), torch.randn(2, 4, 3, 6)),
+                "activation_only",
+                None,
+                {
+                    "einsum": {"input_fq": [True, True], "output_fq": True},
+                    "einsum_1": {"input_fq": [True, True], "output_fq": True},
                 },
                 False,
             ),

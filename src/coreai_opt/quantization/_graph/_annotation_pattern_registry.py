@@ -695,6 +695,30 @@ class MatMulActPattern(NAryActPattern):
         return _get_all_patterns_from_base_ops({"matmul"}, use_act=True)
 
 
+@_AnnotationPatternRegistry.register("einsum")
+class EinsumPattern(NAryActPattern):
+    """
+    Annotates input1/input2/... -> einsum -> output
+    """
+
+    @classmethod
+    def generate_patterns(cls) -> list[OpsListPattern]:
+        """Returns einsum pattern."""
+        return _get_all_patterns_from_base_ops({"einsum"})
+
+
+@_AnnotationPatternRegistry.register("einsum_act")
+class EinsumActPattern(NAryActPattern):
+    """
+    Annotates input1/input2/... -> einsum -> act -> output
+    """
+
+    @classmethod
+    def generate_patterns(cls) -> list[OpsListPattern]:
+        """Returns einsum act pattern."""
+        return _get_all_patterns_from_base_ops({"einsum"}, use_act=True)
+
+
 @_AnnotationPatternRegistry.register("add")
 class AddPattern(NAryActPattern):
     """
