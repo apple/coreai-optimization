@@ -51,12 +51,12 @@ class _DefaultTrainingStrategy(TrainingStrategy):
         return module.hard_assign(weight)
 
 
-class TrainingStrategyConfig(BaseModel, _ConfigRegistryMixin):
+class TrainingStrategySpec(BaseModel, _ConfigRegistryMixin):
     """Base class for a fake-palettize module's training-strategy settings.
 
     Each subclass points ``_strategy_cls`` at its paired ``TrainingStrategy``
     behavior class; ``build_strategy()`` constructs that strategy from this
-    config's own fields.
+    spec's own fields.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -75,7 +75,7 @@ class TrainingStrategyConfig(BaseModel, _ConfigRegistryMixin):
         # Find the registry key for this class type
         registry_key = None
         # Use the base class registry instead of instance registry
-        for key, registered_class in TrainingStrategyConfig.REGISTRY.items():
+        for key, registered_class in TrainingStrategySpec.REGISTRY.items():
             if registered_class is type(self):
                 registry_key = key
                 break
@@ -86,13 +86,13 @@ class TrainingStrategyConfig(BaseModel, _ConfigRegistryMixin):
         return data
 
     def build_strategy(self) -> TrainingStrategy:
-        """Construct this config's paired ``TrainingStrategy`` behavior instance."""
+        """Construct this spec's paired ``TrainingStrategy`` behavior instance."""
         kwargs = {k: v for k, v in self.model_dump().items() if k != "type"}
         return self._strategy_cls(**kwargs)
 
 
-@TrainingStrategyConfig.register("default")
-class DefaultTrainingConfig(TrainingStrategyConfig):
+@TrainingStrategySpec.register("default")
+class DefaultTrainingSpec(TrainingStrategySpec):
     """Settings for the default, post-training one-shot k-means strategy. No fields."""
 
     _strategy_cls = _DefaultTrainingStrategy

@@ -23,7 +23,7 @@ from coreai_opt.quantization.spec import (
 )
 
 from .granularity import PalettizationGranularity, PerTensorGranularity
-from .training_strategy import DefaultTrainingConfig, TrainingStrategyConfig
+from .training_strategy import DefaultTrainingSpec, TrainingStrategySpec
 
 _SUPPORTED_LUT_DTYPES = {torch.int8, torch.uint8, torch.float8_e4m3fn, torch.float8_e5m2}
 
@@ -61,14 +61,14 @@ class PalettizationSpec(CompressionSpec):
         enable_per_channel_scale: When set to True, weights are normalized along the
             output channels using per-channel scales before being palettized.
             Default: False.
-        training_strategy_config: Which training-time behavior this weight's
+        training_strategy_spec: Which training-time behavior this weight's
             fake-palettize module uses, and that strategy's settings.
-            ``DefaultTrainingConfig()`` is post-training, one-shot k-means
+            ``DefaultTrainingSpec()`` is post-training, one-shot k-means
             (today's KMeansPalettizer behavior). Additional strategies are added
-            by subclassing ``TrainingStrategyConfig`` (registered via
-            ``TrainingStrategyConfig.register()``) and pointing its
+            by subclassing ``TrainingStrategySpec`` (registered via
+            ``TrainingStrategySpec.register()``) and pointing its
             ``_strategy_cls`` at a ``TrainingStrategy`` subclass. Default:
-            DefaultTrainingConfig().
+            DefaultTrainingSpec().
 
     Example:
         >>> # Basic 4-bit palettization
@@ -100,10 +100,10 @@ class PalettizationSpec(CompressionSpec):
     ] = PerTensorGranularity()
     cluster_dim: PositiveInt = 1
     enable_per_channel_scale: bool = False
-    training_strategy_config: Annotated[
-        TrainingStrategyConfig,
-        BeforeValidator(TrainingStrategyConfig.maybe_build_from_dict),
-    ] = DefaultTrainingConfig()
+    training_strategy_spec: Annotated[
+        TrainingStrategySpec,
+        BeforeValidator(TrainingStrategySpec.maybe_build_from_dict),
+    ] = DefaultTrainingSpec()
 
     # Private attribute for compression type
     _compression_type: CompressionType = PrivateAttr(default=CompressionType.PALETTIZATION)

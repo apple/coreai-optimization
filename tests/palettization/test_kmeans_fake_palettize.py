@@ -17,12 +17,12 @@ from coreai_opt.palettization.kmeans.supported_ops_registry import (
     _KMeansPalettizerSupportedOpsRegistry,
 )
 from coreai_opt.palettization.spec import (
-    DefaultTrainingConfig,
+    DefaultTrainingSpec,
     PalettizationSpec,
     PerGroupedChannelGranularity,
     PerTensorGranularity,
     TrainingStrategy,
-    TrainingStrategyConfig,
+    TrainingStrategySpec,
 )
 from coreai_opt.palettization.spec.errors import (
     _IncompatibleClusterDimError,
@@ -31,6 +31,10 @@ from coreai_opt.palettization.spec.errors import (
 from coreai_opt.palettization.spec.spec import _SUPPORTED_LUT_DTYPES
 from coreai_opt.palettization.spec.training_strategy import _DefaultTrainingStrategy
 from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
+
+_ACCELERATOR = (
+    "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else None
+)
 
 
 def _make_lut_qspec(
@@ -1045,6 +1049,42 @@ class TestInitializationAndStateDict:
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
 
+    @pytest.mark.skipif(_ACCELERATOR is None, reason="requires a non-CPU accelerator (CUDA or MPS)")
+    @pytest.mark.parametrize("enable_per_channel_scale", [False, True])
+    def test_cpu_checkpoint_load_keeps_buffers_on_module_device(self, enable_per_channel_scale):
+        """A CPU checkpoint (torch.load map_location='cpu') loaded into a module on an
+        accelerator must keep ``centroids``/``per_channel_scale`` on the module's device;
+        otherwise the LUT fake-quant path mixes a CPU lookup table with accelerator
+        qparams and raises a device-mismatch error. ``indices`` stays CPU-resident.
+        """
+        spec = PalettizationSpec(
+            n_bits=2,
+            granularity=PerTensorGranularity(),
+            enable_per_channel_scale=enable_per_channel_scale,
+            lut_qspec=_make_lut_qspec(torch.int8),
+        )
+        src = _KMeansFakePalettize(**spec.__dict__)
+        src._initialize(torch.randn(8, 16))
+        cpu_state_dict = {k: v.cpu() for k, v in src.state_dict().items()}
+
+        dst = _KMeansFakePalettize(**spec.__dict__)
+        dst._initialize(torch.randn(8, 16))
+        dst = dst.to(_ACCELERATOR)
+        dst.load_state_dict(cpu_state_dict)
+
+        assert dst.centroids.device.type == _ACCELERATOR
+        assert dst._lut_fake_quantizer.qparams_calculator.scale.device.type == _ACCELERATOR
+        assert dst.indices.device.type == "cpu"
+        if enable_per_channel_scale:
+            assert dst.per_channel_scale.device.type == _ACCELERATOR
+
+        # The eval forward runs the LUT fake-quant (centroids + scale); it must not
+        # raise a cross-device error.
+        dst.eval()
+        out = dst.forward(torch.randn(8, 16, device=_ACCELERATOR))
+        assert out.device.type == _ACCELERATOR
+        assert torch.isfinite(out).all()
+
 
 class TestLegacyCheckpointCompat:
     """Backward compatibility with pre-refactor checkpoints, which stored
@@ -1700,42 +1740,42 @@ class TestDerivedLutProperties:
 
 
 class TestTrainingStrategy:
-    """The training-strategy config registry and its paired behavior classes.
+    """The training-strategy spec registry and its paired behavior classes.
 
     Scope is the generic OSS machinery (default strategy only); concrete
     strategies defined elsewhere are tested with those strategies.
     """
 
-    def test_default_config_points_at_default_strategy(self):
-        assert DefaultTrainingConfig._strategy_cls is _DefaultTrainingStrategy
-        assert issubclass(DefaultTrainingConfig._strategy_cls, TrainingStrategy)
+    def test_default_training_spec_points_at_default_strategy(self):
+        assert DefaultTrainingSpec._strategy_cls is _DefaultTrainingStrategy
+        assert issubclass(DefaultTrainingSpec._strategy_cls, TrainingStrategy)
 
     def test_build_from_dict_unregistered_raises(self):
         with pytest.raises(KeyError):
-            TrainingStrategyConfig.maybe_build_from_dict({"type": "nonexistent"})
+            TrainingStrategySpec.maybe_build_from_dict({"type": "nonexistent"})
 
-    def test_default_config_builds_default_strategy(self):
-        assert isinstance(DefaultTrainingConfig().build_strategy(), _DefaultTrainingStrategy)
+    def test_default_training_spec_builds_default_strategy(self):
+        assert isinstance(DefaultTrainingSpec().build_strategy(), _DefaultTrainingStrategy)
 
     def test_maybe_build_from_dict(self):
-        config = TrainingStrategyConfig.maybe_build_from_dict({"type": "default"})
-        assert isinstance(config, DefaultTrainingConfig)
+        spec = TrainingStrategySpec.maybe_build_from_dict({"type": "default"})
+        assert isinstance(spec, DefaultTrainingSpec)
 
     def test_serialize_injects_type(self):
-        assert DefaultTrainingConfig().model_dump() == {"type": "default"}
+        assert DefaultTrainingSpec().model_dump() == {"type": "default"}
 
-    def test_spec_default_is_default_config(self):
-        assert isinstance(PalettizationSpec().training_strategy_config, DefaultTrainingConfig)
+    def test_spec_default_is_default_spec(self):
+        assert isinstance(PalettizationSpec().training_strategy_spec, DefaultTrainingSpec)
 
     def test_spec_parses_dict_via_discriminated_field(self):
-        spec = PalettizationSpec(training_strategy_config={"type": "default"})
-        assert isinstance(spec.training_strategy_config, DefaultTrainingConfig)
+        spec = PalettizationSpec(training_strategy_spec={"type": "default"})
+        assert isinstance(spec.training_strategy_spec, DefaultTrainingSpec)
 
-    def test_module_builds_strategy_from_config(self):
+    def test_module_builds_strategy_from_spec(self):
         spec = PalettizationSpec(
             n_bits=2,
             granularity=PerTensorGranularity(),
-            training_strategy_config=DefaultTrainingConfig(),
+            training_strategy_spec=DefaultTrainingSpec(),
         )
         palettizer = _KMeansFakePalettize(**spec.__dict__)
         assert isinstance(palettizer._training_strategy, _DefaultTrainingStrategy)
@@ -1834,6 +1874,66 @@ class TestLazyInitAndStaleness:
         target.load_state_dict(source.state_dict())
         assert target._centroids_initialized is True
         assert target._indices_stale is True
+
+
+class TestReinitializeOnEnable:
+    """enable_fake_palett(reinitialize=True) invalidates cached params on a
+    disabled -> enabled switch so the next forward re-clusters from the current
+    weights.
+    """
+
+    @staticmethod
+    def _make() -> _KMeansFakePalettize:
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
+        return _KMeansFakePalettize(**spec.__dict__)
+
+    def test_reinitialize_invalidates_and_reclusters(self):
+        palettizer = self._make()
+        palettizer(torch.tensor([-1.0, 1.0]).repeat(4, 4))
+        assert palettizer._centroids_initialized is True
+        centroids_before = palettizer.centroids.clone()
+
+        palettizer.disable_fake_palett()
+        palettizer.enable_fake_palett(True, reinitialize=True)
+        assert palettizer._centroids_initialized is False
+        assert palettizer._indices_stale is True
+
+        # Next forward re-clusters from the new weights, not the old centroids.
+        palettizer(torch.tensor([-4.0, 4.0]).repeat(4, 4))
+        assert palettizer._centroids_initialized is True
+        assert not torch.equal(palettizer.centroids, centroids_before)
+
+    def test_reinitialize_noop_when_already_enabled(self):
+        palettizer = self._make()
+        palettizer(torch.randn(8, 8))
+        assert palettizer.fake_palett_enabled[0] == 1
+        centroids_before = palettizer.centroids.clone()
+
+        # Already enabled: reinitialize is ignored, centroids survive.
+        palettizer.enable_fake_palett(True, reinitialize=True)
+        assert palettizer._centroids_initialized is True
+        palettizer(torch.randn(8, 8))
+        assert torch.equal(palettizer.centroids, centroids_before)
+
+    def test_default_keeps_centroids(self):
+        palettizer = self._make()
+        palettizer(torch.randn(8, 8))
+        centroids_before = palettizer.centroids.clone()
+
+        palettizer.disable_fake_palett()
+        palettizer.enable_fake_palett(True)  # reinitialize defaults False
+        assert palettizer._centroids_initialized is True
+        # A forward pass with different weights does not affect centroids
+        palettizer(torch.randn(8, 8))
+        assert torch.equal(palettizer.centroids, centroids_before)
+
+    def test_reinitialize_requires_enabled(self):
+        palettizer = self._make()
+        palettizer(torch.randn(8, 8))
+
+        with pytest.raises(ValueError, match="reinitialize=True requires enabled=True"):
+            palettizer.enable_fake_palett(False, reinitialize=True)
+        assert palettizer._centroids_initialized is True
 
 
 class TestQuantizeLutSTE:
@@ -1960,3 +2060,40 @@ def test_device_placement_on_accelerator(accelerator_device):
     out = palettizer.hard_assign(weight)
     assert out.device.type == device
     assert out.shape == weight.shape
+
+
+_ROUNDTRIP_SPECS = [
+    pytest.param(PerTensorGranularity(), 1, id="pt-cd1"),
+    pytest.param(PerTensorGranularity(), 2, id="pt-cd2"),
+    pytest.param(PerTensorGranularity(), 4, id="pt-cd4"),
+    pytest.param(PerGroupedChannelGranularity(axis=0, group_size=8), 1, id="pgc-ax0-gs8-cd1"),
+    pytest.param(PerGroupedChannelGranularity(axis=0, group_size=16), 4, id="pgc-ax0-gs16-cd4"),
+    pytest.param(PerGroupedChannelGranularity(axis=1, group_size=8), 1, id="pgc-ax1-gs8-cd1"),
+]
+
+
+@pytest.mark.parametrize("enable_per_channel_scale", [False, True], ids=["no-pcs", "pcs"])
+@pytest.mark.parametrize("granularity, cluster_dim", _ROUNDTRIP_SPECS)
+def test_vectorize_devectorize_round_trip(granularity, cluster_dim, enable_per_channel_scale):
+    """``devectorize`` inverts ``vectorize``.
+
+    Covers scaling on/off across granularity and cluster_dim, independent of
+    clustering — the round trip must reconstruct the original weight.
+    """
+    torch.manual_seed(0)
+    spec = PalettizationSpec(
+        n_bits=4,
+        granularity=granularity,
+        cluster_dim=cluster_dim,
+        enable_per_channel_scale=enable_per_channel_scale,
+        lut_qspec=None,
+    )
+    palettizer = _KMeansFakePalettize(**spec.__dict__)
+    weight = torch.randn(16, 32)
+
+    vectors, context = palettizer.vectorize(weight)
+    reconstructed = palettizer.devectorize(vectors, context)
+
+    assert reconstructed.shape == weight.shape
+    assert reconstructed.dtype == weight.dtype
+    assert torch.allclose(reconstructed, weight, atol=1e-5)

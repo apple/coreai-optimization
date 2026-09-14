@@ -46,6 +46,7 @@ from coreai_opt._utils.torch_utils import export_model, move_model_to_eval, move
 from coreai_opt._utils.version_utils import version_ge
 from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleConfigDict, _build_module_alias_map
+from coreai_opt.config.spec.compression_simulator import CompressionSimulatorBase
 from coreai_opt.quantization._axis_defaults import (
     apply_weight_axis_defaults_graph as _apply_weight_axis_defaults,
     validate_activation_axes,
@@ -97,6 +98,22 @@ from ._utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _record_tensor_fqns_graph(model: torch.fx.GraphModule) -> None:
+    """Record the FQN of each compressed parameter on the simulator compressing it.
+
+    A simulator reading from anything other than a ``get_attr`` node keeps the
+    default name: an activation, or a weight arriving through a decompression op,
+    has no parameter to name.
+    """
+    simulators = dict(model.named_modules(remove_duplicate=False))
+    for node in model.graph.nodes:
+        if node.op != "call_module" or not node.args:
+            continue
+        simulator = simulators.get(str(node.target))
+        if isinstance(simulator, CompressionSimulatorBase) and node.args[0].op == "get_attr":
+            simulator.tensor_fqn = str(node.args[0].target)
 
 
 class _OpConfigLevel(Enum):
@@ -203,6 +220,13 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         self._module_name_to_state_names_map = module_name_to_state_names_map
         self._extra_patterns: list[type] = list(extra_patterns or [])
         self._kv_cache_quant_configs = kv_cache_quant_configs or {}
+        # Populated by annotate(): maps each annotated node to the priority
+        # (lower = higher precedence) its winning config carried during
+        # annotation ordering. Exposed via the _node_priorities property so
+        # GraphQuantizer can later resolve a shared FQ module's owning module
+        # using the same priority that decided its DTYPE field (see
+        # GraphQuantizer._get_fake_quantize_modules).
+        self._priority_by_node: dict[torch.fx.Node, int] = {}
 
         # Build reverse map: alias → canonical for O(1) lookup during node matching.
         self._alias_to_canonical: dict[str, str] = {
@@ -210,6 +234,16 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             for canonical, aliases in canonical_to_aliases.items()
             for alias in aliases
         }
+
+    @property
+    def _node_priorities(self) -> dict[torch.fx.Node, int]:
+        """A copy of the node-priority map, safe for callers to hold onto.
+
+        Returning a copy rather than ``self._priority_by_node`` directly keeps
+        a caller's reference (e.g. ``GraphQuantizer``) from aliasing this
+        instance's internal, mutable state.
+        """
+        return dict(self._priority_by_node)
 
     def _all_patterns(self) -> list[type]:
         """Globally-registered patterns plus per-instance ``extra_patterns``."""
@@ -271,9 +305,11 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         # so every covered node has (config, priority, pattern_group) for
         # its slots. Priority = position in the sorted list (lower = higher
         # priority); used by reconcile() to break dtype ties within a
-        # shared-observer group.
+        # shared-observer group. self._priority_by_node is populated here
+        # directly (rather than via a local dict copied in afterward) so it's
+        # always in sync with what this annotate() call actually decided.
         winning_configs: dict[torch.fx.Node, Any] = {}
-        node_priorities: dict[torch.fx.Node, int] = {}
+        self._priority_by_node = {}
         pattern_groups: dict[torch.fx.Node, frozenset[torch.fx.Node]] = {}
         primary_nodes: set[torch.fx.Node] = set()
         for priority, (primary_node, cfg, match_info) in enumerate(
@@ -284,7 +320,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
                 if covered_node in winning_configs:
                     continue  # first (highest-priority) pattern wins
                 winning_configs[covered_node] = cfg
-                node_priorities[covered_node] = priority
+                self._priority_by_node[covered_node] = priority
                 pattern_groups[covered_node] = covered
                 if covered_node is primary_node:
                     primary_nodes.add(covered_node)
@@ -302,7 +338,7 @@ class _AnnotationHandler(TorchPT2EQuantizer):
         # settles them. See docs/architecture_notes/graph_annotation.md.
         ctx = _AnnotationContext(
             winning_configs=winning_configs,
-            node_priorities=node_priorities,
+            node_priorities=self._priority_by_node,
             pattern_groups=pattern_groups,
             primary_nodes=primary_nodes,
             shared_observer_nodes=shared_observer_node_to_pattern,
@@ -686,6 +722,10 @@ class GraphQuantizer(_BaseQuantizer):
 
         self._validate_config(config)
         super().__init__(model, config)
+        # Set by prepare() from the annotation handler's node priorities; used
+        # by _get_fake_quantize_modules() to resolve a shared FQ module's
+        # owner. Empty until prepare() has run.
+        self._node_priorities: dict[torch.fx.Node, int] = {}
 
     @staticmethod
     def _fill_input_output_specs_to_check_for_module_config(
@@ -1019,6 +1059,11 @@ class GraphQuantizer(_BaseQuantizer):
         if torchao_requires_empty_kwargs:
             restore_kwargs(prepared_model.graph, saved_kwargs)
 
+        # Carry over the node priorities computed during annotation so
+        # _get_fake_quantize_modules can later resolve a shared FQ module's
+        # owner using the same priority that decided its DTYPE field.
+        self._node_priorities = quantizer._node_priorities
+
         # Apply post-processing fixes to the prepared model
         self._postprocess_prepared_model(prepared_model)
 
@@ -1285,8 +1330,16 @@ class GraphQuantizer(_BaseQuantizer):
 
         Walks the FX graph to find FQ ``call_module`` nodes and resolves
         each one back to the original (pre-``torch.export``) module name
-        via the ``nn_module_stack`` metadata on the FQ node's consumer
-        nodes.
+        via the ``nn_module_stack`` metadata on the FQ node's neighbor
+        (consumer or producer) nodes.
+
+        When an FQ module is shared by several modules (a tied weight, or a
+        shared activation observer), the neighbors are ranked by
+        ``self._node_priorities`` — the same per-node priority that decided
+        the shared tensor's DTYPE field during annotation (see
+        ``_AnnotationHandler.annotate``) — so the resolved owner matches the
+        module whose config actually won for that tensor, rather than
+        whichever consumer happens to appear first in graph order.
 
         Returns:
             Dict mapping original module name to the list of FQ module
@@ -1295,6 +1348,8 @@ class GraphQuantizer(_BaseQuantizer):
         model = self._model
         modules = dict(model.named_modules(remove_duplicate=False))
         mapping: dict[str, list[FakeQuantizeImplBase]] = defaultdict(list)
+        node_priorities = self._node_priorities
+        unranked = len(node_priorities)
 
         for node in model.graph.nodes:
             if node.op != "call_module":
@@ -1302,11 +1357,18 @@ class GraphQuantizer(_BaseQuantizer):
             fq_mod = modules.get(node.target)
             if not isinstance(fq_mod, FakeQuantizeImplBase):
                 continue
-            # Resolve source module from the FQ node's consumer (user) nodes.
-            # Fall back to producer (arg) nodes if no consumer has nn_module_stack
-            # (e.g. when the FQ feeds directly into the graph output node).
+            # Rank neighbors by annotation priority (lower = higher precedence);
+            # neighbors with no recorded priority sort last but are still tried,
+            # preserving the original users-then-args fallback order among them.
+            neighbors = list(node.users) + list(node.args)
+            ranked_neighbors = sorted(
+                neighbors,
+                key=lambda n: (
+                    node_priorities.get(n, unranked) if isinstance(n, torch.fx.Node) else unranked
+                ),
+            )
             source = None
-            for neighbor in list(node.users) + list(node.args):
+            for neighbor in ranked_neighbors:
                 source = get_source_module_name(neighbor)
                 if source is not None:
                     break
@@ -1333,6 +1395,8 @@ class GraphQuantizer(_BaseQuantizer):
         # with their inputs but invalidate axis semantics, so per-channel/per-block
         # granularity is mathematically incorrect. Force per-tensor.
         force_per_tensor_for_channel_altering_ops(model)
+
+        _record_tensor_fqns_graph(model)
 
         # Apply weight axis defaults for per channel and per block quantization
         _apply_weight_axis_defaults(model)

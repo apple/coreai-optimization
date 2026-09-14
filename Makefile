@@ -56,7 +56,7 @@ VENV_TUTORIAL ?= .venv-tutorial
 # The torch_2_* groups (pyproject.toml [dependency-groups]) currently at
 # each end of the supported range. Bump these two lines — nothing else —
 # when the project's torch version bounds change.
-HIGHEST_TORCH_GROUP := torch_2_11
+HIGHEST_TORCH_GROUP := torch_2_13
 LOWEST_TORCH_GROUP := torch_2_8
 
 # Torch dependency group (pyproject.toml [dependency-groups]) that every
@@ -325,11 +325,14 @@ test-highest-pytorch:
 	$(RUN_TESTS) $(PYTEST_ARGS) && \
 	echo "All tests passed!"
 
+# Space-separated list of tutorial test files to run.
+TUTORIAL_TEST_PATHS ?= $(DOCS_DIR)/tests/test_tutorials.py
+
 # Run tutorial notebook tests
 test-tutorials:
 	@$(call use_env,VENV_TUTORIAL,--with-tutorial --with-test) && \
 	echo "Running tutorial notebook tests..." && \
-	$(RUN_TESTS) --path $(DOCS_DIR)/tests/test_tutorials.py $(PYTEST_ARGS) && \
+	$(RUN_TESTS) --path "$(TUTORIAL_TEST_PATHS)" $(PYTEST_ARGS) && \
 	echo "All tutorial tests passed!"
 
 # =============================================================================
@@ -410,9 +413,13 @@ docs-clean:
 # Regenerate docs/src/api/index.md from the package tree.
 #
 # Runs the same generator `make docs` invokes during the Sphinx build, so the
-# API index can be refreshed on its own using the base dev env.
+# API index can be refreshed on its own using the base dev env. Uses DOCS_DIR
+# (not MAKEFILE_DIR) so this and the Sphinx build always run the same generator:
+# a distribution that overrides DOCS_DIR documents a different set of root
+# packages, and pointing these two entry points at different files would make
+# them write conflicting indexes.
 render-api-index:
-	@$(call use_env,VENV) && uv run --no-sync --active python $(MAKEFILE_DIR)docs/scripts/generate_api_index.py
+	@$(call use_env,VENV) && uv run --no-sync --active python $(DOCS_DIR)/scripts/generate_api_index.py
 
 # Build and open documentation in browser
 # Uses --serve so the docs are loaded over HTTP, not file:// — required for

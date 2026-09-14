@@ -195,7 +195,7 @@ finalized_model = quantizer.finalize(
 ```
 
 At this point, the model is ready to be exported or traced for downstream conversion with `coreai-torch` or `coremltools`.
-Refer to [Integration with Core AI](../introduction/integration_coreai.md) for more details.
+Refer to [Integration with Core AI](../../introduction/integration_coreai.md) for more details.
 
 ## Summary
 

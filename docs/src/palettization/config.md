@@ -204,3 +204,56 @@ kmeans_palettization_config:
           n_bits: 4
           granularity: { type: per_tensor }
 ```
+
+### Enable palettization at different training steps per module (PATSchedule)
+
+For palettization-aware training, you can defer when each module's palettizer turns on using a {class}`~coreai_opt.palettization.config.PATSchedule` set on that module's {class}`~coreai_opt.palettization.config.ModuleKMeansPalettizerConfig`. Its `enable_fake_palettize` field is the step-count threshold at which that module's palettizer becomes active; until then the module trains uncompressed. See [Using PATSchedule](overview.md#using-patschedule) for the training loop that drives the schedule via `palettizer.training_mode()` and `palettizer.step()`.
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.config import PATSchedule
+
+# All layers palettized 4-bit, but each named module's palettizer turns on at a different training step:
+# module1 after 100 steps, module2 after 500.
+config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+    ),
+    module_name_configs={
+        "module1": ModuleKMeansPalettizerConfig(
+            op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+            pat_schedule=PATSchedule(enable_fake_palettize=100),
+        ),
+        "module2": ModuleKMeansPalettizerConfig(
+            op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+            pat_schedule=PATSchedule(enable_fake_palettize=500),
+        ),
+    },
+)
+```
+
+```yaml
+# yaml
+kmeans_palettization_config:
+  global_config:
+    op_state_spec:
+      weight:
+        n_bits: 4
+  module_name_configs:
+    module1:
+      op_state_spec:
+        weight:
+          n_bits: 4
+      pat_schedule:
+        enable_fake_palettize: 100
+    module2:
+      op_state_spec:
+        weight:
+          n_bits: 4
+      pat_schedule:
+        enable_fake_palettize: 500
+```

@@ -213,6 +213,83 @@ class TestKMeansPalettizer:
         # Linear weight should be unchanged
         assert torch.equal(original_linear_weight, prepared_model.linear.weight)
 
+    @pytest.mark.parametrize(
+        ("exclusion", "is_linear_compressed"),
+        [
+            ({"module_name_configs": {"linear": None}}, False),
+            ({"module_type_configs": {nn.Linear: None}}, False),
+            (
+                {
+                    "module_name_configs": {
+                        "linear": ModuleKMeansPalettizerConfig(
+                            op_state_spec={"*": None},
+                            op_input_spec={"*": None},
+                            op_output_spec={"*": None},
+                        )
+                    }
+                },
+                False,
+            ),
+            (
+                {
+                    "module_type_configs": {
+                        nn.Linear: ModuleKMeansPalettizerConfig(
+                            op_state_spec={"*": None},
+                            op_input_spec={"*": None},
+                            op_output_spec={"*": None},
+                        )
+                    }
+                },
+                False,
+            ),
+            (
+                {
+                    "module_name_configs": {
+                        "linear": ModuleKMeansPalettizerConfig(
+                            op_state_spec={"weight": default_weight_palettization_spec()},
+                            op_input_spec={"*": None},
+                            op_output_spec={"*": None},
+                        )
+                    }
+                },
+                True,
+            ),
+            (
+                {
+                    "module_type_configs": {
+                        nn.Linear: ModuleKMeansPalettizerConfig(
+                            op_state_spec={"weight": default_weight_palettization_spec()},
+                            op_input_spec={"*": None},
+                            op_output_spec={"*": None},
+                        )
+                    }
+                },
+                True,
+            ),
+        ],
+        ids=[
+            "by_name",
+            "by_type",
+            "explicit_sentinel_no_weight_by_name",
+            "explicit_sentinel_no_weight_by_type",
+            "weight_compressed_no_activation_by_name",
+            "weight_compressed_no_activation_by_type",
+        ],
+    )
+    def test_skipped_layer_builds_no_activation_handler(
+        self, simple_conv_linear_model, simple_model_input, exclusion, is_linear_compressed
+    ):
+        """A skipped layer must leave palettization weight-only."""
+        config = KMeansPalettizerConfig(**exclusion)
+
+        palettizer = KMeansPalettizer(simple_conv_linear_model, config)
+        prepared_model = palettizer.prepare((simple_model_input,))
+
+        assert is_parametrized(prepared_model.conv, "weight")
+        assert is_parametrized(prepared_model.linear, "weight") is is_linear_compressed
+
+        assert palettizer._handler.act_handler is None
+
     def test_weight_palettization(self, simple_conv_linear_model, basic_config, simple_model_input):
         """
         Test that weight palettization is taking place
@@ -295,6 +372,29 @@ class TestKMeansPalettizer:
         assert is_parametrized(prepared_model[2], "weight")
         assert isinstance(prepared_model[2].parametrizations.weight[0], _FakePalettizeImplBase)
         assert not prepared_model[2].parametrizations.weight[0].is_disabled()
+
+    def test_skip_warning_names_the_offending_weight(self, caplog):
+        """The skip warning identifies the weight by FQN and shape."""
+        # axis 0 is out_features: 12 % 8 != 0.
+        model = nn.Sequential(nn.Linear(8, 12))
+        spec = PalettizationSpec(
+            n_bits=2, granularity=PerGroupedChannelGranularity(axis=0, group_size=8)
+        )
+        config = KMeansPalettizerConfig(
+            global_config=ModuleKMeansPalettizerConfig(op_state_spec={"weight": spec})
+        )
+
+        with caplog.at_level(logging.WARNING):
+            KMeansPalettizer(model, config).prepare((torch.randn(1, 8),))
+
+        skip_messages = [msg for msg in caplog.messages if "Skipping palettization" in msg]
+        assert len(skip_messages) == 1, f"Expected one skip warning, got {skip_messages}"
+        assert skip_messages[0] == (
+            "Tensor '0.weight' (shape: (12, 8)) incompatible with configured spec: Tensor size "
+            "12 along axis 0 is not divisible by group_size 8. For per-grouped-channel "
+            "palettization, the tensor shape along the specified axis must be divisible by "
+            "group_size. Skipping palettization."
+        )
 
     def test_prepared_model_supports_torch_inference(
         self, simple_conv_linear_model, simple_model_input

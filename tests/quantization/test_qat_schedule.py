@@ -25,6 +25,7 @@ from coreai_opt.quantization import (
 )
 from coreai_opt.quantization.config import ExecutionMode, QATSchedule
 from coreai_opt.quantization.spec import (
+    QuantizationSpec,
     default_activation_quantization_spec,
     default_weight_quantization_spec,
 )
@@ -167,12 +168,17 @@ class SharedWeightModel(nn.Module):
 
 
 @pytest.mark.parametrize("execution_mode", [ExecutionMode.EAGER, ExecutionMode.GRAPH])
-def test_shared_weight_keeps_first_schedule(execution_mode):
-    """When two modules share a weight, the shared FQ gets the first
-    module's schedule. In Eager mode a warning is emitted because the
-    same FQ instance is found under both modules. In PT2E the graph
-    deduplicates the shared weight into a single FQ node so no
-    conflict arises.
+def test_shared_weight_schedule_owner(execution_mode):
+    """When two modules share a weight, the shared FQ's schedule follows a
+    single, consistent owner rather than an arbitrary mix of both configs.
+
+    In Eager mode the same FakeQuantize instance is literally shared between
+    both modules, so a warning is emitted and the first-assigned schedule
+    (linear1's) wins. In graph mode the shared weight is deduplicated into
+    one FQ node whose owning module is resolved by config priority — the
+    same priority that decides the FQ's dtype (see
+    ``GraphQuantizer._get_fake_quantize_modules``) — which for two
+    ``module_name_configs`` entries is the later-declared one (linear2's).
     """
     config = QuantizerConfig(
         global_config=None,
@@ -205,14 +211,58 @@ def test_shared_weight_keeps_first_schedule(execution_mode):
 
     assert len(quantizer._fq_to_schedule) == 1
     (schedule,) = quantizer._fq_to_schedule.values()
-    assert schedule.enable_fake_quant == 1
+    # Eager mode picks linear1's schedule (first-assigned to the shared FQ
+    # instance); graph mode picks linear2's, since it has higher config
+    # priority (declared later) — the same priority that decides dtype.
+    expected_step = 1 if execution_mode == ExecutionMode.EAGER else 5
+    assert schedule.enable_fake_quant == expected_step
 
-    # Verify linear1's schedule (fq at step 1) is actually applied
+    # Verify the winning owner's schedule is actually applied
     with quantizer.training_mode():
         (fq_mod,) = quantizer._fq_to_schedule.keys()
         assert fq_mod.fake_quant_enabled.item() == 0
-        quantizer.step()  # step_count = 1
+        for _ in range(expected_step):
+            quantizer.step()
         assert fq_mod.fake_quant_enabled.item() == 1
+
+
+def test_shared_weight_dtype_and_schedule_share_owner_graph_mode():
+    """In graph mode, a shared weight's QATSchedule follows the same config
+    priority used to resolve its dtype and the rest of its qspec.
+
+    linear2 has higher priority than linear1 since it is declared later in
+    ``module_name_configs``, so the shared FQ's dtype, qspec, and
+    QATSchedule should all follow linear2's config — even though linear1 is
+    the first consumer encountered in graph order.
+    """
+    config = QuantizerConfig(
+        global_config=None,
+        module_name_configs={
+            "linear1": ModuleQuantizerConfig(
+                op_state_spec={"weight": QuantizationSpec(dtype=torch.int8)},
+                op_input_spec=None,
+                op_output_spec=None,
+                qat_schedule=QATSchedule(enable_observer=0, enable_fake_quant=1),
+            ),
+            "linear2": ModuleQuantizerConfig(
+                op_state_spec={"weight": QuantizationSpec(dtype=torch.int4)},
+                op_input_spec=None,
+                op_output_spec=None,
+                qat_schedule=QATSchedule(enable_observer=0, enable_fake_quant=5),
+            ),
+        },
+        execution_mode=ExecutionMode.GRAPH,
+    )
+    quantizer = Quantizer(SharedWeightModel(), config)
+    quantizer.prepare((torch.randn(1, 10),))
+
+    assert len(quantizer._fq_to_schedule) == 1
+    (fq_mod, schedule) = next(iter(quantizer._fq_to_schedule.items()))
+
+    # linear2 (declared later, higher config priority) owns the dtype ...
+    assert (fq_mod.quant_min, fq_mod.quant_max) == (-8, 7)  # int4
+    # ... and must also own the schedule.
+    assert schedule.enable_fake_quant == 5
 
 
 # ---------------------------------------------------------------------------

@@ -112,7 +112,7 @@ with quantizer.calibration_mode():
 
 The W_P4(INT8)\_A_INT8 model achieves `29.86 dB` — a further drop of `0.47 dB` compared to W_INT8_A_INT8.
 
-Refer to [Joint Compression](../utils/joint_compression.md) for more information on joint compression.
+Refer to [Joint Compression](../../utils/joint_compression.md) for more information on joint compression.
 
 ## Finalize
 
@@ -124,7 +124,7 @@ finalized_model = quantizer.finalize(backend=opt.ExportBackend.CoreAI)
 ```
 
 At this point, the model is ready to be exported for downstream conversion with `coreai-torch`.
-Refer to [Integration with Core AI](../introduction/integration_coreai.md) for more details.
+Refer to [Integration with Core AI](../../introduction/integration_coreai.md) for more details.
 
 ## Summary
 
@@ -141,4 +141,4 @@ Users may also consider:
 
 - Increasing the number of calibration images to improve activation scale estimates
 - Applying palettization or quantization selectively to only the most compressible layers
-- Using [Sensitive K-Means](../palettization/overview.md#sensitive-k-means-api) calibration to place centroids near weight values that matter most for output quality
+- Using [Sensitive K-Means](../../palettization/overview.md#sensitive-k-means-api) calibration to place centroids near weight values that matter most for output quality

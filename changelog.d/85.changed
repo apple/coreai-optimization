@@ -1,0 +1,1 @@
+When a weight is incompatible with the configured quantization block size or palettization granularity, the warning now reports the weight's fully qualified name and shape along with the module name to use in `module_name_configs`, instead of only the compression target.

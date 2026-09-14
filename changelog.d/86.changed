@@ -1,0 +1,1 @@
+Re-cluster palettization centroids from the warmed-up weights when a `PATSchedule` enables fake palettization mid-training (`enable_fake_palettize > 0`).

@@ -109,7 +109,8 @@ ENSURE_MODE=false
 
 # Groups excluded from --all-groups due to mutual conflicts in pyproject.toml.
 # tamm-export is omitted because it's opt-in only (never in default-groups or --all-groups).
-CONFLICTING_GROUPS=("torch_2_8" "torch_2_9" "torch_2_10" "torch_2_11")
+CONFLICTING_GROUPS=("torch_2_8" "torch_2_9" "torch_2_10"
+    "torch_2_11" "torch_2_12" "torch_2_13")
 
 show_help() {
     echo "Usage: $0 [OPTIONS]"
@@ -136,7 +137,7 @@ show_help() {
     echo "  $0 --python-version 3.11                               # Setup with dev group only"
     echo "  $0 --python-version 3.11 --with-docs                   # Setup with dev and docs groups"
     echo "  $0 --python-version 3.11 --all-groups                                    # Setup with all non-conflicting groups"
-    echo "  TORCH_GROUP=torch_2_11 $0 --python-version 3.11 --all-groups             # Setup with all groups and torch 2.11"
+    echo "  TORCH_GROUP=torch_2_13 $0 --python-version 3.11 --all-groups             # Setup with all groups and torch 2.13"
     echo "  TORCH_GROUP=torch_2_8 $0 --python-version 3.11 --all-groups              # Setup with all groups and torch 2.8"
     echo "  $0 --python-version 3.11 --venv .venv-exp              # Setup with custom venv name"
     echo "  $0 --python-version 3.11 --with-docs --venv .venv-exp  # Setup with docs group and custom venv name"

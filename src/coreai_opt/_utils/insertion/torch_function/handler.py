@@ -9,9 +9,11 @@ from collections.abc import Mapping
 from typing import Any
 
 import torch.nn as nn
+import torch.nn.utils.parametrize as P
 
 from coreai_opt._utils.torch_utils import NamedModule
 from coreai_opt.config import CompressionConfig
+from coreai_opt.config.spec import CompressionSimulatorBase
 
 from .base_supported_ops_registry import BaseSupportedOpsRegistry
 from .modes import (
@@ -19,6 +21,18 @@ from .modes import (
     RegisterEagerOptimizationMode,
 )
 from .types import ModuleCompressionComponents
+
+
+def _record_tensor_fqns(model: nn.Module) -> None:
+    """Record the FQN of each parametrized tensor on the simulator compressing it."""
+    for module_name, module in model.named_modules():
+        if not P.is_parametrized(module):
+            continue
+        for param_name, parametrizations in module.parametrizations.items():
+            fqn = f"{module_name}.{param_name}" if module_name else param_name
+            for simulator in parametrizations:
+                if isinstance(simulator, CompressionSimulatorBase):
+                    simulator.tensor_fqn = fqn
 
 
 class TorchFunctionEagerHandler:
@@ -70,6 +84,9 @@ class TorchFunctionEagerHandler:
         # seen again later in the forward pass.
         register_optimization_mode.register_all_activations()
         register_optimization_mode.register_all_states()
+
+        _record_tensor_fqns(model)
+
         if self._is_weight_only_optimization(self.module_components_dict):
             return model
 

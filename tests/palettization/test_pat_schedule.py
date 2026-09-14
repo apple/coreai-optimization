@@ -27,7 +27,11 @@ from coreai_opt.palettization import (
 )
 from coreai_opt.palettization.config import PATSchedule
 from coreai_opt.palettization.kmeans.kmeans_fake_palettize import _KMeansFakePalettize
-from coreai_opt.palettization.spec import default_weight_palettization_spec
+from coreai_opt.palettization.spec import (
+    PalettizationSpec,
+    PerTensorGranularity,
+    default_weight_palettization_spec,
+)
 
 
 class ToyModel(nn.Module):
@@ -348,3 +352,48 @@ class TestDefaultStrategyTraining:
         # graph intact: gradients reach the input (through the palettized layer) and downstream
         assert x.grad is not None
         assert prepared.head.weight.grad is not None
+
+
+class TestReclusterOnScheduleEnable:
+    """Crossing the enable_fake_palettize threshold after warm-up re-clusters
+    centroids from the current (warmed-up) weights, not the frozen prepare-time
+    weights.
+    """
+
+    def test_reclusters_from_warmed_up_weights(self):
+        spec = PalettizationSpec(
+            n_bits=2,
+            lut_qspec=None,
+            granularity=PerTensorGranularity(),
+            cluster_dim=1,
+            enable_per_channel_scale=False,
+        )
+        config = KMeansPalettizerConfig(
+            global_config=ModuleKMeansPalettizerConfig(
+                op_state_spec={"weight": spec},
+                pat_schedule=PATSchedule(enable_fake_palettize=2),
+            )
+        )
+        palettizer = KMeansPalettizer(ToyModel(), config)
+        prepared = palettizer.prepare(_example_input())
+        fp = _fp_for(prepared, "linear")
+        prepare_centroids = fp.centroids.clone()
+
+        # warmed_up represents weights that have updated as a result of training during warmup
+        warmed_up = torch.tensor([-3.0, -1.0, 1.0, 3.0]).repeat(32).reshape(8, 16)
+        with palettizer.training_mode():
+            with torch.no_grad():
+                prepared.linear.parametrizations.weight.original.copy_(warmed_up)
+            palettizer.step()  # step 1 < 2: still disabled (warm-up)
+            palettizer.step()  # step 2 == threshold: disabled -> enabled transition
+            reconstructed = prepared.linear.weight  # triggers the re-cluster + hard assign
+
+        # Centroids were recomputed from the warmed-up weights, not frozen at prepare time.
+        assert not torch.equal(fp.centroids, prepare_centroids)
+        torch.testing.assert_close(
+            fp.centroids.flatten().sort().values,
+            torch.tensor([-3.0, -1.0, 1.0, 3.0]),
+        )
+        # Exact reconstruction is only possible if the centroids came from the
+        # warmed-up weights.
+        torch.testing.assert_close(reconstructed, warmed_up)

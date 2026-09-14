@@ -1,6 +1,6 @@
 # Mixed-precision palettization with ResNet50
 
-In this article we walk through the [Mixed-Precision Compression](../utils/mixed_precision.md) workflow applied to ResNet50 weight palettization. We use 2/4/6-bit per-tensor palettization as our candidate configs, PSNR on logits as the sensitivity metric, and generate the recipe with the greedy approach targeting 4 bits-per-weight (BPW). See the linked page for definitions of each term and the three-stage workflow.
+In this article we walk through the [Mixed-Precision Compression](../../utils/mixed_precision.md) workflow applied to ResNet50 weight palettization. We use 2/4/6-bit per-tensor palettization as our candidate configs, PSNR on logits as the sensitivity metric, and generate the recipe with the greedy approach targeting 4 bits-per-weight (BPW). See the linked page for definitions of each term and the three-stage workflow.
 
 ## Model and dataset
 
@@ -117,7 +117,7 @@ At a slightly lower BPW than uniform 4-bit, mixed precision lifts top-1 accuracy
 
 We sweep the target BPW from 2 to 6 to trace out the curve below.
 
-![Accuracy vs realized BPW for greedy mixed-precision recipes on ResNet50](images/mixed_precision_tradeoff.png)
+![Accuracy vs realized BPW for greedy mixed-precision recipes on ResNet50](../images/mixed_precision_tradeoff.png)
 
 The inflection sits at around `4.0` realized BPW: below it, every additional 0.5 BPW buys us 15-35 percentage points of accuracy; above it, gains drop to 1-2 points per 0.5 BPW as the curve flattens toward the FP16 baseline.
 

@@ -166,7 +166,7 @@ class TestCrossLayerParallel:
         unseeded ``torch.randint`` / ``np.random.choice`` — so spawned workers
         and the main process see different RNG states. To make the comparison
         deterministic anyway, the linear weight is hand-built so that, after
-        ``_vectorize`` (transpose + reshape into 2D pairs), the vectors form 4
+        ``_vectorize_block`` (transpose + reshape into 2D pairs), the vectors form 4
         well-separated clusters. K-means converges to those 4 centers from any
         reasonable initialization, so both paths produce the same reconstructed
         weights (up to a cluster-ID permutation), and the model output matches.

@@ -26,6 +26,9 @@ class CompressionSimulatorBase(_ClassRegistryMixin, nn.Module):
     compression simulation is performed during training.
     """
 
+    # FQN of the compressed tensor
+    tensor_fqn: str = "<unknown>"
+
     @abstractmethod
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         """

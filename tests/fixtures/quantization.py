@@ -17,6 +17,7 @@ from coreai_opt.quantization.spec import (
     PerBlockGranularity,
     PerChannelGranularity,
     PerTensorGranularity,
+    QuantizationGranularity,
     QuantizationScheme,
     QuantizationSpec,
 )
@@ -50,23 +51,27 @@ def make_quant_config(
     weight_dtype: torch.dtype | str | None,
     act_dtype: torch.dtype | str | None,
     execution_mode: str,
+    granularity: QuantizationGranularity | None = None,
 ) -> QuantizerConfig:
-    """Build a per-tensor symmetric QuantizerConfig for export tests.
+    """Build a symmetric QuantizerConfig for export tests.
 
     Args:
         weight_dtype (torch.dtype | str | None): Weight dtype, or None to disable.
         act_dtype (torch.dtype | str | None): Activation dtype, or None to disable.
         execution_mode (str): Either "eager" or "graph".
+        granularity (QuantizationGranularity | None): Granularity for both the
+            weight and activation specs. Defaults to per-tensor.
 
     Returns:
-        QuantizerConfig: Config with the requested per-tensor symmetric specs.
+        QuantizerConfig: Config with the requested symmetric specs.
     """
+    granularity = granularity or PerTensorGranularity()
 
     def _spec(dtype: torch.dtype | str) -> QuantizationSpec:
         return QuantizationSpec(
             dtype=dtype,
             qscheme=QuantizationScheme.SYMMETRIC,
-            granularity=PerTensorGranularity(),
+            granularity=granularity,
         )
 
     weight_spec = _spec(weight_dtype) if weight_dtype is not None else None
@@ -78,6 +83,65 @@ def make_quant_config(
             op_output_spec={"*": act_spec},
         ),
         execution_mode=execution_mode,
+    )
+
+
+def make_graph_mode_module_boundary_config(
+    *,
+    module_boundary_dtype: torch.dtype,
+    module_name: str | None = None,
+    module_type: type | None = None,
+    module_input_spec: dict | None = None,
+    global_dtype: torch.dtype = torch.int8,
+) -> QuantizerConfig:
+    """Build a graph-mode config that also quantizes one module's own i/o boundary.
+
+    The global part comes from ``make_quant_config``; this adds a module-scoped
+    ``module_input_spec`` / ``module_output_spec`` on top of it.
+
+    Args:
+        module_boundary_dtype: Activation dtype for the boundary spec.
+        module_name: Target the module at this path (``module_name_configs``).
+        module_type: Target modules of this type (``module_type_configs``).
+            Exactly one of module_name / module_type must be given.
+        module_input_spec: Override the boundary input spec, e.g.
+            ``{0: spec, 2: spec}`` to select individual positional args.
+            Defaults to the ``"*"`` wildcard over every boundary input.
+        global_dtype: Weight and activation dtype for the global config.
+
+    Returns:
+        QuantizerConfig: the global config plus a module-scoped boundary spec.
+
+    Raises:
+        ValueError: If not exactly one of module_name / module_type is provided.
+    """
+    if (module_name is None) == (module_type is None):
+        msg = "pass exactly one of module_name / module_type"
+        raise ValueError(msg)
+
+    def _boundary_spec() -> QuantizationSpec:
+        return QuantizationSpec(
+            dtype=module_boundary_dtype,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerTensorGranularity(),
+        )
+
+    boundary_config = ModuleQuantizerConfig(
+        module_input_spec=module_input_spec or {"*": _boundary_spec()},
+        module_output_spec={"*": _boundary_spec()},
+    )
+    scope = (
+        {"module_name_configs": {module_name: boundary_config}}
+        if module_name is not None
+        else {"module_type_configs": {module_type: boundary_config}}
+    )
+    base = make_quant_config(
+        weight_dtype=global_dtype, act_dtype=global_dtype, execution_mode="graph"
+    )
+    return QuantizerConfig(
+        global_config=base.global_config,
+        execution_mode="graph",
+        **scope,
     )
 
 
