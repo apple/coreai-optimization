@@ -83,13 +83,12 @@ class BitsPerWeightResult:
 
     Attributes:
         bpw (float): Overall average bits per weight across all parameters
-            (``total_bits / total_weights``); ``0.0`` if the model has no
-            parameters.
+            (``total_bits / total_weights``).
         per_module_map (dict[str, float]): Map from module name to that module's own
-            average bits per weight. Modules with no logical tensors are omitted.
+            average bits per weight. Modules with no tensors are omitted.
         total_bits (int): Total storage cost in bits, including amortized
             compression overhead.
-        total_weights (int): Total number of logical parameter elements.
+        total_weights (int): Total number of parameter elements.
     """
 
     bpw: float
@@ -108,25 +107,25 @@ def bits_per_weight(model: torch.nn.Module) -> BitsPerWeightResult:
     """Compute the average bits-per-weight of a prepared ``coreai-opt`` model.
 
     Walks the module tree once. For each parametrized weight, the dense original
-    tensor is counted at its effective compressed cost (quantization or
-    palettization). Every other directly-owned parameter (biases, norms,
-    untargeted weights) and every buffer (BatchNorm running stats, RoPE caches,
-    etc.) are counted at their full-precision dtype cost, regardless of
-    ``persistent=``, i.e., the metric covers every tensor the model carries.
+    tensor is counted at its effective compressed cost (eager mode quantization or
+    palettization). Every other directly-owned parameter (biases, norms) and every
+    buffer (BatchNorm running stats, RoPE caches, etc.) are counted at their
+    full-precision dtype cost, regardless of ``persistent=``, i.e., the metric
+    covers every tensor the model carries.
 
     Args:
         model (torch.nn.Module): A full-precision, eager-mode quantized, or
             palettized prepared model.
 
     Returns:
-        BitsPerWeightResult: Overall bpw, per-module breakdown, and the totals
-        used to derive them.
+        BitsPerWeightResult: Overall bpw, per-module breakdown, and the total
+        number of bits and weights used to derive them.
 
     Raises:
         NotImplementedError: If ``model`` is a graph-mode prepared model (a
             ``torch.fx.GraphModule``) or a ``torch.export.ExportedProgram``, or if it
             contains a weight compression whose storage cost this utility cannot
-            compute: an unsupported quantization or scale dtype, pruning, or a
+            compute, i.e., an unsupported quantization or scale dtype, pruning, or a
             parametrization storing multiple original tensors.
     """
     if isinstance(model, (torch.fx.GraphModule, torch.export.ExportedProgram)):
