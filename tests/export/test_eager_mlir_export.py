@@ -301,16 +301,22 @@ def test_fp8_simple_model_export(
     )
 
 
+@pytest.mark.parametrize("use_mmap", [False, True], ids=["no_mmap", "mmap"])
 def test_fp4_simple_model_export(
     simple_linear_model: torch.nn.Module,
     simple_linear_model_input: torch.Tensor,
     parametrized_fp4_config: ParametrizedFP4Configs,
+    use_mmap: bool,
+    tmp_path,
 ) -> None:
     """Test eager MLIR export with FP4 quantization.
 
     FP4 quantization requires symmetric scheme and per-block granularity.
     Tests both weight-only and weight+activation FP4 quantization.
+    With ``use_mmap``, finalize streams the ``Float4Tensor`` weights to
+    mmap-backed safetensors files.
     """
+    mmap_dir = str(tmp_path) if use_mmap else None
     _run_eager_mlir_export_test_ex(
         model=simple_linear_model,
         input_data=simple_linear_model_input,
@@ -321,7 +327,13 @@ def test_fp4_simple_model_export(
             "quantize": 4 if parametrized_fp4_config.with_activation_quant else 0,
             "dequantize": 4 if parametrized_fp4_config.with_activation_quant else 0,
         },
+        mmap_dir=mmap_dir,
     )
+    if use_mmap:
+        assert sorted(p.name for p in tmp_path.glob("*.safetensors")) == [
+            "l1.weight.safetensors",
+            "l2.weight.safetensors",
+        ]
 
 
 @pytest.mark.parametrize(
@@ -360,31 +372,10 @@ def test_simple_model_export_with_mmap(
         },
         mmap_dir=str(tmp_path),
     )
-    assert any(tmp_path.glob("*.safetensors")), "finalize did not write mmap files"
-
-
-def test_fp4_simple_model_export_with_mmap(
-    simple_linear_model: torch.nn.Module,
-    simple_linear_model_input: torch.Tensor,
-    parametrized_fp4_config: ParametrizedFP4Configs,
-    tmp_path,
-) -> None:
-    """Full eager FP4 export succeeds over mmap-backed weights, exercising the
-    ``Float4Tensor`` unwrap/re-wrap during mmap.
-    """
-    _run_eager_mlir_export_test_ex(
-        model=simple_linear_model,
-        input_data=simple_linear_model_input,
-        config=parametrized_fp4_config.eager,
-        model_dtype=parametrized_fp4_config.model_dtype,
-        expected_ops={
-            "constexpr_blockwise_shift_scale": 2,
-            "quantize": 4 if parametrized_fp4_config.with_activation_quant else 0,
-            "dequantize": 4 if parametrized_fp4_config.with_activation_quant else 0,
-        },
-        mmap_dir=str(tmp_path),
-    )
-    assert any(tmp_path.glob("*.safetensors")), "finalize did not write mmap files"
+    assert sorted(p.name for p in tmp_path.glob("*.safetensors")) == [
+        "conv.weight.safetensors",
+        "linear.weight.safetensors",
+    ]
 
 
 def test_gated_mlp_perchannel_act_export(

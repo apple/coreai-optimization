@@ -126,12 +126,20 @@ def test_finalize_mmap_preserves_weight_sharing(
     assert files == expected, f"a shared weight must be written once, got {files}"
 
     if execution_mode is ExecutionMode.EAGER:
-        # The tied layers must still share the very same dequant parametrization object
-        # after an mmap finalize, not two separate ones that happen to match.
         assert (
             finalized_mmap.layer1.parametrizations["weight"][0]
             is finalized_mmap.layer2.parametrizations["weight"][0]
         ), "mmap finalize did not preserve sharing for weight-tied modules"
+    else:
+        # torch.export collapses the tied pair to a single buffer
+        quantized_buffers = sorted(
+            name for name, _ in finalized_mmap.named_buffers() if name.endswith("_weight_quantized")
+        )
+        assert quantized_buffers == [
+            "input_layer_weight_quantized",
+            "layer2_weight_quantized",
+            "output_weight_quantized",
+        ], f"tied weight was not collapsed to one graph buffer, got {quantized_buffers}"
 
     with torch.no_grad():
         assert torch.equal(finalized_ref(example_input), finalized_mmap(example_input))
