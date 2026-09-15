@@ -19,8 +19,8 @@ from coreai_opt._utils.registry_utils import (
 )
 from coreai_opt._utils.torch_utils import (
     E8M0_EXPONENT_BIAS as _E8M0_EXPONENT_BIAS,
+    E8M0_TARGET_MAX_POW2 as _E8M0_TARGET_MAX_POW2,
     F32_MIN_NORMAL as _F32_MIN_NORMAL,
-    FP_DTYPE_TO_MAX_POW2 as _FP_DTYPE_TO_MAX_POW2,
 )
 
 from .granularity import QuantizationGranularity
@@ -174,11 +174,11 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             - torchao implementation:
               https://github.com/pytorch/ao/blob/main/torchao/prototype/mx_formats/mx_tensor.py
         """
-        target_max_pow2 = _FP_DTYPE_TO_MAX_POW2.get(self.dtype)
+        target_max_pow2 = _E8M0_TARGET_MAX_POW2.get(self.dtype)
         if target_max_pow2 is None:
             raise ValueError(
                 f"Unsupported dtype for e8m0 scale computation: {self.dtype}. "
-                f"Supported: {list(_FP_DTYPE_TO_MAX_POW2.keys())}"
+                f"Supported: {list(_E8M0_TARGET_MAX_POW2.keys())}"
             )
 
         max_abs_fp32 = max_abs.to(torch.float32)
@@ -219,11 +219,8 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         constrained to powers of 2 following the OCP Microscaling (MX)
         specification (FLOOR mode):
             scale = 2^(floor(log2(max_abs)) - target_max_pow2)
-            where ``target_max_pow2`` is the largest power-of-2 component of the
-            target dtype's maximum representable value:
-                - FP4 E2M1:  max = 6.0     = 1.5  * 2^2,  target_max_pow2 = 2
-                - FP8 E4M3:  max = 448.0   = 1.75 * 2^8,  target_max_pow2 = 8
-                - FP8 E5M2:  max = 57344.0 = 1.75 * 2^15, target_max_pow2 = 15
+            where ``target_max_pow2`` comes from ``E8M0_TARGET_MAX_POW2``, which
+            is the single source of truth for which dtypes support an e8m0 scale.
         """
 
         # e8m0 path: power-of-2 scales
