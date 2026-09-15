@@ -240,6 +240,8 @@ quantization_config:
 
 This config would apply the FP4 quantization to all supported ops' weights, and FP8 quantization to all supported ops' activations at both inputs and outputs. (See discussion in [Two Execution Modes](overview.md#two-execution-modes-graph-and-eager) on the supported ops and patterns for quantization).
 
+To estimate what a weight config like this costs in terms of bits per weight (BPW), use the {func}`~coreai_opt.inspection.bits_per_weight` utility to get an analytical BPW estimate for a *prepared* `coreai-opt` model.
+
 `global_config` allows access to the scope of all supported ops and modules in the model.
 
 Three fields target specific tensor groups within a module's operation:
