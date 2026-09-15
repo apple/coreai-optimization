@@ -320,6 +320,7 @@ _FIELD_POLICY: dict[FieldName, Any] = {
     FieldName.QPARAM_CALCULATOR_CLS: _policy_priority_wins,
     FieldName.RANGE_CALCULATOR_CLS: _policy_priority_wins,
     FieldName.SCALE_DTYPE: _policy_priority_wins,
+    FieldName.SPARSITY: _policy_priority_wins,
     # Covering every member's values is a correctness constraint, not a
     # preference, so this one unions instead of deferring to priority.
     FieldName.FLOAT_RANGE: _policy_float_range_union,
