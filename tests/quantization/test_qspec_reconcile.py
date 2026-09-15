@@ -618,6 +618,7 @@ class TestBuildConcreteSpec:
             FieldName.QPARAM_CALCULATOR_CLS: _fv(MovingAverageQParamsCalculator),
             FieldName.RANGE_CALCULATOR_CLS: _fv(MinMaxRangeCalculator),
             FieldName.SCALE_DTYPE: _fv(None),
+            FieldName.SPARSITY: _fv(None),
             FieldName.QUANTIZATION_TARGET: _fv(CompressionTargetTensor.ACTIVATION),
         }
         # Keyword keys arrive as strings; map them onto FieldName so they
