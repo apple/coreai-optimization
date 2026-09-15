@@ -55,14 +55,14 @@ def _run_graph_mode_mlir_export_test_ex(
     externalized_model: torch.nn.Module | None = None,
     mmap_dir: str | None = None,
 ) -> None:
-    """Run graph-mode Core AI export test with expanded configuration parameters.
+    """Run the shared export test workflow against the Core AI backend.
 
     Args:
         model: PyTorch model to quantize and export
         input_data: Input tensor for model
         config: graph-mode quantization configuration
-        model_dtype: Model dtype (float16, float32, bfloat16, or None for no conversion)
         expected_ops: Expected operation counts in converted model
+        model_dtype: Model dtype (float16, float32, bfloat16, or None for no conversion)
         calibrate: If True, run one calibration pass under
             ``quantizer.calibration_mode()`` before the reference forward.
         externalized_model: The model patched in place by
@@ -71,30 +71,16 @@ def _run_graph_mode_mlir_export_test_ex(
             file under this directory and reads it back mmap-backed (memory-efficient
             finalize). The full export must succeed unchanged over the mmap views.
     """
-    if model_dtype is not None:
-        model = model.to(dtype=model_dtype)
-        input_data = input_data.to(dtype=model_dtype)
-
-    model.eval()
-    quantizer = Quantizer(model, config)
-    prepared_model = quantizer.prepare((input_data,))
-
-    if calibrate:
-        with quantizer.calibration_mode(), torch.no_grad():
-            prepared_model(input_data)
-
-    with torch.no_grad():
-        prepared_model_output = prepared_model(input_data)
-
-    finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI, mmap_dir=mmap_dir)
-
-    export_utils.convert_and_verify(
-        finalized_model=finalized_model,
+    export_utils.run_quantization_export_test(
+        model=model,
         input_data=input_data,
+        config=config,
         expected_ops=expected_ops,
         export_backend=ExportBackend.CoreAI,
-        prepared_model_output=prepared_model_output,
+        model_dtype=model_dtype,
+        calibrate=calibrate,
         externalized_model=externalized_model,
+        mmap_dir=mmap_dir,
     )
 
 

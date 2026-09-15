@@ -37,37 +37,26 @@ def _run_eager_mlir_export_test_ex(
     model_dtype: torch.dtype | None = None,
     mmap_dir: str | None = None,
 ) -> None:
-    """Run eager Core AI export test with expanded configuration parameters.
+    """Run the shared export test workflow against the Core AI backend.
 
     Args:
         model: PyTorch model to quantize and export
         input_data: Input tensor for model
         config: Eager quantization configuration
-        model_dtype: Model dtype (float16, float32, bfloat16, or None for no conversion)
         expected_ops: Expected operation counts in converted model
+        model_dtype: Model dtype (float16, float32, bfloat16, or None for no conversion)
         mmap_dir: If set, finalize streams each quantized weight to a safetensors
             file under this directory and reads it back mmap-backed (memory-efficient
             finalize). The full export must succeed unchanged over the mmap views.
     """
-    if model_dtype is not None:
-        model = model.to(dtype=model_dtype)
-        input_data = input_data.to(dtype=model_dtype)
-
-    model.eval()
-    quantizer = Quantizer(model, config)
-    prepared_model = quantizer.prepare((input_data,))
-
-    with torch.no_grad():
-        prepared_model_output = prepared_model(input_data)
-
-    finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI, mmap_dir=mmap_dir)
-
-    export_utils.convert_and_verify(
-        finalized_model=finalized_model,
+    export_utils.run_quantization_export_test(
+        model=model,
         input_data=input_data,
+        config=config,
         expected_ops=expected_ops,
         export_backend=ExportBackend.CoreAI,
-        prepared_model_output=prepared_model_output,
+        model_dtype=model_dtype,
+        mmap_dir=mmap_dir,
     )
 
 
