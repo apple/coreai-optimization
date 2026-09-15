@@ -851,6 +851,21 @@ class TestInheritFields:
         assert con.apply(state)
         assert con.apply(state) == set()
 
+    def test_skips_target_whose_spec_is_empty(self) -> None:
+        """An empty field map means nothing has spoken for the slot, so there is
+        no observer to inherit into."""
+        src, dst = _slot("a"), _slot("b")
+        empty = ProvisionalQSpec()
+        state: ProvisionalQSpecMap = {
+            src: self._with(FLOAT_RANGE=_fv([0.0, None])),
+            dst: empty,
+        }
+        changed = InheritFields(source=src, targets=frozenset({dst}), fields=self._FACTS).apply(
+            state
+        )
+        assert changed == set()
+        assert empty.fields == {}
+
     def test_skips_declined_target(self) -> None:
         """A decline is an explicit opt-out and outranks a propagated fact."""
         src, dst = _slot("a"), _slot("b")

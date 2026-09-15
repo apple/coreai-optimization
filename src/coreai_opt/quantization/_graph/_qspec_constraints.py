@@ -114,7 +114,7 @@ class InheritFields(Constraint):
                 continue
             for target in self.targets:
                 target_qspec = qspecs.get(target)
-                if target_qspec is None or target_qspec.declined:
+                if target_qspec is None or not target_qspec.fields or target_qspec.declined:
                     # Only slots that already hold fields, and are not opted
                     # out, can inherit.
                     continue
