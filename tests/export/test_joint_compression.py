@@ -266,16 +266,21 @@ class TestJointPalettizationCompression:
     """PTP + PTS (post-training palettization + sparsity) across the n_bits/
     cluster_dim/granularity matrix.
 
-    Masking flattens indices to rank 1 before the LUT lookup, which only
-    preserves meaning for a single, position-independent codebook: per-tensor
-    granularity and scalar (cluster_dim=1) palettization. CoreAI's op chain has
-    no other combination to build, so it rejects unsupported configs outright.
-    CoreML falls back to ordinary (non-joint) compression instead of rejecting
-    -- but this is a genuine limitation of coremltools' own constexpr_lut_to_sparse,
-    not an overly-conservative gate on coreai_opt's side (unlike the quantization
-    zero_point case in ``TestJointQuantizationCompression``): coremltools' own
-    ``palettize_weights(joint_compression=True)`` falls back identically for these
-    same configs.
+    Masking flattens indices to rank 1 before the LUT lookup. CoreAI's op chain
+    needs a single, position-independent codebook for that to stay meaningful
+    -- per-tensor granularity and scalar (cluster_dim=1) -- and has no other
+    combination to build, so it rejects unsupported configs outright.
+
+    CoreML is more permissive: per-tensor and per-grouped-channel granularity
+    both keep one index per weight element, so coremltools' own sparse LUT op
+    can flatten indices via the mask and still recover per-position group
+    context -- confirmed directly against coremltools' own
+    ``palettize_weights(joint_compression=True)``, so coreai_opt no longer
+    gates on granularity for CoreML. Vector palettization (cluster_dim>1) is
+    different: it reduces the index count below the element count, so
+    flattening against the full-resolution mask is a genuine shape mismatch --
+    coremltools itself raises an ``IndexError`` there -- so CoreML still falls
+    back to ordinary (non-joint) compression for that one case.
     """
 
     # Per-tensor, scalar (cluster_dim=1) palettization: the only combination
@@ -285,9 +290,19 @@ class TestJointPalettizationCompression:
         ("6bit", {"n_bits": 6}),
         ("8bit", {"n_bits": 8}),
     ]
-    # Each violates exactly one of the two allowances (per-tensor, scalar).
+    # CoreAI rejects both outright. CoreML rejects only vector_ndim (see class
+    # docstring) -- grouped_channel gets the joint chain there.
     PALETT_INVALID_CONFIGS: list[tuple[str, dict]] = [
         ("vector_ndim", {"n_bits": 4, "cluster_dim": 2}),
+        (
+            "grouped_channel",
+            {"n_bits": 4, "granularity": PerGroupedChannelGranularity(axis=0, group_size=2)},
+        ),
+    ]
+    PALETT_COREML_FALLS_BACK_CONFIGS: list[tuple[str, dict]] = [
+        ("vector_ndim", {"n_bits": 4, "cluster_dim": 2}),
+    ]
+    PALETT_COREML_ACCEPTS_CONFIGS: list[tuple[str, dict]] = [
         (
             "grouped_channel",
             {"n_bits": 4, "granularity": PerGroupedChannelGranularity(axis=0, group_size=2)},
@@ -402,10 +417,10 @@ class TestJointPalettizationCompression:
 
     @pytest.mark.parametrize(
         "spec_kwargs",
-        [c[1] for c in PALETT_INVALID_CONFIGS],
-        ids=[c[0] for c in PALETT_INVALID_CONFIGS],
+        [c[1] for c in PALETT_COREML_FALLS_BACK_CONFIGS],
+        ids=[c[0] for c in PALETT_COREML_FALLS_BACK_CONFIGS],
     )
-    def test_coreml_falls_back_for_non_scalar_or_non_per_tensor_mnist(
+    def test_coreml_falls_back_for_vector_mnist(
         self, spec_kwargs, custom_test_mnist_model, mnist_example_input
     ):
         self._run(
@@ -419,10 +434,10 @@ class TestJointPalettizationCompression:
     @pytest.mark.slow
     @pytest.mark.parametrize(
         "spec_kwargs",
-        [c[1] for c in PALETT_INVALID_CONFIGS],
-        ids=[c[0] for c in PALETT_INVALID_CONFIGS],
+        [c[1] for c in PALETT_COREML_FALLS_BACK_CONFIGS],
+        ids=[c[0] for c in PALETT_COREML_FALLS_BACK_CONFIGS],
     )
-    def test_coreml_falls_back_for_non_scalar_or_non_per_tensor_resnet(
+    def test_coreml_falls_back_for_vector_resnet(
         self, spec_kwargs, resnet50_model, resnet_example_input
     ):
         self._run(
@@ -431,4 +446,37 @@ class TestJointPalettizationCompression:
             resnet_example_input,
             spec_kwargs,
             _palett_ordinary_ops(_RESNET_LAYER_COUNT),
+        )
+
+    @pytest.mark.parametrize(
+        "spec_kwargs",
+        [c[1] for c in PALETT_COREML_ACCEPTS_CONFIGS],
+        ids=[c[0] for c in PALETT_COREML_ACCEPTS_CONFIGS],
+    )
+    def test_coreml_accepts_grouped_channel_mnist(
+        self, spec_kwargs, custom_test_mnist_model, mnist_example_input
+    ):
+        self._run(
+            ExportBackend.CoreML,
+            custom_test_mnist_model,
+            mnist_example_input,
+            spec_kwargs,
+            _PALETT_EXPECTED_OPS[ExportBackend.CoreML](_MNIST_LAYER_COUNT),
+        )
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize(
+        "spec_kwargs",
+        [c[1] for c in PALETT_COREML_ACCEPTS_CONFIGS],
+        ids=[c[0] for c in PALETT_COREML_ACCEPTS_CONFIGS],
+    )
+    def test_coreml_accepts_grouped_channel_resnet(
+        self, spec_kwargs, resnet50_model, resnet_example_input
+    ):
+        self._run(
+            ExportBackend.CoreML,
+            resnet50_model,
+            resnet_example_input,
+            spec_kwargs,
+            _PALETT_EXPECTED_OPS[ExportBackend.CoreML](_RESNET_LAYER_COUNT),
         )

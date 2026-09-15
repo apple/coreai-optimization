@@ -163,19 +163,17 @@ def _register_mil_compression_metadata(
         leave_parametrized=True,
     )
 
-    # Determine compression type(s). coremltools' own torch-frontend converter
-    # auto-detects sparsity from raw zeros in the traced weight value when
-    # compression_type lists PRUNING first, then chains PALETTIZATION onto its
-    # constexpr_sparse_to_dense output (constexpr_lut_to_sparse). Only attempt
-    # that chain when it's position-independent; otherwise fall back to ordinary
-    # (non-joint) palettization metadata rather than rejecting the config
-    # outright -- unlike CoreAI, CoreML has no other combination to reject here.
+    # PRUNING must be listed first for coremltools to chain the sparse LUT op;
+    # only safe when the indices stay position-preserving (see
+    # _is_position_preserving_palettization).
     lut_quant = palett_info.lut_quantization
     if lut_quant is not None:
         compression_type = [CompressionType.PALETTIZATION, CompressionType.QUANTIZATION]
     else:
         compression_type = [CompressionType.PALETTIZATION]
-    if fake_palett_mod.sparsity is not None and _is_scalar_per_tensor_sparsity(fake_palett_mod):
+    if fake_palett_mod.sparsity is not None and _is_position_preserving_palettization(
+        fake_palett_mod
+    ):
         compression_type = [CompressionType.PRUNING, *compression_type]
 
     metadata = MILCompressionMetadata(
@@ -242,19 +240,21 @@ def _resolve_mlir_lut_and_scale(
     return lut, scale, offset
 
 
-def _is_scalar_per_tensor_sparsity(fake_palett_mod: _FakePalettizeImplBase) -> bool:
+def _is_position_preserving_palettization(fake_palett_mod: _FakePalettizeImplBase) -> bool:
     """True if masking-then-flattening the indices stays position-independent.
 
-    Masking flattens indices to rank 1 before the LUT lookup, which only preserves
-    meaning when every element shares one scalar codebook: per-tensor granularity
-    (not per-channel/grouped, which use multiple LUTs) and cluster_dim == 1 (not
-    vector palettization, whose indices are already at a reduced, position-dependent
-    rank). A quantized LUT or per-channel scale would also apply a position-dependent
-    mapping that flattening would scramble.
+    Per-tensor and per-grouped-channel granularity both keep one index per
+    weight element, so coremltools' own sparse LUT op can flatten indices via
+    the mask and still recover per-position group context -- confirmed by
+    comparing against coremltools' own joint_compression flow directly.
+    ``cluster_dim > 1`` (vector palettization) reduces the index count below
+    the element count, so it can't be masked against the full-resolution mask
+    (coremltools itself raises an ``IndexError`` there). A quantized LUT or
+    per-channel scale would also apply a position-dependent mapping that
+    flattening would scramble.
     """
     return (
-        isinstance(fake_palett_mod.granularity, PerTensorGranularity)
-        and fake_palett_mod.cluster_dim == 1
+        fake_palett_mod.cluster_dim == 1
         and fake_palett_mod.lut_qspec is None
         and not fake_palett_mod.enable_per_channel_scale
     )
