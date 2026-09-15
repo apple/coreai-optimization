@@ -20,6 +20,7 @@ Example::
     print(inspector.format_summary())
 """
 
+from .bits_per_weight import BitsPerWeightResult, bits_per_weight
 from .model_inspector import ModelInspector
 from .types import (
     BoundaryEdge,
@@ -32,6 +33,7 @@ from .types import (
 )
 
 __all__ = [
+    "BitsPerWeightResult",
     "BoundaryEdge",
     "InputEdge",
     "ModelInspector",
@@ -40,4 +42,5 @@ __all__ = [
     "ModuleInfo",
     "OpInfo",
     "SourceFrame",
+    "bits_per_weight",
 ]
