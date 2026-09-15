@@ -69,3 +69,46 @@ Likewise, the per-layer setting being varied across candidate configs does not h
 
 - [Mixed-precision palettization with ResNet50](../examples/model_examples/mixed_precision_palettization.md) — applies palettization with 2/4/6-bit per-tensor candidate configs and the greedy approach targeting a BPW of 4.
 - [coreai-models](https://github.com/apple/coreai-models) — the same workflow is applied to a few LLMs in this repository to produce mixed precision compression recipes. Users can find the mixed precision configs in the repo and apply them with `coreai-opt`.
+
+## Utility for computing analytical Bits Per Weight (BPW)
+
+{func}`~coreai_opt.inspection.bits_per_weight` is a utility that computes an analytical BPW estimate from a *prepared* `coreai-opt` model.
+
+It estimates the average bit width of a model, amortizing compression overhead such as quantization scales and zero-points as well as palettization look-up tables and per-channel scales. Compressed tensors are counted at their effective compressed cost and everything else (biases, norms and buffers such as BatchNorm running statistics) is counted at its full-precision dtype cost.
+
+**Usage:**
+
+```python
+from coreai_opt.quantization import Quantizer, QuantizerConfig
+from coreai_opt.quantization.config import ExecutionMode
+from coreai_opt.inspection import bits_per_weight
+
+# Prepare an eager-mode weight-quantized model
+quantizer = Quantizer(
+    model, QuantizerConfig.presets.w8(execution_mode=ExecutionMode.EAGER)
+)
+prepared_model = quantizer.prepare(example_inputs)
+
+result = bits_per_weight(prepared_model)
+print(result.bpw)  # e.g. 8.86
+```
+
+The returned {class}`~coreai_opt.inspection.BitsPerWeightResult` also exposes `per_module_map`, a mapping from module name to the module's own average BPW, which is useful for inspecting how bits are distributed across different parts of the model.
+
+The utility supports:
+
+- **Eager-mode integer weight quantization**: int8, int4, int2 and their unsigned variants along with symmetric and asymmetric, at any granularity.
+- **Eager-mode floating-point weight quantization**: FP8 (`e4m3`, `e5m2`) and FP4 (`e2m1`).
+- **Palettization** at any spec-supported `n_bits`, including a quantized LUT.
+
+Sub-byte payloads and zero-points are packed at `n_bits` with no padding.
+
+:::{note}
+Pruned models and graph-mode (`torch.fx.GraphModule`) quantized models are currently not supported.
+:::
+
+:::{note}
+This is an analytical estimate computed on a *prepared* `coreai-opt` model and as such does not reflect the exported asset size of any [`finalize()` backend](../introduction/integration_coreai.md). Passing a finalized model to the utility is not supported.
+:::
+
+For the full API, see the {func}`~coreai_opt.inspection.bits_per_weight` reference.
