@@ -359,16 +359,6 @@ class TestGraphModeQuantizer:
         assert len(fake_quant_nodes) == len(blockwise_shift_scale_nodes) + len(quantize_nodes)
         assert len(quantize_nodes) == len(dequantize_nodes)
 
-    def test_finalize_mmap_dir_raises_on_graph_mode(
-        self, simple_conv_linear_model, basic_config, simple_model_input, tmp_path
-    ):
-        """``mmap_dir`` is not supported in graph execution mode; finalize raises ``ValueError``."""
-        quantizer = Quantizer(simple_conv_linear_model, basic_config)
-        quantizer.prepare((simple_model_input,))
-
-        with pytest.raises(ValueError, match="mmap_dir is only supported in eager execution mode"):
-            quantizer.finalize(backend=ExportBackend.CoreAI, mmap_dir=str(tmp_path))
-
     def test_observer_fake_quant_status(
         self,
         simple_conv_linear_model,

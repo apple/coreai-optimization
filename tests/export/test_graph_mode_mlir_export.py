@@ -5,6 +5,7 @@
 
 """Tests for graph-mode quantizer export to Core AI backend."""
 
+import copy
 import sys
 from collections.abc import Mapping
 
@@ -20,10 +21,12 @@ from coreai_opt.quantization import (
     Quantizer,
     QuantizerConfig,
 )
+from coreai_opt.quantization._graph import quantizer as _graph_quantizer
 from coreai_opt.quantization.spec import (
     PerChannelGranularity,
     PerTensorGranularity,
     QuantizationFormulation,
+    QuantizationGranularity,
     QuantizationScheme,
 )
 from tests.fixtures.compression import ParametrizedP4A8CompressionConfigs
@@ -50,6 +53,7 @@ def _run_graph_mode_mlir_export_test_ex(
     model_dtype: torch.dtype | None = None,
     calibrate: bool = False,
     externalized_model: torch.nn.Module | None = None,
+    mmap_dir: str | None = None,
 ) -> None:
     """Run graph-mode Core AI export test with expanded configuration parameters.
 
@@ -63,6 +67,9 @@ def _run_graph_mode_mlir_export_test_ex(
             ``quantizer.calibration_mode()`` before the reference forward.
         externalized_model: The model patched in place by
             ``coreai_torch._patch_model_for_externalization``.
+        mmap_dir: If set, finalize streams each quantized weight to a safetensors
+            file under this directory and reads it back mmap-backed (memory-efficient
+            finalize). The full export must succeed unchanged over the mmap views.
     """
     if model_dtype is not None:
         model = model.to(dtype=model_dtype)
@@ -79,7 +86,7 @@ def _run_graph_mode_mlir_export_test_ex(
     with torch.no_grad():
         prepared_model_output = prepared_model(input_data)
 
-    finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI)
+    finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI, mmap_dir=mmap_dir)
 
     export_utils.convert_and_verify(
         finalized_model=finalized_model,
@@ -275,16 +282,22 @@ def test_fp8_simple_model_export(
     )
 
 
+@pytest.mark.parametrize("use_mmap", [False, True], ids=["no_mmap", "mmap"])
 def test_fp4_simple_model_export(
     simple_linear_model: torch.nn.Module,
     simple_linear_model_input: torch.Tensor,
     parametrized_fp4_config: ParametrizedFP4Configs,
+    use_mmap: bool,
+    tmp_path,
 ) -> None:
     """Test graph-mode MLIR export with FP4 quantization.
 
     FP4 quantization requires symmetric scheme and per-block granularity.
     Tests both weight-only and weight+activation FP4 quantization.
+    With ``use_mmap``, finalize streams the ``Float4Tensor`` weights to
+    mmap-backed safetensors files.
     """
+    mmap_dir = str(tmp_path) if use_mmap else None
     _run_graph_mode_mlir_export_test_ex(
         model=simple_linear_model,
         input_data=simple_linear_model_input,
@@ -295,7 +308,55 @@ def test_fp4_simple_model_export(
             "quantize": 3 if parametrized_fp4_config.with_activation_quant else 0,
             "dequantize": 3 if parametrized_fp4_config.with_activation_quant else 0,
         },
+        mmap_dir=mmap_dir,
     )
+    if use_mmap:
+        assert sorted(p.name for p in tmp_path.glob("*.safetensors")) == [
+            "l1_weight.safetensors",
+            "l2_weight.safetensors",
+        ]
+
+
+@pytest.mark.parametrize(
+    "weight_dtype",
+    [torch.int4, torch.int8],
+    ids=["4bit_weight", "8bit_weight"],
+)
+@pytest.mark.parametrize(
+    "has_activation_quant",
+    [False, True],
+    ids=["weight_only", "weight_and_activation"],
+)
+def test_simple_model_export_with_mmap(
+    simple_conv_linear_model: torch.nn.Module,
+    simple_model_input: torch.Tensor,
+    weight_dtype: torch.dtype,
+    has_activation_quant: bool,
+    tmp_path,
+) -> None:
+    """Full graph-mode Core AI export succeeds when finalize streams quantized weights
+    to ``mmap_dir`` (memory-efficient finalize).
+    """
+    config = make_quant_config(
+        weight_dtype=weight_dtype,
+        act_dtype=torch.int8 if has_activation_quant else None,
+        execution_mode="graph",
+    )
+    _run_graph_mode_mlir_export_test_ex(
+        model=simple_conv_linear_model,
+        input_data=simple_model_input,
+        config=config,
+        expected_ops={
+            "constexpr_blockwise_shift_scale": 2,
+            "quantize": 4 if has_activation_quant else 0,
+            "dequantize": 4 if has_activation_quant else 0,
+        },
+        mmap_dir=str(tmp_path),
+    )
+    assert sorted(p.name for p in tmp_path.glob("*.safetensors")) == [
+        "conv_weight.safetensors",
+        "linear_weight.safetensors",
+    ]
 
 
 @pytest.mark.slow
@@ -530,3 +591,76 @@ def test_composite_externalize_export(
         calibrate=config_kind != "w8",
         externalized_model=model,
     )
+
+
+@pytest.mark.parametrize(
+    ("weight_granularity", "quantize_act", "model_dtype"),
+    [
+        (PerTensorGranularity(), False, torch.float32),
+        (PerChannelGranularity(), False, torch.float32),
+        (PerTensorGranularity(), True, torch.float32),
+        (PerTensorGranularity(), False, torch.float16),
+    ],
+    ids=["w8-pt", "w8-pc", "w8a8-pt", "w8-pt-fp16"],
+)
+def test_fold_quantize_is_noop(
+    simple_conv_linear_model: torch.nn.Module,
+    simple_model_input: torch.Tensor,
+    weight_granularity: QuantizationGranularity,
+    quantize_act: bool,
+    model_dtype: torch.dtype,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ensure convert_pt2e yields identical finalized models with and
+    without fold_quantize."""
+    config = ParametrizedQuantConfigs.from_quant_params(
+        weight_dtype=torch.int8,
+        act_dtype=torch.int8 if quantize_act else None,
+        qscheme=QuantizationScheme.SYMMETRIC,
+        w_granularity=weight_granularity,
+        model_dtype=model_dtype,
+    ).pt2e
+    input_data = simple_model_input.to(dtype=model_dtype)
+    fold_forced = False
+
+    def _prepare_patch_and_finalize(force_fold: bool) -> tuple[torch.fx.GraphModule, torch.Tensor]:
+        model = copy.deepcopy(simple_conv_linear_model).to(dtype=model_dtype).eval()
+        quantizer = Quantizer(model, config)
+        prepared = quantizer.prepare((input_data,))
+        if quantize_act:  # calibrate activation observers before finalize
+            with quantizer.calibration_mode(), torch.no_grad():
+                prepared(input_data)
+        with torch.no_grad():
+            prepared_out = prepared(input_data)
+        if force_fold:
+            real_convert = _graph_quantizer.convert_pt2e
+
+            def _force_fold(m, **kw):
+                nonlocal fold_forced
+                fold_forced = True
+                return real_convert(m, **{**kw, "fold_quantize": True})
+
+            monkeypatch.setattr(_graph_quantizer, "convert_pt2e", _force_fold)
+        return quantizer.finalize(backend=ExportBackend.CoreAI), prepared_out
+
+    default_final, prepared_out = _prepare_patch_and_finalize(force_fold=False)
+    folded_final, _ = _prepare_patch_and_finalize(force_fold=True)
+    assert fold_forced, "fold_quantize=True path was never exercised"
+
+    default_nodes = [(n.op, str(n.target)) for n in default_final.graph.nodes]
+    folded_nodes = [(n.op, str(n.target)) for n in folded_final.graph.nodes]
+    assert default_nodes == folded_nodes
+
+    with torch.no_grad():
+        torch.testing.assert_close(
+            default_final(input_data), folded_final(input_data), atol=0, rtol=0
+        )
+
+    for final in (default_final, folded_final):
+        export_utils.convert_and_verify(
+            finalized_model=final,
+            input_data=input_data,
+            expected_ops={},
+            export_backend=ExportBackend.CoreAI,
+            prepared_model_output=prepared_out,
+        )

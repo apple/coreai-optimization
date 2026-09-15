@@ -1,0 +1,1 @@
+Support for memory-efficient finalize in graph mode via `finalize(..., mmap_dir=...)`, previously available only in eager mode. Supported with the Core AI backend only.

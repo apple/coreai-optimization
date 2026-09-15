@@ -12,16 +12,25 @@ backend-specific representations.
 
 import logging
 import operator
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+from os import PathLike
+from pathlib import Path
 
 import torch
 from torch.fx import Node
 
-from coreai_opt._utils.export_utils import validate_coreml_compatibility
+from coreai_opt._utils.export_utils import (
+    prepare_mmap_dir,
+    validate_coreml_compatibility,
+)
 from coreai_opt._utils.fx_utils import get_node_type
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
-from coreai_opt._utils.torch_utils import is_float4_dtype, sanitize_module_name
+from coreai_opt._utils.torch_utils import (
+    is_float4_dtype,
+    mmap_named_tensors,
+    sanitize_module_name,
+)
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
     canonicalize_qparam_shape,
@@ -230,10 +239,35 @@ def _register_quantization_buffers(
     return buffer_names
 
 
+def _mmap_quantized_buffers(
+    model: torch.fx.GraphModule,
+    param_name: str,
+    buffer_names: Iterable[str],
+    mmap_dir: str | PathLike[str] | None,
+    mmapped_params: set[str],
+) -> None:
+    """Move the quantized weight, scales and offsets to their own safetensors file and
+    read them back mmap-backed. No-op when ``mmap_dir is None``.
+
+    Args:
+        model: The graph module owning the buffers.
+        param_name: Mangled name of the dense weight, used as the file stem.
+        buffer_names: Names of the buffers on ``model`` to remap.
+        mmap_dir: Directory to write the safetensors file into, or None to skip.
+        mmapped_params: Names already written, mutated in place.
+    """
+    if mmap_dir is None or param_name in mmapped_params:
+        return
+    mmap_named_tensors(model, Path(mmap_dir) / f"{param_name}.safetensors", buffer_names)
+    mmapped_params.add(param_name)
+
+
 def _process_mlir_weight_quantization(
     model: torch.fx.GraphModule,
     node: Node,
     fake_quant_mod: FakeQuantizeImplBase,
+    mmap_dir: str | PathLike[str] | None,
+    mmapped_params: set[str],
 ) -> None:
     """
     Process weight quantization by replacing fake quantization with MLIR operations.
@@ -242,6 +276,9 @@ def _process_mlir_weight_quantization(
         model: The graph module being modified
         node: The fake quantization node to replace
         fake_quant_mod: The fake quantization module
+        mmap_dir: If provided, the quantized weight is written to a safetensors file
+            under this directory and re-read mmap-backed before returning.
+        mmapped_params: Names already written to ``mmap_dir``, mutated in place.
     """
 
     def _import_coreai_custom_ops():
@@ -317,6 +354,14 @@ def _process_mlir_weight_quantization(
 
     model.graph.erase_node(node)
     remove_fake_quant_module(model, node)
+
+    # mmap quantized weights, scales and offsets
+    mmap_buffer_names = [buffer_names["quantized_data"], buffer_names["scale"]]
+    if zero_point is not None:
+        mmap_buffer_names.append(buffer_names["zero_point"])
+    if minval is not None:
+        mmap_buffer_names.append(buffer_names["minval"])
+    _mmap_quantized_buffers(model, param_name, mmap_buffer_names, mmap_dir, mmapped_params)
 
 
 def _process_mlir_activation_quantization(
@@ -629,7 +674,10 @@ def prepare_for_mil_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule:
     return model
 
 
-def prepare_for_mlir_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule:
+def prepare_for_mlir_export(
+    model: torch.fx.GraphModule,
+    mmap_dir: str | PathLike[str] | None = None,
+) -> torch.fx.GraphModule:
     """
     Prepare a quantized PyTorch model for Core AI export by replacing fake quantization
     with quantization custom ops.
@@ -642,13 +690,19 @@ def prepare_for_mlir_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule
 
     Args:
         model: The quantized GraphModule containing fake quantization nodes
+        mmap_dir: If provided, each quantized weight and its scales/offsets are
+            written to safetensor files under this directory and re-read mmap-backed
+            as soon as it is produced.
 
     Returns:
         The modified GraphModule with quantization operations
 
     Raises:
         ImportError: If coreai-torch package is not installed (required for MLIR export)
+        FileExistsError: If ``mmap_dir`` exists and is non-empty.
+        NotADirectoryError: If ``mmap_dir`` exists and is not a directory.
     """
+    prepare_mmap_dir(mmap_dir)
 
     # Lazy import: coreai_torch is required for MLIR export (registers torch.ops.coreai)
     def _import_coreai_torch():
@@ -663,11 +717,14 @@ def prepare_for_mlir_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule
     if not fake_quant_nodes:
         raise ValueError("Model contains no fake quantization nodes to convert")
 
+    mmapped_params: set[str] = set()
     for node, fake_quant_mod in fake_quant_nodes:
         try:
             # Process based on quantization type
             if _is_weight_fake_quant(node, fake_quant_mod):
-                _process_mlir_weight_quantization(model, node, fake_quant_mod)
+                _process_mlir_weight_quantization(
+                    model, node, fake_quant_mod, mmap_dir, mmapped_params
+                )
             else:
                 _process_mlir_activation_quantization(model, node, fake_quant_mod)
         except Exception as e:

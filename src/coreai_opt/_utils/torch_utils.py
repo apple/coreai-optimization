@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Generator
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager, nullcontext
 from os import PathLike
 from typing import Any, Final, NamedTuple
@@ -471,6 +471,76 @@ def export_model(
         ) from e
 
 
+def _unwrap_tensors_for_safetensors(
+    named_values: Mapping[str, object],
+) -> tuple[dict[str, torch.Tensor], dict[str, type]]:
+    """Retrieve only the tensors from ``named_values``
+    that can then be serialized by ``safetensors.torch.save_file``.
+
+    Values that are not tensors are dropped since named_values may be a ``state_dict``,
+    which can carry non-tensor extra state. ``SubbyteTensor`` subclasses (e.g.
+    ``Float4Tensor``) are unwrapped to their plain uint8 ``elem`` for storage, and
+    their class is reported back so the reloaded tensor can be re-wrapped.
+    All tensors must be on CPU.
+
+    Args:
+        named_values (Mapping[str, object]): Name to value mapping to serialize.
+            Non-tensor values are ignored.
+
+    Returns:
+        tuple[dict[str, torch.Tensor], dict[str, type]]: The tensors to save, and
+        the ``SubbyteTensor`` subclass for each name that was unwrapped.
+    """
+    from coreai_torch._compression._floatx import SubbyteTensor as _SubbyteTensor  # noqa: PLC0415
+
+    tensors_to_save: dict[str, torch.Tensor] = {}
+    subbyte_classes: dict[str, type] = {}
+
+    for name, value in named_values.items():
+        if not isinstance(value, torch.Tensor):
+            continue
+        if not is_tensor_on_cpu(value):
+            raise ValueError(
+                f"mmap-backed serialization requires CPU tensors but '{name}' is on {value.device}."
+            )
+        if isinstance(value, _SubbyteTensor):
+            subbyte_classes[name] = type(value)
+            tensors_to_save[name] = value.elem.contiguous()
+        else:
+            tensors_to_save[name] = value.contiguous()
+
+    return tensors_to_save, subbyte_classes
+
+
+def _save_and_reload_mmap(
+    named_values: Mapping[str, object],
+    path: str | PathLike[str],
+) -> dict[str, torch.Tensor]:
+    """Write ``named_values`` to a safetensors file at ``path`` and read it back
+    mmap-backed.
+
+    Args:
+        named_values (Mapping[str, object]): Name to value mapping to serialize.
+            Non-tensor values are ignored.
+        path (str | PathLike): Safetensors file to write.
+
+    Returns:
+        dict[str, torch.Tensor]: The reloaded, mmap-backed tensors, with any
+        ``SubbyteTensor`` subclass re-wrapped around its reloaded ``elem``.
+    """
+    from safetensors.torch import load_file, save_file  # noqa: PLC0415
+
+    tensors_to_save, subbyte_classes = _unwrap_tensors_for_safetensors(named_values)
+
+    save_file(tensors_to_save, path)
+    mmap_tensors = load_file(path, device="cpu")
+
+    for name, tensor_cls in subbyte_classes.items():
+        mmap_tensors[name] = tensor_cls(mmap_tensors[name])
+
+    return mmap_tensors
+
+
 def mmap_module_state_dict(module: torch.nn.Module, path: str | PathLike[str]) -> None:
     """Serialize ``module.state_dict()`` to a safetensors file at ``path`` and
     reload it via mmap, replacing the module's parameters/buffers with mmap
@@ -481,36 +551,43 @@ def mmap_module_state_dict(module: torch.nn.Module, path: str | PathLike[str]) -
     re-wrapping after reload.
 
     Requires all tensors in ``module.state_dict()`` to be on CPU. Raises
-    ``ValueError`` otherwise — mmap is a CPU-only mechanism
+    ``ValueError`` otherwise.
     """
-    from coreai_torch._compression._floatx import SubbyteTensor as _SubbyteTensor  # noqa: PLC0415
-    from safetensors.torch import load_file, save_file  # noqa: PLC0415
+    module.load_state_dict(_save_and_reload_mmap(module.state_dict(), path), assign=True)
 
-    state_dict = module.state_dict()
 
-    # Keys whose tensors are SubbyteTensor wrappers (Float4Tensor, etc.) that
-    # safetensors cannot serialize. Track their class for re-wrapping after load.
-    subbyte_keys: dict[str, type] = {}
-    tensors_to_save: dict[str, torch.Tensor] = {}
+def mmap_named_tensors(
+    module: torch.nn.Module,
+    path: str | PathLike[str],
+    names: Iterable[str],
+) -> None:
+    """Serialize the named parameters/buffers of ``module`` to a safetensors file at
+    ``path`` and assign the mmap views back in their place.
 
-    for name, tensor in state_dict.items():
+    Unlike :func:`mmap_module_state_dict`, this remaps only ``names`` and assigns
+    each tensor back with ``setattr`` rather than through ``load_state_dict``.
+
+    Args:
+        module (nn.Module): Module owning the tensors.
+        path (str | PathLike): Safetensors file to write.
+        names (Iterable[str]): Parameter or buffer names to serialize and remap.
+    """
+    owners: dict[str, tuple[torch.nn.Module, str]] = {}
+    selected: dict[str, torch.Tensor] = {}
+
+    for name in names:
+        parent_module, attr_name = get_parent_module_and_attr_name(module, name)
+        tensor = getattr(parent_module, attr_name)
         if not isinstance(tensor, torch.Tensor):
-            continue
-        if not is_tensor_on_cpu(tensor):
-            raise ValueError(
-                f"mmap_module_state_dict requires CPU tensors; '{name}' is on {tensor.device}."
+            raise TypeError(
+                f"Cannot mmap {name!r}: expected a tensor, got {type(tensor).__name__}."
             )
-        if isinstance(tensor, _SubbyteTensor):
-            subbyte_keys[name] = type(tensor)
-            tensors_to_save[name] = tensor.elem.contiguous()
-        else:
-            tensors_to_save[name] = tensor.contiguous()
+        owners[name] = (parent_module, attr_name)
+        selected[name] = tensor
 
-    save_file(tensors_to_save, path)
-    mmap_sd = load_file(path, device="cpu")
-
-    # Re-wrap SubbyteTensor keys from their underlying uint8 representation.
-    for name, tensor_cls in subbyte_keys.items():
-        mmap_sd[name] = tensor_cls(mmap_sd[name])
-
-    module.load_state_dict(mmap_sd, assign=True)
+    for name, mmap_tensor in _save_and_reload_mmap(selected, path).items():
+        parent_module, attr_name = owners[name]
+        if isinstance(selected[name], torch.nn.Parameter):
+            # Keep the slot a parameter: assigning a plain tensor over one raises.
+            mmap_tensor = torch.nn.Parameter(mmap_tensor, requires_grad=False)
+        setattr(parent_module, attr_name, mmap_tensor)
