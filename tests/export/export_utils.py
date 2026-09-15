@@ -670,9 +670,8 @@ def run_quantization_export_test(
             CoreAI backend.
         snr_thresh: Minimum acceptable SNR value
         psnr_thresh: Minimum acceptable PSNR value
-        mmap_dir: If set, finalize streams each quantized weight to a safetensors
-            file under this directory and reads it back mmap-backed (memory-efficient
-            finalize). The full export must succeed unchanged over the mmap views.
+        mmap_dir: If provided, finalize uses the memory efficient mmap for the quantized
+        weights.
 
     """
     if model_dtype is not None:
