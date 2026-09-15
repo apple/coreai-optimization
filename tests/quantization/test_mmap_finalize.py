@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-"""Mmap-backed finalize, exercised identically in eager and graph execution mode."""
+"""Mmap backed finalize, tested for both eager and graph execution modes."""
 
 import copy
 
@@ -21,7 +21,7 @@ MODES = [ExecutionMode.EAGER, ExecutionMode.GRAPH]
 
 
 def weight_only_config(execution_mode, kind="int4"):
-    """Weight-only config for either mode"""
+    """Weight only config for either mode"""
     if kind == "fp4":
         configs = ParametrizedFP4Configs.from_fp4_params(
             with_activation_quant=False, per_block_weights=True
@@ -39,7 +39,7 @@ def prepare_and_finalize(model, config, example_input, mmap_dir):
 
 def _resolve_live_buffer(finalized, stem, key, execution_mode):
     """Return the live buffer/parameter behind safetensors ``key`` in the file whose
-    stem is ``stem``. This is the only mode-specific step: graph keeps flat buffers
+    stem is ``stem``. This is the only mode specific step: graph keeps flat buffers
     named exactly ``key``, eager keeps them inside the weight's dequant
     parametrization, whose file stem is ``<module>.<param>``."""
     if execution_mode is ExecutionMode.GRAPH:
@@ -91,7 +91,7 @@ def test_finalize_mmap_is_file_backed_and_output_preserving(
 
     with torch.no_grad():
         assert torch.equal(finalized_ref(example_input), finalized_mmap(example_input)), (
-            "mmap-backed quantized weights changed the finalized model's output"
+            "mmap backed quantized weights changed the finalized model's output"
         )
 
 
@@ -129,7 +129,7 @@ def test_finalize_mmap_preserves_weight_sharing(
         assert (
             finalized_mmap.layer1.parametrizations["weight"][0]
             is finalized_mmap.layer2.parametrizations["weight"][0]
-        ), "mmap finalize did not preserve sharing for weight-tied modules"
+        ), "mmap finalize did not preserve sharing for weight tied modules"
     else:
         # torch.export collapses the tied pair to a single buffer
         quantized_buffers = sorted(
@@ -150,7 +150,7 @@ def test_finalize_mmap_preserves_weight_sharing(
 def test_finalize_mmap_rejects_non_coreai_backend(
     execution_mode, backend, simple_linear_model, simple_linear_model_input, tmp_path
 ):
-    """``mmap_dir`` is a CoreAI-only feature in both execution modes."""
+    """``mmap_dir`` is a CoreAI only feature in both execution modes."""
     quantizer = Quantizer(simple_linear_model.eval(), weight_only_config(execution_mode))
     quantizer.prepare((simple_linear_model_input,))
 
@@ -163,8 +163,8 @@ def test_finalize_mmap_rejects_non_coreai_backend(
 def test_eager_finalize_state_dict_safetensors_roundtrip(
     simple_linear_model, simple_linear_model_input, tmp_path
 ):
-    """Test that an eager mmap-finalized model survives a state_dict -> save_file -> load_file ->
-    load_state_dict(assign=True) round-trip with identical forward output."""
+    """Test that an eager mmap finalized model survives a state_dict -> save_file -> load_file ->
+    load_state_dict(assign=True) round trip with identical forward output."""
 
     example_input = simple_linear_model_input
     config = make_quant_config(
