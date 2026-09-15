@@ -166,16 +166,16 @@ def _register_mil_compression_metadata(
     # Determine compression type(s). coremltools' own torch-frontend converter
     # auto-detects sparsity from raw zeros in the traced weight value when
     # compression_type lists PRUNING first, then chains PALETTIZATION onto its
-    # constexpr_sparse_to_dense output (constexpr_lut_to_sparse) -- which has the
-    # same flatten-to-nonzero-only-indices contract as our own CoreAI reconstruction,
-    # so it needs the same per-tensor/scalar guarantee.
+    # constexpr_sparse_to_dense output (constexpr_lut_to_sparse). Only attempt
+    # that chain when it's position-independent; otherwise fall back to ordinary
+    # (non-joint) palettization metadata rather than rejecting the config
+    # outright -- unlike CoreAI, CoreML has no other combination to reject here.
     lut_quant = palett_info.lut_quantization
     if lut_quant is not None:
         compression_type = [CompressionType.PALETTIZATION, CompressionType.QUANTIZATION]
     else:
         compression_type = [CompressionType.PALETTIZATION]
-    if fake_palett_mod.sparsity is not None:
-        _validate_sparsity_for_export(fake_palett_mod)
+    if fake_palett_mod.sparsity is not None and _is_scalar_per_tensor_sparsity(fake_palett_mod):
         compression_type = [CompressionType.PRUNING, *compression_type]
 
     metadata = MILCompressionMetadata(
@@ -242,8 +242,8 @@ def _resolve_mlir_lut_and_scale(
     return lut, scale, offset
 
 
-def _validate_sparsity_for_export(fake_palett_mod: _FakePalettizeImplBase) -> None:
-    """Reject sparsity combined with anything that isn't a single, position-independent LUT.
+def _is_scalar_per_tensor_sparsity(fake_palett_mod: _FakePalettizeImplBase) -> bool:
+    """True if masking-then-flattening the indices stays position-independent.
 
     Masking flattens indices to rank 1 before the LUT lookup, which only preserves
     meaning when every element shares one scalar codebook: per-tensor granularity
@@ -252,6 +252,16 @@ def _validate_sparsity_for_export(fake_palett_mod: _FakePalettizeImplBase) -> No
     rank). A quantized LUT or per-channel scale would also apply a position-dependent
     mapping that flattening would scramble.
     """
+    return (
+        isinstance(fake_palett_mod.granularity, PerTensorGranularity)
+        and fake_palett_mod.cluster_dim == 1
+        and fake_palett_mod.lut_qspec is None
+        and not fake_palett_mod.enable_per_channel_scale
+    )
+
+
+def _validate_sparsity_for_export(fake_palett_mod: _FakePalettizeImplBase) -> None:
+    """Reject sparsity combined with anything that isn't a single, position-independent LUT."""
     if not isinstance(fake_palett_mod.granularity, PerTensorGranularity):
         raise ValueError(
             f"granularity={fake_palett_mod.granularity} not supported for joint sparsity."
