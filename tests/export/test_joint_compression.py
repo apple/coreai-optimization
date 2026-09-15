@@ -53,10 +53,6 @@ _PALETT_EXPECTED_OPS = {
 }
 
 
-def _palett_ordinary_ops(n: int) -> dict[str, int]:
-    return {"constexpr_lut_to_dense": n}
-
-
 class TestJointQuantizationCompression:
     """PTQ + PTS (post-training quantization + sparsity) across the dtype/qscheme/
     granularity matrix.
@@ -276,11 +272,12 @@ class TestJointPalettizationCompression:
     can flatten indices via the mask and still recover per-position group
     context -- confirmed directly against coremltools' own
     ``palettize_weights(joint_compression=True)``, so coreai_opt no longer
-    gates on granularity for CoreML. Vector palettization (cluster_dim>1) is
-    different: it reduces the index count below the element count, so
-    flattening against the full-resolution mask is a genuine shape mismatch --
-    coremltools itself raises an ``IndexError`` there -- so CoreML still falls
-    back to ordinary (non-joint) compression for that one case.
+    gates on granularity for CoreML. A quantized LUT (``lut_qspec``) is safe
+    too, since it only touches the small, fixed-size LUT array, independent of
+    the sparsity mask. Vector palettization (``cluster_dim>1``) and
+    ``enable_per_channel_scale`` are still rejected outright for CoreML: both
+    are genuine coremltools limitations (an index-count mismatch and a
+    scale/data rank mismatch, respectively), confirmed directly.
     """
 
     # Per-tensor, scalar (cluster_dim=1) palettization: the only combination
@@ -299,8 +296,9 @@ class TestJointPalettizationCompression:
             {"n_bits": 4, "granularity": PerGroupedChannelGranularity(axis=0, group_size=2)},
         ),
     ]
-    PALETT_COREML_FALLS_BACK_CONFIGS: list[tuple[str, dict]] = [
+    PALETT_COREML_REJECTS_CONFIGS: list[tuple[str, dict]] = [
         ("vector_ndim", {"n_bits": 4, "cluster_dim": 2}),
+        ("per_channel_scale", {"n_bits": 4, "enable_per_channel_scale": True}),
     ]
     PALETT_COREML_ACCEPTS_CONFIGS: list[tuple[str, dict]] = [
         (
@@ -348,7 +346,13 @@ class TestJointPalettizationCompression:
         )
 
     @classmethod
-    def _run_rejects(cls, model: nn.Module, input_data: torch.Tensor, spec_kwargs: dict) -> None:
+    def _run_rejects(
+        cls,
+        backend: ExportBackend,
+        model: nn.Module,
+        input_data: torch.Tensor,
+        spec_kwargs: dict,
+    ) -> None:
         model.eval()
         palettizer = cls._build_palettizer(model, **spec_kwargs)
         prepared_model = palettizer.prepare((input_data,))
@@ -357,7 +361,7 @@ class TestJointPalettizationCompression:
             prepared_model(input_data)
 
         with pytest.raises((RuntimeError, ValueError)):
-            palettizer.finalize(backend=ExportBackend.CoreAI)
+            palettizer.finalize(backend=backend)
 
     @pytest.mark.parametrize("backend", _BACKENDS, ids=["coreai", "coreml"])
     @pytest.mark.parametrize(
@@ -402,7 +406,9 @@ class TestJointPalettizationCompression:
     def test_coreai_rejects_non_scalar_or_non_per_tensor_mnist(
         self, spec_kwargs, custom_test_mnist_model, mnist_example_input
     ):
-        self._run_rejects(custom_test_mnist_model, mnist_example_input, spec_kwargs)
+        self._run_rejects(
+            ExportBackend.CoreAI, custom_test_mnist_model, mnist_example_input, spec_kwargs
+        )
 
     @pytest.mark.slow
     @pytest.mark.parametrize(
@@ -413,40 +419,30 @@ class TestJointPalettizationCompression:
     def test_coreai_rejects_non_scalar_or_non_per_tensor_resnet(
         self, spec_kwargs, resnet50_model, resnet_example_input
     ):
-        self._run_rejects(resnet50_model, resnet_example_input, spec_kwargs)
+        self._run_rejects(ExportBackend.CoreAI, resnet50_model, resnet_example_input, spec_kwargs)
 
     @pytest.mark.parametrize(
         "spec_kwargs",
-        [c[1] for c in PALETT_COREML_FALLS_BACK_CONFIGS],
-        ids=[c[0] for c in PALETT_COREML_FALLS_BACK_CONFIGS],
+        [c[1] for c in PALETT_COREML_REJECTS_CONFIGS],
+        ids=[c[0] for c in PALETT_COREML_REJECTS_CONFIGS],
     )
-    def test_coreml_falls_back_for_vector_mnist(
+    def test_coreml_rejects_vector_or_per_channel_scale_mnist(
         self, spec_kwargs, custom_test_mnist_model, mnist_example_input
     ):
-        self._run(
-            ExportBackend.CoreML,
-            custom_test_mnist_model,
-            mnist_example_input,
-            spec_kwargs,
-            _palett_ordinary_ops(_MNIST_LAYER_COUNT),
+        self._run_rejects(
+            ExportBackend.CoreML, custom_test_mnist_model, mnist_example_input, spec_kwargs
         )
 
     @pytest.mark.slow
     @pytest.mark.parametrize(
         "spec_kwargs",
-        [c[1] for c in PALETT_COREML_FALLS_BACK_CONFIGS],
-        ids=[c[0] for c in PALETT_COREML_FALLS_BACK_CONFIGS],
+        [c[1] for c in PALETT_COREML_REJECTS_CONFIGS],
+        ids=[c[0] for c in PALETT_COREML_REJECTS_CONFIGS],
     )
-    def test_coreml_falls_back_for_vector_resnet(
+    def test_coreml_rejects_vector_or_per_channel_scale_resnet(
         self, spec_kwargs, resnet50_model, resnet_example_input
     ):
-        self._run(
-            ExportBackend.CoreML,
-            resnet50_model,
-            resnet_example_input,
-            spec_kwargs,
-            _palett_ordinary_ops(_RESNET_LAYER_COUNT),
-        )
+        self._run_rejects(ExportBackend.CoreML, resnet50_model, resnet_example_input, spec_kwargs)
 
     @pytest.mark.parametrize(
         "spec_kwargs",
