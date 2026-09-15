@@ -8,7 +8,7 @@ from pathlib import Path
 
 import torch
 
-from coreai_opt._utils.torch_utils import is_tensor_on_cpu
+from coreai_opt._utils.torch_utils import get_parent_module_and_attr_name, is_tensor_on_cpu
 from coreai_opt.common import CoreMLExportError, ExportBackend
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization.spec import QuantizationSpec
@@ -185,6 +185,21 @@ def prepare_mmap_dir(mmap_dir: str | PathLike[str] | None) -> None:
         raise FileExistsError(f"mmap_dir {mmap_dir!r} is non-empty. Pass an empty directory.")
 
 
+def _zero_size_placeholder(tensor: torch.Tensor) -> torch.Tensor:
+    """Build the zero-size stand-in that replaces a released dense tensor.
+
+    Args:
+        tensor (torch.Tensor): The dense tensor being released.
+
+    Returns:
+        torch.Tensor: A zero-size tensor of the same dtype, device and kind.
+    """
+    placeholder = torch.empty(0, dtype=tensor.dtype, device=tensor.device)
+    if isinstance(tensor, torch.nn.Parameter):
+        return torch.nn.Parameter(placeholder, requires_grad=False)
+    return placeholder
+
+
 def clear_parametrization_original(
     module: torch.nn.Module,
     param_name: str,
@@ -209,9 +224,27 @@ def clear_parametrization_original(
     param_list = module.parametrizations[param_name]
     if not hasattr(param_list, "original"):
         return
-    orig = param_list.original
-    placeholder = torch.empty(0, dtype=orig.dtype, device=orig.device)
-    if isinstance(orig, torch.nn.Parameter):
-        param_list.original = torch.nn.Parameter(placeholder, requires_grad=False)
-    else:
-        param_list.original = placeholder
+    param_list.original = _zero_size_placeholder(param_list.original)
+
+
+def clear_dense_tensor(
+    model: torch.nn.Module,
+    target: str,
+) -> None:
+    """Replace the parameter or buffer at ``target`` with a zero-size placeholder,
+    freeing its storage.
+
+    This is the graph-mode counterpart of :func:`clear_parametrization_original`.
+
+    Args:
+        model (nn.Module): The root module owning the attribute.
+        target (str): Dotted path to the parameter or buffer (e.g. ``"conv.weight"``).
+
+    Raises:
+        TypeError: If ``target`` does not resolve to a tensor.
+    """
+    parent_module, attr_name = get_parent_module_and_attr_name(model, target)
+    tensor = getattr(parent_module, attr_name)
+    if not isinstance(tensor, torch.Tensor):
+        raise TypeError(f"Cannot clear {target!r}: expected a tensor, got {type(tensor).__name__}.")
+    setattr(parent_module, attr_name, _zero_size_placeholder(tensor))

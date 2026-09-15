@@ -21,6 +21,8 @@ from coreai_opt.quantization.spec import (
     QuantizationScheme,
     QuantizationSpec,
 )
+from tests.fixtures.quantization import make_quant_config
+from tests.models.simple import SharedParamsModel, SimpleLinearModel, WeightReadOutsideOp
 
 
 def weight_activation_quant_config(
@@ -284,3 +286,121 @@ def test_weight_quantization_buffer(param_dtype, qformulation):
         assert stored_minval == expected_minval, (
             f"Minval mismatch: expected {expected_minval}, got {stored_minval}"
         )
+
+
+def test_finalize_releases_superseded_dense_weights(simple_linear_model, simple_linear_model_input):
+    """Graph-mode ``finalize(CoreAI)`` releases the dense weights,
+    while leaving the model's structure intact."""
+    model = simple_linear_model.eval()
+    original_bytes = {k: v.nbytes for k, v in model.state_dict().items()}
+
+    config = make_quant_config(weight_dtype=torch.int8, act_dtype=None, execution_mode="graph")
+    finalized = quantize_model(model, simple_linear_model_input, config, ExportBackend.CoreAI)
+
+    state = finalized.state_dict()
+
+    for weight_key in ("l1.weight", "l2.weight"):
+        assert weight_key in state, f"{weight_key} was dropped from state_dict, not released"
+        assert state[weight_key].nbytes == 0, (
+            f"{weight_key} should have been released, still holds {state[weight_key].nbytes} bytes"
+        )
+
+    # The buffers that superseded them are present.
+    quantized_buffers = [
+        name for name, _ in finalized.named_buffers() if "weight_quantized" in name
+    ]
+    assert len(quantized_buffers) == 2, (
+        f"Expected 2 weight_quantized buffers, got {quantized_buffers}"
+    )
+
+    # Biases are still read by the graph, so their storage is untouched.
+    for bias_key in ("l1.bias", "l2.bias"):
+        assert state[bias_key].nbytes == original_bytes[bias_key], (
+            f"{bias_key} storage changed; it is still read and must be untouched"
+        )
+
+
+def _graph_int8_config(exclude: list[str] | None = None) -> QuantizerConfig:
+    """Weight-only int8 graph config (reuses ``make_quant_config``); ``exclude`` names
+    modules to leave unquantized via ``module_name_configs``."""
+    base = make_quant_config(weight_dtype=torch.int8, act_dtype=None, execution_mode="graph")
+    if not exclude:
+        return base
+    return QuantizerConfig(
+        global_config=base.global_config,
+        execution_mode=ExecutionMode.GRAPH,
+        module_name_configs={name: None for name in exclude},
+    )
+
+
+@pytest.mark.parametrize(
+    ("model_cls", "example_input", "config", "kept_weight_keys", "n_quantized_buffers"),
+    [
+        # A layer excluded from quantization keeps its weight
+        # intact while the quantized layer's weight is freed.
+        pytest.param(
+            SimpleLinearModel,
+            torch.randn(4, 64),
+            _graph_int8_config(exclude=["l2"]),
+            ["l2.weight"],
+            1,
+            id="unquantized-layer-kept",
+        ),
+        # A quantized weight that is also read outside the op keeps a live get_attr after DCE,
+        # so it is not freed.
+        pytest.param(
+            WeightReadOutsideOp,
+            torch.randn(4, 64),
+            _graph_int8_config(),
+            ["fc.weight"],
+            1,
+            id="direct-read-kept",
+        ),
+        # in case of shared weights being quantized, the dense weight
+        # should be freed
+        pytest.param(
+            SharedParamsModel,
+            torch.randn(1, 784),
+            _graph_int8_config(),
+            [],
+            3,
+            id="shared-weight-freed",
+        ),
+    ],
+)
+def test_finalize_dense_weight_release_scenarios(
+    model_cls, example_input, config, kept_weight_keys, n_quantized_buffers
+):
+    """A dense weight is released only when it was quantized and nothing still reads it.
+
+    - Unquantized layer: this dense weight should not be released.
+    - A weight that also accessed directly/explicitly outside the op still has
+      a live ``get_attr`` and is kept even though it was quantized.
+    - In case of a shared quantized weight, the dense weight is still freed.
+    """
+    model = model_cls()
+    original_bytes = {k: v.nbytes for k, v in model.state_dict().items()}
+
+    finalized = quantize_model(model, example_input, config, ExportBackend.CoreAI)
+    state = finalized.state_dict()
+
+    # Every dense weight is freed except the ones expected to stay live.
+    for key in (k for k in state if k.endswith(".weight")):
+        if key in kept_weight_keys:
+            assert state[key].nbytes == original_bytes[key], (
+                f"{key} is still read and must not be released"
+            )
+        else:
+            assert state[key].nbytes == 0, f"{key} should have been released"
+
+    quantized_buffers = [
+        name for name, _ in finalized.named_buffers() if "weight_quantized" in name
+    ]
+    assert len(quantized_buffers) == n_quantized_buffers, (
+        f"expected {n_quantized_buffers} weight_quantized buffers, got {quantized_buffers}"
+    )
+
+    # Biases are never release candidates, so any that survive keep their storage.
+    for key, nbytes in original_bytes.items():
+        if key.endswith(".bias") and key in state:
+            assert state[key].nbytes == nbytes, f"{key} must be untouched"

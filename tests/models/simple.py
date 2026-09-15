@@ -150,6 +150,18 @@ def simple_linear_model_input():
     return torch.randn(4, 64)
 
 
+class WeightReadOutsideOp(nn.Module):
+    """An nn.Linear whose weight is also accessed directly
+    in forward()."""
+
+    def __init__(self, dim: int = 64) -> None:
+        super().__init__()
+        self.fc = nn.Linear(dim, dim, bias=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.fc(x) + self.fc.weight.sum()
+
+
 class SimpleMHAModel(nn.Module):
     def __init__(self, embed_dim=64, num_heads=4):
         super().__init__()

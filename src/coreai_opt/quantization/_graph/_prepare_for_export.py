@@ -20,6 +20,7 @@ import torch
 from torch.fx import Node
 
 from coreai_opt._utils.export_utils import (
+    clear_dense_tensor,
     prepare_mmap_dir,
     validate_coreml_compatibility,
 )
@@ -652,6 +653,32 @@ def prepare_for_mil_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule:
     return model
 
 
+def _release_unused_dense_weights(
+    model: torch.fx.GraphModule,
+    dense_weight_targets: Iterable[str],
+) -> None:
+    """Free the storage of dense weights the graph no longer reads.
+
+    For each target in ``dense_weight_targets``, replace the tensor with an
+    empty placeholder, if and only if, it is not used in the ``model`` graph anymore.
+
+    Note: This must be called after :meth:`torch.fx.Graph.eliminate_dead_code`,
+    otherwise the dense weight ``get_attr`` nodes are still live in the graph.
+
+    Args:
+        model: The graph module whose dense weights should be released.
+        dense_weight_targets: ``get_attr`` targets of the dense weights that were
+            quantized and collected before the nodes reading them were erased.
+    """
+    live_get_attr_node_target_names = {
+        str(node.target) for node in model.graph.nodes if node.op == "get_attr"
+    }
+    for target in dict.fromkeys(dense_weight_targets):
+        if target in live_get_attr_node_target_names:
+            continue
+        clear_dense_tensor(model, target)
+
+
 def prepare_for_mlir_export(
     model: torch.fx.GraphModule,
     mmap_dir: str | PathLike[str] | None = None,
@@ -696,10 +723,13 @@ def prepare_for_mlir_export(
         raise ValueError("Model contains no fake quantization nodes to convert")
 
     mmapped_params: set[str] = set()
+    dense_weight_targets: list[str] = []
     for node, fake_quant_mod in fake_quant_nodes:
         try:
             # Process based on quantization type
             if _is_weight_fake_quant(node, fake_quant_mod):
+                # Record dense weight node names to be (potentially) cleared
+                dense_weight_targets.append(str(_get_fake_quant_input(node).target))
                 _process_mlir_weight_quantization(
                     model, node, fake_quant_mod, mmap_dir, mmapped_params
                 )
@@ -709,6 +739,7 @@ def prepare_for_mlir_export(
             raise RuntimeError(f"Failed to process fake quantization node {node.name}: {e}") from e
 
     model.graph.eliminate_dead_code()
+    _release_unused_dense_weights(model, dense_weight_targets)
     model.recompile()
 
     return model
