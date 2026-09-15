@@ -45,21 +45,36 @@ _QUANT_EXPECTED_OPS = {
         "constexpr_sparse_blockwise_shift_scale": n,
     },
 }
+
+
 _PALETT_EXPECTED_OPS = {
     ExportBackend.CoreAI: lambda n: {"lut_to_dense": n, "sparse_to_dense": n},
     ExportBackend.CoreML: lambda n: {"constexpr_lut_to_sparse": n, "constexpr_sparse_to_dense": n},
 }
 
 
+def _palett_ordinary_ops(n: int) -> dict[str, int]:
+    return {"constexpr_lut_to_dense": n}
+
+
 class TestJointQuantizationCompression:
     """PTQ + PTS (post-training quantization + sparsity) across the dtype/qscheme/
-    granularity matrix, on both export backends.
+    granularity matrix.
+
+    CoreAI's sparse_to_dense scatters raw quantized codes before dequantizing
+    the whole reconstructed tensor, so a nonzero zero_point would misrepresent
+    pruned positions -- it must reject those configs outright. CoreML's sparse
+    constexpr chain dequantizes the compact nonzero_data first and only then
+    scatters (real float 0.0 padding), which is correct for any zero_point --
+    so it always takes the joint sparse chain when sparsity is set, with no
+    zero_point-dependent gating at all.
     """
 
     # int4/int8 x symmetric/asymmetric x per-tensor/per-channel. Symmetric always
     # has zero_point == 0 for a signed dtype; asymmetric has a data-dependent,
     # essentially-never-zero zero_point on a real trained weight -- so this
-    # matrix also happens to split cleanly into "accepted" / "rejected".
+    # matrix also happens to split cleanly into "CoreAI accepts" / "CoreAI
+    # rejects" (CoreML accepts and joint-chains both groups identically).
     QUANT_VALID_CONFIGS: list[tuple[str, torch.dtype, QuantizationGranularity]] = [
         ("int8_symmetric_per_tensor", torch.int8, PerTensorGranularity()),
         ("int8_symmetric_per_channel", torch.int8, PerChannelGranularity(axis=0)),
@@ -98,17 +113,18 @@ class TestJointQuantizationCompression:
         return Quantizer(model, config)
 
     @classmethod
-    def _run_accepts(
+    def _run(
         cls,
         backend: ExportBackend,
         model: nn.Module,
         input_data: torch.Tensor,
         dtype: torch.dtype,
+        qscheme: QuantizationScheme,
         granularity: QuantizationGranularity,
-        expected_count: int,
+        expected_ops: dict[str, int],
     ) -> None:
         model.eval()
-        quantizer = cls._build_quantizer(model, dtype, QuantizationScheme.SYMMETRIC, granularity)
+        quantizer = cls._build_quantizer(model, dtype, qscheme, granularity)
         prepared_model = quantizer.prepare((input_data,))
 
         with torch.no_grad():
@@ -119,7 +135,7 @@ class TestJointQuantizationCompression:
         export_utils.convert_and_verify(
             finalized_model=finalized_model,
             input_data=input_data,
-            expected_ops=_QUANT_EXPECTED_OPS[backend](expected_count),
+            expected_ops=expected_ops,
             export_backend=backend,
             prepared_model_output=prepared_model_output,
         )
@@ -127,7 +143,6 @@ class TestJointQuantizationCompression:
     @classmethod
     def _run_rejects(
         cls,
-        backend: ExportBackend,
         model: nn.Module,
         input_data: torch.Tensor,
         dtype: torch.dtype,
@@ -141,7 +156,7 @@ class TestJointQuantizationCompression:
             prepared_model(input_data)
 
         with pytest.raises((RuntimeError, ValueError)):
-            quantizer.finalize(backend=backend)
+            quantizer.finalize(backend=ExportBackend.CoreAI)
 
     @pytest.mark.parametrize("backend", _BACKENDS, ids=["coreai", "coreml"])
     @pytest.mark.parametrize(
@@ -152,13 +167,14 @@ class TestJointQuantizationCompression:
     def test_accepts_zero_preserving_mnist(
         self, backend, dtype, granularity, custom_test_mnist_model, mnist_example_input
     ):
-        self._run_accepts(
+        self._run(
             backend,
             custom_test_mnist_model,
             mnist_example_input,
             dtype,
+            QuantizationScheme.SYMMETRIC,
             granularity,
-            _MNIST_LAYER_COUNT,
+            _QUANT_EXPECTED_OPS[backend](_MNIST_LAYER_COUNT),
         )
 
     @pytest.mark.slow
@@ -171,41 +187,99 @@ class TestJointQuantizationCompression:
     def test_accepts_zero_preserving_resnet(
         self, backend, dtype, granularity, resnet50_model, resnet_example_input
     ):
-        self._run_accepts(
-            backend, resnet50_model, resnet_example_input, dtype, granularity, _RESNET_LAYER_COUNT
+        self._run(
+            backend,
+            resnet50_model,
+            resnet_example_input,
+            dtype,
+            QuantizationScheme.SYMMETRIC,
+            granularity,
+            _QUANT_EXPECTED_OPS[backend](_RESNET_LAYER_COUNT),
         )
 
-    @pytest.mark.parametrize("backend", _BACKENDS, ids=["coreai", "coreml"])
     @pytest.mark.parametrize(
         "dtype,granularity",
         [c[1:] for c in QUANT_INVALID_CONFIGS],
         ids=[c[0] for c in QUANT_INVALID_CONFIGS],
     )
-    def test_rejects_nonzero_zero_point_mnist(
-        self, backend, dtype, granularity, custom_test_mnist_model, mnist_example_input
+    def test_coreai_rejects_nonzero_zero_point_mnist(
+        self, dtype, granularity, custom_test_mnist_model, mnist_example_input
     ):
-        self._run_rejects(backend, custom_test_mnist_model, mnist_example_input, dtype, granularity)
+        self._run_rejects(custom_test_mnist_model, mnist_example_input, dtype, granularity)
 
     @pytest.mark.slow
-    @pytest.mark.parametrize("backend", _BACKENDS, ids=["coreai", "coreml"])
     @pytest.mark.parametrize(
         "dtype,granularity",
         [c[1:] for c in QUANT_INVALID_CONFIGS],
         ids=[c[0] for c in QUANT_INVALID_CONFIGS],
     )
-    def test_rejects_nonzero_zero_point_resnet(
-        self, backend, dtype, granularity, resnet50_model, resnet_example_input
+    def test_coreai_rejects_nonzero_zero_point_resnet(
+        self, dtype, granularity, resnet50_model, resnet_example_input
     ):
-        self._run_rejects(backend, resnet50_model, resnet_example_input, dtype, granularity)
+        self._run_rejects(resnet50_model, resnet_example_input, dtype, granularity)
+
+    @pytest.mark.parametrize(
+        "dtype,granularity",
+        [c[1:] for c in QUANT_INVALID_CONFIGS],
+        ids=[c[0] for c in QUANT_INVALID_CONFIGS],
+    )
+    def test_coreml_accepts_nonzero_zero_point_mnist(
+        self, dtype, granularity, custom_test_mnist_model, mnist_example_input
+    ):
+        # Unlike CoreAI, CoreML's sparse constexpr chain dequantizes the
+        # compact nonzero_data before scattering it into the padded dense
+        # tensor, so the padding is a real float 0.0 rather than a raw int
+        # later reinterpreted through zero_point -- safe for any zero_point,
+        # so the joint chain always applies here, same op counts as symmetric.
+        self._run(
+            ExportBackend.CoreML,
+            custom_test_mnist_model,
+            mnist_example_input,
+            dtype,
+            QuantizationScheme.ASYMMETRIC,
+            granularity,
+            _QUANT_EXPECTED_OPS[ExportBackend.CoreML](_MNIST_LAYER_COUNT),
+        )
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize(
+        "dtype,granularity",
+        [c[1:] for c in QUANT_INVALID_CONFIGS],
+        ids=[c[0] for c in QUANT_INVALID_CONFIGS],
+    )
+    def test_coreml_accepts_nonzero_zero_point_resnet(
+        self, dtype, granularity, resnet50_model, resnet_example_input
+    ):
+        # See test_coreml_accepts_nonzero_zero_point_mnist.
+        self._run(
+            ExportBackend.CoreML,
+            resnet50_model,
+            resnet_example_input,
+            dtype,
+            QuantizationScheme.ASYMMETRIC,
+            granularity,
+            _QUANT_EXPECTED_OPS[ExportBackend.CoreML](_RESNET_LAYER_COUNT),
+        )
 
 
 class TestJointPalettizationCompression:
     """PTP + PTS (post-training palettization + sparsity) across the n_bits/
-    cluster_dim/granularity matrix, on both export backends.
+    cluster_dim/granularity matrix.
+
+    Masking flattens indices to rank 1 before the LUT lookup, which only
+    preserves meaning for a single, position-independent codebook: per-tensor
+    granularity and scalar (cluster_dim=1) palettization. CoreAI's op chain has
+    no other combination to build, so it rejects unsupported configs outright.
+    CoreML falls back to ordinary (non-joint) compression instead of rejecting
+    -- but this is a genuine limitation of coremltools' own constexpr_lut_to_sparse,
+    not an overly-conservative gate on coreai_opt's side (unlike the quantization
+    zero_point case in ``TestJointQuantizationCompression``): coremltools' own
+    ``palettize_weights(joint_compression=True)`` falls back identically for these
+    same configs.
     """
 
     # Per-tensor, scalar (cluster_dim=1) palettization: the only combination
-    # joint-sparsity export supports, at a few n_bits.
+    # that gets the joint sparse op chain, at a few n_bits.
     PALETT_VALID_CONFIGS: list[tuple[str, dict]] = [
         ("4bit", {"n_bits": 4}),
         ("6bit", {"n_bits": 6}),
@@ -233,13 +307,13 @@ class TestJointPalettizationCompression:
         return KMeansPalettizer(model, config)
 
     @classmethod
-    def _run_accepts(
+    def _run(
         cls,
         backend: ExportBackend,
         model: nn.Module,
         input_data: torch.Tensor,
         spec_kwargs: dict,
-        expected_count: int,
+        expected_ops: dict[str, int],
     ) -> None:
         model.eval()
         palettizer = cls._build_palettizer(model, **spec_kwargs)
@@ -253,15 +327,13 @@ class TestJointPalettizationCompression:
         export_utils.convert_and_verify(
             finalized_model=finalized_model,
             input_data=input_data,
-            expected_ops=_PALETT_EXPECTED_OPS[backend](expected_count),
+            expected_ops=expected_ops,
             export_backend=backend,
             prepared_model_output=prepared_model_output,
         )
 
     @classmethod
-    def _run_rejects(
-        cls, backend: ExportBackend, model: nn.Module, input_data: torch.Tensor, spec_kwargs: dict
-    ) -> None:
+    def _run_rejects(cls, model: nn.Module, input_data: torch.Tensor, spec_kwargs: dict) -> None:
         model.eval()
         palettizer = cls._build_palettizer(model, **spec_kwargs)
         prepared_model = palettizer.prepare((input_data,))
@@ -270,7 +342,7 @@ class TestJointPalettizationCompression:
             prepared_model(input_data)
 
         with pytest.raises((RuntimeError, ValueError)):
-            palettizer.finalize(backend=backend)
+            palettizer.finalize(backend=ExportBackend.CoreAI)
 
     @pytest.mark.parametrize("backend", _BACKENDS, ids=["coreai", "coreml"])
     @pytest.mark.parametrize(
@@ -281,8 +353,12 @@ class TestJointPalettizationCompression:
     def test_accepts_scalar_per_tensor_mnist(
         self, backend, spec_kwargs, custom_test_mnist_model, mnist_example_input
     ):
-        self._run_accepts(
-            backend, custom_test_mnist_model, mnist_example_input, spec_kwargs, _MNIST_LAYER_COUNT
+        self._run(
+            backend,
+            custom_test_mnist_model,
+            mnist_example_input,
+            spec_kwargs,
+            _PALETT_EXPECTED_OPS[backend](_MNIST_LAYER_COUNT),
         )
 
     @pytest.mark.slow
@@ -295,29 +371,64 @@ class TestJointPalettizationCompression:
     def test_accepts_scalar_per_tensor_resnet(
         self, backend, spec_kwargs, resnet50_model, resnet_example_input
     ):
-        self._run_accepts(
-            backend, resnet50_model, resnet_example_input, spec_kwargs, _RESNET_LAYER_COUNT
+        self._run(
+            backend,
+            resnet50_model,
+            resnet_example_input,
+            spec_kwargs,
+            _PALETT_EXPECTED_OPS[backend](_RESNET_LAYER_COUNT),
         )
 
-    @pytest.mark.parametrize("backend", _BACKENDS, ids=["coreai", "coreml"])
     @pytest.mark.parametrize(
         "spec_kwargs",
         [c[1] for c in PALETT_INVALID_CONFIGS],
         ids=[c[0] for c in PALETT_INVALID_CONFIGS],
     )
-    def test_rejects_non_scalar_or_non_per_tensor_mnist(
-        self, backend, spec_kwargs, custom_test_mnist_model, mnist_example_input
+    def test_coreai_rejects_non_scalar_or_non_per_tensor_mnist(
+        self, spec_kwargs, custom_test_mnist_model, mnist_example_input
     ):
-        self._run_rejects(backend, custom_test_mnist_model, mnist_example_input, spec_kwargs)
+        self._run_rejects(custom_test_mnist_model, mnist_example_input, spec_kwargs)
 
     @pytest.mark.slow
-    @pytest.mark.parametrize("backend", _BACKENDS, ids=["coreai", "coreml"])
     @pytest.mark.parametrize(
         "spec_kwargs",
         [c[1] for c in PALETT_INVALID_CONFIGS],
         ids=[c[0] for c in PALETT_INVALID_CONFIGS],
     )
-    def test_rejects_non_scalar_or_non_per_tensor_resnet(
-        self, backend, spec_kwargs, resnet50_model, resnet_example_input
+    def test_coreai_rejects_non_scalar_or_non_per_tensor_resnet(
+        self, spec_kwargs, resnet50_model, resnet_example_input
     ):
-        self._run_rejects(backend, resnet50_model, resnet_example_input, spec_kwargs)
+        self._run_rejects(resnet50_model, resnet_example_input, spec_kwargs)
+
+    @pytest.mark.parametrize(
+        "spec_kwargs",
+        [c[1] for c in PALETT_INVALID_CONFIGS],
+        ids=[c[0] for c in PALETT_INVALID_CONFIGS],
+    )
+    def test_coreml_falls_back_for_non_scalar_or_non_per_tensor_mnist(
+        self, spec_kwargs, custom_test_mnist_model, mnist_example_input
+    ):
+        self._run(
+            ExportBackend.CoreML,
+            custom_test_mnist_model,
+            mnist_example_input,
+            spec_kwargs,
+            _palett_ordinary_ops(_MNIST_LAYER_COUNT),
+        )
+
+    @pytest.mark.slow
+    @pytest.mark.parametrize(
+        "spec_kwargs",
+        [c[1] for c in PALETT_INVALID_CONFIGS],
+        ids=[c[0] for c in PALETT_INVALID_CONFIGS],
+    )
+    def test_coreml_falls_back_for_non_scalar_or_non_per_tensor_resnet(
+        self, spec_kwargs, resnet50_model, resnet_example_input
+    ):
+        self._run(
+            ExportBackend.CoreML,
+            resnet50_model,
+            resnet_example_input,
+            spec_kwargs,
+            _palett_ordinary_ops(_RESNET_LAYER_COUNT),
+        )

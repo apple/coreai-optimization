@@ -233,13 +233,7 @@ def _register_quantization_buffers(
 def _validate_sparsity_for_export(
     fake_quant_mod: FakeQuantizeImplBase, zero_point: torch.Tensor | None
 ) -> None:
-    """Reject sparsity combined with anything ``sparse_to_dense``'s raw-0 padding can't represent.
-
-    ``sparse_to_dense`` always pads pruned positions with a raw literal 0, so joint
-    sparsity is only correct when that 0 dequantizes to exactly 0.0, i.e. ``zero_point``
-    is 0 (or absent). FP4 is rejected separately: its packing runs before the nonzero
-    values are extracted, and would misalign against the full-resolution mask.
-    """
+    """Reject sparsity combined with anything raw-0 padding can't represent."""
     if is_float4_dtype(fake_quant_mod.dtype):
         raise ValueError("FP4 dtype not supported for joint sparsity.")
     if zero_point is not None and not torch.all(zero_point == 0):
@@ -502,11 +496,12 @@ def _process_mil_weight_quantization(
     # zeros in the registered weight value when compression_type lists PRUNING
     # first, then chains QUANTIZATION onto its constexpr_sparse_to_dense output
     # (see coremltools.converters.mil.frontend.torch.converter._construct_compression_op).
-    # That chain has the same raw-0-pads-pruned-positions contract as our own
-    # sparse_to_dense, so it needs the same zero-preserving guarantee.
+    # Unlike CoreAI's sparse_to_dense, that chain dequantizes the compact
+    # nonzero_data before scattering it into the padded dense tensor, so the
+    # padding is a real float 0.0, not a raw int later reinterpreted through
+    # zero_point -- safe for any zero_point, so there's nothing to gate here.
     compression_type = [CompressionType.QUANTIZATION]
     if fake_quant_mod.sparsity is not None:
-        _validate_sparsity_for_export(fake_quant_mod, zero_point)
         compression_type = [CompressionType.PRUNING, CompressionType.QUANTIZATION]
 
     # Create and register metadata
