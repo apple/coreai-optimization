@@ -248,6 +248,26 @@ class SimpleEinsumAttentionModel(nn.Module):
         return torch.einsum("bkhq,bchk->bchq", weights, v)
 
 
+class SimpleConvEinsumConvModel(nn.Module):
+    """conv -> relu -> einsum -> conv.
+
+    Chains an einsum between two weighted modules so the quantizer on the
+    conv/relu output is shared with the einsum input, and the quantizer on the
+    einsum output is shared with the second conv's input.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(3, 16, 3, padding=1)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(16, 8, 3, padding=1)
+
+    def forward(self, x1, x2):
+        x = self.relu(self.conv1(x1))
+        x = torch.einsum("bchw,bcwk->bchk", x, x2)
+        return self.conv2(x)
+
+
 class SimpleFlattenModel(nn.Module):
     """Simple model with flatten operation."""
 
@@ -1244,6 +1264,22 @@ class TestAnnotationPatternRegistry:
                 {
                     "einsum": {"input_fq": [True, True], "output_fq": True},
                     "einsum_1": {"input_fq": [True, True], "output_fq": True},
+                },
+                False,
+            ),
+            # einsum chained between two convs: the conv/relu output quantizer is
+            # shared with the einsum input, and the einsum output quantizer is
+            # shared with the second conv's input.
+            pytest.param(
+                SimpleConvEinsumConvModel(),
+                (torch.randn(1, 3, 8, 8), torch.randn(1, 16, 8, 8)),
+                "activation_only",
+                None,
+                {
+                    "conv2d": {"input_fq": True, "weight_fq": False, "output_fq": False},
+                    "relu": {"input_fq": False, "output_fq": True},
+                    "einsum": {"input_fq": [True, True], "output_fq": True},
+                    "conv2d_1": {"input_fq": True, "weight_fq": False, "output_fq": True},
                 },
                 False,
             ),
