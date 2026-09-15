@@ -26,6 +26,9 @@ from coreai_opt._utils.export_utils import (
 from coreai_opt._utils.torch_utils import get_module_name as _get_module_name
 from coreai_opt.common import ExportBackend
 from coreai_opt.quantization._eager import EagerQuantizer as _EagerQuantizer
+from coreai_opt.quantization._export_utils import (
+    can_export_stateless_fake_quant as _can_export_stateless_fake_quant,
+)
 from coreai_opt.quantization._graph import GraphQuantizer as _GraphQuantizer
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config.quantization_config import (
@@ -394,16 +397,11 @@ class Quantizer(_BaseQuantizer):
         backend: ExportBackend,
         mmap_dir: str | PathLike[str] | None,
     ) -> None:
-        """Validate that ``mmap_dir`` is compatible with the current execution mode,
-        target backend, and model device. No-op when ``mmap_dir is None``.
+        """Validate that ``mmap_dir`` is compatible with the target backend and model
+        device. No-op when ``mmap_dir is None``.
         """
         if mmap_dir is None:
             return
-        if self._execution_mode != ExecutionMode.EAGER:
-            raise ValueError(
-                "mmap_dir is only supported in eager execution mode, "
-                f"got execution_mode={self._execution_mode}."
-            )
         model_to_check = model if model is not None else self._model
         _validate_mmap_backend_and_device(model_to_check, backend, mmap_dir)
 
@@ -414,6 +412,11 @@ class Quantizer(_BaseQuantizer):
     ) -> None:
         """Reject CoreAI/CoreML export when any qparams calculator is a
         ``StatelessQParamsCalculatorBase`` (e.g. dynamic quantization).
+
+        An activation export handler registered for the module's granularity lifts
+        the restriction: a ``GraphActivationExportHandler`` in graph mode, an
+        ``EagerActivationExportHandler`` in eager mode.
+
         """
         if backend == ExportBackend._TORCH:
             return
@@ -423,6 +426,7 @@ class Quantizer(_BaseQuantizer):
             for name, mod in model_to_check.named_modules()
             if isinstance(mod, FakeQuantizeImplBase)
             and isinstance(mod.qparams_calculator, StatelessQParamsCalculatorBase)
+            and not _can_export_stateless_fake_quant(mod, backend, self._execution_mode)
         ]
         if stateless_fq_names:
             raise NotImplementedError(
@@ -459,11 +463,11 @@ class Quantizer(_BaseQuantizer):
                 CoreAI (default), CoreML, and _TORCH backends.
             mmap_dir (str | None): If provided, serialize finalized quantized
                 weights to safetensors files under this directory and re-load
-                them via mmap. Only supported in eager execution mode with the
-                CoreAI backend; raises ``ValueError`` otherwise. The files in
-                ``mmap_dir`` must remain in place for the lifetime of the
-                returned model; removing them invalidates the mmap-backed
-                weights.
+                them via mmap, one file per weight. Supported in both execution
+                modes, with the CoreAI backend only and raises ``ValueError``
+                for other backends. The files must remain in place for
+                the lifetime of the returned model; removing them invalidates
+                the mmap-backed weights.
 
         Returns:
             The finalized quantized model ready for deployment on the target backend.

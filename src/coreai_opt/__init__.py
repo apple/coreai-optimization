@@ -25,6 +25,7 @@ if _incompatibility:
 
 from . import palettization, pruning, quantization  # noqa: E402
 from ._about import __version__  # noqa: E402
+from ._plugins import load_plugins as _load_plugins  # noqa: E402
 from .common import CoreMLExportError, ExportBackend  # noqa: E402
 
 __all__ = [
@@ -32,3 +33,7 @@ __all__ = [
     "ExportBackend",
     "__version__",
 ]
+
+# Last statement in the module: a plugin's registration code runs while this import is
+# still in flight, so everything it may reach for has to be bound before this call.
+_load_plugins()

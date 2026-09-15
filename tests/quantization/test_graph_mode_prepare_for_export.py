@@ -16,7 +16,11 @@ from coreai_opt.quantization import (
     QuantizerConfig,
 )
 from coreai_opt.quantization.config import ExecutionMode
-from coreai_opt.quantization.spec import PerTensorGranularity, QuantizationScheme, QuantizationSpec
+from coreai_opt.quantization.spec import (
+    PerTensorGranularity,
+    QuantizationScheme,
+    QuantizationSpec,
+)
 
 
 def weight_activation_quant_config(
