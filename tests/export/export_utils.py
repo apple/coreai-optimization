@@ -24,6 +24,7 @@ from coreai.runtime import NDArray
 from coremltools import ComputeUnit
 
 from coreai_opt import CoreMLExportError, ExportBackend
+from tests.config.env import get_compute_unit_kind
 from tests.test_utils.general import verify_snr_psnr as _verify_snr_psnr
 
 if platform.system() == "Darwin":
@@ -34,26 +35,14 @@ if platform.system() == "Darwin":
 # don't drift from one another.
 COREML_REJECTION_MATCH = "CoreML export does not support"
 
-# Compute unit selection driven by the --compute-unit-kind pytest option (see
-# tests/conftest.py). Default is "interpreter" so a plain `pytest` run uses the
-# bundled runtime.
-_COMPUTE_UNIT_KIND: str = "interpreter"
-
-
-def set_test_compute_unit_kind(name: str) -> None:
-    """Set the compute unit used by ``MLIRConverter`` inference.
-
-    Called from tests/conftest.py::pytest_configure based on --compute-unit-kind.
-
-    Args:
-        name (str): One of "interpreter", "cpu", "gpu", or "neural_engine".
-    """
-    global _COMPUTE_UNIT_KIND
-    _COMPUTE_UNIT_KIND = name
-
 
 def _get_test_specialization_options() -> "SpecializationOptions | None":
     """Translate the configured compute unit into ``SpecializationOptions`` (or None).
+
+    The compute unit comes from the ``--compute-unit-kind`` pytest option (see
+    ``tests/config/plugin.py``) and defaults to ``interpreter``, so a plain
+    ``pytest`` run uses the bundled runtime. Reading it here at call time, rather
+    than capturing it at import time, keeps this module off the startup path.
 
     On non-macOS platforms only ``interpreter`` is supported — the runtime does
     not expose ``SpecializationOptions`` outside Darwin.
@@ -64,27 +53,30 @@ def _get_test_specialization_options() -> "SpecializationOptions | None":
 
     Raises:
         RuntimeError: If a real compute unit is requested off macOS.
-        ValueError: If the configured compute unit kind is unknown.
+        ValueError: If a declared compute unit kind has no mapping here.
     """
-    if _COMPUTE_UNIT_KIND == "interpreter":
+    compute_unit_kind = get_compute_unit_kind()
+    if compute_unit_kind == "interpreter":
         return None
     if platform.system() != "Darwin":
         msg = (
-            f"--compute-unit-kind={_COMPUTE_UNIT_KIND} is only supported on macOS; "
+            f"--compute-unit-kind={compute_unit_kind} is only supported on macOS; "
             "use --compute-unit-kind=interpreter on this platform."
         )
         raise RuntimeError(msg)
-    if _COMPUTE_UNIT_KIND == "cpu":
+    if compute_unit_kind == "cpu":
         return SpecializationOptions.cpu_only()
-    if _COMPUTE_UNIT_KIND == "gpu":
+    if compute_unit_kind == "gpu":
         return SpecializationOptions.from_preferred_compute_unit_kind(
             compute_unit_kind=ComputeUnitKind.gpu(),
         )
-    if _COMPUTE_UNIT_KIND == "neural_engine":
+    if compute_unit_kind == "neural_engine":
         return SpecializationOptions.from_preferred_compute_unit_kind(
             compute_unit_kind=ComputeUnitKind.neural_engine(),
         )
-    msg = f"Unknown compute unit kind: {_COMPUTE_UNIT_KIND!r}"
+    # get_compute_unit_kind() already rejects anything outside COMPUTE_UNIT_KINDS,
+    # so this only fires when a kind is added there without a mapping above.
+    msg = f"Compute unit kind {compute_unit_kind!r} has no SpecializationOptions mapping"
     raise ValueError(msg)
 
 

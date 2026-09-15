@@ -294,7 +294,7 @@ log_date_format = "%Y-%m-%d %H:%M:%S.%f%z"
 log_format = "%(asctime)s %(levelname)s %(name)s:%(lineno)d: %(message)s"
 log_level = "NOTSET"
 markers = [
-    "seed(value): enable deterministic seeding; no value uses default seed (42), value=None means nondeterministic seeding",
+    # `seed` is registered by tests/config/plugin.py, alongside the fixture that reads it.
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 norecursedirs = [ ".oss-export" ]
