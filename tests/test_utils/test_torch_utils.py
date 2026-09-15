@@ -22,15 +22,6 @@ from coreai_opt._utils.torch_utils import (
 )
 
 
-def _non_cpu_device_or_skip():
-    """Return an available non-CPU device name, or skip the test if there is none."""
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-    pytest.skip("No non-CPU device available")
-
-
 class TestMoveModelContextManagers:
     """Test move_model_to_train / move_model_to_eval context managers."""
 
@@ -161,10 +152,9 @@ class TestMmapModuleStateDict:
         assert torch.equal(module.compressed.elem, uint8_data)
 
     @staticmethod
-    def test_raises_on_non_cpu_tensor(tmp_path):
+    def test_raises_on_non_cpu_tensor(tmp_path, accelerator_device):
         """Raises ValueError when a tensor is not on CPU."""
-        device = _non_cpu_device_or_skip()
-        model = nn.Linear(4, 4).to(device)
+        model = nn.Linear(4, 4).to(accelerator_device)
 
         with pytest.raises(ValueError, match="requires CPU tensors"):
             mmap_module_state_dict(model, tmp_path / "model.safetensors")
@@ -220,11 +210,10 @@ class TestMmapNamedTensors:
             mmap_named_tensors(module, tmp_path / "bad.safetensors", ["not_a_tensor"])
 
     @staticmethod
-    def test_raises_on_non_cpu_tensor(tmp_path):
+    def test_raises_on_non_cpu_tensor(tmp_path, accelerator_device):
         """Raises ValueError when a named tensor is not on CPU."""
-        device = _non_cpu_device_or_skip()
         module = nn.Module()
-        module.register_buffer("moved", torch.randn(4, 4, device=device))
+        module.register_buffer("moved", torch.randn(4, 4, device=accelerator_device))
 
         with pytest.raises(ValueError, match="requires CPU tensors"):
             mmap_named_tensors(module, tmp_path / "module.safetensors", ["moved"])
