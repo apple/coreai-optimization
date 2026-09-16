@@ -15,6 +15,7 @@ import torch
 
 from coreai_opt._utils.version_utils import (
     torchao_torch_incompatibility as _torchao_torch_incompatibility,
+    untested_torch_version as _untested_torch_version,
 )
 
 _incompatibility = _torchao_torch_incompatibility(
@@ -22,6 +23,10 @@ _incompatibility = _torchao_torch_incompatibility(
 )
 if _incompatibility:
     warnings.warn(_incompatibility, UserWarning, stacklevel=2)
+
+_untested = _untested_torch_version(torch.__version__)
+if _untested:
+    warnings.warn(_untested, UserWarning, stacklevel=2)
 
 from . import palettization, pruning, quantization  # noqa: E402
 from ._about import __version__  # noqa: E402
