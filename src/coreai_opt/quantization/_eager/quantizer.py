@@ -367,7 +367,11 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
                 # Weight FQs live inside ParametrizationList; map back
                 # to the owning module (strip ".parametrizations.<param>")
                 if isinstance(module, ParametrizationList):
-                    key = name.rsplit(".", 2)[0]
+                    key = (
+                        name.rsplit(".parametrizations.", 1)[0]
+                        if ".parametrizations." in name
+                        else ""
+                    )
                 else:
                     key = name
                 mapping[key] += fq_list

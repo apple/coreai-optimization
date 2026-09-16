@@ -154,6 +154,56 @@ def test_get_fake_quantize_modules(execution_mode):
     assert len(set(id(fq) for fq in all_fqs)) == len(all_fqs), "Duplicate FQ instances in map"
 
 
+@pytest.mark.parametrize("execution_mode", [ExecutionMode.EAGER, ExecutionMode.GRAPH])
+def test_root_module_fake_quantize_mapping_and_schedule(execution_mode):
+    """Standalone root module maps all FQs to '' and receives QAT schedule."""
+    sched = QATSchedule(enable_observer=0, enable_fake_quant=2)
+    config = QuantizerConfig(
+        global_config=ModuleQuantizerConfig(
+            op_state_spec={"weight": default_weight_quantization_spec()},
+            op_input_spec={"*": default_activation_quantization_spec()},
+            op_output_spec={"*": default_activation_quantization_spec()},
+            qat_schedule=sched,
+        ),
+        execution_mode=execution_mode,
+    )
+    model = nn.Linear(4, 4)
+    quantizer = Quantizer(model, config)
+    example_input = torch.randn(2, 4)
+    prepared_model = quantizer.prepare((example_input,))
+
+    fq_map = quantizer._get_fake_quantize_modules()
+    assert list(fq_map.keys()) == [""], f"Expected only root key '', got: {list(fq_map.keys())}"
+    assert "parametrizations" not in fq_map
+
+    all_fqs_from_model = _get_fake_quant_modules(prepared_model)
+    assert len(fq_map[""]) == len(all_fqs_from_model)
+
+    # Verify all FQ modules (both activation and weight) are registered in _fq_to_schedule
+    assert len(quantizer._fq_to_schedule) == len(all_fqs_from_model)
+    for fq in all_fqs_from_model:
+        assert fq in quantizer._fq_to_schedule
+
+    # Step through training mode and verify observer/fake_quant transitions
+    with quantizer.training_mode():
+        # Step 0: Initial state (observer on, fake_quant off)
+        assert quantizer._step_count == 0
+        assert _all_observers_enabled(all_fqs_from_model)
+        assert _all_fake_quant_disabled(all_fqs_from_model)
+
+        # Step 1: Advance by 1 step
+        quantizer.step()
+        assert quantizer._step_count == 1
+        assert _all_observers_enabled(all_fqs_from_model)
+        assert _all_fake_quant_disabled(all_fqs_from_model)
+
+        # Step 2: enable_fake_quant step reached
+        quantizer.step()
+        assert quantizer._step_count == 2
+        assert _all_observers_enabled(all_fqs_from_model)
+        assert _all_fake_quant_enabled(all_fqs_from_model)
+
+
 class SharedWeightModel(nn.Module):
     """Two Linear layers sharing the same weight parameter."""
 
