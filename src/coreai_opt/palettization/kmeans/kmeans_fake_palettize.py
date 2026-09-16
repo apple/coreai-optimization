@@ -351,6 +351,30 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
                 )
         return self.granularity.get_blocks_to_cluster(weight_2d)
 
+    def _split_into_groups(self, weight_2d: torch.Tensor, axis: int) -> torch.Tensor:
+        """Split a 2D weight into a ``(P, group_rows, group_cols)`` batch of
+        per-partition groups. Invert via ``_merge_groups``.
+        """
+        if isinstance(self.granularity, PerGroupedChannelGranularity):
+            rows, cols = weight_2d.shape
+            group_size = self.granularity.group_size
+            if axis == 0:
+                return weight_2d.reshape(rows // group_size, group_size, cols)
+            return weight_2d.reshape(rows, cols // group_size, group_size).permute(1, 0, 2)
+        return weight_2d.unsqueeze(0)  # per-tensor: single group
+
+    def _merge_groups(self, groups: torch.Tensor, axis: int) -> torch.Tensor:
+        """Merge a ``(P, group_rows, group_cols)`` batch back into a 2D weight --
+        the inverse of ``_split_into_groups``.
+        """
+        num_groups, rows, cols = groups.shape
+        if isinstance(self.granularity, PerGroupedChannelGranularity):
+            if axis == 0:
+                return groups.reshape(num_groups * rows, cols)
+            return groups.permute(1, 0, 2).reshape(rows, num_groups * cols)
+        assert num_groups == 1
+        return groups.reshape(rows, cols)  # per-tensor: P == 1
+
     def _scale_reshape_and_block(self, weight: torch.Tensor) -> tuple[list[torch.Tensor], int]:
         """Scale (if enabled), reshape to 2D, and split into per-block tensors.
 
@@ -730,17 +754,42 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             return tensor.reshape(-1, 1)
         return tensor.transpose(0, 1).reshape(-1, self.cluster_dim)
 
-    def _vectorize(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Alias of _vectorize_block, to be removed."""
-        return self._vectorize_block(tensor)
+    def _to_cluster_vectors(self, groups: torch.Tensor) -> torch.Tensor:
+        """Group each partition's rows into length-``cluster_dim`` cluster vectors.
 
-    def _devectorize_block(self, vec: torch.Tensor, rows: int, cols: int) -> torch.Tensor:
-        """Reconstruct a ``(rows, cols)`` block from its ``(N, cluster_dim)``
-        vectors — the inverse of ``_vectorize_block``.
+        Batched over the leading partition axis:
+        ``(P, group_rows, group_cols)`` -> ``(P, vectors_per_group, cluster_dim)``.
         """
+        num_groups, group_rows, _ = groups.shape
         if self.cluster_dim == 1:
-            return vec.reshape(rows, cols)
-        return vec.reshape(cols, rows).transpose(0, 1)
+            return groups.reshape(num_groups, -1, 1)
+        if group_rows % self.cluster_dim != 0:
+            raise _IncompatibleClusterDimError(
+                f"Group row dimension {group_rows} is not divisible by "
+                f"cluster_dim {self.cluster_dim}."
+            )
+        return groups.transpose(1, 2).reshape(num_groups, -1, self.cluster_dim)
+
+    def _from_cluster_vectors(self, vectors: torch.Tensor, rows: int, cols: int) -> torch.Tensor:
+        """Rebuild per-partition groups from cluster vectors -- the inverse of
+        ``_to_cluster_vectors``.
+
+        ``(P, vectors_per_group, cluster_dim)`` -> ``(P, rows, cols)``.
+        """
+        num_groups = vectors.shape[0]
+        if self.cluster_dim != vectors.shape[2]:
+            raise ValueError(
+                f"Expected index 2 of vectors to be size self.cluster_dim ({self.cluster_dim}) but "
+                f"got {vectors.shape[2]}."
+            )
+        if vectors.shape[1] * vectors.shape[2] != rows * cols:
+            raise ValueError(
+                "Expected final 2 indices of vectors to have number of elements equal to "
+                f"rows * cols but got {vectors.shape[1]} and {vectors.shape[2]}."
+            )
+        if self.cluster_dim == 1:
+            return vectors.reshape(num_groups, rows, cols)
+        return vectors.reshape(num_groups, cols, rows).transpose(1, 2)
 
     def vectorize(self, weight: torch.Tensor) -> tuple[torch.Tensor, _WeightVectorization]:
         """Scale (if enabled), reshape, block-split, and vectorize a weight into
@@ -748,7 +797,8 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
 
         Applies per-channel scaling when ``enable_per_channel_scale`` is set,
         matching the clustering path, then produces the vector layout k-means
-        operates on. Device-preserving. Invert via ``devectorize``.
+        operates on. Batched over the partition axis (differentiable and
+        autograd-cheap). Device-preserving. Invert via ``devectorize``.
 
         Args:
             weight (torch.Tensor): Weight tensor in its original shape.
@@ -758,9 +808,13 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             vectors and the context needed to reconstruct the weight.
         """
         weight_shape, weight_dtype = weight.shape, weight.dtype
-        blocks, axis = self._scale_reshape_and_block(weight)
-        block_shape = blocks[0].shape  # all blocks share one shape
-        vectors = torch.stack([self._vectorize_block(block) for block in blocks])
+        if self.enable_per_channel_scale:
+            weight = self._scale_by_per_channel_scale(weight)
+        axis = self._resolved_axis
+        weight_2d = self.reshape_strategy.reshape_for_kmeans(weight, axis)
+        groups = self._split_into_groups(weight_2d, axis)  # (P, group_rows, group_cols)
+        block_shape = groups.shape[1:]
+        vectors = self._to_cluster_vectors(groups)
 
         context = _WeightVectorization(axis, block_shape, weight_shape, weight_dtype)
         return vectors, context
@@ -770,7 +824,8 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         of ``vectorize``.
 
         Undoes the vectorization and block-split, restores the original shape,
-        then unscales when ``enable_per_channel_scale`` is set.
+        then unscales when ``enable_per_channel_scale`` is set. Batched over the
+        partition axis (differentiable and autograd-cheap).
 
         Args:
             vectors (torch.Tensor): Stacked ``(num_blocks, vectors_per_block,
@@ -780,11 +835,8 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         Returns:
             torch.Tensor: Weight in the original shape and dtype.
         """
-        blocks = [
-            self._devectorize_block(vectors[p], *context.block_shape)
-            for p in range(vectors.shape[0])
-        ]
-        clustered = torch.cat(blocks, dim=context.axis)
+        groups = self._from_cluster_vectors(vectors, *context.block_shape)
+        clustered = self._merge_groups(groups, context.axis)
         clustered = self.reshape_strategy.reshape_to_original(
             clustered, context.axis, context.weight_shape
         )

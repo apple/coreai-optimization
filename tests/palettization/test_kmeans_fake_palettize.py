@@ -2097,3 +2097,125 @@ def test_vectorize_devectorize_round_trip(granularity, cluster_dim, enable_per_c
     assert reconstructed.shape == weight.shape
     assert reconstructed.dtype == weight.dtype
     assert torch.allclose(reconstructed, weight, atol=1e-5)
+
+
+def _loop_vectorize(palettizer: _KMeansFakePalettize, weight: torch.Tensor) -> torch.Tensor:
+    """Reference ``vectorize`` using a per-partition Python loop."""
+    w = weight
+    if palettizer.enable_per_channel_scale:
+        w = palettizer._scale_by_per_channel_scale(w)
+    axis = palettizer._resolved_axis
+    weight_2d = palettizer.reshape_strategy.reshape_for_kmeans(w, axis)
+    blocks = palettizer.granularity.get_blocks_to_cluster(weight_2d)
+    cluster_dim = palettizer.cluster_dim
+    vecs = []
+    for block in blocks:
+        if cluster_dim == 1:
+            vecs.append(block.reshape(-1, 1))
+        else:
+            vecs.append(block.transpose(0, 1).reshape(-1, cluster_dim))
+    return torch.stack(vecs)
+
+
+def _loop_devectorize(
+    palettizer: _KMeansFakePalettize, vectors: torch.Tensor, context
+) -> torch.Tensor:
+    """Reference ``devectorize`` using a per-partition Python loop."""
+    rows, cols = context.block_shape
+    cluster_dim = palettizer.cluster_dim
+    blocks = []
+    for p in range(vectors.shape[0]):
+        vec = vectors[p]
+        if cluster_dim == 1:
+            blocks.append(vec.reshape(rows, cols))
+        else:
+            blocks.append(vec.reshape(cols, rows).transpose(0, 1))
+    clustered = torch.cat(blocks, dim=context.axis)
+    clustered = palettizer.reshape_strategy.reshape_to_original(
+        clustered, context.axis, context.weight_shape
+    )
+    if palettizer.enable_per_channel_scale:
+        clustered = palettizer._unscale_by_per_channel_scale(clustered)
+    return clustered.to(context.weight_dtype)
+
+
+@pytest.mark.parametrize("enable_per_channel_scale", [False, True], ids=["no-pcs", "pcs"])
+@pytest.mark.parametrize("granularity, cluster_dim", _ROUNDTRIP_SPECS)
+def test_vectorize_devectorize_match_reference_loop(
+    granularity, cluster_dim, enable_per_channel_scale
+):
+    """Batched ``vectorize``/``devectorize`` are element-for-element identical to
+    a per-partition loop across every granularity/cluster_dim layout.
+    """
+    torch.manual_seed(0)
+    spec = PalettizationSpec(
+        n_bits=4,
+        granularity=granularity,
+        cluster_dim=cluster_dim,
+        enable_per_channel_scale=enable_per_channel_scale,
+        lut_qspec=None,
+    )
+    palettizer = _KMeansFakePalettize(**spec.__dict__)
+    weight = torch.randn(16, 32)
+
+    vectors, context = palettizer.vectorize(weight)
+    reconstructed = palettizer.devectorize(vectors, context)
+
+    ref_vectors = _loop_vectorize(palettizer, weight)
+    ref_reconstructed = _loop_devectorize(palettizer, ref_vectors, context)
+
+    assert torch.equal(vectors, ref_vectors)
+    assert torch.equal(reconstructed, ref_reconstructed)
+
+
+@pytest.mark.parametrize("granularity, cluster_dim", _ROUNDTRIP_SPECS)
+def test_vectorize_devectorize_is_differentiable(granularity, cluster_dim):
+    """Gradients flow through the vectorize/devectorize round trip to the weight."""
+    torch.manual_seed(0)
+    spec = PalettizationSpec(
+        n_bits=4,
+        granularity=granularity,
+        cluster_dim=cluster_dim,
+        enable_per_channel_scale=False,
+        lut_qspec=None,
+    )
+    palettizer = _KMeansFakePalettize(**spec.__dict__)
+    weight = torch.randn(16, 32, requires_grad=True)
+
+    vectors, context = palettizer.vectorize(weight)
+    reconstructed = palettizer.devectorize(vectors, context)
+    reconstructed.sum().backward()
+
+    assert weight.grad is not None
+    assert torch.equal(weight.grad, torch.ones_like(weight))
+
+
+def test_vectorize_raises_on_incompatible_cluster_dim():
+    """``vectorize`` rejects a cluster_dim that does not divide the group row dim."""
+    spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity(), cluster_dim=3)
+    palettizer = _KMeansFakePalettize(**spec.__dict__)
+    weight = torch.randn(4, 16)  # axis-0 size 4 not divisible by cluster_dim 3
+    with pytest.raises(_IncompatibleClusterDimError):
+        palettizer.vectorize(weight)
+
+
+def test_from_cluster_vectors_rejects_wrong_cluster_dim():
+    """``_from_cluster_vectors`` rejects vectors whose trailing dim != cluster_dim.
+
+    Without the guard, a wrong trailing dim whose element count still matches
+    ``rows * cols`` would reshape cleanly and silently reconstruct wrong values.
+    """
+    spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity(), cluster_dim=2)
+    palettizer = _KMeansFakePalettize(**spec.__dict__)
+    vectors = torch.randn(1, 4, 3)  # trailing dim 3 != cluster_dim 2
+    with pytest.raises(ValueError):
+        palettizer._from_cluster_vectors(vectors, rows=4, cols=2)
+
+
+def test_from_cluster_vectors_rejects_element_count_mismatch():
+    """``_from_cluster_vectors`` rejects vectors whose element count != rows * cols."""
+    spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity(), cluster_dim=2)
+    palettizer = _KMeansFakePalettize(**spec.__dict__)
+    vectors = torch.randn(1, 5, 2)  # 5 * 2 = 10 elements, but rows * cols = 8
+    with pytest.raises(ValueError):
+        palettizer._from_cluster_vectors(vectors, rows=4, cols=2)
