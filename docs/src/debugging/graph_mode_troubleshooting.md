@@ -17,7 +17,7 @@ with torch.no_grad():  # matches export_with_no_grad=True (the prepare() default
 
 The result of this experiment determines which path to follow:
 
-- **Export fails.** Go to [If `torch.export.export` fails](#if-torch-export-export-fails). The model isn't `torch.export`-compatible as written; the workarounds in Steps 2-3 may help.
+- **Export fails.** Go to [If `torch.export.export` fails](#if-torchexportexport-fails). The model isn't `torch.export`-compatible as written; the workarounds in Steps 2-3 may help.
 - **Export succeeds but `prepare()` still fails.** Go to [If `prepare()` fails after a successful export](#if-prepare-fails-after-a-successful-export).
 
 ## If `torch.export.export` fails

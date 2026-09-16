@@ -5,7 +5,7 @@ This guide documents coding conventions and best practices for the Core AI Optim
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
-- [1. Package & Module Structure](#1-package--module-structure)
+- [1. Package and Module Structure](#1-package-and-module-structure)
   - [1.1 Package Organization](#11-package-organization)
   - [1.2 Naming Conventions](#12-naming-conventions)
     - [Module Path](#module-path)
@@ -51,7 +51,7 @@ This guide documents coding conventions and best practices for the Core AI Optim
     - [7.6.4 Section Ordering](#764-section-ordering)
     - [7.6.5 Links in Docstrings](#765-links-in-docstrings)
 
-## 1. Package & Module Structure
+## 1. Package and Module Structure
 
 ### 1.1 Package Organization
 

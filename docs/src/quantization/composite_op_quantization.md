@@ -2,7 +2,7 @@
 
 Core AI recognizes certain well-known building blocks, such as SDPA or RMSNorm, as _composite ops_ and applies optimized implementations for them at runtime. These composite ops are available via the [coreai_torch.composite_ops](https://apple.github.io/coreai-torch/main/api/composite-ops.html) API. When a PyTorch model uses one of these ops, it can be converted to Core AI using one of the following APIs:
 
-- **Using `TorchConverter.add_pytorch_module()` along with the `externalize_modules` arg**: As described [here](https://apple.github.io/coreai-torch/main/guides/composite-ops.html), this approach takes as input an `nn.Module` torch model, along with the composite op torch module, specified via the *[externalize_modules](https://apple.github.io/coreai-torch/main/guides/externalization.html)* arg. Any `coreai-opt` optimizer that yields a torch model of type `nn.Module` can be converted using this API.
+- **Using `TorchConverter.add_pytorch_module()` along with the `externalize_modules` arg**: As described in the [coreai-torch composite ops guide](https://apple.github.io/coreai-torch/main/guides/composite-ops.html), this approach takes as input an `nn.Module` torch model, along with the composite op torch module, specified via the _[externalize_modules](https://apple.github.io/coreai-torch/main/guides/externalization.html)_ arg. Any `coreai-opt` optimizer that yields a torch model of type `nn.Module` can be converted using this API.
 - **Using `TorchConverter.add_exported_program()`** : This [coreai-torch API](https://apple.github.io/coreai-torch/main/api/TorchConverter.html#add-exported-program) operates on an already exported torch program. When using `coreai-opt`'s quantizer with [graph execution mode](overview.md#two-execution-modes-graph-and-eager), which results in a torch `ExportedProgram`, there are a few additional steps required to ensure correct conversion and externalization of the composite op modules. This process is explained below with an example.
 
 ## Example
@@ -97,7 +97,7 @@ coreai_program = (
 )
 ```
 
-Compared to the [usual flow](../introduction/integration_coreai.md), there are *two* key differences:
+Compared to the [usual flow](../introduction/integration_coreai.md), there are _two_ key differences:
 
 ## Patch original model with custom ops
 
@@ -117,8 +117,8 @@ After this process, the coreai graph contains both the main graph and the sub-gr
 
 ## Notes
 
-- Quantization cannot be applied *inside* the composite op body because the `_patch_model_for_externalization` API replaces the composite op body with a torch custom op, thus making it opaque to `coreai-opt`'s graph mode quantizer.
-- However, the boundaries (incoming and outgoing tensors) of the composite ops can be quantized as usual, using the `module_input_spec` and `module_output_spec` config kwargs as described in the documentation on `coreai-opt` configs [here](config.md).
+- Quantization cannot be applied _inside_ the composite op body because the `_patch_model_for_externalization` API replaces the composite op body with a torch custom op, thus making it opaque to `coreai-opt`'s graph mode quantizer.
+- However, the boundaries (incoming and outgoing tensors) of the composite ops can be quantized as usual, using the `module_input_spec` and `module_output_spec` config kwargs as described in the [`coreai-opt` configs documentation](config.md).
 
 :::{warning} The externalization APIs used above, `_patch_model_for_externalization` and `_subexport_and_restore` in coreai-torch are currently experimental.
 :::

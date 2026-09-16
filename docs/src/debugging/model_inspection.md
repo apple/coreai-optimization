@@ -11,7 +11,7 @@
 
 If you plan to compress the model using one of `coreai-opt`'s compression techniques, choose the `execution_mode` you plan to use when compressing for inspection in order to identify the correct op and module names to use in the compression config.
 
-For more information on `graph` mode vs. `eager` mode, see [here](../quantization/overview.md#two-execution-modes-graph-and-eager).
+For more information on `graph` mode vs. `eager` mode, see [Two Execution Modes: graph and eager](../quantization/overview.md#two-execution-modes-graph-and-eager).
 
 ## Basic Usage
 
