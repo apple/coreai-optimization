@@ -39,12 +39,6 @@ def torchao_torch_incompatibility(torchao_version: str, torch_version: str) -> s
     )
 
 
-# The highest torch minor version exercised by CI (the `torch_2_*` dependency
-# group named by HIGHEST_TORCH_GROUP in the Makefile). The runtime dependency
-# range is floor-only, so torch above this installs fine but is untested --
-# `untested_torch_version` warns at import instead of pip refusing to resolve.
-# Keep in sync with pyproject.toml; `test_max_tested_torch_matches_pyproject`
-# fails if this drifts.
 _MAX_TESTED_TORCH = "2.13"
 
 
