@@ -42,15 +42,15 @@ dependencies = [
     "safetensors>=0.5.3",
     # Required at runtime by torch.utils.cpp_extension
     "setuptools>=42",
-    # PyTorch >= 2.9.0 requires torchao >= 0.15.0
-    # Python's standard dependency specification (PEP 508) doesn't support conditional dependencies
-    # based on other package versions. We can either 1) add a stricter check to require the newer torchao
-    # version for everyone, or 2) add a runtime check in src/coreai_opt/init.py to ensure torchao
-    # version >= 0.15.0 for torch version >= 2.9.0. Opting option 1.
-    # These torch versions must be in bounds of torch_2_8, torch_2_9, torch_2_10, torch_2_11,
-    # torch_2_12, torch_2_13, and torch_2_14
-    "torch>=2.8.0,<=2.14.0",
-    "torchao>=0.15.0,<=0.18.0",
+    # Floor-only, deliberately. PEP 508 cannot express conditional inter-package
+    # dependencies, so an upper bound here would block installs on every future
+    # torch until someone cuts a release -- which is what it used to do.
+    # Compatibility is enforced at import instead (src/coreai_opt/_utils/version_utils.py):
+    #   - torchao_torch_incompatibility: errors on a known-bad torchao/torch pair
+    #   - untested_torch_version: warns when torch is newer than the tested range
+    # The torch_2_* dependency groups below define what CI actually tests.
+    "torch>=2.8.0",
+    "torchao>=0.15.0",
     "tqdm>=4.65",
 ]
 [[project.authors]]
@@ -183,13 +183,13 @@ tutorial = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
+[tool.setuptools.dynamic]
+version = { attr = "coreai_opt._about.__version__" }
+[tool.setuptools.package-data]
+coreai_opt = [ "deps/_kmeans1d/_core.cpp", "deps/_kmeans1d/LICENSE", "py.typed" ]
 [tool.setuptools.packages]
 find.exclude = [ "coreai_opt_benchmarking*", "tests*" ]
 find.where = [ "src" ]
-[tool.setuptools.package-data]
-coreai_opt = [ "deps/_kmeans1d/_core.cpp", "deps/_kmeans1d/LICENSE", "py.typed" ]
-[tool.setuptools.dynamic]
-version = { attr = "coreai_opt._about.__version__" }
 
 # make env group installed by default with uv sync
 [tool.uv]

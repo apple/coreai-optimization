@@ -55,23 +55,23 @@ def test_returns_none_for_compatible_pair(torchao_version, torch_version):
 
 
 UNTESTED_TORCH = [
-    "2.12.0",
-    "2.12.0+cu128",
-    "2.13.0.dev20260805+cu128",
-    "2.12.0rc1",
+    "2.14.0",
+    "2.14.0+cu128",
+    "2.15.0.dev20260805+cu128",
+    "2.14.0rc1",
     "3.0.0",
 ]
 
 TESTED_TORCH = [
     "2.8.0",
     "2.10.0",
-    "2.11.0",
+    "2.13.0",
     # A patch release of a tested minor is covered by that minor.
-    "2.11.5",
+    "2.13.5",
     # Local and pre-release forms of a tested minor stay quiet.
-    "2.11.0+cu128",
-    "2.11.0rc1",
-    "2.11.0+gitabc1234",
+    "2.13.0+cu128",
+    "2.13.0rc1",
+    "2.13.0+gitabc1234",
 ]
 
 
@@ -81,7 +81,7 @@ def test_returns_message_for_untested_torch(torch_version):
 
     assert message is not None
     assert torch_version in message
-    assert "2.11" in message
+    assert "2.13" in message
 
 
 @pytest.mark.parametrize("torch_version", TESTED_TORCH)

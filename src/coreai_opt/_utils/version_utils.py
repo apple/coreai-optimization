@@ -45,7 +45,7 @@ def torchao_torch_incompatibility(torchao_version: str, torch_version: str) -> s
 # `untested_torch_version` warns at import instead of pip refusing to resolve.
 # Keep in sync with pyproject.toml; `test_max_tested_torch_matches_pyproject`
 # fails if this drifts.
-_MAX_TESTED_TORCH = "2.11"
+_MAX_TESTED_TORCH = "2.13"
 
 
 def untested_torch_version(torch_version: str) -> str | None:
