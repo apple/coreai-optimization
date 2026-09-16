@@ -248,6 +248,23 @@ class SimpleEinsumAttentionModel(nn.Module):
         return torch.einsum("bkhq,bchk->bchq", weights, v)
 
 
+class SimpleEinsumAttentionConstModel(nn.Module):
+    """Same chained attention einsums, but the value operand is a parameter.
+
+    NAryActPattern does no handling for weights/parameters/attributes, so the
+    constant operand is left unquantized while the activation operand still
+    shares the quantizer on the first einsum's output.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.v = nn.Parameter(torch.randn(2, 4, 3, 6))
+
+    def forward(self, q, k):
+        weights = torch.einsum("bchq,bkhc->bkhq", q, k)
+        return torch.einsum("bkhq,bchk->bchq", weights, self.v)
+
+
 class SimpleConvEinsumConvModel(nn.Module):
     """conv -> relu -> einsum -> conv.
 
@@ -1264,6 +1281,23 @@ class TestAnnotationPatternRegistry:
                 {
                     "einsum": {"input_fq": [True, True], "output_fq": True},
                     "einsum_1": {"input_fq": [True, True], "output_fq": True},
+                },
+                False,
+            ),
+            # Same chain with the value operand as a parameter: the constant is
+            # left unquantized, the activation operand keeps its quantizer.
+            pytest.param(
+                SimpleEinsumAttentionConstModel(),
+                (torch.randn(2, 4, 3, 5), torch.randn(2, 6, 3, 4)),
+                "activation_only",
+                None,
+                {
+                    "einsum": {"input_fq": [True, True], "output_fq": True},
+                    "einsum_1": {
+                        "input_fq": [True],
+                        "weight_fq": {"v": False},
+                        "output_fq": True,
+                    },
                 },
                 False,
             ),
