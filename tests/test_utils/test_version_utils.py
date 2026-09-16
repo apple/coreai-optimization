@@ -3,9 +3,14 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-import pytest
+import tomllib
 
+import pytest
+from packaging import version
+
+from coreai_opt._utils.repo_utils import find_repo_root
 from coreai_opt._utils.version_utils import (
+    _MAX_TESTED_TORCH,
     torchao_torch_incompatibility,
     untested_torch_version,
 )
@@ -82,3 +87,33 @@ def test_returns_message_for_untested_torch(torch_version):
 @pytest.mark.parametrize("torch_version", TESTED_TORCH)
 def test_returns_none_for_tested_torch(torch_version):
     assert untested_torch_version(torch_version) is None
+
+
+def test_max_tested_torch_matches_pyproject():
+    """_MAX_TESTED_TORCH must track the highest torch_2_* dependency group.
+
+    Repo-only: pyproject.toml is not shipped in the wheel, so this must never
+    move into tests/test_smoke.py (which runs against an installed wheel).
+    """
+    pyproject_path = find_repo_root(__file__) / "pyproject.toml"
+    with open(pyproject_path, "rb") as f:
+        pyproject = tomllib.load(f)
+
+    groups = pyproject["dependency-groups"]
+    torch_pins = [
+        version.parse(spec.split("==")[1])
+        for name, specs in groups.items()
+        if name.startswith("torch_2_")
+        for spec in specs
+        if isinstance(spec, str) and spec.startswith("torch==")
+    ]
+
+    assert torch_pins, "no torch_2_* groups pinning torch== found in pyproject.toml"
+    highest = max(torch_pins)
+    expected = f"{highest.major}.{highest.minor}"
+
+    assert _MAX_TESTED_TORCH == expected, (
+        f"_MAX_TESTED_TORCH is {_MAX_TESTED_TORCH} but the highest torch_2_* "
+        f"group pins torch {highest}. Update _MAX_TESTED_TORCH in "
+        f"src/coreai_opt/_utils/version_utils.py."
+    )
