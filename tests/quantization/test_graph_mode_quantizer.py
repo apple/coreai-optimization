@@ -1905,3 +1905,46 @@ class TestFixedQParamsActivations:
             )
             _, zp, _ = fq.calculate_qparams()
             assert torch.all(zp == -128), f"{name}: expected zero_point=-128"
+
+
+class TestPassthroughChainReconciliation:
+    """End-to-end reconciliation on a ``linear -> reshape -> permute`` chain."""
+
+    class _LinearWithReshapeAndPermute(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.qkv = nn.Linear(8, 3 * 8, bias=False)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            y = self.qkv(x)
+            y = y.reshape(1, -1, 3, 8)  # rank-changing: emits InheritFields
+            return y.permute(0, 2, 1, 3)  # rank-preserving: emits ShareObserverInstance
+
+    def test_shape_ops_carry_no_annotation(self, weight_input_act_output_act_config):
+        """An annotation on ``reshape`` or ``permute`` could only come from a
+        constraint filling a spec no config spoke for."""
+        model = self._LinearWithReshapeAndPermute().eval()
+        quantizer = Quantizer(model, weight_input_act_output_act_config)
+        prepared_model = quantizer.prepare(example_inputs=(torch.randn(1, 4, 8),))
+
+        by_name = {node.name: node for node in prepared_model.graph.nodes}
+        # Both survive export, so the assertion below cannot pass vacuously.
+        assert {"linear", "reshape", "permute"} <= by_name.keys()
+
+        annotated = {
+            name for name, node in by_name.items() if node.meta.get(Q_ANNOTATION_KEY) is not None
+        }
+        assert annotated == {"linear"}
+
+    def test_linear_observes_its_activations_and_weight(self, weight_input_act_output_act_config):
+        """Three observers: the input activation, the weight, and the output
+        activation. The shape ops downstream add none."""
+        model = self._LinearWithReshapeAndPermute().eval()
+        quantizer = Quantizer(model, weight_input_act_output_act_config)
+        prepared_model = quantizer.prepare(example_inputs=(torch.randn(1, 4, 8),))
+
+        linear = next(node for node in prepared_model.graph.nodes if node.name == "linear")
+        annotation = linear.meta[Q_ANNOTATION_KEY]
+        assert annotation.output_qspec is not None
+        assert {node.name for node in annotation.input_qspec_map} == {"x", "qkv_weight"}
+        assert len(get_fake_quant_nodes(prepared_model)) == 3
