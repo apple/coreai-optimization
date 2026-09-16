@@ -120,7 +120,7 @@ pre-commit = [
     "mdformat-gfm",
     "pre-commit>=3.0.0",
     "pre-commit-hooks>=5.0.0",
-    "pymarkdownlnt>=0.9.33",
+    "pymarkdownlnt==0.9.39",
     "pyproject-fmt==2.28.2",
     "python-kacl",
     "ruff>=0.14.8",
