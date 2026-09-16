@@ -73,6 +73,41 @@ def _fv(value, priority: int = 0) -> FieldValue:
     return FieldValue(value=value, priority=priority)
 
 
+def _build_whole_field_map(**overrides: FieldValue) -> dict[FieldName, FieldValue]:
+    """Every field, with placeholder values; only the key set is checked."""
+    base = {field_name: _fv(None) for field_name in FieldName}
+    base.update({FieldName[key]: value for key, value in overrides.items()})
+    return base
+
+
+# ---------------------------------------------------------------------------
+# ProvisionalQSpec field writes.
+# ---------------------------------------------------------------------------
+
+
+class TestProvisionalQSpecFieldWrites:
+    """Writes reach the field map only through ``merge_fields``, which keeps the
+    map empty or whole.
+    """
+
+    def test_direct_write_to_fields_raises(self) -> None:
+        with pytest.raises(TypeError):
+            ProvisionalQSpec().fields[FieldName.DTYPE] = _fv(torch.int8)
+
+    def test_seeding_a_whole_field_map_is_allowed(self) -> None:
+        """Empty to whole is the one write that introduces fields legitimately."""
+        qspec = ProvisionalQSpec()
+        qspec.merge_fields(_build_whole_field_map())
+        assert set(qspec.fields) == set(FieldName)
+
+    def test_introducing_a_field_short_of_whole_raises(self) -> None:
+        """A constraint writing its own subset into a slot no config seeded."""
+        qspec = ProvisionalQSpec()
+        with pytest.raises(ReconciliationError, match="would leave it partial"):
+            qspec.merge_fields({FieldName.DTYPE: _fv(torch.int8)})
+        assert qspec.fields == {}
+
+
 # ---------------------------------------------------------------------------
 # _reconcile_field policies.
 # ---------------------------------------------------------------------------
@@ -265,7 +300,7 @@ class TestShareFields:
         state: ProvisionalQSpecMap = {
             a: _pspec(DTYPE=_fv(torch.int4, priority=0)),
             b: _pspec(DTYPE=_fv(torch.int8, priority=5)),
-            c: _pspec(),  # no proposal
+            c: _pspec(DTYPE=_fv(torch.int8, priority=9)),  # weakest proposal
         }
         con = ShareFields(_slots=frozenset({a, b, c}), fields=frozenset({FieldName.DTYPE}))
         changed = con.apply(state)
@@ -331,7 +366,7 @@ class TestShareObserverInstance:
         a, b = _slot("a"), _slot("b")
         state: ProvisionalQSpecMap = {a: _pspec(), b: _pspec()}
         ShareObserverInstance(_slots=frozenset({a, b})).apply(state)
-        state[a].fields[FieldName.DTYPE] = _fv(torch.int8, 0)
+        state[a].merge_fields(_build_whole_field_map(DTYPE=_fv(torch.int8, 0)))
         # b's ProvisionalQSpec is the same object → sees the new field.
         assert state[b].fields[FieldName.DTYPE].value == torch.int8
 

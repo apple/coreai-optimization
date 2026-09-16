@@ -328,8 +328,9 @@ def _override_field(
     """Write ``intrinsic_value`` at ``field_name`` on ``slot``, logging only if
     ``user_value`` asked for something different.
     """
-    qspec = _get_or_create(qspecs, slot)
-    qspec.fields[field_name] = FieldValue(value=intrinsic_value, priority=priority)
+    _get_or_create(qspecs, slot).merge_fields(
+        {field_name: FieldValue(value=intrinsic_value, priority=priority)}
+    )
     if user_value is not None and user_value != intrinsic_value:
         logger.info(
             "Op-intrinsic override on %s (target=%s): user %s=%r overridden by intrinsic %s=%r.",
@@ -387,10 +388,12 @@ def _populate_fields_from_spec(
     Reads the spec's settable inputs rather than a converted torchao spec, so
     each property the user configured stays independently reconcilable.
     """
-    qspec = _get_or_create(qspecs, slot)
-    for field_name, attr in _FIELD_FROM_SPEC_ATTR.items():
-        qspec.fields[field_name] = FieldValue(value=getattr(spec, attr), priority=priority)
-    qspec.fields[FieldName.QUANTIZATION_TARGET] = FieldValue(value=target, priority=priority)
+    fields = {
+        field_name: FieldValue(value=getattr(spec, attr), priority=priority)
+        for field_name, attr in _FIELD_FROM_SPEC_ATTR.items()
+    }
+    fields[FieldName.QUANTIZATION_TARGET] = FieldValue(value=target, priority=priority)
+    _get_or_create(qspecs, slot).merge_fields(fields)
 
 
 def _lookup_by_key(spec_map: dict[Any, Any], key: Any) -> Any:
