@@ -1256,7 +1256,28 @@ class TestKMeansPalettizerCalibrationMode:
                 assert m.fake_palett_enabled, (
                     "Fake palettize should be re-enabled after post-step abort"
                 )
+        for p in prepared_model.parameters():
+            if p.grad is not None:
+                assert torch.all(p.grad == 0), "Gradients should be zeroed out on abort"
         assert palettizer._lifecycle == _CompressorLifecycle.IDLE
+
+    def test_calibration_mode_restore_failure_raises_runtime_error(
+        self, simple_conv_linear_model, basic_config, simple_model_input, monkeypatch
+    ):
+        """Test that if checkpoint restoration fails during abort, RuntimeError is raised."""
+        palettizer = KMeansPalettizer(simple_conv_linear_model, basic_config)
+        palettizer.prepare((simple_model_input,))
+
+        def mock_load_fail(model, path):
+            raise OSError("simulated disk failure")
+
+        monkeypatch.setattr(palettizer, "_load_model_checkpoint", mock_load_fail)
+
+        with pytest.raises(
+            RuntimeError, match="Failed to restore the model to its pre-calibration state"
+        ):
+            with palettizer.calibration_mode(loss_fn=nn.functional.cross_entropy):
+                raise ValueError("simulated abort")
 
     def test_calibration_mode_root_module(self, basic_config):
         """Test calibration_mode on a standalone root module (module_name == '')."""

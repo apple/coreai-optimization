@@ -325,9 +325,6 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             # Set sensitivities in fake palettize modules
             self._set_sensitivities_in_fake_palettize_modules(sensitivities)
 
-            # Zero out gradients to clean up squared gradient values from hooks
-            self._model.zero_grad()
-
             # Recompute centroids with sensitivities, matching the
             # parallelism the user opted into at prepare() time.
             if self._num_workers > 1:
@@ -336,19 +333,18 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 self._calculate_centroids_sequential()
 
         finally:
-            if checkpoint_path is not None and os.path.exists(checkpoint_path):
-                # Roll back model to pre-calibration state if checkpoint wasn't loaded
-                try:
-                    self._model.load_state_dict(torch.load(checkpoint_path, weights_only=True))
-                except Exception:
-                    pass
-                try:
-                    os.unlink(checkpoint_path)
-                except OSError:
-                    pass
-            # Restore normal operation
+            self._model.zero_grad()
             self._model.apply(_enable_fake_palett)
             self._lifecycle = _CompressorLifecycle.IDLE
+            if checkpoint_path is not None:
+                try:
+                    self._load_model_checkpoint(self._model, checkpoint_path)
+                except Exception as e:
+                    raise RuntimeError(
+                        "Failed to restore the model to its pre-calibration state after "
+                        "calibration_mode aborted. The model is now in an inconsistent "
+                        "state and must not be used — reload it before retrying."
+                    ) from e
 
     @contextmanager
     def training_mode(self):
