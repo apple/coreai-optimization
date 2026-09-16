@@ -66,9 +66,7 @@ TESTED_TORCH = [
     "2.8.0",
     "2.10.0",
     "2.13.0",
-    # A patch release of a tested minor is covered by that minor.
     "2.13.5",
-    # Local and pre-release forms of a tested minor stay quiet.
     "2.13.0+cu128",
     "2.13.0rc1",
     "2.13.0+gitabc1234",
