@@ -134,7 +134,7 @@ class ProvisionalQSpec:
         constantly, and only adding a key can break the invariant.
         """
         merged = {**self._fields, **updates}
-        if merged.keys() != self._fields.keys() and merged.keys() != _ALL_FIELDS:
+        if merged.keys() and merged.keys() != _ALL_FIELDS:
             raise ReconciliationError(
                 f"Writing {sorted(f.name for f in updates)} would leave a partial "
                 f"qspec holding {sorted(f.name for f in merged)}. A qspec is either "
