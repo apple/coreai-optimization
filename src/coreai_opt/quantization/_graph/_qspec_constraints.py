@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ._qspec_types import (
+    _ALL_FIELDS,
     FieldName,
     FieldValue,
     NodeSlot,
@@ -23,9 +24,6 @@ from ._qspec_types import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-_ALL_FIELDS: frozenset[FieldName] = frozenset(FieldName)
 
 
 # ---------------------------------------------------------------------------

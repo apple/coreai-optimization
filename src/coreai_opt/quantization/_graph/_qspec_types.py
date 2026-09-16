@@ -67,6 +67,9 @@ class FieldName(enum.Enum):
     QUANTIZATION_TARGET = enum.auto()
 
 
+_ALL_FIELDS: frozenset[FieldName] = frozenset(FieldName)
+
+
 @dataclass(frozen=True)
 class FieldValue:
     """A value proposed for one field, plus the priority it came from.
