@@ -48,8 +48,8 @@ dependencies = [
     # version for everyone, or 2) add a runtime check in src/coreai_opt/init.py to ensure torchao
     # version >= 0.15.0 for torch version >= 2.9.0. Opting option 1.
     # These torch versions must be in bounds of torch_2_8, torch_2_9, torch_2_10, torch_2_11,
-    # torch_2_12, and torch_2_13
-    "torch>=2.8.0,<=2.13.0",
+    # torch_2_12, torch_2_13, and torch_2_14
+    "torch>=2.8.0,<=2.14.0",
     "torchao>=0.15.0,<=0.18.0",
     "tqdm>=4.65",
 ]
@@ -150,6 +150,11 @@ torch_2_13 = [
     "torchao==0.18.0",
     "torchvision==0.28.0",
 ]
+torch_2_14 = [
+    "torch==2.14.0",
+    "torchao==0.18.0",
+    "torchvision==0.29.0",
+]
 torch_2_8 = [
     "torch==2.8.0",
     "torchao==0.15.0",
@@ -163,7 +168,7 @@ torch_2_9 = [
 # Since torch and torchao are project dependencies, we need to include torchvision in dev
 # This allows standard `make test` to find torchvision
 torchvision = [
-    "torchvision>=0.23.0,<=0.28.0",
+    "torchvision>=0.23.0,<=0.29.0",
 ]
 tutorial = [
     "ipykernel>=7.2.0",
@@ -192,6 +197,7 @@ default-groups = [ "dev", "coreai", "coreml" ]
 index = [
     { explicit = true, name = "pytorch-cpu", url = "https://download.pytorch.org/whl/cpu" },
     { explicit = true, name = "pytorch-cu129", url = "https://download.pytorch.org/whl/cu129" },
+    { explicit = true, name = "pytorch-cu130", url = "https://download.pytorch.org/whl/cu130" },
 ]
 # Only resolve for platforms where all dependencies (including coreai) exist
 environments = [
@@ -212,16 +218,29 @@ conflicts = [
         { group = "torch_2_11" },
         { group = "torch_2_12" },
         { group = "torch_2_13" },
+        { group = "torch_2_14" },
     ],
 ]
 [tool.uv.sources]
 torch = [
     { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
-    { index = "pytorch-cu129", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_8" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_9" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_10" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_11" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_12" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_13" },
+    { index = "pytorch-cu130", marker = "sys_platform == 'linux'", group = "torch_2_14" },
 ]
 torchvision = [
     { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
-    { index = "pytorch-cu129", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_8" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_9" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_10" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_11" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_12" },
+    { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_13" },
+    { index = "pytorch-cu130", marker = "sys_platform == 'linux'", group = "torch_2_14" },
 ]
 
 [tool.ruff]
