@@ -37,3 +37,39 @@ def torchao_torch_incompatibility(torchao_version: str, torch_version: str) -> s
         f"{_MIN_TORCHAO_REQUIRING_TORCH_2_11} release notes for more information: "
         f"{_TORCHAO_RELEASE_NOTES_URL}"
     )
+
+
+# The highest torch minor version exercised by CI (the `torch_2_*` dependency
+# group named by HIGHEST_TORCH_GROUP in the Makefile). The runtime dependency
+# range is floor-only, so torch above this installs fine but is untested --
+# `untested_torch_version` warns at import instead of pip refusing to resolve.
+# Keep in sync with pyproject.toml; `test_max_tested_torch_matches_pyproject`
+# fails if this drifts.
+_MAX_TESTED_TORCH = "2.11"
+
+
+def untested_torch_version(torch_version: str) -> str | None:
+    """Describe why the installed torch version has not been tested.
+
+    Compares on (major, minor) only, so a patch release of a tested minor
+    (``2.11.5``) is treated as tested while a new minor (``2.12.0``) is not.
+
+    Args:
+        torch_version: The installed torch version.
+
+    Returns:
+        A message naming the untested version, or ``None`` if it is at or below
+        the highest CI-tested version.
+    """
+    installed = version.parse(torch_version)
+    max_tested = version.parse(_MAX_TESTED_TORCH)
+    if (installed.major, installed.minor) <= (max_tested.major, max_tested.minor):
+        return None
+    return (
+        f"coreai-opt has not been tested with torch {torch_version}. The highest "
+        f"tested version is torch {_MAX_TESTED_TORCH}. This is not a known "
+        f"incompatibility -- coreai-opt intentionally allows newer torch so "
+        f"installs are not blocked -- but if you hit unexpected behavior, try "
+        f"torch {_MAX_TESTED_TORCH} before filing a bug. Silence this with: "
+        f"warnings.filterwarnings('ignore', message='coreai-opt has not been tested')"
+    )

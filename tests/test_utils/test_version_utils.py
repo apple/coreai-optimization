@@ -5,7 +5,10 @@
 
 import pytest
 
-from coreai_opt._utils.version_utils import torchao_torch_incompatibility
+from coreai_opt._utils.version_utils import (
+    torchao_torch_incompatibility,
+    untested_torch_version,
+)
 
 INCOMPATIBLE = [
     ("0.18.0", "2.8.0"),
@@ -44,3 +47,38 @@ def test_returns_message_for_incompatible_pair(torchao_version, torch_version):
 @pytest.mark.parametrize(("torchao_version", "torch_version"), COMPATIBLE)
 def test_returns_none_for_compatible_pair(torchao_version, torch_version):
     assert torchao_torch_incompatibility(torchao_version, torch_version) is None
+
+
+UNTESTED_TORCH = [
+    "2.12.0",
+    "2.12.0+cu128",
+    "2.13.0.dev20260805+cu128",
+    "2.12.0rc1",
+    "3.0.0",
+]
+
+TESTED_TORCH = [
+    "2.8.0",
+    "2.10.0",
+    "2.11.0",
+    # A patch release of a tested minor is covered by that minor.
+    "2.11.5",
+    # Local and pre-release forms of a tested minor stay quiet.
+    "2.11.0+cu128",
+    "2.11.0rc1",
+    "2.11.0+gitabc1234",
+]
+
+
+@pytest.mark.parametrize("torch_version", UNTESTED_TORCH)
+def test_returns_message_for_untested_torch(torch_version):
+    message = untested_torch_version(torch_version)
+
+    assert message is not None
+    assert torch_version in message
+    assert "2.11" in message
+
+
+@pytest.mark.parametrize("torch_version", TESTED_TORCH)
+def test_returns_none_for_tested_torch(torch_version):
+    assert untested_torch_version(torch_version) is None
