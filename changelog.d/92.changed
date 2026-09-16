@@ -1,0 +1,1 @@
+The `torch` and `torchao` dependencies no longer have upper version bounds, so coreai-opt installs alongside newer releases of both instead of blocking resolution. Importing `coreai_opt` now emits a `UserWarning` when the installed torch is newer than the highest tested version, and continues to warn on a known-incompatible torchao/torch pairing as before.
