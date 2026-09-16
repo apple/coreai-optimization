@@ -103,7 +103,7 @@ class TestProvisionalQSpecFieldWrites:
     def test_introducing_a_field_short_of_whole_raises(self) -> None:
         """A constraint writing its own subset into a slot no config seeded."""
         qspec = ProvisionalQSpec()
-        with pytest.raises(ReconciliationError, match="would leave it partial"):
+        with pytest.raises(ReconciliationError, match="would leave a partial"):
             qspec.merge_fields({FieldName.DTYPE: _fv(torch.int8)})
         assert qspec.fields == {}
 

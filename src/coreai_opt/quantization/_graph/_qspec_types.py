@@ -129,17 +129,18 @@ class ProvisionalQSpec:
     def merge_fields(self, updates: Mapping[FieldName, FieldValue]) -> None:
         """Merge ``updates`` into the field map.
 
-        Raises if ``updates`` introduces a field the map does not already carry
-        without leaving it whole.
+        Raises if the result would hold some fields but not all, unless it was
+        already partial before the write: reconciliation overwrites values
+        constantly, and only adding a key can break the invariant.
         """
-        introduced_fields = updates.keys() - self._fields.keys()
-        if introduced_fields and self._fields.keys() | updates.keys() != _ALL_FIELDS:
+        merged = {**self._fields, **updates}
+        if merged.keys() != self._fields.keys() and merged.keys() != _ALL_FIELDS:
             raise ReconciliationError(
-                f"Writing {sorted(f.name for f in introduced_fields)} into a qspec "
-                f"holding {sorted(f.name for f in self._fields)} would leave it "
-                f"partial. A qspec is either empty or whole."
+                f"Writing {sorted(f.name for f in updates)} would leave a partial "
+                f"qspec holding {sorted(f.name for f in merged)}. A qspec is either "
+                f"empty or whole."
             )
-        self._fields.update(updates)
+        self._fields = merged
 
     @property
     def declined(self) -> bool:
