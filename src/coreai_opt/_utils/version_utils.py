@@ -40,7 +40,7 @@ def torchao_torch_incompatibility(torchao_version: str, torch_version: str) -> s
     )
 
 
-_MAX_TESTED_TORCH = "2.13"
+_MAX_TESTED_TORCH = "2.14"
 parsed_max_tested_torch_version = version.parse(_MAX_TESTED_TORCH)
 _TESTED_TORCH_RANGE = SpecifierSet(
     f"<{parsed_max_tested_torch_version.major}.{parsed_max_tested_torch_version.minor + 1}",
