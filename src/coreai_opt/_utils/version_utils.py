@@ -64,5 +64,5 @@ def untested_torch_version(torch_version: str) -> str | None:
         f"coreai-opt has not been tested with torch {torch_version}. The highest "
         f"tested torch version is {_MAX_TESTED_TORCH}. If you want to silence this "
         f"message please run: "
-        f"warnings.filterwarnings('ignore', category=coreai_opt.UntestedTorchVersionWarning)"
+        f"warnings.filterwarnings('ignore', message='coreai-opt has not been tested')"
     )
