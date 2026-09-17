@@ -63,21 +63,20 @@ def _slot(name: str = "s", kind: SlotKind = SlotKind.OUTPUT, arg_index: int = 0)
     return NodeSlot(node=Mock(name=name), kind=kind, arg_index=arg_index)
 
 
-def _pspec(**fields: FieldValue) -> ProvisionalQSpec:
-    """Build a ProvisionalQSpec by keyword: DTYPE=FieldValue(int8, 0), ..."""
-    field_map = {FieldName[key]: value for key, value in fields.items()}
-    return ProvisionalQSpec(fields=field_map)
-
-
 def _fv(value, priority: int = 0) -> FieldValue:
     return FieldValue(value=value, priority=priority)
 
 
 def _build_whole_field_map(**overrides: FieldValue) -> dict[FieldName, FieldValue]:
-    """Every field, with placeholder values; only the key set is checked."""
     base = {field_name: _fv(None) for field_name in FieldName}
     base.update({FieldName[key]: value for key, value in overrides.items()})
     return base
+
+
+def _pspec(**fields: FieldValue) -> ProvisionalQSpec:
+    if not fields:
+        return ProvisionalQSpec()
+    return ProvisionalQSpec(fields=_build_whole_field_map(**fields))
 
 
 # ---------------------------------------------------------------------------
@@ -817,12 +816,12 @@ class TestInheritFields:
     @staticmethod
     def _with(**overrides) -> ProvisionalQSpec:
         base = {
-            FieldName.DTYPE: _fv(torch.int8),
-            FieldName.QSCHEME: _fv(QuantizationScheme.SYMMETRIC),
-            FieldName.FLOAT_RANGE: _fv([None, None]),
+            "DTYPE": _fv(torch.int8),
+            "QSCHEME": _fv(QuantizationScheme.SYMMETRIC),
+            "FLOAT_RANGE": _fv([None, None]),
         }
-        base.update({FieldName[key]: value for key, value in overrides.items()})
-        return ProvisionalQSpec(fields=base)
+        base.update(overrides)
+        return ProvisionalQSpec(fields=_build_whole_field_map(**base))
 
     _FACTS = frozenset({FieldName.QSCHEME, FieldName.FLOAT_RANGE})
 
