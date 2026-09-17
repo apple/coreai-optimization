@@ -26,7 +26,11 @@ from coreai_opt._utils.insertion.torch_function import (
     TorchFunctionEagerHandler,
 )
 from coreai_opt._utils.spec_utils import PartialConstructor
-from coreai_opt._utils.torch_utils import move_model_to_eval, move_model_to_train
+from coreai_opt._utils.torch_utils import (
+    extract_name_from_parameterization,
+    move_model_to_eval,
+    move_model_to_train,
+)
 from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleCompressionConfig
 from coreai_opt.config.spec import CompressionTargetTensor
@@ -367,11 +371,7 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
                 # Weight FQs live inside ParametrizationList; map back
                 # to the owning module (strip ".parametrizations.<param>")
                 if isinstance(module, ParametrizationList):
-                    key = (
-                        name.rsplit(".parametrizations.", 1)[0]
-                        if ".parametrizations." in name
-                        else ""
-                    )
+                    key = extract_name_from_parameterization(name)
                 else:
                     key = name
                 mapping[key] += fq_list

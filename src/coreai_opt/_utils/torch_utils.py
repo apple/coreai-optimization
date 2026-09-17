@@ -376,6 +376,31 @@ def find_parametrization_matching_cls(
     return None
 
 
+def extract_name_from_parameterization(name: str) -> str:
+    """Extract the owning module name from a parametrization fully qualified name.
+
+    Args:
+        name (str): The fully qualified module name of a parametrization
+            (e.g. ``"layer.parametrizations.weight"`` or ``"parametrizations.weight"``).
+
+    Returns:
+        str: The name of the owning module, or ``""`` if the parametrization belongs
+        to the root module. If ``name`` does not contain a parametrization identifier,
+        it is returned unchanged.
+    """
+    if ".parametrizations." in name:
+        return name.rsplit(".parametrizations.", 1)[0]
+    if name.startswith("parametrizations.") or name == "parametrizations":
+        return ""
+    if name.endswith(".parametrizations"):
+        return name.removesuffix(".parametrizations")
+    return name
+
+
+# Alias to support PyTorch standard spelling
+extract_name_from_parametrization = extract_name_from_parameterization
+
+
 def get_parent_module_and_attr_name(
     model: torch.nn.Module,
     module_name: str,
