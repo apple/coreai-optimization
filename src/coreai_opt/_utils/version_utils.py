@@ -6,6 +6,7 @@
 from types import ModuleType
 
 from packaging import version
+from packaging.specifiers import SpecifierSet
 
 
 def version_ge(module: ModuleType, target_version: str) -> bool:
@@ -40,13 +41,15 @@ def torchao_torch_incompatibility(torchao_version: str, torch_version: str) -> s
 
 
 _MAX_TESTED_TORCH = "2.13"
+parsed_max_tested_torch_version = version.parse(_MAX_TESTED_TORCH)
+_TESTED_TORCH_RANGE = SpecifierSet(
+    f"<{parsed_max_tested_torch_version.major}.{parsed_max_tested_torch_version.minor + 1}",
+    prereleases=True,
+)
 
 
 def untested_torch_version(torch_version: str) -> str | None:
     """Describe why the installed torch version has not been tested.
-
-    Compares on (major, minor) only, so a patch release of a tested minor
-    (``2.11.5``) is treated as tested while a new minor (``2.12.0``) is not.
 
     Args:
         torch_version: The installed torch version.
@@ -55,9 +58,7 @@ def untested_torch_version(torch_version: str) -> str | None:
         A message naming the untested version, or ``None`` if it is at or below
         the highest CI-tested version.
     """
-    installed = version.parse(torch_version)
-    max_tested = version.parse(_MAX_TESTED_TORCH)
-    if (installed.major, installed.minor) <= (max_tested.major, max_tested.minor):
+    if version.parse(torch_version) in _TESTED_TORCH_RANGE:
         return None
     return (
         f"coreai-opt has not been tested with torch {torch_version}. The highest "
