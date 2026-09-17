@@ -17,25 +17,29 @@ from coreai_opt._utils.version_utils import (
     torchao_torch_incompatibility as _torchao_torch_incompatibility,
     untested_torch_version as _untested_torch_version,
 )
+from coreai_opt.common import TorchaoTorchIncompatibilityWarning, UntestedTorchVersionWarning
 
 _incompatibility = _torchao_torch_incompatibility(
     importlib.metadata.version("torchao"), torch.__version__
 )
 if _incompatibility:
-    warnings.warn(_incompatibility, UserWarning, stacklevel=2)
+    warnings.warn(_incompatibility, TorchaoTorchIncompatibilityWarning, stacklevel=2)
 
 _untested = _untested_torch_version(torch.__version__)
 if _untested:
-    warnings.warn(_untested, UserWarning, stacklevel=2)
+    warnings.warn(_untested, UntestedTorchVersionWarning, stacklevel=2)
 
 from . import palettization, pruning, quantization  # noqa: E402
 from ._about import __version__  # noqa: E402
 from ._plugins import load_plugins as _load_plugins  # noqa: E402
-from .common import CoreMLExportError, ExportBackend  # noqa: E402
+from .common import CoreMLExportError, DependencyVersionWarning, ExportBackend  # noqa: E402
 
 __all__ = [
     "CoreMLExportError",
+    "DependencyVersionWarning",
     "ExportBackend",
+    "TorchaoTorchIncompatibilityWarning",
+    "UntestedTorchVersionWarning",
     "__version__",
 ]
 

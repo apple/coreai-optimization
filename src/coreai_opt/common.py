@@ -175,3 +175,15 @@ class CoreMLExportError(ValueError):
     def from_config(cls, config: object, context: str) -> CoreMLExportError:
         """Build the error for an unsupported quantization config attribute (e.g. granularity)."""
         return cls(f"CoreML export does not support {type(config).__name__} on {context}.")
+
+
+class DependencyVersionWarning(UserWarning):
+    """Base category for the dependency version checks run at import."""
+
+
+class UntestedTorchVersionWarning(DependencyVersionWarning):
+    """The installed torch is newer than the highest version coreai-opt tests against."""
+
+
+class TorchaoTorchIncompatibilityWarning(DependencyVersionWarning):
+    """The installed torchao and torch are a known-incompatible pair."""

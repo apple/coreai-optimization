@@ -1,1 +1,1 @@
-Remove upper bound on torch, torchao. Add untested message for untested versions on coreai-opt
+Remove upper bound on torch, torchao. Add untested message for untested versions on coreai-opt. Both checks warn using dedicated categories (`DependencyVersionWarning` and subclasses `UntestedTorchVersionWarning`, `TorchaoTorchIncompatibilityWarning`), filterable via `warnings.filterwarnings`.
