@@ -1,0 +1,1 @@
+Validate that `ChannelStructured` pruning is applied to tensors with at least 2 dimensions, raising a descriptive `ValueError` for 1D tensors instead of crashing with ATen `RuntimeError`.
