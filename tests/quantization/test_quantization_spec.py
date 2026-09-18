@@ -564,6 +564,17 @@ def test_fp_quant_requires_zp_qformulation(dtype):
         )
 
 
+def test_dynamic_calculator_rejects_symmetric_with_clipping():
+    """A dynamic (stateless) calculator cannot use SYMMETRIC_WITH_CLIPPING."""
+    with pytest.raises(ValueError, match="SYMMETRIC_WITH_CLIPPING"):
+        QuantizationSpec(
+            dtype=torch.int8,
+            qscheme="symmetric_with_clipping",
+            qparam_calculator_cls="dynamic",
+            granularity=PerTensorGranularity(),
+        )
+
+
 @pytest.mark.parametrize(
     "dtype,target_dtype",
     [

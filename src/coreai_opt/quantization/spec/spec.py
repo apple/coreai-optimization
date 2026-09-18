@@ -32,7 +32,7 @@ from .granularity import (
     QuantizationGranularity,
 )
 from .qformulation import QuantizationFormulation
-from .qparams_calculator import QParamsCalculatorBase
+from .qparams_calculator import QParamsCalculatorBase, StatelessQParamsCalculatorBase
 from .qscheme import QuantizationScheme
 from .range_calculator import RangeCalculatorBase
 
@@ -560,6 +560,21 @@ class QuantizationSpec(CompressionSpec):
                 f"for it; supported dtypes are {list(_E8M0_TARGET_MAX_POW2)}."
             )
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_qscheme_for_dynamic_quant(self) -> QuantizationSpec:
+        """Reject ``SYMMETRIC_WITH_CLIPPING`` with a dynamic (stateless) calculator."""
+        if (
+            isinstance(self.qparam_calculator_cls, type)
+            and issubclass(self.qparam_calculator_cls, StatelessQParamsCalculatorBase)
+            and self.qscheme == QuantizationScheme.SYMMETRIC_WITH_CLIPPING
+        ):
+            error_msg = (
+                "SYMMETRIC_WITH_CLIPPING is not supported with a dynamic "
+                "qparam_calculator_cls. Use qscheme=SYMMETRIC or ASYMMETRIC."
+            )
+            raise ValueError(error_msg)
         return self
 
     def get_extra_args(self) -> dict[str, Any]:
