@@ -4,6 +4,8 @@ Palettization Configs follow the same philosophy as the [Quantization Config](..
 They are simpler as palettization applies only to the weights in the model.
 (Hence there are no `op_input_spec` and `op_output_spec` fields in the {class}`~coreai_opt.palettization.config.ModuleKMeansPalettizerConfig` and {class}`~coreai_opt.palettization.config.OpKMeansPalettizerConfig`.)
 
+To estimate what a config costs in terms of bits per weight (BPW), use the {func}`~coreai_opt.inspection.bits_per_weight` utility to get an analytical BPW estimate for a *prepared* `coreai-opt` model. See [Utility for computing analytical Bits Per Weight (BPW)](../utils/mixed_precision.md#utility-for-computing-analytical-bits-per-weight-bpw) for details.
+
 ## PalettizationSpec
 
 {class}`~coreai_opt.palettization.spec.PalettizationSpec` defines the following key properties, among others (for full list see API reference):

@@ -78,7 +78,7 @@ Likewise, the per-layer setting being varied across candidate configs does not h
 
 {func}`~coreai_opt.inspection.bits_per_weight` is a utility that computes an analytical BPW estimate from a *prepared* `coreai-opt` model.
 
-It estimates the average bit width of a model, accounting for compression overhead such as quantization scales and zero-points as well as palettization look-up tables and per-channel scales. Compressed tensors are counted at their effective compressed cost and everything else (biases, norms and buffers such as BatchNorm running statistics) is counted at its full-precision dtype cost.
+It estimates the average bitwidth of a model, accounting for compression overhead such as quantization scales and zero-points as well as palettization look-up tables and per-channel scales. Compressed tensors are counted at their effective compressed cost and uncompressed tensors are counted at their full-precision dtype cost.
 
 **Usage:**
 
