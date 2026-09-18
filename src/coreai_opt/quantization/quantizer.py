@@ -38,7 +38,6 @@ from coreai_opt.quantization.config.quantization_config import (
     QuantizerConfig,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
-from coreai_opt.quantization.spec.qparams_calculator import StatelessQParamsCalculatorBase
 
 
 class Quantizer(_BaseQuantizer):
@@ -425,7 +424,7 @@ class Quantizer(_BaseQuantizer):
             name
             for name, mod in model_to_check.named_modules()
             if isinstance(mod, FakeQuantizeImplBase)
-            and isinstance(mod.qparams_calculator, StatelessQParamsCalculatorBase)
+            and mod.is_stateless
             and not _can_export_stateless_fake_quant(mod, backend, self._execution_mode)
         ]
         if stateless_fq_names:

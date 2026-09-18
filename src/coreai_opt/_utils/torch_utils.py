@@ -294,6 +294,14 @@ def is_float4_dtype(dtype: torch.dtype) -> bool:
     return dtype == torch.float4_e2m1fn_x2
 
 
+def is_tensor_positive(tensor: torch.Tensor) -> bool:
+    """Check if every value in a tensor is greater than zero.
+
+    An empty tensor returns True
+    """
+    return bool(tensor.gt(0).all())
+
+
 def is_float_quant_dtype(dtype: torch.dtype) -> bool:
     """Check if dtype is a floating-point (FP4/FP8) quantization dtype.
 
