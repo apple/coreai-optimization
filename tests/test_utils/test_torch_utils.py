@@ -14,7 +14,6 @@ from torchao.quantization.pt2e import allow_exported_model_train_eval
 
 from coreai_opt._utils.fx_utils import normalize_module_fqn
 from coreai_opt._utils.torch_utils import (
-    extract_name_from_parameterization,
     extract_name_from_parametrization,
     mmap_module_state_dict,
     mmap_named_tensors,
@@ -98,8 +97,8 @@ class TestNormalizeModuleFqn:
         assert normalize_module_fqn(raw) == expected
 
 
-class TestExtractNameFromParameterization:
-    """Test extract_name_from_parameterization utility."""
+class TestExtractNameFromParametrization:
+    """Test extract_name_from_parametrization utility."""
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -118,10 +117,8 @@ class TestExtractNameFromParameterization:
             ("", ""),
         ],
     )
-    def test_extract_name_from_parameterization(raw: str, expected: str) -> None:
+    def test_extract_name_from_parametrization(raw: str, expected: str) -> None:
         """Verify module name is correctly extracted from parametrization FQN."""
-        assert extract_name_from_parameterization(raw) == expected
-        # Verify PyTorch spelling alias works identically
         assert extract_name_from_parametrization(raw) == expected
 
 
