@@ -38,6 +38,10 @@ Once we have the sensitivity scores of all the layers and candidate configs, we 
 
 Several strategies can be applied for determining the mixed-precision recipe given a constraint — for example, a target average bits-per-weight (BPW) — and aim to balance model size reduction with minimal accuracy loss.
 
+:::{note}
+To obtain the analytical average BPW of a model, see [Utility for computing analytical Bits Per Weight (BPW)](#utility-for-computing-analytical-bits-per-weight-bpw) below.
+:::
+
 A simple greedy approach often works well:
 
 1. Sort all `(layer, config)` tuples by sensitivity in descending order (least quality loss first).
@@ -74,14 +78,14 @@ Likewise, the per-layer setting being varied across candidate configs does not h
 
 {func}`~coreai_opt.inspection.bits_per_weight` is a utility that computes an analytical BPW estimate from a *prepared* `coreai-opt` model.
 
-It estimates the average bit width of a model, amortizing compression overhead such as quantization scales and zero-points as well as palettization look-up tables and per-channel scales. Compressed tensors are counted at their effective compressed cost and everything else (biases, norms and buffers such as BatchNorm running statistics) is counted at its full-precision dtype cost.
+It estimates the average bit width of a model, accounting for compression overhead such as quantization scales and zero-points as well as palettization look-up tables and per-channel scales. Compressed tensors are counted at their effective compressed cost and everything else (biases, norms and buffers such as BatchNorm running statistics) is counted at its full-precision dtype cost.
 
 **Usage:**
 
 ```python
 from coreai_opt.quantization import Quantizer, QuantizerConfig
 from coreai_opt.quantization.config import ExecutionMode
-from coreai_opt.inspection import bits_per_weight
+from coreai_opt.inspection import BitsPerWeightResult, bits_per_weight
 
 # Prepare an eager-mode weight-quantized model
 quantizer = Quantizer(
@@ -89,7 +93,7 @@ quantizer = Quantizer(
 )
 prepared_model = quantizer.prepare(example_inputs)
 
-result = bits_per_weight(prepared_model)
+result: BitsPerWeightResult = bits_per_weight(prepared_model)
 print(result.bpw)  # e.g. 8.86
 ```
 
@@ -97,14 +101,14 @@ The returned {class}`~coreai_opt.inspection.BitsPerWeightResult` also exposes `p
 
 The utility supports:
 
-- **Eager-mode integer weight quantization**: int8, int4, int2 and their unsigned variants along with symmetric and asymmetric, at any granularity.
+- **Eager-mode integer weight quantization**: any spec-supported integer dtype, any quantization scheme (symmetric or asymmetric), at any granularity.
 - **Eager-mode floating-point weight quantization**: FP8 (`e4m3`, `e5m2`) and FP4 (`e2m1`).
 - **Palettization** at any spec-supported `n_bits`, including a quantized LUT.
 
 Sub-byte payloads and zero-points are packed at `n_bits` with no padding.
 
 :::{note}
-Pruned models and graph-mode (`torch.fx.GraphModule`) quantized models are currently not supported.
+Sparsity (pruning) and models quantized using graph mode (`ExecutionMode.GRAPH`) are currently not supported.
 :::
 
 :::{note}
