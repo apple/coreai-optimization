@@ -6,11 +6,13 @@
 """Quantization specs, schemes, granularity classes, and parameter calculators."""
 
 from .factory import QuantizationComponentFactory
+from .fake_quantize import fp4_forward
 from .granularity import (
     PerBlockGranularity,
     PerChannelGranularity,
     PerTensorGranularity,
     QuantizationGranularity,
+    resolve_block_sizes,
 )
 from .qformulation import QuantizationFormulation
 from .qparams_calculator import (
@@ -52,4 +54,6 @@ __all__ = [
     "StaticQParamsCalculator",
     "default_activation_quantization_spec",
     "default_weight_quantization_spec",
+    "fp4_forward",
+    "resolve_block_sizes",
 ]

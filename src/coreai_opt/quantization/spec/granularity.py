@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
 import torch
@@ -15,6 +16,53 @@ from coreai_opt._utils.registry_utils import ConfigRegistryMixin as _ConfigRegis
 from coreai_opt._utils.torch_utils import normalize_axis as _normalize_axis
 from coreai_opt.config.spec import CompressionTargetTensor as _CompressionTargetTensor
 from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
+
+
+def resolve_block_sizes(
+    tensor_shape: Sequence[int],
+    block_sizes: Sequence[int],
+) -> list[int]:
+    """Resolve a per-axis block partition against the shape it applies to.
+
+    ``-1`` takes the whole axis as one block, which is how per-channel and per-tensor are
+    spelled as a partition. Every other entry blocks its axis and must divide it.
+
+    Args:
+        tensor_shape (Sequence[int]): Shape of the tensor being partitioned.
+        block_sizes (Sequence[int]): Block extent per axis, one entry per dimension.
+
+    Returns:
+        list[int]: The resolved extents, with each ``-1`` replaced by its full dimension.
+
+    Raises:
+        ValueError: If the two lengths differ, or an entry is neither positive nor ``-1``.
+        _BlockSizeMismatchError: If an entry does not divide its dimension.
+
+    """
+    if len(block_sizes) != len(tensor_shape):
+        raise ValueError(
+            f"Rank of block_size ({len(block_sizes)}) must match "
+            f"rank of tensor ({len(tensor_shape)})"
+        )
+
+    resolved = []
+    for axis, (dim, block_sz) in enumerate(zip(tensor_shape, block_sizes, strict=True)):
+        if block_sz == -1:
+            resolved.append(dim)
+            continue
+        if block_sz <= 0:
+            raise ValueError(
+                f"block_size[{axis}] must be positive or -1 for the whole axis, got {block_sz}"
+            )
+        if dim % block_sz != 0:
+            raise _BlockSizeMismatchError(
+                f"Tensor size {dim} along axis {axis} "
+                f"is not divisible by block size {block_sz}. "
+                f"Full tensor size: {list(tensor_shape)}, "
+                f"block_size tuple: {tuple(block_sizes)}"
+            )
+        resolved.append(block_sz)
+    return resolved
 
 
 class QuantizationGranularity(BaseModel, _ConfigRegistryMixin):
@@ -283,24 +331,7 @@ class PerBlockGranularity(QuantizationGranularity):
                 "for each of the tensor's dimensions"
             )
 
-        if len(block_sizes_list) != len(self.block_size):
-            raise ValueError(
-                f"Rank of block_size ({len(self.block_size)}) must match "
-                f"rank of weight tensor ({len(block_sizes_list)})"
-            )
-
-        for axis, block_sz in enumerate(self.block_size):
-            if block_sz > 0:  # -1 means no quantization on this axis
-                if block_sizes_list[axis] % block_sz != 0:
-                    raise _BlockSizeMismatchError(
-                        f"Tensor size {block_sizes_list[axis]} along axis {axis} "
-                        f"is not divisible by block size {block_sz}. "
-                        f"Full tensor size: {block_sizes_list}, "
-                        f"block_size tuple: {self.block_size}"
-                    )
-                block_sizes_list[axis] = block_sz
-
-        return block_sizes_list
+        return resolve_block_sizes(block_sizes_list, self.block_size)
 
     def _handle_single_axis_block_size(
         self,

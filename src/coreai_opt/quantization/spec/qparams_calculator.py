@@ -246,10 +246,7 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         # the ZP or MINVAL formulation is in use and selects between
         # ``zero_point`` and ``minval`` accordingly; the calculator just
         # provides both.
-        if self.qscheme in [
-            QuantizationScheme.SYMMETRIC,
-            QuantizationScheme.SYMMETRIC_WITH_CLIPPING,
-        ]:
+        if QuantizationScheme._normalize(self.qscheme) is QuantizationScheme.SYMMETRIC:
             minval = -torch.max(torch.abs(min_val), torch.abs(max_val))
         else:
             # Asymmetric: ``minval`` is ``min(min_val, 0)``. This is a
