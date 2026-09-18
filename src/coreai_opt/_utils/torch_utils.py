@@ -376,7 +376,7 @@ def find_parametrization_matching_cls(
     return None
 
 
-def extract_name_from_parameterization(name: str) -> str:
+def extract_name_from_parametrization(name: str) -> str:
     """Extract the owning module name from a parametrization fully qualified name.
 
     Args:
@@ -395,10 +395,6 @@ def extract_name_from_parameterization(name: str) -> str:
     if name.endswith(".parametrizations"):
         return name.removesuffix(".parametrizations")
     return name
-
-
-# Alias to support PyTorch standard spelling
-extract_name_from_parametrization = extract_name_from_parameterization
 
 
 def get_parent_module_and_attr_name(

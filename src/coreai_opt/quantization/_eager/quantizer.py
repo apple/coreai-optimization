@@ -27,7 +27,7 @@ from coreai_opt._utils.insertion.torch_function import (
 )
 from coreai_opt._utils.spec_utils import PartialConstructor
 from coreai_opt._utils.torch_utils import (
-    extract_name_from_parameterization,
+    extract_name_from_parametrization,
     move_model_to_eval,
     move_model_to_train,
 )
@@ -371,7 +371,7 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
                 # Weight FQs live inside ParametrizationList; map back
                 # to the owning module (strip ".parametrizations.<param>")
                 if isinstance(module, ParametrizationList):
-                    key = extract_name_from_parameterization(name)
+                    key = extract_name_from_parametrization(name)
                 else:
                     key = name
                 mapping[key] += fq_list
