@@ -673,7 +673,7 @@ def _release_unused_dense_weights(
     live_get_attr_node_target_names = {
         str(node.target) for node in model.graph.nodes if node.op == "get_attr"
     }
-    for target in dict.fromkeys(dense_weight_targets):
+    for target in dense_weight_targets:
         if target in live_get_attr_node_target_names:
             continue
         clear_dense_tensor(model, target)
