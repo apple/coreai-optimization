@@ -246,7 +246,8 @@ class QuantizationSpec(CompressionSpec):
             - "global_minmax": Tracks running min/max across all calibration samples
             - "dynamic": Computes scale/zero/minval point on each forward pass from the
               current tensor — no calibration. Only valid for activation quantization
-              (rejected by the factory for weights/LUT).
+              (rejected by the factory for weights/LUT). Not supported with
+              qscheme="symmetric_with_clipping"; use "symmetric" or "asymmetric".
             - Custom registered class string name
             - coreai_opt.quantization.qparams_calculator.QParamsCalculatorBase
               class type: StaticQParamsCalculator,
