@@ -22,6 +22,8 @@ Public API:
 
 import operator
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Collection, Iterable
+from typing import Any
 
 import torch
 
@@ -47,6 +49,7 @@ from coreai_opt._utils.casting_utils import (
     get_to_op_dtype as _get_to_op_dtype,
     insert_cast as _insert_cast,
     insert_cast_after as _insert_cast_after,
+    is_ignored_op as _is_ignored_op,
     maybe_update_assert_dtype as _maybe_update_assert_dtype,
     set_to_op_dtype as _set_to_op_dtype,
     store_converted_placeholder as _store_converted_placeholder,
@@ -196,6 +199,27 @@ class _FP16Casting(_CastPassBase):
        widening cast chain case, existing model casts can also be removed.
     """
 
+    def __init__(
+        self,
+        exported_program: torch.export.ExportedProgram,
+        ignored_ops: (
+            Collection[torch._ops.OpOverload | torch._ops.OpOverloadPacket]
+            | torch._ops.OpOverload
+            | torch._ops.OpOverloadPacket
+            | Callable[[torch.fx.Node], bool]
+            | None
+        ) = None,
+    ) -> None:
+        super().__init__(exported_program)
+        if isinstance(ignored_ops, (torch._ops.OpOverload, torch._ops.OpOverloadPacket)):
+            self._ignored_ops: set[Any] | Callable[[torch.fx.Node], bool] | None = {ignored_ops}
+        elif isinstance(ignored_ops, (set, frozenset)):
+            self._ignored_ops = ignored_ops
+        elif isinstance(ignored_ops, Iterable) and not callable(ignored_ops):
+            self._ignored_ops = set(ignored_ops)
+        else:
+            self._ignored_ops = ignored_ops
+
     # -------------------------------------------------------------------------
     # Step 1: Convert parameters
     # -------------------------------------------------------------------------
@@ -311,6 +335,11 @@ class _FP16Casting(_CastPassBase):
                     _set_to_op_dtype(node, torch.float16)
                     _update_meta_dtype(node, torch.float16, _FLOAT_DTYPES)
                     self._pass_inserted.add(node)
+                continue
+
+            # --- ignored ops: keep in FP32 ---
+            if _is_ignored_op(node, self._ignored_ops):
+                self.handle_overflow_op(node)
                 continue
 
             # --- creation ops: set dtype directly ---
@@ -606,13 +635,32 @@ class _INT16Casting(_CastPassBase):
 # =============================================================================
 def cast_fp32_to_fp16(
     exported_program: torch.export.ExportedProgram,
+    ignored_ops: (
+        Collection[torch._ops.OpOverload | torch._ops.OpOverloadPacket]
+        | torch._ops.OpOverload
+        | torch._ops.OpOverloadPacket
+        | Callable[[torch.fx.Node], bool]
+        | None
+    ) = None,
 ) -> torch.export.ExportedProgram:
     """Convert a torch exported program from FP32 to FP16 where applicable.
 
     Converts parameters, user inputs, and compute ops to FP16, inserting
     casts only where values would overflow FP16 range.
+
+    Args:
+        exported_program: Exported program to convert.
+        ignored_ops: Optional operations or predicate to exclude from FP16 casting.
+            Can be a collection/set of ``OpOverload`` or ``OpOverloadPacket``
+            instances (e.g. ``{torch.ops.aten.exp, torch.ops.aten.exp.default}``),
+            a single op instance, or a predicate callable taking a ``torch.fx.Node``
+            and returning a boolean (e.g. ``lambda node: node.name == "exp_1"``).
+            Ignored ops are kept in FP32 with boundary casts inserted.
+
+    Returns:
+        The modified exported program.
     """
-    return _FP16Casting(exported_program)()
+    return _FP16Casting(exported_program, ignored_ops=ignored_ops)()
 
 
 def cast_int32_to_int16(
@@ -628,13 +676,28 @@ def cast_int32_to_int16(
 
 def cast_to_16_bit_precision(
     exported_program: torch.export.ExportedProgram,
+    ignored_ops: (
+        Collection[torch._ops.OpOverload | torch._ops.OpOverloadPacket]
+        | torch._ops.OpOverload
+        | torch._ops.OpOverloadPacket
+        | Callable[[torch.fx.Node], bool]
+        | None
+    ) = None,
 ) -> torch.export.ExportedProgram:
     """Convert a torch exported program to 16-bit precision: FP32→FP16 and INT32/64→INT16.
 
     Runs both cast passes sequentially:
     1. cast_fp32_to_fp16: FP32→FP16
     2. cast_int32_to_int16: INT32/INT64→INT16
+
+    Args:
+        exported_program: Exported program to convert.
+        ignored_ops: Optional operations or predicate to exclude from FP16 casting.
+            Forwarded to :func:`cast_fp32_to_fp16`.
+
+    Returns:
+        The modified exported program.
     """
-    cast_fp32_to_fp16(exported_program)
+    cast_fp32_to_fp16(exported_program, ignored_ops=ignored_ops)
     cast_int32_to_int16(exported_program)
     return exported_program

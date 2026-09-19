@@ -9,6 +9,8 @@ Constants, op sets, and helper functions used by the FP16 and INT16 propagation
 passes in ``casting``.
 """
 
+from collections.abc import Callable, Collection, Iterable
+
 import numpy as np
 import torch
 
@@ -624,6 +626,45 @@ def classify_float_args(node: torch.fx.Node) -> tuple[bool, bool]:
         return False, False
 
     return _check((*node.args, *node.kwargs.values()))
+
+
+def is_ignored_op(
+    node: torch.fx.Node,
+    ignored_ops: (
+        Collection[torch._ops.OpOverload | torch._ops.OpOverloadPacket]
+        | torch._ops.OpOverload
+        | torch._ops.OpOverloadPacket
+        | Callable[[torch.fx.Node], bool]
+        | None
+    ),
+) -> bool:
+    """Check whether an FX node should be excluded from casting.
+
+    Supported inputs:
+    1. A set/collection of ``OpOverload`` or ``OpOverloadPacket`` instances
+       (e.g. ``{torch.ops.aten.exp, torch.ops.aten.exp.default}``) or a single op instance.
+    2. A predicate function taking a ``torch.fx.Node`` and returning ``bool``
+       (e.g. ``lambda node: node.name == "exp_1"``).
+    """
+    if ignored_ops is None:
+        return False
+
+    if callable(ignored_ops) and not isinstance(
+        ignored_ops, (torch._ops.OpOverload, torch._ops.OpOverloadPacket)
+    ):
+        return bool(ignored_ops(node))
+
+    if isinstance(ignored_ops, (torch._ops.OpOverload, torch._ops.OpOverloadPacket)):
+        ignored_set = {ignored_ops}
+    elif isinstance(ignored_ops, (set, frozenset)):
+        ignored_set = ignored_ops
+    elif isinstance(ignored_ops, Iterable):
+        ignored_set = set(ignored_ops)
+    else:
+        return False
+
+    target = node.target
+    return target in ignored_set or getattr(target, "overloadpacket", None) in ignored_set
 
 
 # =============================================================================

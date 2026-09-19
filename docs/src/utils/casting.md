@@ -29,7 +29,7 @@ These passes mutate the `ExportedProgram` in place and may change the dtypes of 
 
 The two casting passes apply different selection criteria, resulting in different levels of aggressiveness.
 
-**FP32 → FP16.** The FP pass is relatively aggressive: it attempts to cast all floating-point state and operations to FP16 by default. The main exception is numerical safety — tensors whose values exceed the FP16 representable range (approximately ±65504) are left in FP32 to avoid overflow.
+**FP32 → FP16.** The FP pass is relatively aggressive: it attempts to cast all floating-point state and operations to FP16 by default. The main exception is numerical safety — tensors whose values exceed the FP16 representable range (approximately ±65504) are left in FP32 to avoid overflow. Users can also provide `ignored_ops` (as a set/collection of `OpOverload` or `OpOverloadPacket` instances such as `{torch.ops.aten.exp}`, or as a predicate function `Callable[[torch.fx.Node], bool]`) to `cast_fp32_to_fp16` or `cast_to_16_bit_precision` to explicitly preserve specific operations in FP32 to avoid intermediate activation overflow.
 
 **INT32/INT64 → INT16.** The INT pass is more conservative. Rather than casting all integer tensors, it targets only those that are likely to benefit without risking correctness. A tensor is skipped if any of the following apply:
 

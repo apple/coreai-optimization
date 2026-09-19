@@ -422,3 +422,155 @@ class TestCastFullModels:
 
         reduction = 1 - _total_param_bytes(ep) / before_bytes
         assert reduction >= 0.45, f"Weight reduction only {reduction:.0%}"
+
+
+# =============================================================================
+# Selective Op Skipping tests (Issue #7)
+# =============================================================================
+class _ActivationOverflowModel(nn.Module):
+    """Model that triggers FP16 activation overflow in intermediate ops.
+
+    At x = 15.0:
+    exp(15.0) ~ 3.27e6 > 65504 (overflows to inf in FP16).
+    log1p(exp(15.0)) ~ 15.0 (fits comfortably in FP16).
+    """
+
+    def forward(self, x):
+        return torch.log1p(torch.exp(x))
+
+
+class _TwoExpModel(nn.Module):
+    """Model with two separate exp operations."""
+
+    def forward(self, x):
+        a = torch.exp(x)
+        b = torch.exp(a * 0.001)
+        return b
+
+
+class _CreationModel(nn.Module):
+    """Model with tensor creation op."""
+
+    def forward(self, x):
+        c = torch.ones_like(x)
+        return x + c
+
+
+class TestSelectiveOpSkipping:
+    """Tests for selective op skipping in FP16 casting (Issue #7)."""
+
+    def test_ignored_op_prevents_activation_overflow(self):
+        """Ignoring exp and log1p keeps intermediate ops in FP32, preventing inf."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+
+        # Baseline: standard casting overflows to inf
+        ep_std = _export(model, x)
+        cast_fp32_to_fp16(ep_std)
+        out_std = _run_ep(ep_std, x.half())
+        assert torch.isinf(out_std).any(), "Expected inf without ignored_ops"
+
+        # With ignored_ops: stays finite and matches reference
+        ep_skipped = _export(model, x)
+        cast_fp32_to_fp16(ep_skipped, ignored_ops={torch.ops.aten.exp, torch.ops.aten.log1p})
+        out_skipped = _run_ep(ep_skipped, x.half())
+        assert not torch.isinf(out_skipped).any(), "Expected finite output with ignored_ops"
+        assert torch.allclose(out_skipped.float(), x, atol=1e-3)
+
+    @pytest.mark.parametrize(
+        "spec",
+        [
+            pytest.param({torch.ops.aten.exp.default}, id="op_overload_set"),
+            pytest.param([torch.ops.aten.exp.default], id="op_overload_list"),
+            pytest.param({torch.ops.aten.exp}, id="op_overload_packet_set"),
+            pytest.param([torch.ops.aten.exp], id="op_overload_packet_list"),
+            pytest.param(torch.ops.aten.exp, id="single_op_packet"),
+            pytest.param(torch.ops.aten.exp.default, id="single_op_overload"),
+            pytest.param(
+                lambda node: node.target == torch.ops.aten.exp.default, id="predicate_target"
+            ),
+            pytest.param(lambda node: node.name.startswith("exp"), id="predicate_name"),
+        ],
+    )
+    def test_ignored_op_matching_types(self, spec):
+        """All supported op identifier formats correctly preserve op in FP32."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[1.0]])
+        ep = _export(model, x)
+
+        cast_fp32_to_fp16(ep, ignored_ops=spec)
+
+        # exp node must have float32 output dtype
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        assert exp_node.meta["val"].dtype == torch.float32
+
+    def test_target_specific_node_name(self):
+        """Targeting a specific node name via predicate preserves only that instance in FP32."""
+        model = _TwoExpModel().eval()
+        x = torch.tensor([[1.0]])
+        ep = _export(model, x)
+
+        exp_nodes = [
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        ]
+        assert len(exp_nodes) == 2
+        second_node_name = exp_nodes[1].name
+
+        # Ignore only the second exp node via predicate function
+        cast_fp32_to_fp16(ep, ignored_ops=lambda node: node.name == second_node_name)
+
+        assert exp_nodes[0].meta["val"].dtype == torch.float16
+        assert exp_nodes[1].meta["val"].dtype == torch.float32
+
+    def test_consecutive_ignored_ops_eliminate_redundant_casts(self):
+        """Consecutive ignored ops do not have redundant intermediate casts between them."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[1.0]])
+        ep = _export(model, x)
+
+        cast_fp32_to_fp16(ep, ignored_ops={torch.ops.aten.exp, torch.ops.aten.log1p})
+
+        # There should be NO cast between exp and log1p
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        log1p_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.log1p.default
+        )
+
+        # log1p's direct argument should be exp_node directly, not an intermediate cast
+        assert log1p_node.args[0] is exp_node
+
+    def test_ignored_creation_op(self):
+        """Ignored creation op remains FP32."""
+        model = _CreationModel().eval()
+        x = torch.randn(2, 2)
+        ep = _export(model, x)
+
+        cast_fp32_to_fp16(ep, ignored_ops={torch.ops.aten.full_like})
+
+        full_node = next(
+            n for n in ep.graph.nodes if n.op == "call_function" and "full_like" in str(n.target)
+        )
+        assert full_node.meta["val"].dtype == torch.float32
+
+    def test_cast_to_16_bit_precision_forwards_ignored_ops(self):
+        """cast_to_16_bit_precision forwards ignored_ops to FP16 casting."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ep = _export(model, x)
+
+        cast_to_16_bit_precision(ep, ignored_ops={torch.ops.aten.exp, torch.ops.aten.log1p})
+        out = _run_ep(ep, x.half())
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), x, atol=1e-3)
