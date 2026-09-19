@@ -20,6 +20,7 @@ class PreregistrationTracker:
     for each function call, before module boundaries are fully analyzed and
     before module-level input/output specs can be resolved.
     """
+
     def __init__(self) -> None:
         """Initialize an empty preregistration tracker."""
         # module_name -> func_name -> list of FunctionPreregistrationRecord

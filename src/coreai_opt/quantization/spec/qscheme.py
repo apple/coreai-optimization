@@ -3,13 +3,13 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-from enum import Enum
+from enum import StrEnum
 
 import torch
 from torchao.quantization import MappingType as TorchAOMappingType
 
 
-class QuantizationScheme(Enum):
+class QuantizationScheme(StrEnum):
     SYMMETRIC = "symmetric"
     ASYMMETRIC = "asymmetric"
     SYMMETRIC_WITH_CLIPPING = "symmetric_with_clipping"

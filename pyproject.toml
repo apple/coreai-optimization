@@ -120,7 +120,7 @@ pre-commit = [
     "pre-commit>=3.0.0",
     "pre-commit-hooks>=5.0.0",
     "pymarkdownlnt>=0.9.33",
-    "pyproject-fmt==2.28.2",
+    "pyproject-fmt==2.29.4",
     "python-kacl",
     "ruff>=0.14.8",
     "taplo>=0.9.3",
@@ -183,8 +183,8 @@ tutorial = [
 [tool.setuptools]
 package-dir = { "" = "src" }
 [tool.setuptools.packages]
-find.exclude = [ "coreai_opt_benchmarking*", "tests*" ]
 find.where = [ "src" ]
+find.exclude = [ "coreai_opt_benchmarking*", "tests*" ]
 [tool.setuptools.package-data]
 coreai_opt = [ "deps/_kmeans1d/_core.cpp", "deps/_kmeans1d/LICENSE", "py.typed" ]
 [tool.setuptools.dynamic]
@@ -298,9 +298,9 @@ warn_return_any = true
 plugins = [ "pydantic.mypy" ]
 warn_unused_configs = true
 overrides = [
-    { follow_imports = "skip", module = "numpy.*" },
-    { follow_imports = "skip", module = "torch.*" },
-    { follow_imports = "skip", module = "torchvision.*" },
+    { module = "numpy.*", follow_imports = "skip" },
+    { module = "torch.*", follow_imports = "skip" },
+    { module = "torchvision.*", follow_imports = "skip" },
     { module = "torchao.*", ignore_missing_imports = true, follow_imports = "skip" },
     { module = "tests.*", ignore_errors = true },
 ]
@@ -308,16 +308,16 @@ no_implicit_optional = true
 
 [tool.pytest]
 [tool.pytest.ini_options]
-log_date_format = "%Y-%m-%d %H:%M:%S.%f%z"
-log_format = "%(asctime)s %(levelname)s %(name)s:%(lineno)d: %(message)s"
-log_level = "NOTSET"
+testpaths = [ "tests" ]
+norecursedirs = [ ".oss-export" ]
 markers = [
     # `seed` is registered by tests/config/plugin.py, alongside the fixture that reads it.
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
-norecursedirs = [ ".oss-export" ]
+log_format = "%(asctime)s %(levelname)s %(name)s:%(lineno)d: %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S.%f%z"
+log_level = "NOTSET"
 strict = true
-testpaths = [ "tests" ]
 
 [tool.towncrier]
 directory = "changelog.d"

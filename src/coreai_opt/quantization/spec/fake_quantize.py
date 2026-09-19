@@ -34,7 +34,7 @@ from .granularity import QuantizationGranularity
 from .qformulation import QuantizationFormulation
 from .qparams_calculator import QParamsCalculatorBase, StatelessQParamsCalculatorBase
 
-__all__ = ["FakeQuantizeImplBase"]
+__all__ = ["FakeQuantizeImplBase", "fp4_forward"]
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +86,15 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         """Getter for granularity."""
         return self._granularity
 
+    @property
+    def is_stateless(self) -> bool:
+        """Whether the qparams calculator holds no buffers.
+
+        A stateless calculator recomputes the qparams on every forward, measuring from
+        the tensor being quantized.
+        """
+        return isinstance(self.qparams_calculator, StatelessQParamsCalculatorBase)
+
     @granularity.setter
     def granularity(self, granularity: QuantizationGranularity) -> None:
         """Update granularity for the fake quantize class and its qparams calculator.
@@ -100,6 +109,10 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         fq = "on" if self.fake_quant_enabled.item() else "off"
         return f"qformulation={self.qformulation}, observer={obs}, fake_quant={fq}"
 
+    def get_block_size(self, tensor_shape: torch.Size) -> tuple[int, ...]:
+        """Resolve this module's granularity to a concrete block extent per dimension."""
+        return self.granularity.get_block_size(tensor_shape, self.quantization_target)
+
     def is_disabled(self) -> bool:
         """Return True if fake quantization has been disabled."""
         return self._disabled.item()
@@ -113,7 +126,7 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         that flag to route between live recompute and the stateful
         ``get_qparams()`` cache (which stateless doesn't have).
         """
-        if isinstance(self.qparams_calculator, StatelessQParamsCalculatorBase):
+        if self.is_stateless:
             return
         super().disable_observer()
 
@@ -124,7 +137,7 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         ``quantizer.py:_maybe_apply_qat_schedule``); ``disable_observer()``
         itself routes through the override above.
         """
-        if not enabled and isinstance(self.qparams_calculator, StatelessQParamsCalculatorBase):
+        if not enabled and self.is_stateless:
             return
         super().enable_observer(enabled)
 
@@ -364,7 +377,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
 
         This function quantizes the values in tensor but keeps the quantized tensor dtype in FP.
         """
-        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
+        block_size = self.get_block_size(tensor.shape)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -389,7 +402,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         output_dtype: torch.dtype,
     ) -> torch.Tensor:
         """Integer dequantization. See :func:`_dequantize_int` for the math."""
-        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
+        block_size = self.get_block_size(tensor.shape)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -411,7 +424,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         """
         Floating-point quantization: cast_to_low_precision(clamp(input / scale, min, max))
         """
-        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
+        block_size = self.get_block_size(tensor.shape)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -432,7 +445,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
         output_dtype: torch.dtype,
     ) -> torch.Tensor:
         """Floating-point dequantization: input * scale"""
-        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
+        block_size = self.get_block_size(tensor.shape)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -454,7 +467,7 @@ class _DefaultFakeQuantizeImpl(FakeQuantizeImplBase):
 
         Dispatches to the int or float fused STE class based on self.dtype.
         """
-        block_size = self.granularity.get_block_size(tensor.shape, self.quantization_target)
+        block_size = self.get_block_size(tensor.shape)
         original_shape, blockwise_shape, reduced_shape = _get_quantization_shapes(
             tensor, block_size
         )
@@ -724,7 +737,7 @@ def _quantize_float(
     if _is_float8_dtype(dtype):
         return _fp8_forward(result, dtype), mask
     elif _is_float4_dtype(dtype):
-        return _fp4_forward(result), mask
+        return fp4_forward(result), mask
     else:
         raise ValueError(f"Expected float4/float8 dtype, got {dtype}")
 
@@ -735,8 +748,21 @@ def _fp8_forward(tensor: torch.Tensor, dtype: torch.dtype):
     return tensor.to(dtype).to(torch.float32)
 
 
-def _fp4_forward(tensor: torch.Tensor):
-    """Perform tensor quantization for fp4 dtype"""
+def fp4_forward(tensor: torch.Tensor) -> torch.Tensor:
+    """Round to the nearest FP4 E2M1 value, returned in fp32.
+
+    The E2M1 grid is not uniform -- ``0, 0.5, 1, 1.5, 2, 3, 4, 6`` -- so a cast cannot do
+    this. Ties go to the even encoding index, and a magnitude above the grid saturates to
+    ``6.0``. FP4 has no NaN encoding, so a NaN in gives ``1.5`` out; a caller that needs a
+    NaN preserved has to keep it itself.
+
+    Args:
+        tensor (torch.Tensor): Values already divided by their scale, in fp32.
+
+    Returns:
+        torch.Tensor: The rounded values, in fp32.
+
+    """
     from torchao.prototype.mx_formats.kernels import (  # noqa: PLC0415
         f4_unpacked_to_f32,
         f32_to_f4_unpacked,

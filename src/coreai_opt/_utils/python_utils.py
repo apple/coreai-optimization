@@ -28,9 +28,7 @@ def get_fn_arg_names(func: callable) -> list[str]:
     return arg_names
 
 
-def get_generic_type_arg(
-    cls: type[BaseModel], origin: type, arg_index: int = 0
-) -> type | None:
+def get_generic_type_arg(cls: type[BaseModel], origin: type, arg_index: int = 0) -> type | None:
     """
     Get a generic type argument from a Pydantic model's base class.
 
@@ -47,9 +45,9 @@ def get_generic_type_arg(
         The type argument at the specified index, or None if not found
     """
     for base in cls.__bases__:
-        metadata = getattr(base, '__pydantic_generic_metadata__', None)
-        if metadata and metadata.get('origin') is origin:
-            args = metadata.get('args', ())
+        metadata = getattr(base, "__pydantic_generic_metadata__", None)
+        if metadata and metadata.get("origin") is origin:
+            args = metadata.get("args", ())
             if len(args) > arg_index and isinstance(args[arg_index], type):
                 return args[arg_index]
 
