@@ -9,6 +9,8 @@ Constants, op sets, and helper functions used by the FP16 and INT16 propagation
 passes in ``casting``.
 """
 
+from collections.abc import Callable, Sequence
+
 import numpy as np
 import torch
 
@@ -624,6 +626,60 @@ def classify_float_args(node: torch.fx.Node) -> tuple[bool, bool]:
         return False, False
 
     return _check((*node.args, *node.kwargs.values()))
+
+
+def is_ignored_op(
+    node: torch.fx.Node,
+    ignored_ops: Sequence[Callable | str] | None,
+) -> bool:
+    """Check whether an FX node should be excluded from casting.
+
+    Matches by:
+    - Target equality (e.g. ``torch.ops.aten.exp.default`` or ``torch.ops.aten.exp``)
+    - Target overloadpacket equality (e.g. node target ``aten.exp.default`` matching ``aten.exp``)
+    - Target callable name / __name__ (e.g. ``torch.exp`` matching ``exp``)
+    - Qualified or unqualified string op names (e.g. ``"exp"``, ``"aten.exp"``, ``"aten::exp"``)
+    - Specific FX node name (e.g. ``"exp_1"``)
+    """
+    if not ignored_ops:
+        return False
+
+    target = node.target
+    node_name = node.name
+
+    target_names: set[str] = set()
+    if isinstance(target, str):
+        target_names.add(target)
+    if hasattr(target, "_opname"):
+        target_names.add(target._opname)
+    if hasattr(target, "__name__"):
+        name_str = target.__name__
+        target_names.add(name_str)
+        target_names.add(name_str.split(".")[0])
+    if hasattr(target, "name") and callable(target.name):
+        full_name = target.name()
+        target_names.add(full_name)
+        target_names.add(full_name.replace("aten::", ""))
+        target_names.add(full_name.replace("aten::", "aten."))
+    if hasattr(target, "overloadpacket"):
+        pkt_str = str(target.overloadpacket)
+        target_names.add(pkt_str)
+        target_names.add(pkt_str.replace("aten.", ""))
+
+    for item in ignored_ops:
+        if isinstance(item, str):
+            if item == node_name or item in target_names:
+                return True
+        elif target == item:
+            return True
+        elif hasattr(target, "overloadpacket") and target.overloadpacket == item:
+            return True
+        elif callable(item):
+            item_name = getattr(item, "__name__", None)
+            if item_name and item_name in target_names:
+                return True
+
+    return False
 
 
 # =============================================================================
