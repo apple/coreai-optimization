@@ -25,6 +25,7 @@ from coreai_opt._utils.casting_utils import (
     classify_float_args,
     cleanup_casts,
     insert_cast_after,
+    is_ignored_op,
 )
 
 
@@ -1345,3 +1346,61 @@ class TestBuildCastableInt16Nodes:
         assert add_node in castable
         assert mul_node not in castable
         assert reshape not in castable
+
+
+# =============================================================================
+# is_ignored_op tests
+# =============================================================================
+class TestIsIgnoredOp:
+    """Tests for the is_ignored_op helper."""
+
+    @pytest.fixture
+    def exp_node(self):
+        graph = torch.fx.Graph()
+        x = graph.placeholder("x")
+        node = graph.create_node(
+            "call_function",
+            torch.ops.aten.exp.default,
+            args=(x,),
+            name="exp_1",
+        )
+        return node
+
+    @pytest.fixture
+    def add_node(self):
+        graph = torch.fx.Graph()
+        x = graph.placeholder("x")
+        node = graph.create_node(
+            "call_function",
+            torch.ops.aten.add.Tensor,
+            args=(x, x),
+            name="add_1",
+        )
+        return node
+
+    def test_empty_or_none_ignored_ops(self, exp_node):
+        assert not is_ignored_op(exp_node, None)
+        assert not is_ignored_op(exp_node, [])
+
+    def test_match_op_overload(self, exp_node, add_node):
+        assert is_ignored_op(exp_node, [torch.ops.aten.exp.default])
+        assert not is_ignored_op(add_node, [torch.ops.aten.exp.default])
+
+    def test_match_op_overload_packet(self, exp_node, add_node):
+        assert is_ignored_op(exp_node, [torch.ops.aten.exp])
+        assert not is_ignored_op(add_node, [torch.ops.aten.exp])
+
+    def test_match_callable(self, exp_node, add_node):
+        assert is_ignored_op(exp_node, [torch.exp])
+        assert not is_ignored_op(add_node, [torch.exp])
+
+    def test_match_string_op_name(self, exp_node, add_node):
+        assert is_ignored_op(exp_node, ["exp"])
+        assert is_ignored_op(exp_node, ["aten.exp"])
+        assert is_ignored_op(exp_node, ["aten::exp"])
+        assert not is_ignored_op(add_node, ["exp"])
+
+    def test_match_specific_node_name(self, exp_node, add_node):
+        assert is_ignored_op(exp_node, ["exp_1"])
+        assert not is_ignored_op(exp_node, ["exp_2"])
+        assert not is_ignored_op(add_node, ["exp_1"])
