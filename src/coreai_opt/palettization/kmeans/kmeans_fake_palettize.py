@@ -762,6 +762,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         """
         num_groups, group_rows, _ = groups.shape
         if self.cluster_dim == 1:
+            # Perform the reshape without need of transposing to speed up cluster_dim = 1 case
             return groups.reshape(num_groups, -1, 1)
         if group_rows % self.cluster_dim != 0:
             raise _IncompatibleClusterDimError(
@@ -788,6 +789,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
                 f"rows * cols but got {vectors.shape[1]} and {vectors.shape[2]}."
             )
         if self.cluster_dim == 1:
+            # Perform the reshape without need of transposing to speed up cluster_dim = 1 case
             return vectors.reshape(num_groups, rows, cols)
         return vectors.reshape(num_groups, cols, rows).transpose(1, 2)
 
@@ -811,6 +813,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         if self.enable_per_channel_scale:
             weight = self._scale_by_per_channel_scale(weight)
         axis = self._resolved_axis
+        # Canonicalize varying weight shapes (Conv, Linear, etc.) into 2d for blocking/vectorization
         weight_2d = self.reshape_strategy.reshape_for_kmeans(weight, axis)
         groups = self._split_into_groups(weight_2d, axis)  # (P, group_rows, group_cols)
         block_shape = groups.shape[1:]
