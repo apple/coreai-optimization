@@ -303,6 +303,12 @@ overrides = [
     { follow_imports = "skip", module = "torchvision.*" },
     { module = "torchao.*", ignore_missing_imports = true, follow_imports = "skip" },
     { module = "tests.*", ignore_errors = true },
+    # Optional k-means backends. Each is imported lazily inside the backend that needs
+    # it and absent from the lock, so mypy cannot resolve them in a default checkout.
+    { module = "cuml.*", ignore_missing_imports = true },
+    { module = "cupy.*", ignore_missing_imports = true },
+    { module = "flash_kmeans.*", ignore_missing_imports = true },
+    { module = "sklearn.*", ignore_missing_imports = true },
 ]
 no_implicit_optional = true
 

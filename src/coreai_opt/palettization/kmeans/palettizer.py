@@ -46,6 +46,13 @@ from coreai_opt.palettization.spec.fake_palettize import (
     _enable_fake_palett,
 )
 
+from ._efficient_kmeans import (
+    reset_stage_timings as _reset_stage_timings,
+    resolve_vector_backend as _resolve_vector_backend,
+    stage_timings as _stage_timings,
+    vector_backend_is_gpu_serialised as _vector_backend_is_gpu_serialised,
+    vector_n_init as _vector_n_init,
+)
 from ._prepare_for_export import (
     prepare_for_mil_export as _prepare_for_mil_export,
     prepare_for_mlir_export as _prepare_for_mlir_export,
@@ -148,6 +155,60 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         """Return a function that maps a torch function to its palettizable op type."""
         return _KMeansPalettizerSupportedOpsRegistry.get_func_type
 
+    def _resolve_num_workers(self, num_workers: int) -> int:
+        """Reduce ``num_workers`` to 1 when clustering will run on the GPU.
+
+        Applies only to backends listed in ``_GPU_SERIALISED_BACKENDS`` (cuml,
+        flash_kmeans). Those cluster on the GPU, and a single GPU serialises that work
+        across processes, so extra workers buy no parallelism while still paying
+        per-process CUDA context switching. 
+
+        ``kmeans++`` is excluded despite also being GPU-resident, because it measured
+        flat across 1/2/4/12 workers. Scalar palettization is CPU-bound (``kmeans1d``,
+        not the GPU) and genuinely benefits from workers, so only reduce when *every*
+        palettized module is vector -- a mixed model keeps the caller's value.
+
+        Always logs the resolved backend for an all-vector model, whatever
+        ``num_workers`` is, since nothing else records it in the parent log.
+
+        Args:
+            num_workers (int): The value the caller asked for.
+
+        Returns:
+            int: ``1`` for an all-vector run on a GPU-serialised backend, otherwise
+            ``num_workers`` unchanged.
+        """
+        cluster_dims = [
+            m.cluster_dim
+            for m in self._model.modules()
+            if getattr(m, "cluster_dim", None) is not None
+        ]
+        if not cluster_dims or not all(dim > 1 for dim in cluster_dims):
+            return num_workers
+
+        # Log the resolved backend from the PARENT, at every worker count. Sitting this
+        # behind the worker-count check hid it from exactly the num_workers=1 runs that
+        # the stage timings come from, so four measured runs had no positive record of
+        # their own backend. `_EfficientKMeans.fit` announces it too, but from spawned
+        # workers whose logging never reaches the parent.
+        backend = _resolve_vector_backend()
+        logger.info(
+            "Vector k-means backend for this run: %s (n_init=%d)", backend, _vector_n_init()
+        )
+
+        if num_workers <= 1 or not _vector_backend_is_gpu_serialised(backend):
+            return num_workers
+
+        logger.info(
+            "Reducing num_workers %d -> 1: the %s backend clusters on the GPU, which "
+            "serialises across processes, so extra workers only add CUDA context "
+            "switching (measured 2.05x slower at 12 workers for cuml). Pass "
+            "num_workers=1 to silence this.",
+            num_workers,
+            backend,
+        )
+        return 1
+
     def prepare(
         self,
         example_inputs: tuple[torch.Tensor],
@@ -209,10 +270,24 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
         self._model.apply(_disable_fake_palett)
 
+        self._num_workers = self._resolve_num_workers(self._num_workers)
+
         if self._num_workers > 1:
-            self._calculate_centroids_parallel(num_workers)
+            # Stage timings accumulate in module state, one copy per process, so the
+            # workers' counters never reach us -- say so rather than logging zeros.
+            logger.info(
+                "k-means stage timings unavailable: clustering runs in %d worker "
+                "processes, whose accumulators do not reach the parent. Re-run with "
+                "num_workers=1 to measure them.",
+                self._num_workers,
+            )
+            self._calculate_centroids_parallel(self._num_workers)
         else:
+            _reset_stage_timings()
             self._calculate_centroids_sequential()
+            timings = _stage_timings()
+            if timings.init_calls or timings.lloyd_calls:
+                logger.info("k-means %s", timings.summary())
 
         # Remove FakePalettize modules that were disabled during the forward
         # pass due to incompatible granularity or cluster dimensions.
