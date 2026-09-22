@@ -5,7 +5,7 @@
 
 """Core AI MLIR-level compression transforms."""
 
-from coreai_opt.coreai_utils.common import CompressionGranularity, DType
+from coreai_opt.coreai_utils.common import CompressionGranularity, DType, QScheme
 from coreai_opt.coreai_utils.passes.weight_palettization import palettize_weights
 from coreai_opt.coreai_utils.passes.weight_quantization import quantize_weights
 from coreai_opt.coreai_utils.passes.weight_sparsification import sparsify_weights
@@ -13,6 +13,7 @@ from coreai_opt.coreai_utils.passes.weight_sparsification import sparsify_weight
 __all__ = [
     "CompressionGranularity",
     "DType",
+    "QScheme",
     "palettize_weights",
     "quantize_weights",
     "sparsify_weights",
