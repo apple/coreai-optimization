@@ -753,14 +753,13 @@ def fp4_forward(tensor: torch.Tensor) -> torch.Tensor:
 
     The E2M1 grid is not uniform -- ``0, 0.5, 1, 1.5, 2, 3, 4, 6`` -- so a cast cannot do
     this. Ties go to the even encoding index, and a magnitude above the grid saturates to
-    ``6.0``. FP4 has no NaN encoding, so a NaN in gives ``1.5`` out; a caller that needs a
-    NaN preserved has to keep it itself.
+    ``6.0``. A NaN is passed through unchanged instead.
 
     Args:
         tensor (torch.Tensor): Values already divided by their scale, in fp32.
 
     Returns:
-        torch.Tensor: The rounded values, in fp32.
+        torch.Tensor: The rounded values, in fp32, with any NaN preserved.
 
     """
     from torchao.prototype.mx_formats.kernels import (  # noqa: PLC0415
@@ -769,7 +768,8 @@ def fp4_forward(tensor: torch.Tensor) -> torch.Tensor:
     )
 
     fp4_bits = f32_to_f4_unpacked(tensor)
-    return f4_unpacked_to_f32(fp4_bits)
+    rounded = f4_unpacked_to_f32(fp4_bits)
+    return torch.where(torch.isnan(tensor), tensor, rounded)
 
 
 def _dequantize_float(

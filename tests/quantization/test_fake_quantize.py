@@ -30,6 +30,7 @@ from coreai_opt.quantization.spec.factory import QuantizationComponentFactory
 from coreai_opt.quantization.spec.fake_quantize import (
     _DefaultFakeQuantizeImpl,
     _FusedFakeQuantizeIntSTE,
+    fp4_forward,
 )
 from coreai_opt.quantization.spec.qparams_calculator import StaticQParamsCalculator
 from coreai_opt.quantization.spec.range_calculator import MinMaxRangeCalculator
@@ -351,6 +352,28 @@ def test_float_quantized_values(dtype, expected_quantized_values):
     quantized_tensor = fq.quantize(input_tensor, scale, zero_point, minval)
 
     assert torch.all(quantized_tensor == expected_quantized_values)
+
+
+def test_torchao_fp4_rounding_maps_nan_onto_the_grid():
+    """The kernel ``fp4_forward`` wraps has no NaN encoding, so a NaN comes back as 1.5."""
+    from torchao.prototype.mx_formats.kernels import (  # noqa: PLC0415
+        f4_unpacked_to_f32,
+        f32_to_f4_unpacked,
+    )
+
+    nan = torch.tensor([float("nan")])
+
+    assert f4_unpacked_to_f32(f32_to_f4_unpacked(nan)).tolist() == [1.5]
+
+
+def test_fp4_forward_preserves_nan():
+    """A NaN survives the E2M1 rounding."""
+    tensor = torch.tensor([float("nan"), -float("nan"), 0.75, 6.0])
+
+    rounded = fp4_forward(tensor)
+
+    assert torch.isnan(rounded[:2]).all()
+    assert torch.all(rounded[2:] == torch.tensor([1.0, 6.0]))
 
 
 @pytest.mark.parametrize("dtype", [torch.float8_e4m3fn, torch.float8_e5m2])

@@ -268,7 +268,7 @@ api-list:
 check:
 	@$(call use_env,VENV) && \
 	echo "Running linting and formatting checks..." && \
-	uv run --no-sync --active pre-commit run --all-files && \
+	uv run --no-sync --active pre-commit run --all-files --show-diff-on-failure && \
 	echo "All checks passed!"
 
 # =============================================================================
