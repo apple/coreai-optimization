@@ -1360,8 +1360,8 @@ class _EfficientKMeans:
         # seeding exist in exactly one place. The earlier standalone version here
         # stacked its restarts into the batch dimension, which is measurably the wrong
         # strategy: flash-kmeans stops on the *max* centroid shift across the batch, so
-        # stacked restarts all iterate until the slowest converges, and it drew from the ambient RNG, which made whole runs
-        # irreproducible.
+        # stacked restarts all iterate until the slowest converges. It also drew from the
+        # ambient RNG, which made whole runs irreproducible.
         labels, centroids = flash_batch_cluster(
             X.unsqueeze(0),
             self.n_clusters,
