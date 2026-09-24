@@ -9,10 +9,14 @@ Constants, op sets, and helper functions used by the FP16 and INT16 propagation
 passes in ``casting``.
 """
 
+import operator
 from collections.abc import Callable, Collection, Iterable
+from typing import Any
 
 import numpy as np
 import torch
+from torch.export.graph_signature import InputKind
+from torch.fx import Interpreter
 
 # =============================================================================
 # Constants
@@ -870,3 +874,164 @@ def anchor_int16_reshape_inputs(graph: torch.fx.Graph, pass_inserted: set[torch.
         count += 1
 
     return count
+
+
+# =============================================================================
+# Dynamic Activation Range Calibration
+# =============================================================================
+CalibrationSample = torch.Tensor | tuple[Any, ...] | list[Any] | dict[str, Any]
+CalibrationDataType = Iterable[CalibrationSample] | None
+
+
+def _iter_calibration_batches(
+    calibration_data: Any,
+    user_names: list[str],
+) -> Iterable[list[Any]]:
+    """Yield flattened user input lists for each sample in calibration_data."""
+    if isinstance(calibration_data, (torch.Tensor, dict, str, bytes)):
+        raise TypeError(
+            "calibration_data must be an iterable of samples (e.g. a list or DataLoader), "
+            f"not a bare {type(calibration_data).__name__}."
+        )
+    if not isinstance(calibration_data, Iterable):
+        raise TypeError(
+            "calibration_data must be an iterable of samples, "
+            f"got {type(calibration_data).__name__}."
+        )
+
+    num_inputs = len(user_names)
+
+    def _to_inputs(sample: Any) -> list[Any]:
+        if isinstance(sample, dict):
+            missing = [name for name in user_names if name not in sample]
+            if missing:
+                raise ValueError(
+                    f"Calibration dictionary missing required input(s): {missing}. "
+                    f"Expected inputs: {user_names}."
+                )
+            return [sample[name] for name in user_names]
+        if isinstance(sample, (tuple, list)):
+            if len(sample) != num_inputs:
+                raise ValueError(
+                    f"Calibration sample provided {len(sample)} input(s), "
+                    f"but model expects {num_inputs} input(s): {user_names}."
+                )
+            return list(sample)
+        if isinstance(sample, torch.Tensor):
+            if num_inputs != 1:
+                raise ValueError(
+                    f"Calibration sample provided a single Tensor, "
+                    f"but model expects {num_inputs} input(s): {user_names}."
+                )
+            return [sample]
+        raise TypeError(
+            f"Unsupported calibration sample type: {type(sample).__name__}. "
+            "Expected torch.Tensor, tuple, list, or dict."
+        )
+
+    for batch in calibration_data:
+        yield _to_inputs(batch)
+
+
+class _OverflowDetector(Interpreter):
+    """Interpreter that tracks call_function nodes producing out-of-range FP16 values."""
+
+    def __init__(self, ep: torch.export.ExportedProgram) -> None:
+        super().__init__(ep.graph_module)
+        self.direct_overflow_nodes: set[torch.fx.Node] = set()
+
+    def run_node(self, n: torch.fx.Node) -> Any:
+        result = super().run_node(n)
+        if n.op == "call_function":
+            self._check(n, result)
+        return result
+
+    def _check(self, n: torch.fx.Node, val: Any) -> None:
+        if isinstance(val, torch.Tensor):
+            if check_tensor_overflow_fp16(val):
+                self.direct_overflow_nodes.add(n)
+        elif isinstance(val, float):
+            abs_val = abs(val)
+            if abs_val > _FP16_MAX and abs_val < _FP32_INF_THRESHOLD:
+                self.direct_overflow_nodes.add(n)
+        elif isinstance(val, (tuple, list)):
+            for item in val:
+                self._check(n, item)
+
+
+def find_overflowing_nodes(
+    exported_program: torch.export.ExportedProgram,
+    calibration_data: CalibrationDataType,
+) -> set[torch.fx.Node]:
+    """Identify nodes that produce or consume out-of-range FP16 values during calibration.
+
+    Runs sample inputs through the exported graph using an interpreter, checks
+    intermediate activations against FP16 range, and cascades overflow status
+    to direct consumers whose output is FP32.
+
+    Args:
+        exported_program: The exported program to analyze.
+        calibration_data: An iterable of sample inputs (each sample a Tensor, tuple,
+            list, or dict) or None.
+
+    Returns:
+        Set of nodes identified as producing or directly consuming overflowing activations.
+    """
+    if calibration_data is None:
+        return set()
+
+    detector = _OverflowDetector(exported_program)
+    specs = exported_program.graph_signature.input_specs
+    user_names = [s.arg.name for s in specs if s.kind == InputKind.USER_INPUT]
+    user_indices = [i for i, s in enumerate(specs) if s.kind == InputKind.USER_INPUT]
+
+    base_args = [
+        exported_program.state_dict.get(s.target, exported_program.constants.get(s.target))
+        if s.kind != InputKind.USER_INPUT
+        else None
+        for s in specs
+    ]
+
+    first_param = next(
+        (
+            t
+            for store in (exported_program.state_dict, exported_program.constants)
+            for t in store.values()
+            if isinstance(t, torch.Tensor)
+        ),
+        None,
+    )
+    model_device = first_param.device if first_param is not None else None
+
+    with torch.no_grad():
+        for user_inputs in _iter_calibration_batches(calibration_data, user_names):
+            graph_args = list(base_args)
+            for idx, user_val in zip(user_indices, user_inputs, strict=True):
+                if (
+                    model_device is not None
+                    and isinstance(user_val, torch.Tensor)
+                    and user_val.device != model_device
+                ):
+                    user_val = user_val.to(model_device)
+                graph_args[idx] = user_val
+            detector.run(*graph_args)
+            detector.env.clear()
+
+    all_overflow_nodes = set(detector.direct_overflow_nodes)
+    queue = list(detector.direct_overflow_nodes)
+
+    while queue:
+        curr = queue.pop()
+        for user in curr.users:
+            if user.op == "call_function" and user not in all_overflow_nodes:
+                val = user.meta.get("val")
+                is_fp32 = (hasattr(val, "dtype") and val.dtype == torch.float32) or (
+                    isinstance(val, (tuple, list))
+                    and any(hasattr(v, "dtype") and v.dtype == torch.float32 for v in val)
+                )
+                if is_fp32:
+                    all_overflow_nodes.add(user)
+                    if user.target == operator.getitem:
+                        queue.append(user)
+
+    return all_overflow_nodes
