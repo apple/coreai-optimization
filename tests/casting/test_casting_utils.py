@@ -24,6 +24,7 @@ from coreai_opt._utils.casting_utils import (
     check_tensor_overflow_fp16,
     classify_float_args,
     cleanup_casts,
+    find_overflowing_nodes,
     insert_cast_after,
     is_ignored_op,
 )
@@ -1407,3 +1408,126 @@ class TestIsIgnoredOp:
         # Match by target inspection via custom predicate
         assert is_ignored_op(exp_node, lambda node: node.target == torch.ops.aten.exp.default)
         assert not is_ignored_op(add_node, lambda node: node.target == torch.ops.aten.exp.default)
+
+
+# =============================================================================
+# find_overflowing_nodes tests
+# =============================================================================
+class TestFindOverflowingNodes:
+    """Unit tests for find_overflowing_nodes."""
+
+    class _ActivationOverflowModel(torch.nn.Module):
+        def forward(self, x):
+            return torch.log1p(torch.exp(x))
+
+    class _ThresholdModel(torch.nn.Module):
+        def forward(self, x):
+            return x * 100.0
+
+    class _TupleReturnModel(torch.nn.Module):
+        def forward(self, x):
+            a = torch.exp(x)
+            chunks = torch.chunk(a, 2, dim=-1)
+            c0 = torch.log(chunks[0])
+            c1 = torch.log(chunks[1])
+            return torch.cat([c0, c1], dim=-1)
+
+    class _EmptyTensorModel(torch.nn.Module):
+        def forward(self, x):
+            empty = torch.empty(0, dtype=torch.float32)
+            return x + 1.0, empty
+
+    def test_empty_or_none_calibration_data(self):
+        """Returns empty set when calibration_data is None."""
+        m = self._ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ep = torch.export.export(m, (x,), strict=False).run_decompositions()
+
+        assert find_overflowing_nodes(ep, None) == set()
+
+    def test_detects_overflow_and_consumers(self):
+        """Detects exp overflowing > 65504 and propagates to log1p."""
+        m = self._ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ep = torch.export.export(m, (x,), strict=False).run_decompositions()
+
+        overflowing = find_overflowing_nodes(ep, x)
+        targets = {n.target for n in overflowing}
+        assert torch.ops.aten.exp.default in targets
+        assert torch.ops.aten.log1p.default in targets
+
+    def test_threshold_parameter(self):
+        """Custom threshold controls which nodes are flagged as overflowing."""
+        m = self._ThresholdModel().eval()
+        x = torch.tensor([[1.0]])
+        ep = torch.export.export(m, (x,), strict=False).run_decompositions()
+
+        # At x=1.0, mul result is 100.0
+        assert len(find_overflowing_nodes(ep, x, threshold=65504.0)) == 0
+        assert len(find_overflowing_nodes(ep, x, threshold=50.0)) > 0
+
+    def test_input_formats(self):
+        """Supports single Tensor, tuple of args, dict of kwargs, and DataLoader."""
+        m = self._ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ep = torch.export.export(m, (x,), strict=False).run_decompositions()
+
+        # 1. Single Tensor
+        nodes_tensor = find_overflowing_nodes(ep, x)
+        assert len(nodes_tensor) > 0
+
+        # 2. Tuple of args
+        nodes_tuple = find_overflowing_nodes(ep, (x,))
+        assert nodes_tuple == nodes_tensor
+
+        # 3. Dict of kwargs
+        nodes_dict = find_overflowing_nodes(ep, {"x": x})
+        assert nodes_dict == nodes_tensor
+
+        # 4. DataLoader
+        loader = torch.utils.data.DataLoader([x, x], batch_size=1)
+        nodes_loader = find_overflowing_nodes(ep, loader)
+        assert nodes_loader == nodes_tensor
+
+    def test_tuple_return_propagation(self):
+        """Propagates through operator.getitem to downstream consumers."""
+        m = self._TupleReturnModel().eval()
+        x = torch.tensor([[15.0, 15.0]])
+        ep = torch.export.export(m, (x,), strict=False).run_decompositions()
+
+        overflowing = find_overflowing_nodes(ep, x)
+        targets = {n.target for n in overflowing}
+
+        assert torch.ops.aten.exp.default in targets
+        assert torch.ops.aten.split_with_sizes.default in targets
+        assert torch.ops.aten.log.default in targets
+        # cat consumes log outputs which are ~15.0 (fits in FP16), so cat should not overflow
+        assert torch.ops.aten.cat.default not in targets
+
+    def test_empty_tensor_no_crash(self):
+        """Empty tensors (numel == 0) do not cause reduction errors."""
+        m = self._EmptyTensorModel().eval()
+        x = torch.tensor([[1.0]])
+        ep = torch.export.export(m, (x,), strict=False).run_decompositions()
+
+        # Should run without error
+        overflowing = find_overflowing_nodes(ep, x)
+        assert len(overflowing) == 0
+
+    def test_dict_missing_input_raises_value_error(self):
+        """Passing a calibration dict missing required model input raises ValueError."""
+        m = self._ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ep = torch.export.export(m, (x,), strict=False).run_decompositions()
+
+        with pytest.raises(ValueError, match="missing required input"):
+            find_overflowing_nodes(ep, {"wrong_name": x})
+
+    def test_mismatched_input_count_raises_value_error(self):
+        """Passing a sample with mismatched number of inputs raises ValueError."""
+        m = self._ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ep = torch.export.export(m, (x,), strict=False).run_decompositions()
+
+        with pytest.raises(ValueError, match="Calibration sample provided 2 input"):
+            find_overflowing_nodes(ep, [(x, x)])

@@ -35,6 +35,7 @@ from coreai_opt._utils.casting_utils import (
     INT16_MIN as _INT16_MIN,
     INT_DTYPES as _INT_DTYPES,
     INT_DTYPES_EXTENDED as _INT_DTYPES_EXTENDED,
+    CalibrationDataType as _CalibrationDataType,
     anchor_int16_reshape_inputs as _anchor_int16_reshape_inputs,
     build_castable_int16_nodes as _build_castable_int16_nodes,
     build_unsafe_to_cast_nodes as _build_unsafe_to_cast_nodes,
@@ -44,6 +45,7 @@ from coreai_opt._utils.casting_utils import (
     check_tensor_overflow_fp16 as _check_tensor_overflow_fp16,
     classify_float_args as _classify_float_args,
     cleanup_casts as _cleanup_casts,
+    find_overflowing_nodes as _find_overflowing_nodes,
     get_node_dtype as _get_node_dtype,
     get_placeholder_store_and_tensor as _get_placeholder_store_and_tensor,
     get_to_op_dtype as _get_to_op_dtype,
@@ -202,6 +204,7 @@ class _FP16Casting(_CastPassBase):
     def __init__(
         self,
         exported_program: torch.export.ExportedProgram,
+        calibration_data: _CalibrationDataType = None,
         ignored_ops: (
             Collection[torch._ops.OpOverload | torch._ops.OpOverloadPacket]
             | torch._ops.OpOverload
@@ -219,6 +222,11 @@ class _FP16Casting(_CastPassBase):
             self._ignored_ops = set(ignored_ops)
         else:
             self._ignored_ops = ignored_ops
+
+        if calibration_data is not None:
+            self._overflowing_nodes = _find_overflowing_nodes(exported_program, calibration_data)
+        else:
+            self._overflowing_nodes = set()
 
     # -------------------------------------------------------------------------
     # Step 1: Convert parameters
@@ -328,6 +336,11 @@ class _FP16Casting(_CastPassBase):
                 _maybe_update_assert_dtype(node)
                 continue
 
+            # --- ignored ops or dynamic activation overflow: keep in FP32 ---
+            if node in self._overflowing_nodes or _is_ignored_op(node, self._ignored_ops):
+                self.handle_overflow_op(node)
+                continue
+
             # --- cast ops: retarget fp32 output to fp16 ---
             if node.target in _CAST_OPS:
                 target_dtype = _get_to_op_dtype(node)
@@ -337,10 +350,6 @@ class _FP16Casting(_CastPassBase):
                     self._pass_inserted.add(node)
                 continue
 
-            # --- ignored ops: keep in FP32 ---
-            if _is_ignored_op(node, self._ignored_ops):
-                self.handle_overflow_op(node)
-                continue
 
             # --- creation ops: set dtype directly ---
             if node.target in _CREATION_OPS:
@@ -635,6 +644,7 @@ class _INT16Casting(_CastPassBase):
 # =============================================================================
 def cast_fp32_to_fp16(
     exported_program: torch.export.ExportedProgram,
+    calibration_data: _CalibrationDataType = None,
     ignored_ops: (
         Collection[torch._ops.OpOverload | torch._ops.OpOverloadPacket]
         | torch._ops.OpOverload
@@ -650,6 +660,11 @@ def cast_fp32_to_fp16(
 
     Args:
         exported_program: Exported program to convert.
+        calibration_data: Optional sample input(s) or an iterable (e.g. DataLoader, list)
+            of batches for dynamic activation range observation. If provided, operations
+            whose intermediate activations overflow the FP16 representable range
+            (> 65504 or inf/nan) are automatically identified and excluded from FP16 casting,
+            remaining in FP32 precision with boundary casts.
         ignored_ops: Optional operations or predicate to exclude from FP16 casting.
             Can be a collection/set of ``OpOverload`` or ``OpOverloadPacket``
             instances (e.g. ``{torch.ops.aten.exp, torch.ops.aten.exp.default}``),
@@ -660,7 +675,26 @@ def cast_fp32_to_fp16(
     Returns:
         The modified exported program.
     """
-    return _FP16Casting(exported_program, ignored_ops=ignored_ops)()
+    if ignored_ops is None and (
+        callable(calibration_data)
+        or isinstance(
+            calibration_data,
+            (torch._ops.OpOverload, torch._ops.OpOverloadPacket, set, frozenset),
+        )
+        or (
+            isinstance(calibration_data, (list, tuple))
+            and len(calibration_data) > 0
+            and isinstance(
+                calibration_data[0],
+                (torch._ops.OpOverload, torch._ops.OpOverloadPacket),
+            )
+        )
+    ):
+        ignored_ops, calibration_data = calibration_data, None
+
+    return _FP16Casting(
+        exported_program, calibration_data=calibration_data, ignored_ops=ignored_ops
+    )()
 
 
 def cast_int32_to_int16(
@@ -676,6 +710,7 @@ def cast_int32_to_int16(
 
 def cast_to_16_bit_precision(
     exported_program: torch.export.ExportedProgram,
+    calibration_data: _CalibrationDataType = None,
     ignored_ops: (
         Collection[torch._ops.OpOverload | torch._ops.OpOverloadPacket]
         | torch._ops.OpOverload
@@ -692,12 +727,14 @@ def cast_to_16_bit_precision(
 
     Args:
         exported_program: Exported program to convert.
+        calibration_data: Optional sample input(s) or iterable of batches for dynamic
+            activation range observation. Forwarded to :func:`cast_fp32_to_fp16`.
         ignored_ops: Optional operations or predicate to exclude from FP16 casting.
             Forwarded to :func:`cast_fp32_to_fp16`.
 
     Returns:
         The modified exported program.
     """
-    cast_fp32_to_fp16(exported_program, ignored_ops=ignored_ops)
+    cast_fp32_to_fp16(exported_program, calibration_data=calibration_data, ignored_ops=ignored_ops)
     cast_int32_to_int16(exported_program)
     return exported_program
