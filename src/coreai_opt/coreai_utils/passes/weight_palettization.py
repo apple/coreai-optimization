@@ -15,16 +15,20 @@ import numpy as np
 
 from coreai_opt.coreai_utils._coreai_imports import (
     AIProgram as _AIProgram,
-    DenseResourceElementsAttr as _DenseResourceElementsAttr,
-    F16Type as _F16Type,
-    F32Type as _F32Type,
     InsertionPoint as _InsertionPoint,
     IntegerType as _IntegerType,
-    RankedTensorType as _RankedTensorType,
+    TensorType as _TensorType,
     WalkResult as _WalkResult,
     _get_constant_value_as_np_array,
+    authoring_cast as _authoring_cast,
+    authoring_constant as _authoring_constant,
+    blockwise_shift_scale as _blockwise_shift_scale,
     compression_types as _compression_types,
-    coreai as _coreai,
+    float8_e4m3fn as _float8_e4m3fn,
+    float8_e5m2 as _float8_e5m2,
+    float16 as _float16,
+    float32 as _float32,
+    lut_to_dense as _lut_to_dense,
 )
 from coreai_opt.coreai_utils._utils.graph_utils import (
     _apply_compression_transform,
@@ -37,10 +41,7 @@ from coreai_opt.coreai_utils._utils.palettize_utils import (
     _is_cluster_dim_valid,
 )
 from coreai_opt.coreai_utils._utils.quantize_utils import _compute_qparams_by_dtype
-from coreai_opt.coreai_utils._utils.type_utils import (
-    _get_fp_mlir_and_ml_dtype,
-    _get_string_to_mlir_type,
-)
+from coreai_opt.coreai_utils._utils.type_utils import _get_string_to_mlir_type
 from coreai_opt.coreai_utils.common import CompressionGranularity, DType, QScheme
 from coreai_opt.coreai_utils.passes import _OPS_WEIGHT_NEED_COMPRESSION
 
@@ -49,6 +50,11 @@ logger = logging.getLogger(__name__)
 _FP8_DTYPE_TO_ML = {
     DType.FP8_E4M3FN: ml_dtypes.float8_e4m3fn,
     DType.FP8_E5M2: ml_dtypes.float8_e5m2,
+}
+
+_FP8_DTYPE_TO_AUTHORING = {
+    DType.FP8_E4M3FN: _float8_e4m3fn,
+    DType.FP8_E5M2: _float8_e5m2,
 }
 
 _VALID_LUT_DTYPES = {DType.INT8, DType.UINT8, DType.FP8_E4M3FN, DType.FP8_E5M2}
@@ -250,8 +256,8 @@ def palettize_weights(
             )
 
             weight_float_mlir_type = (
-                _F32Type.get() if original_weight_type == np.float32 else _F16Type.get()
-            )
+                _float32 if original_weight_type == np.float32 else _float16
+            )._to_mlir()
 
             if lut_dtype is not None:
                 quant_block_sizes = [0] * len(lut_params.lut.shape)
@@ -322,8 +328,6 @@ def palettize_weights(
                     )
 
                 else:
-                    fp8_mlir_type, _ = _get_fp_mlir_and_ml_dtype(lut_dtype)
-
                     quant_params = _compute_qparams_by_dtype(
                         lut_params.lut,
                         _FP8_DTYPE_TO_ML[lut_dtype],
@@ -348,15 +352,9 @@ def palettize_weights(
                         dtype=lut_scale.dtype,
                     )
 
-                    tensor_type = _RankedTensorType.get(
-                        list(quantized_lut_data.shape), fp8_mlir_type
-                    )
-                    lut_quantized_attr = _DenseResourceElementsAttr.get_from_buffer(
-                        quantized_lut_data,
-                        "dense_resource",
-                        tensor_type,
-                    )
-                    lut_quantized = cast("Any", _coreai.ConstantOp(value=lut_quantized_attr).result)
+                    lut_quantized = _authoring_constant(
+                        quantized_lut_data, dtype=_FP8_DTYPE_TO_AUTHORING[lut_dtype]
+                    )._to_mlir()
 
                     lut_scale_const = _create_constant_value_from_np_array(
                         lut_scale_reshaped,
@@ -368,23 +366,22 @@ def palettize_weights(
                         weight_element_type,
                     )
 
-                compressed_weight_quantized = _coreai.lut_to_dense(
+                compressed_weight_quantized = _lut_to_dense(
                     indices=indices,
                     lut=lut_quantized,
                     axis=vector_axis,
-                )
+                )._to_mlir()
                 # Cast lut_to_dense output from quantized type to float so all
                 # blockwise_shift_scale operands share the same element type.
-                cast_type = _RankedTensorType.get(
-                    cast("Any", compressed_weight_quantized.type).shape,
-                    weight_float_mlir_type,
-                )
-                compressed_weight_float = cast(
-                    "Any",
-                    _coreai.CastOp(cast_type, compressed_weight_quantized).result,
-                )
+                cast_type = _TensorType(
+                    shape=cast("Any", compressed_weight_quantized.type).shape,
+                    dtype=weight_float_mlir_type,
+                )._to_mlir()
+                compressed_weight_float = _authoring_cast(
+                    compressed_weight_quantized, cast_type
+                )._to_mlir()
                 lut_t = cast("Any", lut_scale_const.type)
-                compressed_weight = _coreai.blockwise_shift_scale(
+                compressed_weight = _blockwise_shift_scale(
                     data=compressed_weight_float,
                     scale=lut_scale_const,
                     offset1=lut_zero_point_const,
@@ -392,16 +389,12 @@ def palettize_weights(
                         np.zeros(lut_t.shape, dtype=np.float32),
                         lut_t.element_type,
                     ),
-                )
+                )._to_mlir()
                 # Cast back to the original weight IR type so downstream ops
                 # (e.g. coreai.transpose) see the same type contract.
-                compressed_weight = cast(
-                    "Any",
-                    _coreai.CastOp(
-                        cast("Any", const_weight.result.type),
-                        compressed_weight,
-                    ).result,
-                )
+                compressed_weight = _authoring_cast(
+                    compressed_weight, cast("Any", const_weight.result.type)
+                )._to_mlir()
 
             else:
                 lut = _create_constant_value_from_np_array(
@@ -409,11 +402,11 @@ def palettize_weights(
                     cast("Any", const_weight.result.type).element_type,
                 )
 
-                compressed_weight = _coreai.lut_to_dense(
+                compressed_weight = _lut_to_dense(
                     indices=indices,
                     lut=lut,
                     axis=vector_axis,
-                )
+                )._to_mlir()
 
                 if enable_per_channel_scale:
                     scale = _create_constant_value_from_np_array(
@@ -424,17 +417,14 @@ def palettize_weights(
                         np.zeros_like(per_channel_scale, dtype=original_weight_type),
                         weight_float_mlir_type,
                     )
-                    compressed_weight_float = cast(
-                        "Any",
-                        _coreai.CastOp(
-                            _RankedTensorType.get(
-                                cast("Any", compressed_weight.type).shape,
-                                weight_float_mlir_type,
-                            ),
-                            compressed_weight,
-                        ).result,
-                    )
-                    compressed_weight = _coreai.blockwise_shift_scale(
+                    compressed_weight_float = _authoring_cast(
+                        compressed_weight,
+                        _TensorType(
+                            shape=cast("Any", compressed_weight.type).shape,
+                            dtype=weight_float_mlir_type,
+                        )._to_mlir(),
+                    )._to_mlir()
+                    compressed_weight = _blockwise_shift_scale(
                         data=compressed_weight_float,
                         scale=scale,
                         offset1=zero_point,
@@ -442,14 +432,10 @@ def palettize_weights(
                             np.zeros(per_channel_scale.shape, dtype=original_weight_type),
                             weight_float_mlir_type,
                         ),
-                    )
-                    compressed_weight = cast(
-                        "Any",
-                        _coreai.CastOp(
-                            cast("Any", const_weight.result.type),
-                            compressed_weight,
-                        ).result,
-                    )
+                    )._to_mlir()
+                    compressed_weight = _authoring_cast(
+                        compressed_weight, cast("Any", const_weight.result.type)
+                    )._to_mlir()
 
         const_weight.result.replace_all_uses_with(compressed_weight)
 

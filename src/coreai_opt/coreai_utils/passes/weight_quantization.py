@@ -16,15 +16,20 @@ import numpy as np
 from coreai_opt.coreai_utils._coreai_imports import (
     AIProgram as _AIProgram,
     DenseElementsAttr as _DenseElementsAttr,
-    DenseResourceElementsAttr as _DenseResourceElementsAttr,
     FloatAttr as _FloatAttr,
     InsertionPoint as _InsertionPoint,
     IntegerType as _IntegerType,
-    RankedTensorType as _RankedTensorType,
+    TensorType as _TensorType,
     WalkResult as _WalkResult,
     _get_constant_value_as_np_array,
+    authoring_constant as _authoring_constant,
+    blockwise_shift_scale as _blockwise_shift_scale,
     compression_types as _compression_types,
     coreai as _coreai,
+    float4_e2m1fn as _float4_e2m1fn,
+    float8_e4m3fn as _float8_e4m3fn,
+    float8_e5m2 as _float8_e5m2,
+    float8_e8m0fnu as _float8_e8m0fnu,
 )
 from coreai_opt.coreai_utils._utils.graph_utils import (
     _apply_compression_transform,
@@ -47,6 +52,12 @@ _FLOAT_DTYPE_TO_ML = {
     DType.FP4_E2M1FN: ml_dtypes.float4_e2m1fn,
     DType.FP8_E4M3FN: ml_dtypes.float8_e4m3fn,
     DType.FP8_E5M2: ml_dtypes.float8_e5m2,
+}
+
+_FLOAT_DTYPE_TO_AUTHORING = {
+    DType.FP4_E2M1FN: _float4_e2m1fn,
+    DType.FP8_E4M3FN: _float8_e4m3fn,
+    DType.FP8_E5M2: _float8_e5m2,
 }
 
 # Valid dtypes for the weight being quantized.
@@ -79,7 +90,7 @@ def _create_int_quantized_weight(
     quantized_data_val = _create_constant_value_from_np_array(quantized_data, quantized_mlir_type)
     scale_val = _create_constant_value_from_np_array(scale, weight_element_type)
     zero_point_val = _create_constant_value_from_np_array(zero_point, quantized_mlir_type)
-    return _coreai.blockwise_shift_scale(
+    return _blockwise_shift_scale(
         data=quantized_data_val,
         scale=scale_val,
         offset1=zero_point_val,
@@ -87,12 +98,13 @@ def _create_int_quantized_weight(
             np.zeros_like(scale),
             weight_element_type,
         ),
-    )
+    )._to_mlir()
 
 
 def _create_fp_quantized_weight(
     quantized_data: Any,
     scale: Any,
+    dtype: DType,
     fp_mlir_type: Any,
     weight_element_type: Any,
     scale_mlir_type: Any = None,
@@ -104,22 +116,13 @@ def _create_fp_quantized_weight(
     the scale constant is created in that dtype using DenseResourceElementsAttr.
     Otherwise the scale uses the uncompressed weight element type (default behavior).
     """
-    tensor_type = _RankedTensorType.get(list(quantized_data.shape), fp_mlir_type)
-    data_attr = _DenseResourceElementsAttr.get_from_buffer(
-        quantized_data,
-        "dense_resource",
-        tensor_type,
-    )
-    quantized_data_val = cast("Any", _coreai.ConstantOp(value=data_attr).result)
+    quantized_data_val = _authoring_constant(
+        quantized_data, dtype=_FLOAT_DTYPE_TO_AUTHORING[dtype]
+    )._to_mlir()
 
     if scale_mlir_type is not None:
         scale_cast = np.ascontiguousarray(scale.astype(scale_np_dtype))
-        scale_shape = list(scale_cast.shape)
-        scale_tensor_type = _RankedTensorType.get(scale_shape, scale_mlir_type)
-        scale_attr = _DenseResourceElementsAttr.get_from_buffer(
-            scale_cast, "dense_resource", scale_tensor_type
-        )
-        scale_val = cast("Any", _coreai.ConstantOp(value=scale_attr).result)
+        scale_val = _authoring_constant(scale_cast, dtype=_float8_e8m0fnu)._to_mlir()
 
         # offset2 must be in the output (weight) dtype so blockwise_shift_scale
         # returns a tensor in the original weight precision, not f8E8M0FNU.
@@ -134,18 +137,18 @@ def _create_fp_quantized_weight(
             weight_element_type,
         )
 
-    zero_point_tensor_type = _RankedTensorType.get(list(scale.shape), fp_mlir_type)
+    zero_point_tensor_type = _TensorType(shape=list(scale.shape), dtype=fp_mlir_type)._to_mlir()
     zero_point_attr = _DenseElementsAttr.get_splat(
         zero_point_tensor_type, _FloatAttr.get(fp_mlir_type, 0.0)
     )
     zero_point_val = cast("Any", _coreai.ConstantOp(value=zero_point_attr).result)
 
-    return _coreai.blockwise_shift_scale(
+    return _blockwise_shift_scale(
         data=quantized_data_val,
         scale=scale_val,
         offset1=zero_point_val,
         offset2=offset2_val,
-    )
+    )._to_mlir()
 
 
 def quantize_weights(
@@ -360,6 +363,7 @@ def quantize_weights(
                 quantized_weight = _create_fp_quantized_weight(
                     quantized_data,
                     scale,
+                    dtype,
                     fp_mlir_type,
                     weight_element_type,
                     scale_mlir_type,

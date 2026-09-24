@@ -20,13 +20,14 @@ import torch
 from coreai_opt.coreai_utils._coreai_imports import (
     AIProgram,
     BoolAttr,
+    DebugInfo,
     DenseElementsAttr,
     FloatAttr,
     IntegerAttr,
     IntegerType,
-    Location,
     Operation,
     RankedTensorType,
+    TensorType,
     WalkResult,
     coreai,
     create_elements_attr,
@@ -243,8 +244,8 @@ def _apply_compression_transform(
     """Apply a compression transformation to a Core AI program.
 
     Handles the common boilerplate for compression transforms: optionally deep-copies
-    the program, walks operations with the provided function, applies the optimization
-    pass, and returns the modified program.
+    the program, walks operations with the provided function, and returns the
+    modified program.
 
     Args:
         coreai_program (AIProgram): The model to be compressed.
@@ -259,9 +260,7 @@ def _apply_compression_transform(
     if not in_place:
         coreai_program = copy.deepcopy(coreai_program)
 
-    coreai_program._mlir_module.operation.walk(compression_fn)
-
-    coreai_program.optimize()
+    coreai_program._module._mlir_module.operation.walk(compression_fn)
 
     return coreai_program
 
@@ -277,11 +276,10 @@ def _create_constant_value_from_np_array(
     represent int4), so it will be packed first during construction.
     If loc is None, the one from the current context manager is used.
     """
-    data_tensortype = RankedTensorType.get(
-        list(value.shape) if isinstance(value, np.ndarray) else [],
-        value_type,
-        loc=loc,
-    )
+    data_tensortype = TensorType(
+        shape=list(value.shape) if isinstance(value, np.ndarray) else [],
+        dtype=value_type,
+    )._to_mlir()
     # Convert to numpy array for consistent handling (before packing, for correct
     # splat check).
     np_value = np.array(value)
@@ -298,7 +296,8 @@ def _create_constant_value_from_np_array(
             )
 
     if loc is None:
-        loc = Location.current
+        current_debug_info = DebugInfo.current()
+        loc = None if current_debug_info is None else current_debug_info._to_mlir()
 
     # Check if this is a splat (all values are the same).
     # Use np_value (original, unpacked elements) so sub-byte packing does not

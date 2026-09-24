@@ -15,15 +15,21 @@ import numpy as np
 from coreai_opt.coreai_utils._coreai_imports import (
     AIProgram as _AIProgram,
     DenseElementsAttr as _DenseElementsAttr,
-    DenseResourceElementsAttr as _DenseResourceElementsAttr,
     FloatAttr as _FloatAttr,
     InsertionPoint as _InsertionPoint,
     IntegerType as _IntegerType,
-    RankedTensorType as _RankedTensorType,
+    TensorType as _TensorType,
     WalkResult as _WalkResult,
     _get_constant_value_as_np_array,
+    authoring_constant as _authoring_constant,
+    blockwise_shift_scale as _blockwise_shift_scale,
+    build_sparse_with_bitmask as _build_sparse_with_bitmask,
     compression_types as _compression_types,
     coreai as _coreai,
+    float8_e4m3fn as _float8_e4m3fn,
+    float8_e5m2 as _float8_e5m2,
+    lut_to_dense as _lut_to_dense,
+    sparse_with_bitmask_to_dense as _sparse_with_bitmask_to_dense,
 )
 from coreai_opt.coreai_utils._utils.graph_utils import (
     _apply_compression_transform,
@@ -50,6 +56,11 @@ _VALID_DTYPES: frozenset[DType] = frozenset(
     {DType.INT8, DType.UINT8, DType.FP8_E4M3FN, DType.FP8_E5M2}
 )
 _VALID_PALETTIZE_NBITS: frozenset[int] = frozenset({1, 2, 3, 4, 6, 8})
+
+_FP8_DTYPE_TO_AUTHORING = {
+    DType.FP8_E4M3FN: _float8_e4m3fn,
+    DType.FP8_E5M2: _float8_e5m2,
+}
 
 
 def sparsify_weights(
@@ -268,11 +279,11 @@ def sparsify_weights(
                         _IntegerType.get_signed(16),
                     )
 
-                    nonzero_data_const = _coreai.lut_to_dense(
+                    nonzero_data_const = _lut_to_dense(
                         indices=indices,
                         lut=lut,
                         axis=vector_axis,
-                    )
+                    )._to_mlir()
 
             elif quantize_dtype is not None:
                 if sparse_params.nonzero_data.size == 0:
@@ -345,17 +356,9 @@ def sparsify_weights(
                             quantized_mlir_type,
                         )
                     else:
-                        quantized_tensor_type = _RankedTensorType.get(
-                            list(quantized_data.shape), fp8_mlir_type
-                        )
-                        nonzero_data_const = cast(
-                            "Any",
-                            _coreai.ConstantOp(
-                                value=_DenseResourceElementsAttr.get_from_buffer(
-                                    quantized_data, "dense_resource", quantized_tensor_type
-                                )
-                            ).result,
-                        )
+                        nonzero_data_const = _authoring_constant(
+                            quantized_data, dtype=_FP8_DTYPE_TO_AUTHORING[quantize_dtype]
+                        )._to_mlir()
                         scale_const = _create_constant_value_from_np_array(
                             scale_reshaped,
                             const_weight.result.type.element_type,
@@ -364,7 +367,7 @@ def sparsify_weights(
                             "Any",
                             _coreai.ConstantOp(
                                 value=_DenseElementsAttr.get_splat(
-                                    _RankedTensorType.get(target_shape, fp8_mlir_type),
+                                    _TensorType(shape=target_shape, dtype=fp8_mlir_type)._to_mlir(),
                                     _FloatAttr.get(fp8_mlir_type, 0.0),
                                 )
                             ).result,
@@ -380,14 +383,14 @@ def sparsify_weights(
                 sparse_params.mask,
                 _IntegerType.get_unsigned(1),
             )
-            sparse_tensor = _coreai.build_sparse_with_bitmask(
+            sparse_tensor = _build_sparse_with_bitmask(
                 values=nonzero_data_const,
                 bitmask=mask,
-            )
-            compressed_weight = _coreai.sparse_with_bitmask_to_dense(sparse_tensor)
+            )._to_mlir()
+            compressed_weight = _sparse_with_bitmask_to_dense(sparse_tensor)._to_mlir()
 
             if require_dequantization:
-                compressed_weight = _coreai.blockwise_shift_scale(
+                compressed_weight = _blockwise_shift_scale(
                     data=compressed_weight,
                     scale=scale_const,
                     offset1=zero_point_const,
@@ -395,7 +398,7 @@ def sparsify_weights(
                         np.zeros(scale_reshaped.shape, dtype=np.float32),
                         const_weight.result.type.element_type,
                     ),
-                )
+                )._to_mlir()
 
         const_weight.result.replace_all_uses_with(compressed_weight)
 

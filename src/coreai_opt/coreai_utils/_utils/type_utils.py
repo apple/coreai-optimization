@@ -8,16 +8,17 @@
 # TODO: add test enhancements for type utils.
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from coreai_opt.coreai_utils._coreai_imports import (
     Context,
-    Float4E2M1FNType,
-    Float8E4M3FNType,
-    Float8E5M2Type,
-    Float8E8M0FNUType,
     FloatType,
     IntegerType,
+    float4_e2m1fn,
+    float8_e4m3fn,
+    float8_e5m2,
+    float8_e8m0fnu,
     ml_dtypes,
 )
 from coreai_opt.coreai_utils.common import DType
@@ -36,19 +37,19 @@ def _get_string_to_mlir_type() -> dict[str, IntegerType | FloatType]:
     """
     global _STRING_TO_MLIR_TYPE
     if _STRING_TO_MLIR_TYPE is None:
-        ctx = Context()
-        _STRING_TO_MLIR_TYPE = {
-            "fp4_e2m1": Float4E2M1FNType.get(context=ctx),
-            "fp8_e4m3fn": Float8E4M3FNType.get(context=ctx),
-            "fp8_e5m2": Float8E5M2Type.get(context=ctx),
-            "fp8_e8m0fnu": Float8E8M0FNUType.get(context=ctx),
-            "int2": IntegerType.get_signed(2, context=ctx),
-            "int4": IntegerType.get_signed(4, context=ctx),
-            "int8": IntegerType.get_signed(8, context=ctx),
-            "uint2": IntegerType.get_unsigned(2, context=ctx),
-            "uint4": IntegerType.get_unsigned(4, context=ctx),
-            "uint8": IntegerType.get_unsigned(8, context=ctx),
-        }
+        with Context():
+            _STRING_TO_MLIR_TYPE = {
+                "fp4_e2m1": float4_e2m1fn._to_mlir(),
+                "fp8_e4m3fn": float8_e4m3fn._to_mlir(),
+                "fp8_e5m2": float8_e5m2._to_mlir(),
+                "fp8_e8m0fnu": float8_e8m0fnu._to_mlir(),
+                "int2": IntegerType.get_signed(2),
+                "int4": IntegerType.get_signed(4),
+                "int8": IntegerType.get_signed(8),
+                "uint2": IntegerType.get_unsigned(2),
+                "uint4": IntegerType.get_unsigned(4),
+                "uint8": IntegerType.get_unsigned(8),
+            }
     return _STRING_TO_MLIR_TYPE
 
 
@@ -65,7 +66,7 @@ def _is_sub_byte_int(value_type: Any) -> bool:
 def _get_fp_mlir_and_ml_dtype(
     dtype: DType,
     context: Context | None = None,
-) -> tuple[Float4E2M1FNType | Float8E4M3FNType | Float8E5M2Type, Any]:
+) -> tuple[Any, Any]:
     """Return the MLIR type and ml_dtypes scalar type for a float DType.
 
     Args:
@@ -75,20 +76,21 @@ def _get_fp_mlir_and_ml_dtype(
             current thread-local active context is used.
 
     Returns:
-        tuple[Float4E2M1FNType | Float8E4M3FNType | Float8E5M2Type, Any]: A pair of
-            ``(mlir_type, ml_dtype)`` corresponding to the given float dtype.
+        tuple[Any, Any]: A pair of ``(mlir_type, ml_dtype)`` corresponding to the
+            given float dtype.
 
     Raises:
         ValueError: If dtype is not a supported float dtype.
     """
-    if dtype == DType.FP4_E2M1FN:
-        return Float4E2M1FNType.get(context=context), ml_dtypes.float4_e2m1fn
-    elif dtype == DType.FP8_E4M3FN:
-        return Float8E4M3FNType.get(context=context), ml_dtypes.float8_e4m3fn
-    elif dtype == DType.FP8_E5M2:
-        return Float8E5M2Type.get(context=context), ml_dtypes.float8_e5m2
-    else:
-        raise ValueError(f"Unsupported FP dtype: {dtype}")
+    with context if context is not None else contextlib.nullcontext():
+        if dtype == DType.FP4_E2M1FN:
+            return float4_e2m1fn._to_mlir(), ml_dtypes.float4_e2m1fn
+        elif dtype == DType.FP8_E4M3FN:
+            return float8_e4m3fn._to_mlir(), ml_dtypes.float8_e4m3fn
+        elif dtype == DType.FP8_E5M2:
+            return float8_e5m2._to_mlir(), ml_dtypes.float8_e5m2
+        else:
+            raise ValueError(f"Unsupported FP dtype: {dtype}")
 
 
 def _get_scale_mlir_and_np_dtype(
@@ -108,6 +110,7 @@ def _get_scale_mlir_and_np_dtype(
     Raises:
         ValueError: If scale_dtype is not a supported scale dtype.
     """
-    if scale_dtype == DType.FP8_E8M0FNU:
-        return Float8E8M0FNUType.get(context=context), ml_dtypes.float8_e8m0fnu
-    raise ValueError(f"Unsupported scale dtype: {scale_dtype}")
+    with context if context is not None else contextlib.nullcontext():
+        if scale_dtype == DType.FP8_E8M0FNU:
+            return float8_e8m0fnu._to_mlir(), ml_dtypes.float8_e8m0fnu
+        raise ValueError(f"Unsupported scale dtype: {scale_dtype}")
