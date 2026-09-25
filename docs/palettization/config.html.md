@@ -4,6 +4,8 @@ Palettization Configs follow the same philosophy as the [Quantization Config](..
 They are simpler as palettization applies only to the weights in the model.
 (Hence there are no `op_input_spec` and `op_output_spec` fields in the `ModuleKMeansPalettizerConfig` and [`OpKMeansPalettizerConfig`](../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.md#coreai_opt.palettization.config.OpKMeansPalettizerConfig).)
 
+To estimate what a config costs in terms of bits per weight (BPW), use the [`bits_per_weight()`](../api/generated/coreai_opt.inspection.bits_per_weight.md#coreai_opt.inspection.bits_per_weight) utility to get an analytical BPW estimate for a *prepared* `coreai-opt` model. See [Utility for computing analytical Bits Per Weight (BPW)](../utils/mixed_precision.md#utility-for-computing-analytical-bits-per-weight-bpw) for details.
+
 ## PalettizationSpec
 
 `PalettizationSpec` defines the following key properties, among others (for full list see API reference):
@@ -112,7 +114,7 @@ op_config = OpKMeansPalettizerConfig(
 
 ## Examples
 
-Several examples below configure specific module types or module names. To determine these for your model, see [How to get names + types](../quantization/config.md#how-to-get-names-types-for-modules-and-ops). Since palettization only supports eager execution mode, only the eager mode guidance in that section is relevant.
+Several examples below configure specific module types or module names. To determine these for your model, use [`ModelInspector`](../api/generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector) with `execution_mode="eager"` — see [Inspecting Model Structure](../debugging/model_inspection.md). Palettization supports eager mode only.
 
 ### Apply 4-bit palettization globally, 8-bit to linear layers
 
@@ -199,4 +201,57 @@ kmeans_palettization_config:
         weight:
           n_bits: 4
           granularity: { type: per_tensor }
+```
+
+### Enable palettization at different training steps per module (PATSchedule)
+
+For palettization-aware training, you can defer when each module’s palettizer turns on using a [`PATSchedule`](../api/generated/coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule) set on that module’s `ModuleKMeansPalettizerConfig`. Its `enable_fake_palettize` field is the step-count threshold at which that module’s palettizer becomes active; until then the module trains uncompressed. See [Using PATSchedule](overview.md#using-patschedule) for the training loop that drives the schedule via `palettizer.training_mode()` and `palettizer.step()`.
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.config import PATSchedule
+
+# All layers palettized 4-bit, but each named module's palettizer turns on at a different training step:
+# module1 after 100 steps, module2 after 500.
+config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+    ),
+    module_name_configs={
+        "module1": ModuleKMeansPalettizerConfig(
+            op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+            pat_schedule=PATSchedule(enable_fake_palettize=100),
+        ),
+        "module2": ModuleKMeansPalettizerConfig(
+            op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+            pat_schedule=PATSchedule(enable_fake_palettize=500),
+        ),
+    },
+)
+```
+
+```yaml
+# yaml
+kmeans_palettization_config:
+  global_config:
+    op_state_spec:
+      weight:
+        n_bits: 4
+  module_name_configs:
+    module1:
+      op_state_spec:
+        weight:
+          n_bits: 4
+      pat_schedule:
+        enable_fake_palettize: 100
+    module2:
+      op_state_spec:
+        weight:
+          n_bits: 4
+      pat_schedule:
+        enable_fake_palettize: 500
 ```

@@ -1,0 +1,6 @@
+﻿coreai\_opt.quantization.spec.fp4\_forward
+==========================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autofunction:: fp4_forward

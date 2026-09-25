@@ -59,9 +59,9 @@ Process of quantizing to INT8 (scale only). Note that -300 (the max abs value) h
 
 The quantization params (scale, zero_point/minval) can be computed at various _granularities_ when quantizing a given tensor.
 
-- __per_tensor__: a single value computed for the whole tensor
-- __per_channel__: multiple params for a tensor, one value shared along a specified axis (e.g. `output channel` axis for convolutional/linear layers)
-- __per_block__: multiple params for a tensor, one value per block of values along the specified axis (size of the block controlled by the `block_size` hyperparameter).
+- **per_tensor**: a single value computed for the whole tensor
+- **per_channel**: multiple params for a tensor, one value shared along a specified axis (e.g. `output channel` axis for convolutional/linear layers)
+- **per_block**: multiple params for a tensor, one value per block of values along the specified axis (size of the block controlled by the `block_size` hyperparameter).
 
 `per_channel` and `per_block` help reduce quantization error, which often improves model accuracy, but at the cost of more space overhead for the quant params (and may affect the runtime latency depending on the model, hardware, etc.).
 

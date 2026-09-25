@@ -2,14 +2,14 @@
 <html lang="en" data-accent-color="indigo" data-content_root="../">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Config API - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Joint Compression" href="../utils/joint_compression.html" /><link rel="prev" title="API Overview" href="overview.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Config API - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Pruning" href="../pruning/index.html" /><link rel="prev" title="API Overview" href="overview.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Palettization</a><ul class="current">
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -250,6 +274,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#apply-4-bit-palettization-to-conv-layers-8-bit-to-linear-layers">Apply 4-bit palettization to conv layers, 8-bit to linear layers</a></li>
+<li><a class="reference internal" href="#enable-palettization-at-different-training-steps-per-module-patschedule">Enable palettization at different training steps per module (PATSchedule)</a></li>
 </ul>
 </li>
 </ul>
@@ -322,6 +347,7 @@ data-aria-dark="Switch to auto color mode">
 <p>Palettization Configs follow the same philosophy as the <a class="reference internal" href="../quantization/config.html"><span class="std std-doc">Quantization Config</span></a>.
 They are simpler as palettization applies only to the weights in the model.
 (Hence there are no <code class="docutils literal notranslate"><span class="pre">op_input_spec</span></code> and <code class="docutils literal notranslate"><span class="pre">op_output_spec</span></code> fields in the <code class="xref py py-class docutils literal notranslate"><span class="pre">ModuleKMeansPalettizerConfig</span></code> and <a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html#coreai_opt.palettization.config.OpKMeansPalettizerConfig" title="coreai_opt.palettization.config.OpKMeansPalettizerConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">OpKMeansPalettizerConfig</span></code></a>.)</p>
+<p>To estimate what a config costs in terms of bits per weight (BPW), use the <a class="reference internal" href="../api/generated/coreai_opt.inspection.bits_per_weight.html#coreai_opt.inspection.bits_per_weight" title="coreai_opt.inspection.bits_per_weight"><code class="xref py py-func docutils literal notranslate"><span class="pre">bits_per_weight()</span></code></a> utility to get an analytical BPW estimate for a <em>prepared</em> <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code> model. See <a class="reference internal" href="../utils/mixed_precision.html#utility-for-computing-analytical-bits-per-weight-bpw"><span class="std std-ref">Utility for computing analytical Bits Per Weight (BPW)</span></a> for details.</p>
 <section id="palettizationspec">
 <h2>PalettizationSpec<a class="headerlink" href="#palettizationspec" title="Link to this heading">¶</a></h2>
 <p><code class="xref py py-class docutils literal notranslate"><span class="pre">PalettizationSpec</span></code> defines the following key properties, among others (for full list see API reference):</p>
@@ -350,7 +376,7 @@ They are simpler as palettization applies only to the weights in the model.
 </span><span data-line="17"><span class="c1"># 4-bit with quantized LUT entries — LUT centroids stored as INT8</span>
 </span><span data-line="18"><span class="n">spec</span> <span class="o">=</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
 </span><span data-line="19">    <span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-</span><span data-line="20">    <span class="n">lut_qspec</span><span class="o">=</span><span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span> <span class="n">qscheme</span><span class="o">=</span><span class="s2">&quot;symmetric&quot;</span><span class="p">),</span>
+</span><span data-line="20">    <span class="n">lut_qspec</span><span class="o">=</span><span class="n">QuantizationSpec</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span> <span class="n">qscheme</span><span class="o">=</span><span class="s2">"symmetric"</span><span class="p">),</span>
 </span><span data-line="21"><span class="p">)</span>
 </span><span data-line="22">
 </span><span data-line="23"><span class="c1"># Cluster pairs of weight values instead of individual scalars</span>
@@ -402,8 +428,8 @@ They are simpler as palettization applies only to the weights in the model.
 </span><span data-line="6"><span class="n">config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
 </span><span data-line="7">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
 </span><span data-line="8">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="9">            <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">default_weight_palettization_spec</span><span class="p">(),</span>
-</span><span data-line="10">            <span class="s2">&quot;in_proj_weight&quot;</span><span class="p">:</span> <span class="n">default_weight_palettization_spec</span><span class="p">(),</span>
+</span><span data-line="9">            <span class="s2">"weight"</span><span class="p">:</span> <span class="n">default_weight_palettization_spec</span><span class="p">(),</span>
+</span><span data-line="10">            <span class="s2">"in_proj_weight"</span><span class="p">:</span> <span class="n">default_weight_palettization_spec</span><span class="p">(),</span>
 </span><span data-line="11">        <span class="p">},</span>
 </span><span data-line="12">    <span class="p">)</span>
 </span><span data-line="13"><span class="p">)</span>
@@ -412,8 +438,8 @@ They are simpler as palettization applies only to the weights in the model.
 </span><span data-line="16"><span class="c1"># is equivalent to:</span>
 </span><span data-line="17"><span class="n">op_config</span> <span class="o">=</span> <span class="n">OpKMeansPalettizerConfig</span><span class="p">(</span>
 </span><span data-line="18">    <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="19">        <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">default_weight_palettization_spec</span><span class="p">(),</span>
-</span><span data-line="20">        <span class="s2">&quot;in_proj_weight&quot;</span><span class="p">:</span> <span class="n">default_weight_palettization_spec</span><span class="p">(),</span>
+</span><span data-line="19">        <span class="s2">"weight"</span><span class="p">:</span> <span class="n">default_weight_palettization_spec</span><span class="p">(),</span>
+</span><span data-line="20">        <span class="s2">"in_proj_weight"</span><span class="p">:</span> <span class="n">default_weight_palettization_spec</span><span class="p">(),</span>
 </span><span data-line="21">    <span class="p">},</span>
 </span><span data-line="22"><span class="p">)</span>
 </span></pre></div>
@@ -426,7 +452,7 @@ They are simpler as palettization applies only to the weights in the model.
 </section>
 <section id="examples">
 <h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
-<p>Several examples below configure specific module types or module names. To determine these for your model, see <a class="reference internal" href="../quantization/config.html#how-to-get-names-types-for-modules-and-ops"><span class="std std-ref">How to get names + types</span></a>. Since palettization only supports eager execution mode, only the eager mode guidance in that section is relevant.</p>
+<p>Several examples below configure specific module types or module names. To determine these for your model, use <a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html#coreai_opt.inspection.ModelInspector" title="coreai_opt.inspection.ModelInspector"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelInspector</span></code></a> with <code class="docutils literal notranslate"><span class="pre">execution_mode=&quot;eager&quot;</span></code> — see <a class="reference internal" href="../debugging/model_inspection.html"><span class="std std-doc">Inspecting Model Structure</span></a>. Palettization supports eager mode only.</p>
 <section id="apply-4-bit-palettization-globally-8-bit-to-linear-layers">
 <h3>Apply 4-bit palettization globally, 8-bit to linear layers<a class="headerlink" href="#apply-4-bit-palettization-globally-8-bit-to-linear-layers" title="Link to this heading">¶</a></h3>
 <p>Apply 4-bit palettization to all supported layers, and override <code class="docutils literal notranslate"><span class="pre">linear</span></code> layers to 8-bit.</p>
@@ -437,7 +463,7 @@ They are simpler as palettization applies only to the weights in the model.
 </span><span data-line="5">    <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span>
 </span><span data-line="6"><span class="p">)</span>
 </span><span data-line="7">
-</span><span data-line="8"><span class="c1"># define a config that applies 4-bit per-grouped-channel palettization to all supported layers, using one of the &quot;pre-defined&quot; presets.</span>
+</span><span data-line="8"><span class="c1"># define a config that applies 4-bit per-grouped-channel palettization to all supported layers, using one of the "pre-defined" presets.</span>
 </span><span data-line="9"><span class="n">config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="o">.</span><span class="n">presets</span><span class="o">.</span><span class="n">w4</span><span class="p">()</span>
 </span><span data-line="10">
 </span><span data-line="11"><span class="c1"># then update this config, to change the palettization for just the linear layers: to 8-bit per-tensor</span>
@@ -482,11 +508,11 @@ They are simpler as palettization applies only to the weights in the model.
 </span><span data-line="7">
 </span><span data-line="8"><span class="n">config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
 </span><span data-line="9">    <span class="n">module_type_configs</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="10">        <span class="s2">&quot;torch.nn.modules.linear.Linear&quot;</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
-</span><span data-line="11">            <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">8</span><span class="p">)},</span>
+</span><span data-line="10">        <span class="s2">"torch.nn.modules.linear.Linear"</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="11">            <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">8</span><span class="p">)},</span>
 </span><span data-line="12">        <span class="p">),</span>
-</span><span data-line="13">        <span class="s2">&quot;torch.nn.modules.conv.Conv2d&quot;</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
-</span><span data-line="14">            <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">)},</span>
+</span><span data-line="13">        <span class="s2">"torch.nn.modules.conv.Conv2d"</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="14">            <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">)},</span>
 </span><span data-line="15">        <span class="p">),</span>
 </span><span data-line="16">    <span class="p">},</span>
 </span><span data-line="17"><span class="p">)</span>
@@ -508,6 +534,57 @@ They are simpler as palettization applies only to the weights in the model.
 </span></pre></div>
 </div>
 </section>
+<section id="enable-palettization-at-different-training-steps-per-module-patschedule">
+<h3>Enable palettization at different training steps per module (PATSchedule)<a class="headerlink" href="#enable-palettization-at-different-training-steps-per-module-patschedule" title="Link to this heading">¶</a></h3>
+<p>For palettization-aware training, you can defer when each module’s palettizer turns on using a <a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html#coreai_opt.palettization.config.PATSchedule" title="coreai_opt.palettization.config.PATSchedule"><code class="xref py py-class docutils literal notranslate"><span class="pre">PATSchedule</span></code></a> set on that module’s <code class="xref py py-class docutils literal notranslate"><span class="pre">ModuleKMeansPalettizerConfig</span></code>. Its <code class="docutils literal notranslate"><span class="pre">enable_fake_palettize</span></code> field is the step-count threshold at which that module’s palettizer becomes active; until then the module trains uncompressed. See <a class="reference internal" href="overview.html#using-patschedule"><span class="std std-ref">Using PATSchedule</span></a> for the training loop that drives the schedule via <code class="docutils literal notranslate"><span class="pre">palettizer.training_mode()</span></code> and <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">KMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">PalettizationSpec</span><span class="p">,</span>
+</span><span data-line="5"><span class="p">)</span>
+</span><span data-line="6"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PATSchedule</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="c1"># All layers palettized 4-bit, but each named module's palettizer turns on at a different training step:</span>
+</span><span data-line="9"><span class="c1"># module1 after 100 steps, module2 after 500.</span>
+</span><span data-line="10"><span class="n">config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="11">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="12">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">)},</span>
+</span><span data-line="13">    <span class="p">),</span>
+</span><span data-line="14">    <span class="n">module_name_configs</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="15">        <span class="s2">"module1"</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="16">            <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">)},</span>
+</span><span data-line="17">            <span class="n">pat_schedule</span><span class="o">=</span><span class="n">PATSchedule</span><span class="p">(</span><span class="n">enable_fake_palettize</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
+</span><span data-line="18">        <span class="p">),</span>
+</span><span data-line="19">        <span class="s2">"module2"</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="20">            <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">)},</span>
+</span><span data-line="21">            <span class="n">pat_schedule</span><span class="o">=</span><span class="n">PATSchedule</span><span class="p">(</span><span class="n">enable_fake_palettize</span><span class="o">=</span><span class="mi">500</span><span class="p">),</span>
+</span><span data-line="22">        <span class="p">),</span>
+</span><span data-line="23">    <span class="p">},</span>
+</span><span data-line="24"><span class="p">)</span>
+</span></pre></div>
+</div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># yaml</span>
+</span><span data-line="2"><span class="nt">kmeans_palettization_config</span><span class="p">:</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">global_config</span><span class="p">:</span>
+</span><span data-line="4"><span class="w">    </span><span class="nt">op_state_spec</span><span class="p">:</span>
+</span><span data-line="5"><span class="w">      </span><span class="nt">weight</span><span class="p">:</span>
+</span><span data-line="6"><span class="w">        </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span data-line="7"><span class="w">  </span><span class="nt">module_name_configs</span><span class="p">:</span>
+</span><span data-line="8"><span class="w">    </span><span class="nt">module1</span><span class="p">:</span>
+</span><span data-line="9"><span class="w">      </span><span class="nt">op_state_spec</span><span class="p">:</span>
+</span><span data-line="10"><span class="w">        </span><span class="nt">weight</span><span class="p">:</span>
+</span><span data-line="11"><span class="w">          </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span data-line="12"><span class="w">      </span><span class="nt">pat_schedule</span><span class="p">:</span>
+</span><span data-line="13"><span class="w">        </span><span class="nt">enable_fake_palettize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</span><span data-line="14"><span class="w">    </span><span class="nt">module2</span><span class="p">:</span>
+</span><span data-line="15"><span class="w">      </span><span class="nt">op_state_spec</span><span class="p">:</span>
+</span><span data-line="16"><span class="w">        </span><span class="nt">weight</span><span class="p">:</span>
+</span><span data-line="17"><span class="w">          </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span data-line="18"><span class="w">      </span><span class="nt">pat_schedule</span><span class="p">:</span>
+</span><span data-line="19"><span class="w">        </span><span class="nt">enable_fake_palettize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+</span></pre></div>
+</div>
+</section>
 </section>
 </section>
 
@@ -523,10 +600,10 @@ They are simpler as palettization applies only to the weights in the model.
         <span>Previous</span><div class="title">API Overview</div></div>
     </a>
   </div><div class="navigation-next">
-    <a href="../utils/joint_compression.html">
+    <a href="../pruning/index.html">
       <div class="page-info">
         <span>Next</span>
-        <div class="title">Joint Compression</div>
+        <div class="title">Pruning</div>
       </div>
       <i class="i-lucide chevron-right"></i>
     </a>

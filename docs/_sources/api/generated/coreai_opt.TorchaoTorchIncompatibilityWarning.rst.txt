@@ -1,0 +1,6 @@
+﻿coreai\_opt.TorchaoTorchIncompatibilityWarning
+==============================================
+
+.. currentmodule:: coreai_opt
+
+.. autoexception:: TorchaoTorchIncompatibilityWarning

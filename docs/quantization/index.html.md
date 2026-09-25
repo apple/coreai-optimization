@@ -20,3 +20,8 @@
   * [Symmetric vs asymmetric quantization](advanced.md#symmetric-vs-asymmetric-quantization)
   * [Quantization Defaults for Known-Range Activations](advanced.md#quantization-defaults-for-known-range-activations)
   * [Customization options](advanced.md#customization-options)
+* [Quantization with Composite Ops](composite_op_quantization.md)
+  * [Example](composite_op_quantization.md#example)
+  * [Patch original model with custom ops](composite_op_quantization.md#patch-original-model-with-custom-ops)
+  * [Extract exported programs for submodules](composite_op_quantization.md#extract-exported-programs-for-submodules)
+  * [Notes](composite_op_quantization.md#notes)

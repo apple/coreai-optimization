@@ -53,3 +53,5 @@ specific compression technique.
   flowing through
 * **Return type:**
   *Tensor*
+
+#### tensor_fqn *: str* *= '<unknown>'*

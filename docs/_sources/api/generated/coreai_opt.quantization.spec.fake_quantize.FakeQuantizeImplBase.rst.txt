@@ -20,6 +20,7 @@
       ~FakeQuantizeImplBase.enable_observer
       ~FakeQuantizeImplBase.extra_repr
       ~FakeQuantizeImplBase.forward
+      ~FakeQuantizeImplBase.get_block_size
       ~FakeQuantizeImplBase.get_class
       ~FakeQuantizeImplBase.is_disabled
       ~FakeQuantizeImplBase.list_registry_keys

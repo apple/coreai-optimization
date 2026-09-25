@@ -7,7 +7,7 @@ The examples in this section use simpler models (like ResNet50) to illustrate va
 ```{toctree}
 :maxdepth: 1
 
-resnet50
-mixed_precision_palettization
-edsr
+model_examples/resnet50
+model_examples/mixed_precision_palettization
+model_examples/edsr
 ```

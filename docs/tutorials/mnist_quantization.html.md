@@ -78,7 +78,7 @@ Two changes from the weight-only config:
 
 We now call `calibration_mode()` and feed it representative inputs to populate scale and zero-point value.
 
-The `calibration_mode()` context manager enables range observers (to collect activation statistics) while disabling fake quantization (so the forward pass is numerically identical to the unquantized model). After exiting the context, observers are frozen and fake quantization is re-enabled.
+The `calibration_mode()` context manager enables range observers (to collect activation statistics) and disables activation fake quantization (so the observed ranges reflect undistorted activation values), while leaving weight fake quantization enabled (so activations flowing into each observer are produced with quantized weights upstream). After exiting the context, observers are frozen and activation fake quantization is re-enabled.
 
 ## Quantization Aware Training
 

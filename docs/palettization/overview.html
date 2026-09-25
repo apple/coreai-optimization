@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Palettization</a><ul class="current">
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -241,6 +265,10 @@ data-aria-dark="Switch to auto color mode">
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#vanilla-k-means-api">Vanilla K-means API</a></li>
 <li><a class="reference internal" href="#sensitive-k-means-api">Sensitive K-means API</a></li>
+<li><a class="reference internal" href="#training-a-palettized-model">Training a Palettized model</a><ul>
+<li><a class="reference internal" href="#using-patschedule">Using PATSchedule</a></li>
+</ul>
+</li>
 </ul>
 </div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
@@ -319,7 +347,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="7">
 </span><span data-line="8"><span class="c1"># define config</span>
 </span><span data-line="9"><span class="c1"># here we use a config that applies 4-bit per-grouped-channel palettization to all supported layers.</span>
-</span><span data-line="10"><span class="c1"># this can be done by using one of the several available &quot;pre-defined&quot; configs, accessible via the &quot;presets&quot; namespace.</span>
+</span><span data-line="10"><span class="c1"># this can be done by using one of the several available "pre-defined" configs, accessible via the "presets" namespace.</span>
 </span><span data-line="11"><span class="n">config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="o">.</span><span class="n">presets</span><span class="o">.</span><span class="n">w4</span><span class="p">()</span>
 </span><span data-line="12">
 </span><span data-line="13"><span class="c1"># palettize weights in the model with the config</span>
@@ -333,7 +361,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="21">
 </span><span data-line="22"><span class="c1"># ----------- deployment ------------------</span>
 </span><span data-line="23"><span class="c1"># same as with Quantizer:</span>
-</span><span data-line="24"><span class="c1"># invoke the &#39;finalize&#39; API to update the PyTorch model and make it compatible for conversion</span>
+</span><span data-line="24"><span class="c1"># invoke the 'finalize' API to update the PyTorch model and make it compatible for conversion</span>
 </span><span data-line="25"><span class="c1"># with either coreai or coremltools</span>
 </span><span data-line="26">
 </span><span data-line="27"><span class="n">finalized_model_for_coreai</span> <span class="o">=</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="n">opt</span><span class="o">.</span><span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">)</span>
@@ -372,18 +400,18 @@ scores (based on the <a class="reference external" href="https://arxiv.org/pdf/2
 </span><span data-line="24"><span class="c1"># same as before</span>
 </span></pre></div>
 </div>
-<p>To save the importance-scores (aka sensitivities) for the weights to reuse later:</p>
+<p>To save the importance-scores (aka sensitivities) for the weights to reuse later, specify a <code class="docutils literal notranslate"><span class="pre">sensitivity_path</span></code> argument in the <code class="docutils literal notranslate"><span class="pre">calibration_mode</span></code> context:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># provide path to save weight sensitivities</span>
 </span><span data-line="2"><span class="k">with</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">calibration_mode</span><span class="p">(</span>
-</span><span data-line="3">    <span class="n">loss_fn</span><span class="o">=</span><span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">,</span> <span class="n">sensitivity_path</span><span class="o">=</span><span class="s2">&quot;sensitivities.pt&quot;</span>
+</span><span data-line="3">    <span class="n">loss_fn</span><span class="o">=</span><span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">,</span> <span class="n">sensitivity_path</span><span class="o">=</span><span class="s2">"sensitivities.pt"</span>
 </span><span data-line="4"><span class="p">)</span> <span class="k">as</span> <span class="n">skm</span><span class="p">:</span>
 </span><span data-line="5">    <span class="k">for</span> <span class="n">batch</span><span class="p">,</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">calibration_dataloader</span><span class="p">:</span>
 </span><span data-line="6">        <span class="n">output</span> <span class="o">=</span> <span class="n">prepared_model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
 </span><span data-line="7">        <span class="n">skm</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
 </span></pre></div>
 </div>
-<p>And then in a future new run, load precomputed sensitivities during prepare:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">,</span> <span class="n">sensitivity_path</span><span class="o">=</span><span class="s2">&quot;sensitivities.pt&quot;</span><span class="p">)</span>
+<p>Precomputed sensitivities can be loaded during preparation in a future new run to avoid needing to recalibrate:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">,</span> <span class="n">sensitivity_path</span><span class="o">=</span><span class="s2">"sensitivities.pt"</span><span class="p">)</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># ---------- validate --------------------</span>
 </span><span data-line="4"><span class="n">val_metric</span> <span class="o">=</span> <span class="n">validate</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">,</span> <span class="n">val_dataset</span><span class="p">)</span>
@@ -392,7 +420,80 @@ scores (based on the <a class="reference external" href="https://arxiv.org/pdf/2
 </span><span data-line="7"><span class="c1"># same as before</span>
 </span></pre></div>
 </div>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">Sensitive</span> <span class="pre">K-means</span></code> shares the same <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code> and <code class="docutils literal notranslate"><span class="pre">KMeansPalettizerConfig</span></code> as <code class="docutils literal notranslate"><span class="pre">Vanilla</span> <span class="pre">K-means</span></code>. <code class="docutils literal notranslate"><span class="pre">Sensitive</span> <span class="pre">K-means</span></code> is achieved simply by passing representative data samples through the model while inside the <code class="docutils literal notranslate"><span class="pre">calibration_mode</span></code> context.</p>
 <p>For more details on how to use <code class="xref py py-class docutils literal notranslate"><span class="pre">KMeansPalettizerConfig</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ModuleKMeansPalettizerConfig</span></code> to apply different settings to different weights in the model, see <a class="reference internal" href="config.html"><span class="std std-doc">Palettization Config</span></a>.</p>
+</section>
+<section id="training-a-palettized-model">
+<h2>Training a Palettized model<a class="headerlink" href="#training-a-palettized-model" title="Link to this heading">¶</a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code> palettized model can still be fine-tuned in a training pipeline. As palettization is a hard assignment lookup, gradients cannot be propagated for palettized weights, meaning any parameter which is palettized will not update during <code class="docutils literal notranslate"><span class="pre">optimizer.step()</span></code> (the palettization codebook and index assignments will also be fixed).</p>
+<p>Any parameters not being palettized can still update and learn so that one can fine-tune any non-palettized portion of the model while being palettization-aware, i.e. adapting to other parameters which are palettized.</p>
+<p>Run the training loop inside <code class="docutils literal notranslate"><span class="pre">palettizer.training_mode()</span></code>, which places the model in train mode and restores its original train/eval state on exit:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="n">KMeansPalettizer</span><span class="p">,</span> <span class="n">KMeansPalettizerConfig</span><span class="p">,</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span> <span class="n">PalettizationSpec</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">kmeans_palettizer_config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="n">palettizer</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">kmeans_palettizer_config</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="k">with</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">training_mode</span><span class="p">():</span>
+</span><span data-line="9">    <span class="k">for</span> <span class="o">...</span>
+</span><span data-line="10">        <span class="c1"># Perform whatever training forward pass / loss calculation / optimizer gradient application is desired</span>
+</span><span data-line="11">        <span class="o">...</span>
+</span></pre></div>
+</div>
+<section id="using-patschedule">
+<h3>Using PATSchedule<a class="headerlink" href="#using-patschedule" title="Link to this heading">¶</a></h3>
+<p>Users may also choose to enable palettization of parameters at a future point during training instead of right from the start. Weights which are marked for palettization, but have not yet had their palettizers enabled, will still be able to update during training. When a weight’s palettizer is switched from disabled to enabled, its codebook and index assignments are recomputed using the most current weight values.</p>
+<p>Since palettizer enabling can be configured on a module by module basis, this gives users more flexibility on training to be palettization-aware by allowing weights to update in response to palettization noise from other palettized weights before themselves being palettized.</p>
+<p>For example, users could choose to apply the following workflow:</p>
+<ol class="arabic simple">
+<li><p>Begin training with all parameters marked to be palettized but with all palettizers disabled</p></li>
+<li><p>Fine-tune the model with no palettization noise for a few epochs</p></li>
+<li><p>Enable a subset of palettizers while keeping the rest of the palettizers disabled</p></li>
+<li><p>Fine-tune the model with palettization noise from the subset of enabled palettizers (any weights with enabled palettizers will not update further, but any weights with palettizers not yet enabled will continue training)</p></li>
+<li><p>Enable the rest of palettizers in the model and evaluate the final accuracy</p></li>
+</ol>
+<p>Steps 3 and 4 can be repeated as many times as desired with more and more palettizers being enabled.</p>
+<p>To achieve this, add a <code class="docutils literal notranslate"><span class="pre">PATSchedule</span></code> to the relevant module configs and call <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> inside the training loop to advance the schedule:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="n">KMeansPalettizer</span><span class="p">,</span> <span class="n">KMeansPalettizerConfig</span><span class="p">,</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span> <span class="n">PalettizationSpec</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PATSchedule</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Create a KMeansPalettizer config with 2 modules being palettized using different PATSchedules</span>
+</span><span data-line="5"><span class="n">kmeans_palettizer_config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="6">    <span class="n">global_config</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">module_name_configs</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="8">        <span class="s2">"module1"</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="9">            <span class="o">...</span><span class="p">,</span>
+</span><span data-line="10">            <span class="n">pat_schedule</span><span class="o">=</span><span class="n">PATSchedule</span><span class="p">(</span>
+</span><span data-line="11">                <span class="n">enable_fake_palettize</span><span class="o">=</span><span class="mi">2</span>
+</span><span data-line="12">            <span class="p">)</span>
+</span><span data-line="13">        <span class="p">),</span>
+</span><span data-line="14">        <span class="s2">"module2"</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="15">            <span class="o">...</span><span class="p">,</span>
+</span><span data-line="16">            <span class="n">pat_schedule</span><span class="o">=</span><span class="n">PATSchedule</span><span class="p">(</span>
+</span><span data-line="17">                <span class="n">enable_fake_palettize</span><span class="o">=</span><span class="mi">4</span>
+</span><span data-line="18">            <span class="p">)</span>
+</span><span data-line="19">        <span class="p">)</span>
+</span><span data-line="20">    <span class="p">}</span>
+</span><span data-line="21"><span class="p">)</span>
+</span><span data-line="22">
+</span><span data-line="23"><span class="n">palettizer</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">kmeans_palettizer_config</span><span class="p">)</span>
+</span><span data-line="24"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="25">
+</span><span data-line="26"><span class="c1"># Track the palettizer's step count so palettizer state is managed</span>
+</span><span data-line="27"><span class="c1"># in accordance with each module's PATSchedule.</span>
+</span><span data-line="28"><span class="k">with</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">training_mode</span><span class="p">():</span>
+</span><span data-line="29">    <span class="k">for</span> <span class="o">...</span>
+</span><span data-line="30">        <span class="c1"># Perform whatever training forward pass / loss calculation / optimizer gradient application is desired</span>
+</span><span data-line="31">        <span class="o">...</span>
+</span><span data-line="32">
+</span><span data-line="33">        <span class="c1"># Call palettizer.step() to increase palettizer's step count by 1</span>
+</span><span data-line="34">        <span class="n">palettizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p>Each time <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> is called, the palettizer checks each module’s <code class="docutils literal notranslate"><span class="pre">PATSchedule</span></code> to see whether any palettizer should be enabled. With the above config settings of <code class="docutils literal notranslate"><span class="pre">enable_fake_palettize</span></code> = 2 and 4 for <code class="docutils literal notranslate"><span class="pre">module1</span></code> and <code class="docutils literal notranslate"><span class="pre">module2</span></code> respectively, this results in both palettizers being disabled to start, <code class="docutils literal notranslate"><span class="pre">module1</span></code>’s palettizer enabled after <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> has been called twice, and <code class="docutils literal notranslate"><span class="pre">module2</span></code>’s palettizer enabled after <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> has been called 4 times in total.</p>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> can be called whenever the user desires, whether it be per-batch, per-epoch, or on some other cadence.</p>
+</section>
 </section>
 </section>
 

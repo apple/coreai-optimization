@@ -1,0 +1,6 @@
+﻿coreai\_opt.quantization.InvalidExecutionModeError
+==================================================
+
+.. currentmodule:: coreai_opt.quantization
+
+.. autoexception:: InvalidExecutionModeError

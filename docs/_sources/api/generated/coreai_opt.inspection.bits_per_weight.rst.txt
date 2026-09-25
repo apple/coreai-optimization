@@ -1,0 +1,6 @@
+﻿coreai\_opt.inspection.bits\_per\_weight
+========================================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autofunction:: bits_per_weight

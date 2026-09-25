@@ -4,15 +4,18 @@
 
 coreai_opt - A library for PyTorch model compression and optimizations.
 
-| [`coreai_opt.CoreMLExportError`](generated/coreai_opt.CoreMLExportError.md#coreai_opt.CoreMLExportError)(dtype, context)   | Raised when a model cannot be exported to the CoreML backend.   |
-|----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
-| [`coreai_opt.ExportBackend`](generated/coreai_opt.ExportBackend.md#coreai_opt.ExportBackend)(value, \*args, \*\*kwargs)    | Enum representing supported model export backends.              |
+| [`coreai_opt.CoreMLExportError`](generated/coreai_opt.CoreMLExportError.md#coreai_opt.CoreMLExportError)(message)                                           | Raised when a model cannot be exported to the CoreML backend.                   |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
+| [`coreai_opt.DependencyVersionWarning`](generated/coreai_opt.DependencyVersionWarning.md#coreai_opt.DependencyVersionWarning)                               | Base category for the dependency version checks run at import.                  |
+| [`coreai_opt.ExportBackend`](generated/coreai_opt.ExportBackend.md#coreai_opt.ExportBackend)(value, \*args, \*\*kwargs)                                     | Enum representing supported model export backends.                              |
+| [`coreai_opt.TorchaoTorchIncompatibilityWarning`](generated/coreai_opt.TorchaoTorchIncompatibilityWarning.md#coreai_opt.TorchaoTorchIncompatibilityWarning) | The installed torchao and torch are a known-incompatible pair.                  |
+| [`coreai_opt.UntestedTorchVersionWarning`](generated/coreai_opt.UntestedTorchVersionWarning.md#coreai_opt.UntestedTorchVersionWarning)                      | The installed torch is newer than the highest version coreai-opt tests against. |
 
 ## coreai_opt.casting
 
 Casting related utilities including FP32 -> FP16 and INT32 -> INT16 passes.
 
-| [`coreai_opt.casting.cast_fp32_to_fp16`](generated/coreai_opt.casting.cast_fp32_to_fp16.md#coreai_opt.casting.cast_fp32_to_fp16)(...)                      | Convert a torch exported program from FP32 to FP16 where applicable.                |
+| [`coreai_opt.casting.cast_fp32_to_fp16`](generated/coreai_opt.casting.cast_fp32_to_fp16.md#coreai_opt.casting.cast_fp32_to_fp16)(...[, ...])               | Convert a torch exported program from FP32 to FP16 where applicable.                |
 |------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | [`coreai_opt.casting.cast_int32_to_int16`](generated/coreai_opt.casting.cast_int32_to_int16.md#coreai_opt.casting.cast_int32_to_int16)(...)                | Convert INT32/INT64 tensors to INT16 in a torch exported program.                   |
 | [`coreai_opt.casting.cast_to_16_bit_precision`](generated/coreai_opt.casting.cast_to_16_bit_precision.md#coreai_opt.casting.cast_to_16_bit_precision)(...) | Convert a torch exported program to 16-bit precision: FP32→FP16 and INT32/64→INT16. |
@@ -61,15 +64,17 @@ Common enums and constants for coreai_opt.coreai_utils.
 
 Utilities for inspecting model operations and compression configuration.
 
-| [`coreai_opt.inspection.BoundaryEdge`](generated/coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)(op, index)        | A single data-flow edge crossing a module boundary.                       |
-|----------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| [`coreai_opt.inspection.InputEdge`](generated/coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge)(op, output_idx)            | One input edge into an op, pairing the producing op with its output slot. |
-| [`coreai_opt.inspection.ModelInspector`](generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector)(model, ...) | Inspect operations in a PyTorch model for compression configuration.      |
-| [`coreai_opt.inspection.ModelSummary`](generated/coreai_opt.inspection.ModelSummary.md#coreai_opt.inspection.ModelSummary)(model, mode)      | Complete listing of operations discovered in a model.                     |
-| [`coreai_opt.inspection.ModuleContext`](generated/coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext)(...)           | One level of the `nn.Module` nesting hierarchy.                           |
-| [`coreai_opt.inspection.ModuleInfo`](generated/coreai_opt.inspection.ModuleInfo.md#coreai_opt.inspection.ModuleInfo)(...)                    | A node in the `nn.Module` hierarchy with its directly-owned ops.          |
-| [`coreai_opt.inspection.OpInfo`](generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)(op_name, ...)                       | Information about a single operation discovered in a model.               |
-| [`coreai_opt.inspection.SourceFrame`](generated/coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame)(filename, ...)       | A single frame in the source call stack leading to an operation.          |
+| [`coreai_opt.inspection.BitsPerWeightResult`](generated/coreai_opt.inspection.BitsPerWeightResult.md#coreai_opt.inspection.BitsPerWeightResult)(...)   | Result of a bits-per-weight computation.                                  |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`coreai_opt.inspection.BoundaryEdge`](generated/coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)(op, index)                  | A single data-flow edge crossing a module boundary.                       |
+| [`coreai_opt.inspection.InputEdge`](generated/coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge)(op, output_idx)                      | One input edge into an op, pairing the producing op with its output slot. |
+| [`coreai_opt.inspection.ModelInspector`](generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector)(model, ...)           | Inspect operations in a PyTorch model for compression configuration.      |
+| [`coreai_opt.inspection.ModelSummary`](generated/coreai_opt.inspection.ModelSummary.md#coreai_opt.inspection.ModelSummary)(model, mode)                | Complete listing of operations discovered in a model.                     |
+| [`coreai_opt.inspection.ModuleContext`](generated/coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext)(...)                     | One level of the `nn.Module` nesting hierarchy.                           |
+| [`coreai_opt.inspection.ModuleInfo`](generated/coreai_opt.inspection.ModuleInfo.md#coreai_opt.inspection.ModuleInfo)(...)                              | A node in the `nn.Module` hierarchy with its directly-owned ops.          |
+| [`coreai_opt.inspection.OpInfo`](generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)(op_name, ...)                                 | Information about a single operation discovered in a model.               |
+| [`coreai_opt.inspection.SourceFrame`](generated/coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame)(filename, ...)                 | A single frame in the source call stack leading to an operation.          |
+| [`coreai_opt.inspection.bits_per_weight`](generated/coreai_opt.inspection.bits_per_weight.md#coreai_opt.inspection.bits_per_weight)(model)             | Compute the average bits-per-weight of a prepared `coreai-opt` model.     |
 
 ## coreai_opt.palettization
 
@@ -87,16 +92,20 @@ Palettization configuration classes.
 
 | [`coreai_opt.palettization.config.OpKMeansPalettizerConfig`](generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.md#coreai_opt.palettization.config.OpKMeansPalettizerConfig)   | Configuration class for palettization at the operation level.   |
 |------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
+| [`coreai_opt.palettization.config.PATSchedule`](generated/coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule)                                          | Schedule for enabling palettization-aware training (PAT).       |
 
 ### coreai_opt.palettization.spec
 
 Palettization specs, granularity classes, and factory functions.
 
-| [`coreai_opt.palettization.spec.PalettizationGranularity`](generated/coreai_opt.palettization.spec.PalettizationGranularity.md#coreai_opt.palettization.spec.PalettizationGranularity)                              | Base class for palettization granularity specifications.   |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
-| [`coreai_opt.palettization.spec.PerGroupedChannelGranularity`](generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.md#coreai_opt.palettization.spec.PerGroupedChannelGranularity)                  | Per-grouped-channel palettization granularity.             |
-| [`coreai_opt.palettization.spec.PerTensorGranularity`](generated/coreai_opt.palettization.spec.PerTensorGranularity.md#coreai_opt.palettization.spec.PerTensorGranularity)                                          | Per-tensor palettization granularity.                      |
-| [`coreai_opt.palettization.spec.default_weight_palettization_spec`](generated/coreai_opt.palettization.spec.default_weight_palettization_spec.md#coreai_opt.palettization.spec.default_weight_palettization_spec)() |                                                            |
+| [`coreai_opt.palettization.spec.DefaultTrainingSpec`](generated/coreai_opt.palettization.spec.DefaultTrainingSpec.md#coreai_opt.palettization.spec.DefaultTrainingSpec)                                             | Settings for the default, post-training one-shot k-means strategy.   |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| [`coreai_opt.palettization.spec.PalettizationGranularity`](generated/coreai_opt.palettization.spec.PalettizationGranularity.md#coreai_opt.palettization.spec.PalettizationGranularity)                              | Base class for palettization granularity specifications.             |
+| [`coreai_opt.palettization.spec.PerGroupedChannelGranularity`](generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.md#coreai_opt.palettization.spec.PerGroupedChannelGranularity)                  | Per-grouped-channel palettization granularity.                       |
+| [`coreai_opt.palettization.spec.PerTensorGranularity`](generated/coreai_opt.palettization.spec.PerTensorGranularity.md#coreai_opt.palettization.spec.PerTensorGranularity)                                          | Per-tensor palettization granularity.                                |
+| [`coreai_opt.palettization.spec.TrainingStrategy`](generated/coreai_opt.palettization.spec.TrainingStrategy.md#coreai_opt.palettization.spec.TrainingStrategy)()                                                    | Contract for a fake-palettize module's training-time forward pass.   |
+| [`coreai_opt.palettization.spec.TrainingStrategySpec`](generated/coreai_opt.palettization.spec.TrainingStrategySpec.md#coreai_opt.palettization.spec.TrainingStrategySpec)                                          | Base class for a fake-palettize module's training-strategy settings. |
+| [`coreai_opt.palettization.spec.default_weight_palettization_spec`](generated/coreai_opt.palettization.spec.default_weight_palettization_spec.md#coreai_opt.palettization.spec.default_weight_palettization_spec)() |                                                                      |
 
 ## coreai_opt.pruning
 
@@ -133,12 +142,13 @@ Pruning spec components: specs, schemes, and parametrizations.
 
 Quantization compressor, configuration, specs, and granularity classes.
 
-| [`coreai_opt.quantization.ExecutionMode`](generated/coreai_opt.quantization.ExecutionMode.md#coreai_opt.quantization.ExecutionMode)(value, ...)             | Enum representing quantization execution modes.                                                         |
-|-------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
-| [`coreai_opt.quantization.ModuleQuantizerConfig`](generated/coreai_opt.quantization.ModuleQuantizerConfig.md#coreai_opt.quantization.ModuleQuantizerConfig) | Configuration class for quantization at the module level.                                               |
-| [`coreai_opt.quantization.QuantizationSpec`](generated/coreai_opt.quantization.QuantizationSpec.md#coreai_opt.quantization.QuantizationSpec)                | Specification for quantizing tensors in neural networks.                                                |
-| [`coreai_opt.quantization.Quantizer`](generated/coreai_opt.quantization.Quantizer.md#coreai_opt.quantization.Quantizer)(model[, ...])                       | Unified quantizer API that provides a single entry point for various quantization workflows, including: |
-| [`coreai_opt.quantization.QuantizerConfig`](generated/coreai_opt.quantization.QuantizerConfig.md#coreai_opt.quantization.QuantizerConfig)                   | Top-level configuration class for quantization.                                                         |
+| [`coreai_opt.quantization.ExecutionMode`](generated/coreai_opt.quantization.ExecutionMode.md#coreai_opt.quantization.ExecutionMode)(value, ...)                              | Enum representing quantization execution modes.                                                         |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| [`coreai_opt.quantization.InvalidExecutionModeError`](generated/coreai_opt.quantization.InvalidExecutionModeError.md#coreai_opt.quantization.InvalidExecutionModeError)(...) | Raised when an execution mode is not a recognized ExecutionMode value.                                  |
+| [`coreai_opt.quantization.ModuleQuantizerConfig`](generated/coreai_opt.quantization.ModuleQuantizerConfig.md#coreai_opt.quantization.ModuleQuantizerConfig)                  | Configuration class for quantization at the module level.                                               |
+| [`coreai_opt.quantization.QuantizationSpec`](generated/coreai_opt.quantization.QuantizationSpec.md#coreai_opt.quantization.QuantizationSpec)                                 | Specification for quantizing tensors in neural networks.                                                |
+| [`coreai_opt.quantization.Quantizer`](generated/coreai_opt.quantization.Quantizer.md#coreai_opt.quantization.Quantizer)(model[, ...])                                        | Unified quantizer API that provides a single entry point for various quantization workflows, including: |
+| [`coreai_opt.quantization.QuantizerConfig`](generated/coreai_opt.quantization.QuantizerConfig.md#coreai_opt.quantization.QuantizerConfig)                                    | Top-level configuration class for quantization.                                                         |
 
 ### coreai_opt.quantization.config
 
@@ -173,6 +183,8 @@ Quantization specs, schemes, granularity classes, and parameter calculators.
 | [`coreai_opt.quantization.spec.StaticQParamsCalculator`](generated/coreai_opt.quantization.spec.StaticQParamsCalculator.md#coreai_opt.quantization.spec.StaticQParamsCalculator)(...)                                     | Computes scale/zero-point/minval using min/max values from the current tensor.                      |
 | [`coreai_opt.quantization.spec.default_activation_quantization_spec`](generated/coreai_opt.quantization.spec.default_activation_quantization_spec.md#coreai_opt.quantization.spec.default_activation_quantization_spec)() |                                                                                                     |
 | [`coreai_opt.quantization.spec.default_weight_quantization_spec`](generated/coreai_opt.quantization.spec.default_weight_quantization_spec.md#coreai_opt.quantization.spec.default_weight_quantization_spec)()             |                                                                                                     |
+| [`coreai_opt.quantization.spec.fp4_forward`](generated/coreai_opt.quantization.spec.fp4_forward.md#coreai_opt.quantization.spec.fp4_forward)(tensor)                                                                      | Round to the nearest FP4 E2M1 value, returned in fp32.                                              |
+| [`coreai_opt.quantization.spec.resolve_block_sizes`](generated/coreai_opt.quantization.spec.resolve_block_sizes.md#coreai_opt.quantization.spec.resolve_block_sizes)(...)                                                 | Resolve a per-axis block partition against the shape it applies to.                                 |
 
 ### coreai_opt.quantization.spec.fake_quantize
 

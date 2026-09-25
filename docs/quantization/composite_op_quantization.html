@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Quantization with Composite Ops - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Palettization" href="../palettization/index.html" /><link rel="prev" title="Deeper Dive" href="advanced.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=2d1dc041" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Quantization with Composite Ops"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../api/index.html">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/integration_coreai.html">Integration with Core AI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Quantization</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="config.html">Config API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Quantization with Composite Ops</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../utils/joint_compression.html">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizationSpec.html">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.config.KVCacheQuantConfig.html">coreai_opt.quantization.config.KVCacheQuantConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.DynamicQParamsCalculator.html">coreai_opt.quantization.spec.DynamicQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatefulQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatelessQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#example">Example</a></li>
+<li><a class="reference internal" href="#patch-original-model-with-custom-ops">Patch original model with custom ops</a></li>
+<li><a class="reference internal" href="#extract-exported-programs-for-submodules">Extract exported programs for submodules</a></li>
+<li><a class="reference internal" href="#notes">Notes</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">Quantization</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Quantization with Composite Ops</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="composite_op_quantization.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="composite_op_quantization.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="composite_op_quantization.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="quantization-with-composite-ops">
+<h1>Quantization with Composite Ops<a class="headerlink" href="#quantization-with-composite-ops" title="Link to this heading">¶</a></h1>
+<p>Core AI recognizes certain well-known building blocks, such as SDPA or RMSNorm, as <em>composite ops</em> and applies optimized implementations for them at runtime. These composite ops are available via the <a class="reference external" href="https://apple.github.io/coreai-torch/main/api/composite-ops.html">coreai_torch.composite_ops</a> API. When a PyTorch model uses one of these ops, it can be converted to Core AI using one of the following APIs:</p>
+<ul class="simple">
+<li><p><strong>Using <code class="docutils literal notranslate"><span class="pre">TorchConverter.add_pytorch_module()</span></code> along with the <code class="docutils literal notranslate"><span class="pre">externalize_modules</span></code> arg</strong>: As described in the <a class="reference external" href="https://apple.github.io/coreai-torch/main/guides/composite-ops.html">coreai-torch composite ops guide</a>, this approach takes as input an <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> torch model, along with the composite op torch module, specified via the <em><a class="reference external" href="https://apple.github.io/coreai-torch/main/guides/externalization.html">externalize_modules</a></em> arg. Any <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code> optimizer that yields a torch model of type <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> can be converted using this API.</p></li>
+<li><p><strong>Using <code class="docutils literal notranslate"><span class="pre">TorchConverter.add_exported_program()</span></code></strong> : This <a class="reference external" href="https://apple.github.io/coreai-torch/main/api/TorchConverter.html#add-exported-program">coreai-torch API</a> operates on an already exported torch program. When using <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code>’s quantizer with <a class="reference internal" href="overview.html#two-execution-modes-graph-and-eager"><span class="std std-ref">graph execution mode</span></a>, which results in a torch <code class="docutils literal notranslate"><span class="pre">ExportedProgram</span></code>, there are a few additional steps required to ensure correct conversion and externalization of the composite op modules. This process is explained below with an example.</p></li>
+</ul>
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Link to this heading">¶</a></h2>
+<p>This example uses the same <code class="docutils literal notranslate"><span class="pre">RMSNormComposite</span></code> op from the <a class="reference external" href="https://apple.github.io/coreai-torch/main/guides/externalization.html">Externalization</a> guide, however, the same process applies for all composite ops with their respective <code class="docutils literal notranslate"><span class="pre">ExternalizeSpec</span></code>s.</p>
+<p>First define the model that uses a composite op:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+</span><span data-line="3">
+</span><span data-line="4">
+</span><span data-line="5"><span class="c1"># The composite op</span>
+</span><span data-line="6"><span class="k">class</span><span class="w"> </span><span class="nc">RMSNormComposite</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span><span data-line="7">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">axes</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+</span><span data-line="8">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span><span data-line="9">        <span class="bp">self</span><span class="o">.</span><span class="n">axes</span> <span class="o">=</span> <span class="n">axes</span>
+</span><span data-line="10">        <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span>
+</span><span data-line="11">        <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">version</span>
+</span><span data-line="12">
+</span><span data-line="13">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="14">        <span class="n">x_f32</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</span><span data-line="15">        <span class="n">inv_rms</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rsqrt</span><span class="p">((</span><span class="n">x_f32</span> <span class="o">*</span> <span class="n">x_f32</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">axes</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>
+</span><span data-line="16">        <span class="k">return</span> <span class="p">(</span><span class="nb">input</span> <span class="o">*</span> <span class="n">inv_rms</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="nb">input</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale</span>
+</span><span data-line="17">
+</span><span data-line="18">
+</span><span data-line="19"><span class="c1"># A model that uses the composite op</span>
+</span><span data-line="20"><span class="k">class</span><span class="w"> </span><span class="nc">Model</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+</span><span data-line="21">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">32</span><span class="p">):</span>
+</span><span data-line="22">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span><span data-line="23">        <span class="bp">self</span><span class="o">.</span><span class="n">proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+</span><span data-line="24">        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">RMSNormComposite</span><span class="p">()</span>
+</span><span data-line="25">        <span class="bp">self</span><span class="o">.</span><span class="n">norm_weight</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span>
+</span><span data-line="26">        <span class="bp">self</span><span class="o">.</span><span class="n">out</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+</span><span data-line="27">
+</span><span data-line="28">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span><span data-line="29">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">out</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">proj</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm_weight</span><span class="p">))</span>
+</span><span data-line="30">
+</span><span data-line="31">
+</span><span data-line="32"><span class="n">original_model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">()</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+</span><span data-line="33"><span class="n">example_inputs</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">),)</span>
+</span></pre></div>
+</div>
+<p>Next, apply <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code> quantization with graph mode, and convert using <code class="docutils literal notranslate"><span class="pre">coreai-torch</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">coreai_opt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">opt</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization</span><span class="w"> </span><span class="kn">import</span> <span class="n">Quantizer</span><span class="p">,</span> <span class="n">QuantizerConfig</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExecutionMode</span>
+</span><span data-line="4"><span class="kn">import</span><span class="w"> </span><span class="nn">coreai_torch</span>
+</span><span data-line="5"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_torch</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="6">    <span class="n">ExternalizeSpec</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">TorchConverter</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">_patch_model_for_externalization</span><span class="p">,</span>
+</span><span data-line="9">    <span class="n">_subexport_and_restore</span><span class="p">,</span>
+</span><span data-line="10"><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="c1"># Patch the model in-place</span>
+</span><span data-line="13"><span class="c1"># to mark RMSNormComposite module for externalization</span>
+</span><span data-line="14"><span class="n">_patch_model_for_externalization</span><span class="p">(</span>
+</span><span data-line="15">    <span class="n">original_model</span><span class="p">,</span>
+</span><span data-line="16">    <span class="n">targets</span><span class="o">=</span><span class="p">[</span>
+</span><span data-line="17">        <span class="n">ExternalizeSpec</span><span class="p">(</span>
+</span><span data-line="18">            <span class="n">target_class</span><span class="o">=</span><span class="n">RMSNormComposite</span><span class="p">,</span>
+</span><span data-line="19">            <span class="n">composite_op_name</span><span class="o">=</span><span class="s2">"rms_norm"</span><span class="p">,</span>
+</span><span data-line="20">            <span class="n">composite_attrs</span><span class="o">=</span><span class="p">[</span><span class="s2">"axes"</span><span class="p">,</span> <span class="s2">"eps"</span><span class="p">,</span> <span class="s2">"version"</span><span class="p">],</span>
+</span><span data-line="21">        <span class="p">)</span>
+</span><span data-line="22">    <span class="p">],</span>
+</span><span data-line="23"><span class="p">)</span>
+</span><span data-line="24">
+</span><span data-line="25"><span class="c1"># Usual flow using coreai-opt APIs for quantization</span>
+</span><span data-line="26"><span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="o">.</span><span class="n">presets</span><span class="o">.</span><span class="n">w8</span><span class="p">(</span><span class="n">execution_mode</span><span class="o">=</span><span class="n">ExecutionMode</span><span class="o">.</span><span class="n">GRAPH</span><span class="p">)</span>
+</span><span data-line="27"><span class="n">quantizer</span> <span class="o">=</span> <span class="n">Quantizer</span><span class="p">(</span><span class="n">original_model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span data-line="28"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="29"><span class="n">finalized_quantized_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="n">opt</span><span class="o">.</span><span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">)</span>
+</span><span data-line="30">
+</span><span data-line="31"><span class="c1"># Export to Core AI</span>
+</span><span data-line="32"><span class="n">exported_program</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">export</span><span class="o">.</span><span class="n">export</span><span class="p">(</span>
+</span><span data-line="33">    <span class="n">finalized_quantized_model</span><span class="p">,</span> <span class="n">example_inputs</span>
+</span><span data-line="34"><span class="p">)</span><span class="o">.</span><span class="n">run_decompositions</span><span class="p">(</span><span class="n">coreai_torch</span><span class="o">.</span><span class="n">get_decomp_table</span><span class="p">())</span>
+</span><span data-line="35"><span class="n">composite_module_exported_programs</span> <span class="o">=</span> <span class="n">_subexport_and_restore</span><span class="p">(</span>
+</span><span data-line="36">    <span class="n">original_model</span><span class="p">,</span> <span class="n">exported_program</span>
+</span><span data-line="37"><span class="p">)</span>
+</span><span data-line="38"><span class="n">coreai_program</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="39">    <span class="n">TorchConverter</span><span class="p">()</span>
+</span><span data-line="40">    <span class="o">.</span><span class="n">add_exported_program</span><span class="p">(</span>
+</span><span data-line="41">        <span class="n">exported_program</span><span class="p">,</span>
+</span><span data-line="42">        <span class="n">_externalized_exported_programs</span><span class="o">=</span><span class="n">composite_module_exported_programs</span><span class="p">,</span>
+</span><span data-line="43">    <span class="p">)</span>
+</span><span data-line="44">    <span class="o">.</span><span class="n">to_coreai</span><span class="p">()</span>
+</span><span data-line="45"><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Compared to the <a class="reference internal" href="../introduction/integration_coreai.html"><span class="std std-doc">usual flow</span></a>, there are <em>two</em> key differences:</p>
+</section>
+<section id="patch-original-model-with-custom-ops">
+<h2>Patch original model with custom ops<a class="headerlink" href="#patch-original-model-with-custom-ops" title="Link to this heading">¶</a></h2>
+<p>In graph mode execution, <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code>’s <code class="docutils literal notranslate"><span class="pre">quantizer.prepare</span></code> invokes the <code class="docutils literal notranslate"><span class="pre">torch.export.export</span></code> API. By default, this causes the composite op body to be inlined in the graph and we lose the information about it’s boundary for externalization. In order to preserve this information, the <code class="docutils literal notranslate"><span class="pre">_patch_model_for_externalization</span></code> API modifies the original <code class="docutils literal notranslate"><span class="pre">torch</span></code> model in-place, before preparing the model for graph mode quantization using <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code>. Specifically, it replaces the forward method of the <code class="docutils literal notranslate"><span class="pre">nn.module</span></code>s specified in <code class="docutils literal notranslate"><span class="pre">ExternalizeSpec(target_class)</span></code> with a <code class="docutils literal notranslate"><span class="pre">torch.library.custom_op</span></code> that, in turn, invokes the original forward method of the composite op. This keeps the model functionally the same, however, now the sub-module (<code class="docutils literal notranslate"><span class="pre">RMSNormComposite</span></code> in this example) becomes opaque to the <code class="docutils literal notranslate"><span class="pre">torch.export.export</span></code> API, i.e., a single node instead of the composite op body being inlined in the exported graph.</p>
+<p>Note that in addition to replacing the <code class="docutils literal notranslate"><span class="pre">forward</span></code> method of the composite ops with a <code class="docutils literal notranslate"><span class="pre">torch.library.custom_op</span></code>, the <code class="docutils literal notranslate"><span class="pre">_patch_model_for_externalization</span></code> API also registers some additional information/metadata as attributes on the composite op sub-modules. This metadata is then used by <code class="docutils literal notranslate"><span class="pre">_subexport_and_restore</span></code> as explained below, after which the model is restored by removing this metadata along with the <code class="docutils literal notranslate"><span class="pre">torch.library.custom_op</span></code> from the model.</p>
+</section>
+<section id="extract-exported-programs-for-submodules">
+<h2>Extract exported programs for submodules<a class="headerlink" href="#extract-exported-programs-for-submodules" title="Link to this heading">¶</a></h2>
+<p>Once a model is patched using the <code class="docutils literal notranslate"><span class="pre">_patch_model_for_externalization</span></code> API, it can be quantized as usual using <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code>’s graph mode (either for PTQ or QAT) and finalized to <code class="docutils literal notranslate"><span class="pre">CoreAI</span></code> backend.</p>
+<p>Now in order to convert the finalized model into a coreai graph (<code class="docutils literal notranslate"><span class="pre">aimodel</span></code>), the composite op sub-module bodies need to be exported as torch exported programs in order to be included in the graph as externalized function calls.
+The <code class="docutils literal notranslate"><span class="pre">_subexport_and_restore</span></code> takes in the <strong>original torch model</strong> and does exactly that.
+It returns a list of torch exported programs corresponding to all the composite op sub-modules that were <em>patched</em> for externalization by <code class="docutils literal notranslate"><span class="pre">_patch_model_for_externalization</span></code>.
+These torch exported programs are then passed to the <code class="docutils literal notranslate"><span class="pre">add_exported_program</span></code> API via the <code class="docutils literal notranslate"><span class="pre">_externalized_exported_programs</span></code> argument to prepare the coreai graph (<code class="docutils literal notranslate"><span class="pre">aimodel</span></code>).
+After this process, the coreai graph contains both the main graph and the sub-graphs corresponding to the composite op submodules preserved as function calls.</p>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Quantization cannot be applied <em>inside</em> the composite op body because the <code class="docutils literal notranslate"><span class="pre">_patch_model_for_externalization</span></code> API replaces the composite op body with a torch custom op, thus making it opaque to <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code>’s graph mode quantizer.</p></li>
+<li><p>However, the boundaries (incoming and outgoing tensors) of the composite ops can be quantized as usual, using the <code class="docutils literal notranslate"><span class="pre">module_input_spec</span></code> and <code class="docutils literal notranslate"><span class="pre">module_output_spec</span></code> config kwargs as described in the <a class="reference internal" href="config.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code> configs documentation</span></a>.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The externalization APIs used above, <code class="docutils literal notranslate"><span class="pre">_patch_model_for_externalization</span></code> and <code class="docutils literal notranslate"><span class="pre">_subexport_and_restore</span></code> in coreai-torch are currently experimental.</p>
+</div>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="advanced.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Deeper Dive</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../palettization/index.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Palettization</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../_static/shibuya.js?v=50760d75"></script>
+      <script src="../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

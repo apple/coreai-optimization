@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../palettization/index.html">Palettization</a><ul>
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -308,7 +332,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="3"><span class="c1"># Use of this source code is governed by a BSD-3-Clause license that can</span>
 </span><span data-line="4"><span class="c1"># be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause</span>
 </span><span data-line="5">
-</span><span data-line="6"><span class="sd">&quot;&quot;&quot;Pruning parametrization modules.&quot;&quot;&quot;</span>
+</span><span data-line="6"><span class="sd">"""Pruning parametrization modules."""</span>
 </span><span data-line="7">
 </span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="9">
@@ -322,196 +346,203 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="17">    <span class="n">PartialConstructor</span> <span class="k">as</span> <span class="n">_PartialConstructor</span><span class="p">,</span>
 </span><span data-line="18">    <span class="n">with_args</span> <span class="k">as</span> <span class="n">_with_args</span><span class="p">,</span>
 </span><span data-line="19"><span class="p">)</span>
-</span><span data-line="20"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSimulatorBase</span>
-</span><span data-line="21">
-</span><span data-line="22"><span class="kn">from</span><span class="w"> </span><span class="nn">.scheme</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelStructured</span><span class="p">,</span> <span class="n">PruningScheme</span>
-</span><span data-line="23">
-</span><span data-line="24"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-</span><span data-line="25">    <span class="c1"># Imported only for type checking — runtime would be a circular import via</span>
-</span><span data-line="26">    <span class="c1"># coreai_opt.pruning.config.</span>
-</span><span data-line="27">    <span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.pruning.config.sparsity_schedule</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparsityScheduleBase</span>
-</span><span data-line="28">
+</span><span data-line="20"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_axis</span> <span class="k">as</span> <span class="n">_normalize_axis</span>
+</span><span data-line="21"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSimulatorBase</span>
+</span><span data-line="22">
+</span><span data-line="23"><span class="kn">from</span><span class="w"> </span><span class="nn">.scheme</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelStructured</span><span class="p">,</span> <span class="n">PruningScheme</span>
+</span><span data-line="24">
+</span><span data-line="25"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span data-line="26">    <span class="c1"># Imported only for type checking — runtime would be a circular import via</span>
+</span><span data-line="27">    <span class="c1"># coreai_opt.pruning.config.</span>
+</span><span data-line="28">    <span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.pruning.config.sparsity_schedule</span><span class="w"> </span><span class="kn">import</span> <span class="n">SparsityScheduleBase</span>
 </span><span data-line="29">
+</span><span data-line="30">
 <div class="viewcode-block" id="PruneImplBase">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase">[docs]</a>
-</span><span data-line="30"><span class="k">class</span><span class="w"> </span><span class="nc">PruneImplBase</span><span class="p">(</span><span class="n">CompressionSimulatorBase</span><span class="p">):</span>
-</span><span data-line="31"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base for pruning parametrizations that mask a layer&#39;s weight.</span>
-</span><span data-line="32">
-</span><span data-line="33"><span class="sd">    Subclasses implement :meth:`compute_mask` — a pure static function from</span>
-</span><span data-line="34"><span class="sd">    ``(weight, sparsity, pruning_scheme)`` to a binary mask. The base class</span>
-</span><span data-line="35"><span class="sd">    handles the mask buffer and optional schedule-driven sparsity updates.</span>
-</span><span data-line="36"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="37">
-</span><span data-line="38">    <span class="n">schedule</span><span class="p">:</span> <span class="n">SparsityScheduleBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="39">    <span class="n">_sparsity</span><span class="p">:</span> <span class="nb">float</span>
-</span><span data-line="40">    <span class="n">_target_sparsity</span><span class="p">:</span> <span class="nb">float</span>
-</span><span data-line="41">    <span class="n">_pruning_scheme</span><span class="p">:</span> <span class="n">PruningScheme</span>
-</span><span data-line="42">    <span class="n">_dirty</span><span class="p">:</span> <span class="nb">bool</span>
-</span><span data-line="43">
+</span><span data-line="31"><span class="k">class</span><span class="w"> </span><span class="nc">PruneImplBase</span><span class="p">(</span><span class="n">CompressionSimulatorBase</span><span class="p">):</span>
+</span><span data-line="32"><span class="w">    </span><span class="sd">"""Abstract base for pruning parametrizations that mask a layer's weight.</span>
+</span><span data-line="33">
+</span><span data-line="34"><span class="sd">    Subclasses implement :meth:`compute_mask` — a pure static function from</span>
+</span><span data-line="35"><span class="sd">    ``(weight, sparsity, pruning_scheme)`` to a binary mask. The base class</span>
+</span><span data-line="36"><span class="sd">    handles the mask buffer and optional schedule-driven sparsity updates.</span>
+</span><span data-line="37"><span class="sd">    """</span>
+</span><span data-line="38">
+</span><span data-line="39">    <span class="n">schedule</span><span class="p">:</span> <span class="n">SparsityScheduleBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="40">    <span class="n">_sparsity</span><span class="p">:</span> <span class="nb">float</span>
+</span><span data-line="41">    <span class="n">_target_sparsity</span><span class="p">:</span> <span class="nb">float</span>
+</span><span data-line="42">    <span class="n">_pruning_scheme</span><span class="p">:</span> <span class="n">PruningScheme</span>
+</span><span data-line="43">    <span class="n">_dirty</span><span class="p">:</span> <span class="nb">bool</span>
+</span><span data-line="44">
 <div class="viewcode-block" id="PruneImplBase.__init__">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase.__init__">[docs]</a>
-</span><span data-line="44">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="45">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="46">        <span class="n">target_sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-</span><span data-line="47">        <span class="n">pruning_scheme</span><span class="p">:</span> <span class="n">PruningScheme</span><span class="p">,</span>
-</span><span data-line="48">        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
-</span><span data-line="49">    <span class="p">):</span>
-</span><span data-line="50">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-</span><span data-line="51">        <span class="bp">self</span><span class="o">.</span><span class="n">_target_sparsity</span> <span class="o">=</span> <span class="n">target_sparsity</span>
-</span><span data-line="52">        <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span> <span class="o">=</span> <span class="n">target_sparsity</span>
-</span><span data-line="53">        <span class="bp">self</span><span class="o">.</span><span class="n">_pruning_scheme</span> <span class="o">=</span> <span class="n">pruning_scheme</span>
-</span><span data-line="54">        <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="55">        <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="56">        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;mask&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span></div>
+</span><span data-line="45">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="46">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="47">        <span class="n">target_sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="48">        <span class="n">pruning_scheme</span><span class="p">:</span> <span class="n">PruningScheme</span><span class="p">,</span>
+</span><span data-line="49">        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="50">    <span class="p">):</span>
+</span><span data-line="51">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span><span data-line="52">        <span class="bp">self</span><span class="o">.</span><span class="n">_target_sparsity</span> <span class="o">=</span> <span class="n">target_sparsity</span>
+</span><span data-line="53">        <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span> <span class="o">=</span> <span class="n">target_sparsity</span>
+</span><span data-line="54">        <span class="bp">self</span><span class="o">.</span><span class="n">_pruning_scheme</span> <span class="o">=</span> <span class="n">pruning_scheme</span>
+</span><span data-line="55">        <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="56">        <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="57">        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">"mask"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span></div>
 
-</span><span data-line="57">
-</span><span data-line="58">    <span class="nd">@property</span>
-</span><span data-line="59">    <span class="k">def</span><span class="w"> </span><span class="nf">sparsity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="60"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sparsity that the current mask reflects. Use ``update_sparsity`` to change.&quot;&quot;&quot;</span>
-</span><span data-line="61">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span>
-</span><span data-line="62">
+</span><span data-line="58">
+</span><span data-line="59">    <span class="nd">@property</span>
+</span><span data-line="60">    <span class="k">def</span><span class="w"> </span><span class="nf">sparsity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="61"><span class="w">        </span><span class="sd">"""Sparsity that the current mask reflects. Use ``update_sparsity`` to change."""</span>
+</span><span data-line="62">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span>
+</span><span data-line="63">
 <div class="viewcode-block" id="PruneImplBase.compute_mask">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase.compute_mask">[docs]</a>
-</span><span data-line="63">    <span class="nd">@staticmethod</span>
-</span><span data-line="64">    <span class="nd">@abstractmethod</span>
-</span><span data-line="65">    <span class="k">def</span><span class="w"> </span><span class="nf">compute_mask</span><span class="p">(</span>
-</span><span data-line="66">        <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-</span><span data-line="67">        <span class="n">sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-</span><span data-line="68">        <span class="n">pruning_scheme</span><span class="p">:</span> <span class="n">PruningScheme</span><span class="p">,</span>
-</span><span data-line="69">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-</span><span data-line="70"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute a binary pruning mask for the given weight tensor.</span>
-</span><span data-line="71">
-</span><span data-line="72"><span class="sd">        Args:</span>
-</span><span data-line="73"><span class="sd">            weight (torch.Tensor): The weight tensor to compute a mask for.</span>
-</span><span data-line="74"><span class="sd">            sparsity (float): Fraction of elements to prune, in [0, 1].</span>
-</span><span data-line="75"><span class="sd">            pruning_scheme (PruningScheme): Structural pattern of sparsity.</span>
-</span><span data-line="76">
-</span><span data-line="77"><span class="sd">        Returns:</span>
-</span><span data-line="78"><span class="sd">            torch.Tensor: Binary mask with the same shape as *weight* (1 = keep,</span>
-</span><span data-line="79"><span class="sd">            0 = prune).</span>
-</span><span data-line="80"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="81">        <span class="o">...</span></div>
+</span><span data-line="64">    <span class="nd">@staticmethod</span>
+</span><span data-line="65">    <span class="nd">@abstractmethod</span>
+</span><span data-line="66">    <span class="k">def</span><span class="w"> </span><span class="nf">compute_mask</span><span class="p">(</span>
+</span><span data-line="67">        <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="68">        <span class="n">sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="69">        <span class="n">pruning_scheme</span><span class="p">:</span> <span class="n">PruningScheme</span><span class="p">,</span>
+</span><span data-line="70">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="71"><span class="w">        </span><span class="sd">"""Compute a binary pruning mask for the given weight tensor.</span>
+</span><span data-line="72">
+</span><span data-line="73"><span class="sd">        Args:</span>
+</span><span data-line="74"><span class="sd">            weight (torch.Tensor): The weight tensor to compute a mask for.</span>
+</span><span data-line="75"><span class="sd">            sparsity (float): Fraction of elements to prune, in [0, 1].</span>
+</span><span data-line="76"><span class="sd">            pruning_scheme (PruningScheme): Structural pattern of sparsity.</span>
+</span><span data-line="77">
+</span><span data-line="78"><span class="sd">        Returns:</span>
+</span><span data-line="79"><span class="sd">            torch.Tensor: Binary mask with the same shape as *weight* (1 = keep,</span>
+</span><span data-line="80"><span class="sd">            0 = prune).</span>
+</span><span data-line="81"><span class="sd">        """</span>
+</span><span data-line="82">        <span class="o">...</span></div>
 
-</span><span data-line="82">
+</span><span data-line="83">
 <div class="viewcode-block" id="PruneImplBase.update_sparsity">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase.update_sparsity">[docs]</a>
-</span><span data-line="83">    <span class="k">def</span><span class="w"> </span><span class="nf">update_sparsity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="84"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the sparsity based on the configured schedule and the provided step count.</span>
-</span><span data-line="85">
-</span><span data-line="86"><span class="sd">        Raises:</span>
-</span><span data-line="87"><span class="sd">            RuntimeError: If no schedule is attached. This method should be</span>
-</span><span data-line="88"><span class="sd">                invoked only after setting the ``schedule`` property.</span>
-</span><span data-line="89"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="90">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="91">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-</span><span data-line="92">                <span class="s2">&quot;update_sparsity called on a PruneImplBase with no schedule attached.&quot;</span>
-</span><span data-line="93">            <span class="p">)</span>
-</span><span data-line="94">        <span class="n">new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span><span class="o">.</span><span class="n">compute_sparsity</span><span class="p">(</span><span class="n">step_count</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_sparsity</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span><span class="p">)</span>
-</span><span data-line="95">        <span class="k">if</span> <span class="n">new</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span><span class="p">:</span>
-</span><span data-line="96">            <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span> <span class="o">=</span> <span class="n">new</span>
-</span><span data-line="97">            <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span> <span class="o">=</span> <span class="kc">True</span></div>
+</span><span data-line="84">    <span class="k">def</span><span class="w"> </span><span class="nf">update_sparsity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="85"><span class="w">        </span><span class="sd">"""Update the sparsity based on the configured schedule and the provided step count.</span>
+</span><span data-line="86">
+</span><span data-line="87"><span class="sd">        Raises:</span>
+</span><span data-line="88"><span class="sd">            RuntimeError: If no schedule is attached. This method should be</span>
+</span><span data-line="89"><span class="sd">                invoked only after setting the ``schedule`` property.</span>
+</span><span data-line="90"><span class="sd">        """</span>
+</span><span data-line="91">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="92">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+</span><span data-line="93">                <span class="s2">"update_sparsity called on a PruneImplBase with no schedule attached."</span>
+</span><span data-line="94">            <span class="p">)</span>
+</span><span data-line="95">        <span class="n">new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span><span class="o">.</span><span class="n">compute_sparsity</span><span class="p">(</span><span class="n">step_count</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_target_sparsity</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span><span class="p">)</span>
+</span><span data-line="96">        <span class="k">if</span> <span class="n">new</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span><span class="p">:</span>
+</span><span data-line="97">            <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span> <span class="o">=</span> <span class="n">new</span>
+</span><span data-line="98">            <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span> <span class="o">=</span> <span class="kc">True</span></div>
 
-</span><span data-line="98">
+</span><span data-line="99">
 <div class="viewcode-block" id="PruneImplBase.forward">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase.forward">[docs]</a>
-</span><span data-line="99">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-</span><span data-line="100"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute / re-compute the mask if stale, and then apply it to the weight.&quot;&quot;&quot;</span>
-</span><span data-line="101">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span><span class="p">:</span>
-</span><span data-line="102">            <span class="n">new_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_mask</span><span class="p">(</span><span class="n">weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pruning_scheme</span><span class="p">)</span>
-</span><span data-line="103">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="n">weight</span><span class="o">.</span><span class="n">device</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
-</span><span data-line="104">                <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-</span><span data-line="105">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">new_mask</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
-</span><span data-line="106">                <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">resize_</span><span class="p">(</span><span class="n">new_mask</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-</span><span data-line="107">            <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">new_mask</span><span class="p">)</span>
-</span><span data-line="108">            <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="109">        <span class="k">return</span> <span class="n">weight</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span></div>
+</span><span data-line="100">    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="101"><span class="w">        </span><span class="sd">"""Compute / re-compute the mask if stale, and then apply it to the weight."""</span>
+</span><span data-line="102">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span><span class="p">:</span>
+</span><span data-line="103">            <span class="n">new_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_mask</span><span class="p">(</span><span class="n">weight</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sparsity</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pruning_scheme</span><span class="p">)</span>
+</span><span data-line="104">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">device</span> <span class="o">!=</span> <span class="n">weight</span><span class="o">.</span><span class="n">device</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+</span><span data-line="105">                <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="106">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">new_mask</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+</span><span data-line="107">                <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">resize_</span><span class="p">(</span><span class="n">new_mask</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="108">            <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">new_mask</span><span class="p">)</span>
+</span><span data-line="109">            <span class="bp">self</span><span class="o">.</span><span class="n">_dirty</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="110">        <span class="k">return</span> <span class="n">weight</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span></div>
 
-</span><span data-line="110">
+</span><span data-line="111">
 <div class="viewcode-block" id="PruneImplBase.with_args">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase.with_args">[docs]</a>
-</span><span data-line="111">    <span class="nd">@classmethod</span>
-</span><span data-line="112">    <span class="k">def</span><span class="w"> </span><span class="nf">with_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_PartialConstructor</span><span class="p">[</span><span class="n">PruneImplBase</span><span class="p">]:</span>
-</span><span data-line="113"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a partial constructor with pre-filled arguments.&quot;&quot;&quot;</span>
-</span><span data-line="114">        <span class="k">return</span> <span class="n">_with_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</span><span data-line="112">    <span class="nd">@classmethod</span>
+</span><span data-line="113">    <span class="k">def</span><span class="w"> </span><span class="nf">with_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_PartialConstructor</span><span class="p">[</span><span class="n">PruneImplBase</span><span class="p">]:</span>
+</span><span data-line="114"><span class="w">        </span><span class="sd">"""Create a partial constructor with pre-filled arguments."""</span>
+</span><span data-line="115">        <span class="k">return</span> <span class="n">_with_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 </div>
 
-</span><span data-line="115">
 </span><span data-line="116">
-</span><span data-line="117"><span class="nd">@PruneImplBase</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;default&quot;</span><span class="p">)</span>
-</span><span data-line="118"><span class="k">class</span><span class="w"> </span><span class="nc">_MagnitudePruneImpl</span><span class="p">(</span><span class="n">PruneImplBase</span><span class="p">):</span>
-</span><span data-line="119"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Magnitude-based pruning supporting unstructured and channel-structured schemes.</span>
-</span><span data-line="120">
-</span><span data-line="121"><span class="sd">    Prunes a given tensor to target sparsity by zero-ing out the smallest-magnitude</span>
-</span><span data-line="122"><span class="sd">    elements until desired sparsity is achieved.</span>
-</span><span data-line="123"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="124">
-</span><span data-line="125">    <span class="nd">@staticmethod</span>
-</span><span data-line="126">    <span class="k">def</span><span class="w"> </span><span class="nf">compute_mask</span><span class="p">(</span>
-</span><span data-line="127">        <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-</span><span data-line="128">        <span class="n">sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-</span><span data-line="129">        <span class="n">pruning_scheme</span><span class="p">:</span> <span class="n">PruningScheme</span><span class="p">,</span>
-</span><span data-line="130">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-</span><span data-line="131"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute a magnitude-based mask respecting the pruning scheme.</span>
-</span><span data-line="132">
-</span><span data-line="133"><span class="sd">        Args:</span>
-</span><span data-line="134"><span class="sd">            weight (torch.Tensor): The weight tensor.</span>
-</span><span data-line="135"><span class="sd">            sparsity (float): Fraction of elements to prune, in [0, 1].</span>
-</span><span data-line="136"><span class="sd">            pruning_scheme (PruningScheme): Structural pattern of sparsity.</span>
-</span><span data-line="137">
-</span><span data-line="138"><span class="sd">        Returns:</span>
-</span><span data-line="139"><span class="sd">            torch.Tensor: Binary mask (1 = keep, 0 = prune).</span>
-</span><span data-line="140"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="141">        <span class="k">if</span> <span class="n">sparsity</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="142">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
-</span><span data-line="143">        <span class="k">if</span> <span class="n">sparsity</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
-</span><span data-line="144">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
-</span><span data-line="145">
-</span><span data-line="146">        <span class="c1"># TODO: Replace this with generic abstractions</span>
-</span><span data-line="147">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pruning_scheme</span><span class="p">,</span> <span class="n">ChannelStructured</span><span class="p">):</span>
-</span><span data-line="148">            <span class="k">return</span> <span class="n">_MagnitudePruneImpl</span><span class="o">.</span><span class="n">_compute_channel_mask</span><span class="p">(</span><span class="n">weight</span><span class="p">,</span> <span class="n">sparsity</span><span class="p">,</span> <span class="n">pruning_scheme</span><span class="o">.</span><span class="n">axis</span><span class="p">)</span>
-</span><span data-line="149">        <span class="k">return</span> <span class="n">_MagnitudePruneImpl</span><span class="o">.</span><span class="n">_compute_unstructured_mask</span><span class="p">(</span><span class="n">weight</span><span class="p">,</span> <span class="n">sparsity</span><span class="p">)</span>
-</span><span data-line="150">
-</span><span data-line="151">    <span class="nd">@staticmethod</span>
-</span><span data-line="152">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_unstructured_mask</span><span class="p">(</span><span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-</span><span data-line="153"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Element-wise magnitude pruning.&quot;&quot;&quot;</span>
-</span><span data-line="154">        <span class="n">num_elements</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
-</span><span data-line="155">        <span class="n">num_keep</span> <span class="o">=</span> <span class="n">num_elements</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">num_elements</span> <span class="o">*</span> <span class="n">sparsity</span><span class="p">)</span>
-</span><span data-line="156">        <span class="n">abs_weight</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span>
-</span><span data-line="157">        <span class="n">_</span><span class="p">,</span> <span class="n">topk_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="n">abs_weight</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">num_keep</span><span class="p">)</span>
-</span><span data-line="158">        <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_elements</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-</span><span data-line="159">        <span class="n">mask</span><span class="p">[</span><span class="n">topk_indices</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="160">        <span class="k">return</span> <span class="n">mask</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-</span><span data-line="161">
-</span><span data-line="162">    <span class="nd">@staticmethod</span>
-</span><span data-line="163">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_channel_mask</span><span class="p">(</span>
-</span><span data-line="164">        <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
-</span><span data-line="165">        <span class="n">sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-</span><span data-line="166">        <span class="n">axis</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-</span><span data-line="167">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-</span><span data-line="168"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Channel-structured magnitude pruning along *axis*.</span>
-</span><span data-line="169">
-</span><span data-line="170"><span class="sd">        Channel importance is measured by L1 norm. The least-important</span>
-</span><span data-line="171"><span class="sd">        channels are pruned entirely.</span>
-</span><span data-line="172"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="173">        <span class="n">num_channels</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span>
-</span><span data-line="174">        <span class="n">num_prune</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">num_channels</span> <span class="o">*</span> <span class="n">sparsity</span><span class="p">)</span>
-</span><span data-line="175">
-</span><span data-line="176">        <span class="k">if</span> <span class="n">num_prune</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="177">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
-</span><span data-line="178">        <span class="k">if</span> <span class="n">num_prune</span> <span class="o">&gt;=</span> <span class="n">num_channels</span><span class="p">:</span>
-</span><span data-line="179">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
-</span><span data-line="180">
-</span><span data-line="181">        <span class="n">reduce_dims</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">ndim</span><span class="p">)</span> <span class="k">if</span> <span class="n">d</span> <span class="o">!=</span> <span class="n">axis</span><span class="p">]</span>
-</span><span data-line="182">        <span class="n">channel_norms</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">reduce_dims</span><span class="p">)</span>
-</span><span data-line="183">
-</span><span data-line="184">        <span class="n">num_keep</span> <span class="o">=</span> <span class="n">num_channels</span> <span class="o">-</span> <span class="n">num_prune</span>
-</span><span data-line="185">        <span class="n">_</span><span class="p">,</span> <span class="n">keep_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="n">channel_norms</span><span class="p">,</span> <span class="n">num_keep</span><span class="p">,</span> <span class="n">largest</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="186">        <span class="n">channel_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_channels</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-</span><span data-line="187">        <span class="n">channel_mask</span><span class="p">[</span><span class="n">keep_indices</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
-</span><span data-line="188">
-</span><span data-line="189">        <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">weight</span><span class="o">.</span><span class="n">ndim</span>
-</span><span data-line="190">        <span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_channels</span>
-</span><span data-line="191">        <span class="k">return</span> <span class="n">channel_mask</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">expand_as</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
+</span><span data-line="117">
+</span><span data-line="118"><span class="nd">@PruneImplBase</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"default"</span><span class="p">)</span>
+</span><span data-line="119"><span class="k">class</span><span class="w"> </span><span class="nc">_MagnitudePruneImpl</span><span class="p">(</span><span class="n">PruneImplBase</span><span class="p">):</span>
+</span><span data-line="120"><span class="w">    </span><span class="sd">"""Magnitude-based pruning supporting unstructured and channel-structured schemes.</span>
+</span><span data-line="121">
+</span><span data-line="122"><span class="sd">    Prunes a given tensor to target sparsity by zero-ing out the smallest-magnitude</span>
+</span><span data-line="123"><span class="sd">    elements until desired sparsity is achieved.</span>
+</span><span data-line="124"><span class="sd">    """</span>
+</span><span data-line="125">
+</span><span data-line="126">    <span class="nd">@staticmethod</span>
+</span><span data-line="127">    <span class="k">def</span><span class="w"> </span><span class="nf">compute_mask</span><span class="p">(</span>
+</span><span data-line="128">        <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="129">        <span class="n">sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="130">        <span class="n">pruning_scheme</span><span class="p">:</span> <span class="n">PruningScheme</span><span class="p">,</span>
+</span><span data-line="131">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="132"><span class="w">        </span><span class="sd">"""Compute a magnitude-based mask respecting the pruning scheme.</span>
+</span><span data-line="133">
+</span><span data-line="134"><span class="sd">        Args:</span>
+</span><span data-line="135"><span class="sd">            weight (torch.Tensor): The weight tensor.</span>
+</span><span data-line="136"><span class="sd">            sparsity (float): Fraction of elements to prune, in [0, 1].</span>
+</span><span data-line="137"><span class="sd">            pruning_scheme (PruningScheme): Structural pattern of sparsity.</span>
+</span><span data-line="138">
+</span><span data-line="139"><span class="sd">        Returns:</span>
+</span><span data-line="140"><span class="sd">            torch.Tensor: Binary mask (1 = keep, 0 = prune).</span>
+</span><span data-line="141"><span class="sd">        """</span>
+</span><span data-line="142">        <span class="k">if</span> <span class="n">sparsity</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="143">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
+</span><span data-line="144">        <span class="k">if</span> <span class="n">sparsity</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+</span><span data-line="145">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
+</span><span data-line="146">
+</span><span data-line="147">        <span class="c1"># TODO: Replace this with generic abstractions</span>
+</span><span data-line="148">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pruning_scheme</span><span class="p">,</span> <span class="n">ChannelStructured</span><span class="p">):</span>
+</span><span data-line="149">            <span class="k">return</span> <span class="n">_MagnitudePruneImpl</span><span class="o">.</span><span class="n">_compute_channel_mask</span><span class="p">(</span><span class="n">weight</span><span class="p">,</span> <span class="n">sparsity</span><span class="p">,</span> <span class="n">pruning_scheme</span><span class="o">.</span><span class="n">axis</span><span class="p">)</span>
+</span><span data-line="150">        <span class="k">return</span> <span class="n">_MagnitudePruneImpl</span><span class="o">.</span><span class="n">_compute_unstructured_mask</span><span class="p">(</span><span class="n">weight</span><span class="p">,</span> <span class="n">sparsity</span><span class="p">)</span>
+</span><span data-line="151">
+</span><span data-line="152">    <span class="nd">@staticmethod</span>
+</span><span data-line="153">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_unstructured_mask</span><span class="p">(</span><span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="154"><span class="w">        </span><span class="sd">"""Element-wise magnitude pruning."""</span>
+</span><span data-line="155">        <span class="n">num_elements</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span>
+</span><span data-line="156">        <span class="n">num_keep</span> <span class="o">=</span> <span class="n">num_elements</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">num_elements</span> <span class="o">*</span> <span class="n">sparsity</span><span class="p">)</span>
+</span><span data-line="157">        <span class="n">abs_weight</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span>
+</span><span data-line="158">        <span class="n">_</span><span class="p">,</span> <span class="n">topk_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="n">abs_weight</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">num_keep</span><span class="p">)</span>
+</span><span data-line="159">        <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_elements</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</span><span data-line="160">        <span class="n">mask</span><span class="p">[</span><span class="n">topk_indices</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="161">        <span class="k">return</span> <span class="n">mask</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span><span data-line="162">
+</span><span data-line="163">    <span class="nd">@staticmethod</span>
+</span><span data-line="164">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_channel_mask</span><span class="p">(</span>
+</span><span data-line="165">        <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+</span><span data-line="166">        <span class="n">sparsity</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="167">        <span class="n">axis</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+</span><span data-line="168">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="169"><span class="w">        </span><span class="sd">"""Channel-structured magnitude pruning along *axis*.</span>
+</span><span data-line="170">
+</span><span data-line="171"><span class="sd">        Channel importance is measured by L1 norm. The least-important</span>
+</span><span data-line="172"><span class="sd">        channels are pruned entirely.</span>
+</span><span data-line="173"><span class="sd">        """</span>
+</span><span data-line="174">        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="o">-</span><span class="n">weight</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;=</span> <span class="n">axis</span> <span class="o">&lt;</span> <span class="n">weight</span><span class="o">.</span><span class="n">ndim</span><span class="p">):</span>
+</span><span data-line="175">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="176">                <span class="sa">f</span><span class="s2">"Invalid axis. Should be in range [</span><span class="si">{</span><span class="o">-</span><span class="n">weight</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s2">), but got </span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s2">"</span>
+</span><span data-line="177">            <span class="p">)</span>
+</span><span data-line="178">        <span class="n">axis</span> <span class="o">=</span> <span class="n">_normalize_axis</span><span class="p">(</span><span class="n">axis</span><span class="p">,</span> <span class="n">weight</span><span class="o">.</span><span class="n">ndim</span><span class="p">)</span>
+</span><span data-line="179">
+</span><span data-line="180">        <span class="n">num_channels</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span>
+</span><span data-line="181">        <span class="n">num_prune</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">num_channels</span> <span class="o">*</span> <span class="n">sparsity</span><span class="p">)</span>
+</span><span data-line="182">
+</span><span data-line="183">        <span class="k">if</span> <span class="n">num_prune</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="184">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
+</span><span data-line="185">        <span class="k">if</span> <span class="n">num_prune</span> <span class="o">&gt;=</span> <span class="n">num_channels</span><span class="p">:</span>
+</span><span data-line="186">            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
+</span><span data-line="187">
+</span><span data-line="188">        <span class="n">reduce_dims</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">ndim</span><span class="p">)</span> <span class="k">if</span> <span class="n">d</span> <span class="o">!=</span> <span class="n">axis</span><span class="p">]</span>
+</span><span data-line="189">        <span class="n">channel_norms</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">reduce_dims</span><span class="p">)</span>
+</span><span data-line="190">
+</span><span data-line="191">        <span class="n">num_keep</span> <span class="o">=</span> <span class="n">num_channels</span> <span class="o">-</span> <span class="n">num_prune</span>
+</span><span data-line="192">        <span class="n">_</span><span class="p">,</span> <span class="n">keep_indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">topk</span><span class="p">(</span><span class="n">channel_norms</span><span class="p">,</span> <span class="n">num_keep</span><span class="p">,</span> <span class="n">largest</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="193">        <span class="n">channel_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_channels</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</span><span data-line="194">        <span class="n">channel_mask</span><span class="p">[</span><span class="n">keep_indices</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="195">
+</span><span data-line="196">        <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">weight</span><span class="o">.</span><span class="n">ndim</span>
+</span><span data-line="197">        <span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_channels</span>
+</span><span data-line="198">        <span class="k">return</span> <span class="n">channel_mask</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">expand_as</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

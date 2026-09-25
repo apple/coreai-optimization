@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../palettization/index.html">Palettization</a><ul>
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -312,7 +336,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="7">
 </span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">final</span>
 </span><span data-line="9">
-</span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">PositiveInt</span><span class="p">,</span> <span class="n">model_validator</span>
+</span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ConfigDict</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">PositiveInt</span><span class="p">,</span> <span class="n">model_validator</span>
 </span><span data-line="11">
 </span><span data-line="12"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span data-line="13">    <span class="n">CompressionConfig</span><span class="p">,</span>
@@ -332,253 +356,291 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="27">        <span class="n">_ModuleKMeansPalettizerConfigPresets</span><span class="p">,</span>
 </span><span data-line="28">    <span class="p">)</span>
 </span><span data-line="29">
-</span><span data-line="30"><span class="n">_KMEANS_PALETTIZATION_CONFIG</span> <span class="o">=</span> <span class="s2">&quot;kmeans_palettization_config&quot;</span>
-</span><span data-line="31"><span class="n">_PALETTIZATION_SPEC</span> <span class="o">=</span> <span class="s2">&quot;palettization_spec&quot;</span>
+</span><span data-line="30"><span class="n">_KMEANS_PALETTIZATION_CONFIG</span> <span class="o">=</span> <span class="s2">"kmeans_palettization_config"</span>
+</span><span data-line="31"><span class="n">_PALETTIZATION_SPEC</span> <span class="o">=</span> <span class="s2">"palettization_spec"</span>
 </span><span data-line="32">
 </span><span data-line="33">
+<div class="viewcode-block" id="PATSchedule">
+<a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.config.PATSchedule.html#coreai_opt.palettization.PATSchedule">[docs]</a>
+</span><span data-line="34"><span class="k">class</span><span class="w"> </span><span class="nc">PATSchedule</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span data-line="35"><span class="w">    </span><span class="sd">"""Schedule for enabling palettization-aware training (PAT).</span>
+</span><span data-line="36">
+</span><span data-line="37"><span class="sd">    Defines the step threshold at which a module's fake palettization</span>
+</span><span data-line="38"><span class="sd">    forward pass becomes active. Used with ``KMeansPalettizer.step()``.</span>
+</span><span data-line="39">
+</span><span data-line="40"><span class="sd">    Attributes:</span>
+</span><span data-line="41"><span class="sd">        enable_fake_palettize: Step count at which fake palettization is</span>
+</span><span data-line="42"><span class="sd">            enabled. Must be &gt;= 0.</span>
+</span><span data-line="43">
+</span><span data-line="44"><span class="sd">    Example:</span>
+</span><span data-line="45"><span class="sd">        &gt;&gt;&gt; schedule = PATSchedule(enable_fake_palettize=500)</span>
+</span><span data-line="46"><span class="sd">    """</span>
+</span><span data-line="47">
+</span><span data-line="48">    <span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="49">
+</span><span data-line="50">    <span class="n">enable_fake_palettize</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span data-line="51">
+</span><span data-line="52">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_count</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="53"><span class="w">        </span><span class="sd">"""Return whether fake palettization should be active at the given step."""</span>
+</span><span data-line="54">        <span class="k">return</span> <span class="n">step_count</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_fake_palettize</span></div>
+
+</span><span data-line="55">
+</span><span data-line="56">
 <div class="viewcode-block" id="OpKMeansPalettizerConfig">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html#coreai_opt.palettization.OpKMeansPalettizerConfig">[docs]</a>
-</span><span data-line="34"><span class="k">class</span><span class="w"> </span><span class="nc">OpKMeansPalettizerConfig</span><span class="p">(</span><span class="n">WeightOnlyOpValidationMixin</span><span class="p">,</span> <span class="n">OpCompressionConfig</span><span class="p">[</span><span class="n">PalettizationSpec</span><span class="p">]):</span>
-</span><span data-line="35"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="36"><span class="sd">    Configuration class for palettization at the operation level.</span>
-</span><span data-line="37">
-</span><span data-line="38"><span class="sd">    Palettization is a weight-only compression technique that doesn&#39;t apply</span>
-</span><span data-line="39"><span class="sd">    to activations (inputs/outputs). Only op_state_spec is used to configure</span>
-</span><span data-line="40"><span class="sd">    which state tensors (e.g., weights, biases) should be palettized.</span>
-</span><span data-line="41">
-</span><span data-line="42"><span class="sd">    Attributes:</span>
-</span><span data-line="43"><span class="sd">        op_state_spec (dict[str, PalettizationSpec | None] | None): Palettization</span>
-</span><span data-line="44"><span class="sd">            specifications for operation state tensors (parameters, buffers, constants).</span>
-</span><span data-line="45"><span class="sd">            Keys are string names (e.g., &quot;weight&quot;, &quot;bias&quot;) or &quot;*&quot; to refer to all</span>
-</span><span data-line="46"><span class="sd">            state inputs. Values are PalettizationSpec objects or None to disable</span>
-</span><span data-line="47"><span class="sd">            palettization for that state tensor.</span>
-</span><span data-line="48"><span class="sd">            Default: 4-bit palettization for &quot;weight&quot; and &quot;in_proj_weight&quot;</span>
-</span><span data-line="49"><span class="sd">            state tensors via ``default_weight_palettization_spec()``.</span>
-</span><span data-line="50">
-</span><span data-line="51"><span class="sd">    Example:</span>
-</span><span data-line="52"><span class="sd">        &gt;&gt;&gt; # Palettize weights with 2-bit LUT</span>
-</span><span data-line="53"><span class="sd">        &gt;&gt;&gt; op_config = OpKMeansPalettizerConfig(</span>
-</span><span data-line="54"><span class="sd">        ...     op_state_spec={</span>
-</span><span data-line="55"><span class="sd">        ...         &quot;weight&quot;: PalettizationSpec(n_bits=2)</span>
-</span><span data-line="56"><span class="sd">        ...     }</span>
-</span><span data-line="57"><span class="sd">        ... )</span>
-</span><span data-line="58"><span class="sd">        &gt;&gt;&gt;</span>
-</span><span data-line="59"><span class="sd">        &gt;&gt;&gt; # Disable palettization for a specific operation</span>
-</span><span data-line="60"><span class="sd">        &gt;&gt;&gt; op_config = OpKMeansPalettizerConfig(</span>
-</span><span data-line="61"><span class="sd">        ...     op_state_spec=None  # No state tensors will be palettized</span>
-</span><span data-line="62"><span class="sd">        ... )</span>
-</span><span data-line="63"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="57"><span class="k">class</span><span class="w"> </span><span class="nc">OpKMeansPalettizerConfig</span><span class="p">(</span><span class="n">WeightOnlyOpValidationMixin</span><span class="p">,</span> <span class="n">OpCompressionConfig</span><span class="p">[</span><span class="n">PalettizationSpec</span><span class="p">]):</span>
+</span><span data-line="58"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="59"><span class="sd">    Configuration class for palettization at the operation level.</span>
+</span><span data-line="60">
+</span><span data-line="61"><span class="sd">    Palettization is a weight-only compression technique that doesn't apply</span>
+</span><span data-line="62"><span class="sd">    to activations (inputs/outputs). Only op_state_spec is used to configure</span>
+</span><span data-line="63"><span class="sd">    which state tensors (e.g., weights, biases) should be palettized.</span>
 </span><span data-line="64">
+</span><span data-line="65"><span class="sd">    Attributes:</span>
+</span><span data-line="66"><span class="sd">        op_state_spec (dict[str, PalettizationSpec | None] | None): Palettization</span>
+</span><span data-line="67"><span class="sd">            specifications for operation state tensors (parameters, buffers, constants).</span>
+</span><span data-line="68"><span class="sd">            Keys are string names (e.g., "weight", "bias") or "*" to refer to all</span>
+</span><span data-line="69"><span class="sd">            state inputs. Values are PalettizationSpec objects or None to disable</span>
+</span><span data-line="70"><span class="sd">            palettization for that state tensor.</span>
+</span><span data-line="71"><span class="sd">            Default: 4-bit palettization for "weight" and "in_proj_weight"</span>
+</span><span data-line="72"><span class="sd">            state tensors via ``default_weight_palettization_spec()``.</span>
+</span><span data-line="73">
+</span><span data-line="74"><span class="sd">    Example:</span>
+</span><span data-line="75"><span class="sd">        &gt;&gt;&gt; # Palettize weights with 2-bit LUT</span>
+</span><span data-line="76"><span class="sd">        &gt;&gt;&gt; op_config = OpKMeansPalettizerConfig(</span>
+</span><span data-line="77"><span class="sd">        ...     op_state_spec={</span>
+</span><span data-line="78"><span class="sd">        ...         "weight": PalettizationSpec(n_bits=2)</span>
+</span><span data-line="79"><span class="sd">        ...     }</span>
+</span><span data-line="80"><span class="sd">        ... )</span>
+</span><span data-line="81"><span class="sd">        &gt;&gt;&gt;</span>
+</span><span data-line="82"><span class="sd">        &gt;&gt;&gt; # Disable palettization for a specific operation</span>
+</span><span data-line="83"><span class="sd">        &gt;&gt;&gt; op_config = OpKMeansPalettizerConfig(</span>
+</span><span data-line="84"><span class="sd">        ...     op_state_spec=None  # No state tensors will be palettized</span>
+</span><span data-line="85"><span class="sd">        ... )</span>
+</span><span data-line="86"><span class="sd">    """</span>
+</span><span data-line="87">
 <div class="viewcode-block" id="OpKMeansPalettizerConfig.get_default_state_spec">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html#coreai_opt.palettization.OpKMeansPalettizerConfig.get_default_state_spec">[docs]</a>
-</span><span data-line="65">    <span class="nd">@classmethod</span>
-</span><span data-line="66">    <span class="k">def</span><span class="w"> </span><span class="nf">get_default_state_spec</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PalettizationSpec</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
-</span><span data-line="67"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Provide default state spec for palettization.&quot;&quot;&quot;</span>
-</span><span data-line="68">        <span class="n">spec</span> <span class="o">=</span> <span class="n">default_weight_palettization_spec</span><span class="p">()</span>
-</span><span data-line="69">        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">spec</span><span class="p">,</span> <span class="s2">&quot;in_proj_weight&quot;</span><span class="p">:</span> <span class="n">spec</span><span class="p">}</span></div>
+</span><span data-line="88">    <span class="nd">@classmethod</span>
+</span><span data-line="89">    <span class="k">def</span><span class="w"> </span><span class="nf">get_default_state_spec</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PalettizationSpec</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+</span><span data-line="90"><span class="w">        </span><span class="sd">"""Provide default state spec for palettization."""</span>
+</span><span data-line="91">        <span class="n">spec</span> <span class="o">=</span> <span class="n">default_weight_palettization_spec</span><span class="p">()</span>
+</span><span data-line="92">        <span class="k">return</span> <span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">spec</span><span class="p">,</span> <span class="s2">"in_proj_weight"</span><span class="p">:</span> <span class="n">spec</span><span class="p">}</span></div>
 </div>
 
-</span><span data-line="70">
-</span><span data-line="71">
+</span><span data-line="93">
+</span><span data-line="94">
 <div class="viewcode-block" id="ModuleKMeansPalettizerConfig">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html#coreai_opt.palettization.ModuleKMeansPalettizerConfig">[docs]</a>
-</span><span data-line="72"><span class="nd">@final</span>
-</span><span data-line="73"><span class="k">class</span><span class="w"> </span><span class="nc">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
-</span><span data-line="74">    <span class="n">WeightOnlyModuleValidationMixin</span><span class="p">,</span>
-</span><span data-line="75">    <span class="n">ModuleCompressionConfig</span><span class="p">[</span><span class="n">OpKMeansPalettizerConfig</span><span class="p">,</span> <span class="n">PalettizationSpec</span><span class="p">],</span>
-</span><span data-line="76"><span class="p">):</span>
-</span><span data-line="77"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for palettizing a specific module using K-means clustering.</span>
-</span><span data-line="78">
-</span><span data-line="79"><span class="sd">    This class manages palettization settings for an entire module, including:</span>
-</span><span data-line="80">
-</span><span data-line="81"><span class="sd">    - Operation-level configurations (default, by type, by name)</span>
-</span><span data-line="82"><span class="sd">    - Module-level state (parameter) palettization</span>
-</span><span data-line="83">
-</span><span data-line="84"><span class="sd">    The operation configurations follow a hierarchical precedence:</span>
-</span><span data-line="85">
-</span><span data-line="86"><span class="sd">    1. op_name_config (most specific - applies to operations matching a name</span>
-</span><span data-line="87"><span class="sd">       pattern)</span>
-</span><span data-line="88"><span class="sd">    2. op_type_config (applies to operations of a specific type)</span>
-</span><span data-line="89"><span class="sd">    3. op_state_spec (least specific - applies to all operations not</span>
-</span><span data-line="90"><span class="sd">       otherwise configured)</span>
-</span><span data-line="91">
-</span><span data-line="92"><span class="sd">    Module-level state settings treat the module as an opaque entity,</span>
-</span><span data-line="93"><span class="sd">    setting palettization settings for specified tensors and ignoring op specific</span>
-</span><span data-line="94"><span class="sd">    palettization capabilities. Module-level settings also don&#39;t check whether the</span>
-</span><span data-line="95"><span class="sd">    operation receiving the palettized tensor is a registered operation or not.</span>
-</span><span data-line="96"><span class="sd">    Module-level settings will override any op specific settings.</span>
-</span><span data-line="97">
-</span><span data-line="98"><span class="sd">    Attributes:</span>
-</span><span data-line="99"><span class="sd">        op_state_spec (dict[str, PalettizationSpec | None] | None): Palettization</span>
-</span><span data-line="100"><span class="sd">            specifications for operation state tensors (parameters, buffers, constants)</span>
-</span><span data-line="101"><span class="sd">            applied to all registered operations/patterns within this module that don&#39;t</span>
-</span><span data-line="102"><span class="sd">            have a more specific configuration.</span>
-</span><span data-line="103"><span class="sd">            Keys can be string names (e.g. &quot;weight&quot;, &quot;bias&quot;) or &quot;*&quot; to refer to all</span>
-</span><span data-line="104"><span class="sd">            state inputs.</span>
-</span><span data-line="105"><span class="sd">            Values are PalettizationSpec objects or None defining how to palettize each</span>
-</span><span data-line="106"><span class="sd">            state tensor. None value represents disabling palettization.</span>
-</span><span data-line="107"><span class="sd">            Default: 4-bit palettization for &quot;weight&quot; and &quot;in_proj_weight&quot;</span>
-</span><span data-line="108"><span class="sd">            state tensors via ``default_weight_palettization_spec()``.</span>
-</span><span data-line="109">
-</span><span data-line="110"><span class="sd">        op_type_config (dict[str, OpKMeansPalettizerConfig | None] | None): Operation</span>
-</span><span data-line="111"><span class="sd">            type-specific configurations. Keys are operation type names (e.g.,</span>
-</span><span data-line="112"><span class="sd">            &quot;aten.linear.default&quot;, &quot;aten.conv2d.default&quot;). Values are</span>
-</span><span data-line="113"><span class="sd">            OpKMeansPalettizerConfig objects or None, defining how to palettize</span>
-</span><span data-line="114"><span class="sd">            operations of that type. None value represents disabling palettization.</span>
-</span><span data-line="115"><span class="sd">            Default: {} (empty dict, no type-specific configs)</span>
-</span><span data-line="116">
-</span><span data-line="117"><span class="sd">        op_name_config (dict[str, OpKMeansPalettizerConfig | None] | None): Operation</span>
-</span><span data-line="118"><span class="sd">            name-specific configurations. Keys are operation name patterns</span>
-</span><span data-line="119"><span class="sd">            (supports regex matching). Values are OpKMeansPalettizerConfig objects or</span>
-</span><span data-line="120"><span class="sd">            None, defining how to palettize operations matching those names. None value</span>
-</span><span data-line="121"><span class="sd">            represents disabling palettization.</span>
-</span><span data-line="122"><span class="sd">            Default: {} (empty dict, no name-specific configs)</span>
-</span><span data-line="123">
-</span><span data-line="124"><span class="sd">        module_state_spec (dict[str, PalettizationSpec | None] | None): Palettization</span>
-</span><span data-line="125"><span class="sd">            specifications for module state tensors (parameters, buffers, and</span>
-</span><span data-line="126"><span class="sd">            constants). Module state settings will override op state settings for the</span>
-</span><span data-line="127"><span class="sd">            same state tensors.</span>
-</span><span data-line="128"><span class="sd">            Keys can be string names (e.g. &quot;weight&quot;, &quot;bias&quot;) or &quot;*&quot; to refer to all</span>
-</span><span data-line="129"><span class="sd">            state inputs.</span>
-</span><span data-line="130"><span class="sd">            Values are PalettizationSpec objects or None. None value represents</span>
-</span><span data-line="131"><span class="sd">            disabling palettization.</span>
-</span><span data-line="132"><span class="sd">            Default: {} (empty dict, no specific module state settings)</span>
-</span><span data-line="133">
-</span><span data-line="134"><span class="sd">        enable_fast_kmeans_mode (bool): When True, enables optimizations for faster</span>
-</span><span data-line="135"><span class="sd">            K-means clustering by rounding the weights before clustering if data is in</span>
-</span><span data-line="136"><span class="sd">            float16 range. If weight dtype is float32, weights are cast to float16 and</span>
-</span><span data-line="137"><span class="sd">            then rounded. This is not supported with ``cluster_dim &gt; 1``. Default: True.</span>
-</span><span data-line="138">
-</span><span data-line="139"><span class="sd">        rounding_precision (int): Number of decimal places to round to during fast</span>
-</span><span data-line="140"><span class="sd">            K-means clustering. Higher values preserve more precision but may reduce</span>
-</span><span data-line="141"><span class="sd">            speed benefits. Only used when enable_fast_kmeans_mode is True. Default: 4.</span>
-</span><span data-line="142">
-</span><span data-line="143"><span class="sd">    Example:</span>
-</span><span data-line="144"><span class="sd">        &gt;&gt;&gt; config = ModuleKMeansPalettizerConfig()  # Uses defaults</span>
-</span><span data-line="145"><span class="sd">        &gt;&gt;&gt; # Or with custom settings:</span>
-</span><span data-line="146"><span class="sd">        &gt;&gt;&gt; from coreai_opt.palettization.spec import PalettizationSpec</span>
-</span><span data-line="147"><span class="sd">        &gt;&gt;&gt; config = ModuleKMeansPalettizerConfig(</span>
-</span><span data-line="148"><span class="sd">        ...     op_state_spec={&quot;weight&quot;: PalettizationSpec(n_bits=2)},</span>
-</span><span data-line="149"><span class="sd">        ...     enable_fast_kmeans_mode=False,  # Disable for maximum precision</span>
-</span><span data-line="150"><span class="sd">        ...     rounding_precision=6  # Higher precision when fast mode is enabled</span>
-</span><span data-line="151"><span class="sd">        ... )</span>
-</span><span data-line="152"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="153">
-</span><span data-line="154">    <span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span data-line="155">        <span class="c1"># Prohibit subclassing due to preset limitation: presets remain bound</span>
-</span><span data-line="156">        <span class="c1"># to the base class. Revisit if subclass support is needed.</span>
-</span><span data-line="157">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span data-line="158">        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> cannot subclass ModuleKMeansPalettizerConfig (marked final).&quot;</span>
-</span><span data-line="159">        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-</span><span data-line="160">
-</span><span data-line="161">    <span class="n">enable_fast_kmeans_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="162">    <span class="n">rounding_precision</span><span class="p">:</span> <span class="n">PositiveInt</span> <span class="o">=</span> <span class="mi">4</span>
-</span><span data-line="163">
-</span><span data-line="164">    <span class="c1"># Namespace exposing built-in preset constructors.</span>
-</span><span data-line="165">    <span class="n">presets</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">_ModuleKMeansPalettizerConfigPresets</span><span class="p">]</span>
-</span><span data-line="166">
-</span><span data-line="167">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;after&quot;</span><span class="p">)</span>
-</span><span data-line="168">    <span class="k">def</span><span class="w"> </span><span class="nf">validate_fast_kmeans_cluster_dim_constraint</span><span class="p">(</span>
-</span><span data-line="169">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="170">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">:</span>
-</span><span data-line="171"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate that enable_fast_kmeans_mode is not True when cluster_dim &gt; 1.&quot;&quot;&quot;</span>
-</span><span data-line="172">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">op_state_spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="173">            <span class="k">return</span> <span class="bp">self</span>
-</span><span data-line="174">
-</span><span data-line="175">        <span class="c1"># Check all palettization specs within op_state_spec</span>
-</span><span data-line="176">        <span class="k">for</span> <span class="n">state</span><span class="p">,</span> <span class="n">spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">op_state_spec</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span data-line="177">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_fast_kmeans_mode</span> <span class="ow">and</span> <span class="n">spec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">spec</span><span class="o">.</span><span class="n">cluster_dim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-</span><span data-line="178">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="179">                    <span class="sa">f</span><span class="s2">&quot;enable_fast_kmeans_mode is not supported when cluster_dim &gt; 1. &quot;</span>
-</span><span data-line="180">                    <span class="sa">f</span><span class="s2">&quot;Got enable_fast_kmeans_mode=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">enable_fast_kmeans_mode</span><span class="si">}</span><span class="s2">, &quot;</span>
-</span><span data-line="181">                    <span class="sa">f</span><span class="s2">&quot;cluster_dim=</span><span class="si">{</span><span class="n">spec</span><span class="o">.</span><span class="n">cluster_dim</span><span class="si">}</span><span class="s2"> for state &#39;</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
-</span><span data-line="182">                <span class="p">)</span>
-</span><span data-line="183">
-</span><span data-line="184">        <span class="k">return</span> <span class="bp">self</span></div>
+</span><span data-line="95"><span class="nd">@final</span>
+</span><span data-line="96"><span class="k">class</span><span class="w"> </span><span class="nc">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="97">    <span class="n">WeightOnlyModuleValidationMixin</span><span class="p">,</span>
+</span><span data-line="98">    <span class="n">ModuleCompressionConfig</span><span class="p">[</span><span class="n">OpKMeansPalettizerConfig</span><span class="p">,</span> <span class="n">PalettizationSpec</span><span class="p">],</span>
+</span><span data-line="99"><span class="p">):</span>
+</span><span data-line="100"><span class="w">    </span><span class="sd">"""Configuration for palettizing a specific module using K-means clustering.</span>
+</span><span data-line="101">
+</span><span data-line="102"><span class="sd">    This class manages palettization settings for an entire module, including:</span>
+</span><span data-line="103">
+</span><span data-line="104"><span class="sd">    - Operation-level configurations (default, by type, by name)</span>
+</span><span data-line="105"><span class="sd">    - Module-level state (parameter) palettization</span>
+</span><span data-line="106">
+</span><span data-line="107"><span class="sd">    The operation configurations follow a hierarchical precedence:</span>
+</span><span data-line="108">
+</span><span data-line="109"><span class="sd">    1. op_name_config (most specific - applies to operations matching a name</span>
+</span><span data-line="110"><span class="sd">       pattern)</span>
+</span><span data-line="111"><span class="sd">    2. op_type_config (applies to operations of a specific type)</span>
+</span><span data-line="112"><span class="sd">    3. op_state_spec (least specific - applies to all operations not</span>
+</span><span data-line="113"><span class="sd">       otherwise configured)</span>
+</span><span data-line="114">
+</span><span data-line="115"><span class="sd">    Module-level state settings treat the module as an opaque entity,</span>
+</span><span data-line="116"><span class="sd">    setting palettization settings for specified tensors and ignoring op specific</span>
+</span><span data-line="117"><span class="sd">    palettization capabilities. Module-level settings also don't check whether the</span>
+</span><span data-line="118"><span class="sd">    operation receiving the palettized tensor is a registered operation or not.</span>
+</span><span data-line="119"><span class="sd">    Module-level settings will override any op specific settings.</span>
+</span><span data-line="120">
+</span><span data-line="121"><span class="sd">    Attributes:</span>
+</span><span data-line="122"><span class="sd">        op_state_spec (dict[str, PalettizationSpec | None] | None): Palettization</span>
+</span><span data-line="123"><span class="sd">            specifications for operation state tensors (parameters, buffers, constants)</span>
+</span><span data-line="124"><span class="sd">            applied to all registered operations/patterns within this module that don't</span>
+</span><span data-line="125"><span class="sd">            have a more specific configuration.</span>
+</span><span data-line="126"><span class="sd">            Keys can be string names (e.g. "weight", "bias") or "*" to refer to all</span>
+</span><span data-line="127"><span class="sd">            state inputs.</span>
+</span><span data-line="128"><span class="sd">            Values are PalettizationSpec objects or None defining how to palettize each</span>
+</span><span data-line="129"><span class="sd">            state tensor. None value represents disabling palettization.</span>
+</span><span data-line="130"><span class="sd">            Default: 4-bit palettization for "weight" and "in_proj_weight"</span>
+</span><span data-line="131"><span class="sd">            state tensors via ``default_weight_palettization_spec()``.</span>
+</span><span data-line="132">
+</span><span data-line="133"><span class="sd">        op_type_config (dict[str, OpKMeansPalettizerConfig | None] | None): Operation</span>
+</span><span data-line="134"><span class="sd">            type-specific configurations. Keys are operation type names (e.g.,</span>
+</span><span data-line="135"><span class="sd">            "aten.linear.default", "aten.conv2d.default"). Values are</span>
+</span><span data-line="136"><span class="sd">            OpKMeansPalettizerConfig objects or None, defining how to palettize</span>
+</span><span data-line="137"><span class="sd">            operations of that type. None value represents disabling palettization.</span>
+</span><span data-line="138"><span class="sd">            Default: {} (empty dict, no type-specific configs)</span>
+</span><span data-line="139">
+</span><span data-line="140"><span class="sd">        op_name_config (dict[str, OpKMeansPalettizerConfig | None] | None): Operation</span>
+</span><span data-line="141"><span class="sd">            name-specific configurations. Keys are operation name patterns</span>
+</span><span data-line="142"><span class="sd">            (supports regex matching). Values are OpKMeansPalettizerConfig objects or</span>
+</span><span data-line="143"><span class="sd">            None, defining how to palettize operations matching those names. None value</span>
+</span><span data-line="144"><span class="sd">            represents disabling palettization.</span>
+</span><span data-line="145"><span class="sd">            Default: {} (empty dict, no name-specific configs)</span>
+</span><span data-line="146">
+</span><span data-line="147"><span class="sd">        module_state_spec (dict[str, PalettizationSpec | None] | None): Palettization</span>
+</span><span data-line="148"><span class="sd">            specifications for module state tensors (parameters, buffers, and</span>
+</span><span data-line="149"><span class="sd">            constants). Module state settings will override op state settings for the</span>
+</span><span data-line="150"><span class="sd">            same state tensors.</span>
+</span><span data-line="151"><span class="sd">            Keys can be string names (e.g. "weight", "bias") or "*" to refer to all</span>
+</span><span data-line="152"><span class="sd">            state inputs.</span>
+</span><span data-line="153"><span class="sd">            Values are PalettizationSpec objects or None. None value represents</span>
+</span><span data-line="154"><span class="sd">            disabling palettization.</span>
+</span><span data-line="155"><span class="sd">            Default: {} (empty dict, no specific module state settings)</span>
+</span><span data-line="156">
+</span><span data-line="157"><span class="sd">        enable_fast_kmeans_mode (bool): When True, enables optimizations for faster</span>
+</span><span data-line="158"><span class="sd">            K-means clustering by rounding the weights before clustering if data is in</span>
+</span><span data-line="159"><span class="sd">            float16 range. If weight dtype is float32, weights are cast to float16 and</span>
+</span><span data-line="160"><span class="sd">            then rounded. This is not supported with ``cluster_dim &gt; 1``. Default: True.</span>
+</span><span data-line="161">
+</span><span data-line="162"><span class="sd">        rounding_precision (int): Number of decimal places to round to during fast</span>
+</span><span data-line="163"><span class="sd">            K-means clustering. Higher values preserve more precision but may reduce</span>
+</span><span data-line="164"><span class="sd">            speed benefits. Only used when enable_fast_kmeans_mode is True. Default: 4.</span>
+</span><span data-line="165">
+</span><span data-line="166"><span class="sd">        pat_schedule (PATSchedule | None): Schedule controlling when this</span>
+</span><span data-line="167"><span class="sd">            module's palettization is active during a training_mode() loop.</span>
+</span><span data-line="168"><span class="sd">            If None, palettization is active immediately once training_mode()</span>
+</span><span data-line="169"><span class="sd">            begins. Default: None.</span>
+</span><span data-line="170">
+</span><span data-line="171"><span class="sd">    Example:</span>
+</span><span data-line="172"><span class="sd">        &gt;&gt;&gt; config = ModuleKMeansPalettizerConfig()  # Uses defaults</span>
+</span><span data-line="173"><span class="sd">        &gt;&gt;&gt; # Or with custom settings:</span>
+</span><span data-line="174"><span class="sd">        &gt;&gt;&gt; from coreai_opt.palettization.spec import PalettizationSpec</span>
+</span><span data-line="175"><span class="sd">        &gt;&gt;&gt; config = ModuleKMeansPalettizerConfig(</span>
+</span><span data-line="176"><span class="sd">        ...     op_state_spec={"weight": PalettizationSpec(n_bits=2)},</span>
+</span><span data-line="177"><span class="sd">        ...     enable_fast_kmeans_mode=False,  # Disable for maximum precision</span>
+</span><span data-line="178"><span class="sd">        ...     rounding_precision=6  # Higher precision when fast mode is enabled</span>
+</span><span data-line="179"><span class="sd">        ... )</span>
+</span><span data-line="180"><span class="sd">    """</span>
+</span><span data-line="181">
+</span><span data-line="182">    <span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span data-line="183">        <span class="c1"># Prohibit subclassing due to preset limitation: presets remain bound</span>
+</span><span data-line="184">        <span class="c1"># to the base class. Revisit if subclass support is needed.</span>
+</span><span data-line="185">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="186">        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> cannot subclass ModuleKMeansPalettizerConfig (marked final)."</span>
+</span><span data-line="187">        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</span><span data-line="188">
+</span><span data-line="189">    <span class="n">enable_fast_kmeans_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="190">    <span class="n">rounding_precision</span><span class="p">:</span> <span class="n">PositiveInt</span> <span class="o">=</span> <span class="mi">4</span>
+</span><span data-line="191">    <span class="n">pat_schedule</span><span class="p">:</span> <span class="n">PATSchedule</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="192">
+</span><span data-line="193">    <span class="c1"># Namespace exposing built-in preset constructors.</span>
+</span><span data-line="194">    <span class="n">presets</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">_ModuleKMeansPalettizerConfigPresets</span><span class="p">]</span>
+</span><span data-line="195">
+</span><span data-line="196">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"after"</span><span class="p">)</span>
+</span><span data-line="197">    <span class="k">def</span><span class="w"> </span><span class="nf">validate_fast_kmeans_cluster_dim_constraint</span><span class="p">(</span>
+</span><span data-line="198">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="199">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">:</span>
+</span><span data-line="200"><span class="w">        </span><span class="sd">"""Validate that enable_fast_kmeans_mode is not True when cluster_dim &gt; 1."""</span>
+</span><span data-line="201">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">op_state_spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="202">            <span class="k">return</span> <span class="bp">self</span>
+</span><span data-line="203">
+</span><span data-line="204">        <span class="c1"># Check all palettization specs within op_state_spec</span>
+</span><span data-line="205">        <span class="k">for</span> <span class="n">state</span><span class="p">,</span> <span class="n">spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">op_state_spec</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="206">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_fast_kmeans_mode</span> <span class="ow">and</span> <span class="n">spec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">spec</span><span class="o">.</span><span class="n">cluster_dim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="207">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="208">                    <span class="sa">f</span><span class="s2">"enable_fast_kmeans_mode is not supported when cluster_dim &gt; 1. "</span>
+</span><span data-line="209">                    <span class="sa">f</span><span class="s2">"Got enable_fast_kmeans_mode=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">enable_fast_kmeans_mode</span><span class="si">}</span><span class="s2">, "</span>
+</span><span data-line="210">                    <span class="sa">f</span><span class="s2">"cluster_dim=</span><span class="si">{</span><span class="n">spec</span><span class="o">.</span><span class="n">cluster_dim</span><span class="si">}</span><span class="s2"> for state '</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">'"</span>
+</span><span data-line="211">                <span class="p">)</span>
+</span><span data-line="212">
+</span><span data-line="213">        <span class="k">return</span> <span class="bp">self</span>
+</span><span data-line="214">
+</span><span data-line="215">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_fake_module_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span data-line="216"><span class="w">        </span><span class="sd">"""Exclude palettizer-only fields from the fake-palettize constructor args."""</span>
+</span><span data-line="217">        <span class="n">base</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_get_fake_module_kwargs</span><span class="p">()</span>
+</span><span data-line="218">        <span class="n">base</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"pat_schedule"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="219">        <span class="k">return</span> <span class="n">base</span></div>
 
-</span><span data-line="185">
-</span><span data-line="186">
+</span><span data-line="220">
+</span><span data-line="221">
 <div class="viewcode-block" id="KMeansPalettizerConfig">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html#coreai_opt.palettization.KMeansPalettizerConfig">[docs]</a>
-</span><span data-line="187"><span class="nd">@final</span>
-</span><span data-line="188"><span class="k">class</span><span class="w"> </span><span class="nc">KMeansPalettizerConfig</span><span class="p">(</span><span class="n">CompressionConfig</span><span class="p">[</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">]):</span>
-</span><span data-line="189"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="190"><span class="sd">    Top-level configuration class for kmeans palettization.</span>
-</span><span data-line="191">
-</span><span data-line="192"><span class="sd">    This class manages the complete palettization configuration for a neural</span>
-</span><span data-line="193"><span class="sd">    network model, organizing module-level configurations in a hierarchical</span>
-</span><span data-line="194"><span class="sd">    structure. It inherits from CompressionConfig and specializes it for</span>
-</span><span data-line="195"><span class="sd">    palettization using ModuleKMeansPalettizerConfig.</span>
-</span><span data-line="196">
-</span><span data-line="197"><span class="sd">    The configuration lookup follows a hierarchical precedence (most to least</span>
-</span><span data-line="198"><span class="sd">    specific):</span>
-</span><span data-line="199">
-</span><span data-line="200"><span class="sd">    1. module_name_configs - Applies to module instances matching a name</span>
-</span><span data-line="201"><span class="sd">       pattern (supports regex)</span>
-</span><span data-line="202"><span class="sd">    2. module_type_configs - Applies to all modules of a specific type (e.g.,</span>
-</span><span data-line="203"><span class="sd">       torch.nn.modules.linear.Linear)</span>
-</span><span data-line="204"><span class="sd">    3. global_config - Default configuration applied to all modules not</span>
-</span><span data-line="205"><span class="sd">       otherwise configured</span>
-</span><span data-line="206">
-</span><span data-line="207"><span class="sd">    Attributes:</span>
-</span><span data-line="208"><span class="sd">        global_config (ModuleKMeansPalettizerConfig | None): Default module-level</span>
-</span><span data-line="209"><span class="sd">            palettization configuration applied to all modules that don&#39;t have</span>
-</span><span data-line="210"><span class="sd">            a more specific configuration. When KMeansPalettizerConfig is initialized</span>
-</span><span data-line="211"><span class="sd">            with no arguments, a default global_config is automatically created with</span>
-</span><span data-line="212"><span class="sd">            standard 4-bit palettization.</span>
-</span><span data-line="213"><span class="sd">            Setting global_config to None disables palettization by default globally.</span>
-</span><span data-line="214"><span class="sd">            Default: Auto-created with 4-bit palettization spec when no args provided</span>
-</span><span data-line="215">
-</span><span data-line="216"><span class="sd">        module_type_configs (dict[str, ModuleKMeansPalettizerConfig | None] | None):</span>
-</span><span data-line="217"><span class="sd">            Module type-specific configurations. Keys are fully-qualified module type</span>
-</span><span data-line="218"><span class="sd">            names (e.g., &quot;torch.nn.modules.linear.Linear&quot;,</span>
-</span><span data-line="219"><span class="sd">            &quot;torch.nn.modules.conv.Conv2d&quot;). Values are ModuleKMeansPalettizerConfig</span>
-</span><span data-line="220"><span class="sd">            objects or None to disable palettization for that module type.</span>
-</span><span data-line="221"><span class="sd">            Default: {} (empty dict, no type-specific configs)</span>
-</span><span data-line="222">
-</span><span data-line="223"><span class="sd">        module_name_configs (dict[str, ModuleKMeansPalettizerConfig | None] | None):</span>
-</span><span data-line="224"><span class="sd">            Module name-specific configurations. Keys are module name patterns</span>
-</span><span data-line="225"><span class="sd">            (supports regex matching, e.g., &quot;model.layer1.*&quot;,</span>
-</span><span data-line="226"><span class="sd">            &quot;decoder.layers.0&quot;). Values are ModuleKMeansPalettizerConfig objects or</span>
-</span><span data-line="227"><span class="sd">            None to disable palettization for matching modules.</span>
-</span><span data-line="228"><span class="sd">            Default: {} (empty dict, no name-specific configs)</span>
-</span><span data-line="229">
-</span><span data-line="230"><span class="sd">    Example:</span>
-</span><span data-line="231"><span class="sd">        &gt;&gt;&gt; import torch.nn as nn</span>
-</span><span data-line="232"><span class="sd">        &gt;&gt;&gt; config = KMeansPalettizerConfig()  # Uses defaults</span>
-</span><span data-line="233"><span class="sd">        &gt;&gt;&gt; # Or with custom settings:</span>
-</span><span data-line="234"><span class="sd">        &gt;&gt;&gt; config = KMeansPalettizerConfig(</span>
-</span><span data-line="235"><span class="sd">        ...     module_type_configs={nn.Linear: ModuleKMeansPalettizerConfig(...)},</span>
-</span><span data-line="236"><span class="sd">        ...     module_name_configs={&quot;layer1&quot;: None}  # Skip palettization</span>
-</span><span data-line="237"><span class="sd">        ... )</span>
-</span><span data-line="238"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="239">
-</span><span data-line="240">    <span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-</span><span data-line="241">        <span class="c1"># Prohibit subclassing due to preset limitation: presets remain bound</span>
-</span><span data-line="242">        <span class="c1"># to the base class. Revisit if subclass support is needed.</span>
-</span><span data-line="243">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span data-line="244">        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> cannot subclass KMeansPalettizerConfig (marked final).&quot;</span>
-</span><span data-line="245">        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-</span><span data-line="246">
-</span><span data-line="247">    <span class="c1"># Class attributes for config key pattern used in from_dict/from_yaml</span>
-</span><span data-line="248">    <span class="n">_CONFIG_KEY</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">_KMEANS_PALETTIZATION_CONFIG</span>
-</span><span data-line="249">    <span class="n">_SPEC_KEY</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">_PALETTIZATION_SPEC</span>
+</span><span data-line="222"><span class="nd">@final</span>
+</span><span data-line="223"><span class="k">class</span><span class="w"> </span><span class="nc">KMeansPalettizerConfig</span><span class="p">(</span><span class="n">CompressionConfig</span><span class="p">[</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">]):</span>
+</span><span data-line="224"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="225"><span class="sd">    Top-level configuration class for kmeans palettization.</span>
+</span><span data-line="226">
+</span><span data-line="227"><span class="sd">    This class manages the complete palettization configuration for a neural</span>
+</span><span data-line="228"><span class="sd">    network model, organizing module-level configurations in a hierarchical</span>
+</span><span data-line="229"><span class="sd">    structure. It inherits from CompressionConfig and specializes it for</span>
+</span><span data-line="230"><span class="sd">    palettization using ModuleKMeansPalettizerConfig.</span>
+</span><span data-line="231">
+</span><span data-line="232"><span class="sd">    The configuration lookup follows a hierarchical precedence (most to least</span>
+</span><span data-line="233"><span class="sd">    specific):</span>
+</span><span data-line="234">
+</span><span data-line="235"><span class="sd">    1. module_name_configs - Applies to module instances matching a name</span>
+</span><span data-line="236"><span class="sd">       pattern (supports regex)</span>
+</span><span data-line="237"><span class="sd">    2. module_type_configs - Applies to all modules of a specific type (e.g.,</span>
+</span><span data-line="238"><span class="sd">       torch.nn.modules.linear.Linear)</span>
+</span><span data-line="239"><span class="sd">    3. global_config - Default configuration applied to all modules not</span>
+</span><span data-line="240"><span class="sd">       otherwise configured</span>
+</span><span data-line="241">
+</span><span data-line="242"><span class="sd">    Attributes:</span>
+</span><span data-line="243"><span class="sd">        global_config (ModuleKMeansPalettizerConfig | None): Default module-level</span>
+</span><span data-line="244"><span class="sd">            palettization configuration applied to all modules that don't have</span>
+</span><span data-line="245"><span class="sd">            a more specific configuration. When KMeansPalettizerConfig is initialized</span>
+</span><span data-line="246"><span class="sd">            with no arguments, a default global_config is automatically created with</span>
+</span><span data-line="247"><span class="sd">            standard 4-bit palettization.</span>
+</span><span data-line="248"><span class="sd">            Setting global_config to None disables palettization by default globally.</span>
+</span><span data-line="249"><span class="sd">            Default: Auto-created with 4-bit palettization spec when no args provided</span>
 </span><span data-line="250">
-</span><span data-line="251">    <span class="c1"># Namespace exposing built-in and registered preset constructors.</span>
-</span><span data-line="252">    <span class="n">presets</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">_KMeansPalettizerConfigPresets</span><span class="p">]</span></div>
+</span><span data-line="251"><span class="sd">        module_type_configs (dict[str, ModuleKMeansPalettizerConfig | None] | None):</span>
+</span><span data-line="252"><span class="sd">            Module type-specific configurations. Keys are fully-qualified module type</span>
+</span><span data-line="253"><span class="sd">            names (e.g., "torch.nn.modules.linear.Linear",</span>
+</span><span data-line="254"><span class="sd">            "torch.nn.modules.conv.Conv2d"). Values are ModuleKMeansPalettizerConfig</span>
+</span><span data-line="255"><span class="sd">            objects or None to disable palettization for that module type.</span>
+</span><span data-line="256"><span class="sd">            Default: {} (empty dict, no type-specific configs)</span>
+</span><span data-line="257">
+</span><span data-line="258"><span class="sd">        module_name_configs (dict[str, ModuleKMeansPalettizerConfig | None] | None):</span>
+</span><span data-line="259"><span class="sd">            Module name-specific configurations. Keys are module name patterns</span>
+</span><span data-line="260"><span class="sd">            (supports regex matching, e.g., "model.layer1.*",</span>
+</span><span data-line="261"><span class="sd">            "decoder.layers.0"). Values are ModuleKMeansPalettizerConfig objects or</span>
+</span><span data-line="262"><span class="sd">            None to disable palettization for matching modules.</span>
+</span><span data-line="263"><span class="sd">            Default: {} (empty dict, no name-specific configs)</span>
+</span><span data-line="264">
+</span><span data-line="265"><span class="sd">    Example:</span>
+</span><span data-line="266"><span class="sd">        &gt;&gt;&gt; import torch.nn as nn</span>
+</span><span data-line="267"><span class="sd">        &gt;&gt;&gt; config = KMeansPalettizerConfig()  # Uses defaults</span>
+</span><span data-line="268"><span class="sd">        &gt;&gt;&gt; # Or with custom settings:</span>
+</span><span data-line="269"><span class="sd">        &gt;&gt;&gt; config = KMeansPalettizerConfig(</span>
+</span><span data-line="270"><span class="sd">        ...     module_type_configs={nn.Linear: ModuleKMeansPalettizerConfig(...)},</span>
+</span><span data-line="271"><span class="sd">        ...     module_name_configs={"layer1": None}  # Skip palettization</span>
+</span><span data-line="272"><span class="sd">        ... )</span>
+</span><span data-line="273"><span class="sd">    """</span>
+</span><span data-line="274">
+</span><span data-line="275">    <span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span data-line="276">        <span class="c1"># Prohibit subclassing due to preset limitation: presets remain bound</span>
+</span><span data-line="277">        <span class="c1"># to the base class. Revisit if subclass support is needed.</span>
+</span><span data-line="278">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="279">        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> cannot subclass KMeansPalettizerConfig (marked final)."</span>
+</span><span data-line="280">        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</span><span data-line="281">
+</span><span data-line="282">    <span class="c1"># Class attributes for config key pattern used in from_dict/from_yaml</span>
+</span><span data-line="283">    <span class="n">_CONFIG_KEY</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">_KMEANS_PALETTIZATION_CONFIG</span>
+</span><span data-line="284">    <span class="n">_SPEC_KEY</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">_PALETTIZATION_SPEC</span>
+</span><span data-line="285">
+</span><span data-line="286">    <span class="c1"># Namespace exposing built-in and registered preset constructors.</span>
+</span><span data-line="287">    <span class="n">presets</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">_KMeansPalettizerConfigPresets</span><span class="p">]</span></div>
 
-</span><span data-line="253">
-</span><span data-line="254">
-</span><span data-line="255"><span class="c1"># Preset wiring — after the class so _presets can resolve references at runtime.</span>
-</span><span data-line="256"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.config._presets</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>  <span class="c1"># noqa: E402, PLC0415</span>
-</span><span data-line="257">    <span class="n">_KMeansPalettizerConfigPresets</span><span class="p">,</span>
-</span><span data-line="258">    <span class="n">_ModuleKMeansPalettizerConfigPresets</span><span class="p">,</span>
-</span><span data-line="259"><span class="p">)</span>
-</span><span data-line="260">
-</span><span data-line="261"><span class="n">KMeansPalettizerConfig</span><span class="o">.</span><span class="n">presets</span> <span class="o">=</span> <span class="n">_KMeansPalettizerConfigPresets</span><span class="p">(</span><span class="n">owner_cls</span><span class="o">=</span><span class="n">KMeansPalettizerConfig</span><span class="p">)</span>
-</span><span data-line="262"><span class="n">ModuleKMeansPalettizerConfig</span><span class="o">.</span><span class="n">presets</span> <span class="o">=</span> <span class="n">_ModuleKMeansPalettizerConfigPresets</span><span class="p">(</span>
-</span><span data-line="263">    <span class="n">owner_cls</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span>
-</span><span data-line="264"><span class="p">)</span>
+</span><span data-line="288">
+</span><span data-line="289">
+</span><span data-line="290"><span class="c1"># Preset wiring — after the class so _presets can resolve references at runtime.</span>
+</span><span data-line="291"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.config._presets</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>  <span class="c1"># noqa: E402, PLC0415</span>
+</span><span data-line="292">    <span class="n">_KMeansPalettizerConfigPresets</span><span class="p">,</span>
+</span><span data-line="293">    <span class="n">_ModuleKMeansPalettizerConfigPresets</span><span class="p">,</span>
+</span><span data-line="294"><span class="p">)</span>
+</span><span data-line="295">
+</span><span data-line="296"><span class="n">KMeansPalettizerConfig</span><span class="o">.</span><span class="n">presets</span> <span class="o">=</span> <span class="n">_KMeansPalettizerConfigPresets</span><span class="p">(</span><span class="n">owner_cls</span><span class="o">=</span><span class="n">KMeansPalettizerConfig</span><span class="p">)</span>
+</span><span data-line="297"><span class="n">ModuleKMeansPalettizerConfig</span><span class="o">.</span><span class="n">presets</span> <span class="o">=</span> <span class="n">_ModuleKMeansPalettizerConfigPresets</span><span class="p">(</span>
+</span><span data-line="298">    <span class="n">owner_cls</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span>
+</span><span data-line="299"><span class="p">)</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

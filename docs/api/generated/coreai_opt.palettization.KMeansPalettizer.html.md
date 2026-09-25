@@ -27,8 +27,9 @@ Initialize the KMeans palettizer.
 | [`get_op_type_resolver`](#coreai_opt.palettization.KMeansPalettizer.get_op_type_resolver)()                    | Return a function that maps a torch function to its palettizable op type.                                       |
 | [`prepare`](#coreai_opt.palettization.KMeansPalettizer.prepare)(example_inputs[, sensitivity_path, ...])       | Prepare the model for palettization.                                                                            |
 | [`save_sensitivities`](#coreai_opt.palettization.KMeansPalettizer.save_sensitivities)(path)                    | Save sensitivity values from the prepared model to a file.                                                      |
+| [`step`](#coreai_opt.palettization.KMeansPalettizer.step)()                                                    | Advance the schedule by one step.                                                                               |
 | `supported_modules`()                                                                                          | Returns types of modules that are supported for compression with for a particular model optimization technique. |
-| `training_mode`([model])                                                                                       | Context manager for training time compression workflow.                                                         |
+| [`training_mode`](#coreai_opt.palettization.KMeansPalettizer.training_mode)()                                  | Context manager wrapping a training loop.                                                                       |
 
 #### calibration_mode(model=None, \*, loss_fn, sensitivity_path=None)
 
@@ -139,3 +140,15 @@ to apply the same weighted k-means clustering to a fresh model.
   * **ValueError** – If no sensitivities are found in the model
 * **Return type:**
   None
+
+#### step()
+
+Advance the schedule by one step. Must be called inside training_mode().
+
+* **Return type:**
+  None
+
+#### training_mode()
+
+Context manager wrapping a training loop. Mutually exclusive with
+calibration_mode().

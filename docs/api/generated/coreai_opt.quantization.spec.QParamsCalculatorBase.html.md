@@ -79,3 +79,7 @@ Compute and return `(scale, zero_point, minval)` for `tensor`.
 #### *property* granularity *: [QuantizationGranularity](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity)*
 
 Getter for granularity.
+
+#### *property* quantization_target
+
+Whether the quantized tensor is a weight or an activation.

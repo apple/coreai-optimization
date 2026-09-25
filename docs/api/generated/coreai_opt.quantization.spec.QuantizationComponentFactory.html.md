@@ -14,13 +14,14 @@ by centralizing the creation logic.
 
 ### Methods
 
-| [`construct`](#coreai_opt.quantization.spec.QuantizationComponentFactory.construct)(spec, target)                                      | Create a fake quantizer instance from a QuantizationSpec.                                                      |
-|----------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| [`construct_partial`](#coreai_opt.quantization.spec.QuantizationComponentFactory.construct_partial)(spec, target)                      | Create a fake quantizer partial object for deferred construction.                                              |
-| [`create_fake_quantizer`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_fake_quantizer)(spec, quantization_target) | Create a FakeQuantizeImplBase instance from a QuantizationSpec.                                                |
-| [`create_fake_quantizer_partial`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_fake_quantizer_partial)(spec, ...) | Create a fake quantizer partial object for deferred construction by the graph-mode prepare API (torchao PT2E). |
-| [`create_qparams_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_qparams_calculator)(spec, ...)         | Create a QParamsCalculatorBase instance from a QuantizationSpec.                                               |
-| [`create_range_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator)(spec)                  | Create a RangeCalculatorBase instance from a QuantizationSpec.                                                 |
+| [`construct`](#coreai_opt.quantization.spec.QuantizationComponentFactory.construct)(spec, target)                                                  | Create a fake quantizer instance from a QuantizationSpec.                                                      |
+|----------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| [`construct_partial`](#coreai_opt.quantization.spec.QuantizationComponentFactory.construct_partial)(spec, target)                                  | Create a fake quantizer partial object for deferred construction.                                              |
+| [`create_fake_quantizer`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_fake_quantizer)(spec, quantization_target)             | Create a FakeQuantizeImplBase instance from a QuantizationSpec.                                                |
+| [`create_fake_quantizer_partial`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_fake_quantizer_partial)(spec, ...)             | Create a fake quantizer partial object for deferred construction by the graph-mode prepare API (torchao PT2E). |
+| [`create_qparams_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_qparams_calculator)(spec, ...)                     | Create a QParamsCalculatorBase instance from a QuantizationSpec.                                               |
+| [`create_range_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator)(spec[, ...])                       | Create a RangeCalculatorBase instance from a QuantizationSpec.                                                 |
+| [`reconstruct_partial_qparams_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.reconstruct_partial_qparams_calculator)(...) | Return a new PartialConstructor whose qparams_calculator has attributes overridden.                            |
 
 #### *classmethod* construct(spec, target)
 
@@ -98,13 +99,34 @@ Create a QParamsCalculatorBase instance from a QuantizationSpec.
 * **Return type:**
   [*QParamsCalculatorBase*](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)
 
-#### *classmethod* create_range_calculator(spec)
+#### *classmethod* create_range_calculator(spec, quantization_target=CompressionTargetTensor.WEIGHT)
 
 Create a RangeCalculatorBase instance from a QuantizationSpec.
 
 * **Parameters:**
-  **spec** ([*QuantizationSpec*](coreai_opt.quantization.QuantizationSpec.md#coreai_opt.quantization.QuantizationSpec)) – QuantizationSpec instance containing configuration
+  * **spec** ([*QuantizationSpec*](coreai_opt.quantization.QuantizationSpec.md#coreai_opt.quantization.QuantizationSpec)) – QuantizationSpec instance containing configuration
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor)) – The target tensor for quantization (weight/activation).
 * **Returns:**
   RangeCalculatorBase instance configured from the spec
 * **Return type:**
   [*RangeCalculatorBase*](coreai_opt.quantization.spec.RangeCalculatorBase.md#coreai_opt.quantization.spec.RangeCalculatorBase)
+
+#### *classmethod* reconstruct_partial_qparams_calculator(partial_ctr, \*\*kwargs)
+
+Return a new PartialConstructor whose qparams_calculator has attributes overridden.
+
+The replacement wraps the existing `qparams_calculator` callable arg so that
+each freshly constructed calculator has the given attributes set before it is
+returned.  All overridden attributes (e.g. `float_range`, `qscheme`) are
+plain instance attributes on `QParamsCalculatorBase` that are read lazily
+during `forward()`, so post-construction mutation is safe as long as no
+forward pass has run yet.
+
+* **Parameters:**
+  * **partial_ctr** (*PartialConstructor*) – The existing fake-quantizer partial to update.
+  * **\*\*kwargs** (*Any*) – Attribute name/value pairs to set on the calculator instance.
+* **Returns:**
+  A new PartialConstructor whose qparams_calculator factory applies the
+  overrides.
+* **Return type:**
+  *PartialConstructor*

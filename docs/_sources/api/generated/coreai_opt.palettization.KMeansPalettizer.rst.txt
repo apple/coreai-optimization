@@ -18,6 +18,7 @@
       ~KMeansPalettizer.get_op_type_resolver
       ~KMeansPalettizer.prepare
       ~KMeansPalettizer.save_sensitivities
+      ~KMeansPalettizer.step
       ~KMeansPalettizer.supported_modules
       ~KMeansPalettizer.training_mode
    

@@ -1,0 +1,6 @@
+﻿coreai\_opt.DependencyVersionWarning
+====================================
+
+.. currentmodule:: coreai_opt
+
+.. autoexception:: DependencyVersionWarning

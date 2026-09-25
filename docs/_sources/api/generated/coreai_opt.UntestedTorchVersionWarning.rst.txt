@@ -1,0 +1,6 @@
+﻿coreai\_opt.UntestedTorchVersionWarning
+=======================================
+
+.. currentmodule:: coreai_opt
+
+.. autoexception:: UntestedTorchVersionWarning

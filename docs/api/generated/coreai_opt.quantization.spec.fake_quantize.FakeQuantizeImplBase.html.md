@@ -1,6 +1,6 @@
 # coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase
 
-### *class* coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase(dtype, qscheme, qformulation, granularity, target_dtype, quant_min, quant_max, qparams_calculator, quantization_target, n_bits=None, \*\*kwargs)
+### *class* coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase(dtype, qformulation, granularity, target_dtype, quant_min, quant_max, qparams_calculator, n_bits=None, \*\*kwargs)
 
 Bases: [`CompressionSimulatorBase`](coreai_opt.config.spec.CompressionSimulatorBase.md#coreai_opt.config.spec.CompressionSimulatorBase), `FakeQuantizeBase`
 
@@ -8,30 +8,26 @@ Base class for implementing fake quantization
 
 * **Parameters:**
   * **dtype** (*torch.dtype*)
-  * **qscheme** ([*QuantizationScheme*](coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme))
   * **qformulation** ([*QuantizationFormulation*](coreai_opt.quantization.spec.QuantizationFormulation.md#coreai_opt.quantization.spec.QuantizationFormulation))
   * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
   * **target_dtype** (*torch.dtype*)
   * **quant_min** (*int* *|* *float*)
   * **quant_max** (*int* *|* *float*)
   * **qparams_calculator** ([*QParamsCalculatorBase*](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase))
-  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
   * **n_bits** (*int* *|* *None*)
 
-#### \_\_init_\_(dtype, qscheme, qformulation, granularity, target_dtype, quant_min, quant_max, qparams_calculator, quantization_target, n_bits=None, \*\*kwargs)
+#### \_\_init_\_(dtype, qformulation, granularity, target_dtype, quant_min, quant_max, qparams_calculator, n_bits=None, \*\*kwargs)
 
 Initialize internal Module state, shared by both nn.Module and ScriptModule.
 
 * **Parameters:**
   * **dtype** (*dtype*)
-  * **qscheme** ([*QuantizationScheme*](coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme))
   * **qformulation** ([*QuantizationFormulation*](coreai_opt.quantization.spec.QuantizationFormulation.md#coreai_opt.quantization.spec.QuantizationFormulation))
   * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
   * **target_dtype** (*dtype*)
   * **quant_min** (*int* *|* *float*)
   * **quant_max** (*int* *|* *float*)
   * **qparams_calculator** ([*QParamsCalculatorBase*](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase))
-  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
   * **n_bits** (*int* *|* *None*)
 
 ### Methods
@@ -44,6 +40,7 @@ Initialize internal Module state, shared by both nn.Module and ScriptModule.
 | [`enable_observer`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer)([enabled])               | Inverse of `disable_observer`: ignore `enabled=False` when the qparams calculator is stateless.                                                                                                                                     |
 | [`extra_repr`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr)()                                  | Return the extra representation of the module.                                                                                                                                                                                      |
 | [`forward`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward)(tensor)                                  | Performs fake quantization of the given tensor using the qparams (scale, zero point, minval) computed by the QParamsCalculator.                                                                                                     |
+| [`get_block_size`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.get_block_size)(tensor_shape)              | Resolve this module's granularity to a concrete block extent per dimension.                                                                                                                                                         |
 | `get_class`(key)                                                                                                               |                                                                                                                                                                                                                                     |
 | [`is_disabled`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.is_disabled)()                                | Return True if fake quantization has been disabled.                                                                                                                                                                                 |
 | `list_registry_keys`()                                                                                                         |                                                                                                                                                                                                                                     |
@@ -140,6 +137,15 @@ Performs fake quantization of the given tensor using the qparams
 * **Return type:**
   *Tensor*
 
+#### get_block_size(tensor_shape)
+
+Resolve this module’s granularity to a concrete block extent per dimension.
+
+* **Parameters:**
+  **tensor_shape** (*Size*)
+* **Return type:**
+  tuple[int, …]
+
 #### is_disabled()
 
 Return True if fake quantization has been disabled.
@@ -187,3 +193,18 @@ Set or unset export mode.
 #### *property* granularity *: [QuantizationGranularity](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity)*
 
 Getter for granularity.
+
+#### *property* is_stateless *: bool*
+
+Whether the qparams calculator holds no buffers.
+
+A stateless calculator recomputes the qparams on every forward, measuring from
+the tensor being quantized.
+
+#### *property* qscheme *: [QuantizationScheme](coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme)*
+
+The quantization scheme, delegated to the qparams_calculator.
+
+#### *property* quantization_target *: [CompressionTargetTensor](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor)*
+
+Getter for quantization target.

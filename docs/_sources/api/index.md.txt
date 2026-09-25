@@ -9,7 +9,10 @@ coreai_opt - A library for PyTorch model compression and optimizations.
    :toctree: generated
 
    coreai_opt.CoreMLExportError
+   coreai_opt.DependencyVersionWarning
    coreai_opt.ExportBackend
+   coreai_opt.TorchaoTorchIncompatibilityWarning
+   coreai_opt.UntestedTorchVersionWarning
 ```
 
 ## coreai_opt.casting
@@ -89,6 +92,7 @@ Utilities for inspecting model operations and compression configuration.
 .. autosummary::
    :toctree: generated
 
+   coreai_opt.inspection.BitsPerWeightResult
    coreai_opt.inspection.BoundaryEdge
    coreai_opt.inspection.InputEdge
    coreai_opt.inspection.ModelInspector
@@ -97,6 +101,7 @@ Utilities for inspecting model operations and compression configuration.
    coreai_opt.inspection.ModuleInfo
    coreai_opt.inspection.OpInfo
    coreai_opt.inspection.SourceFrame
+   coreai_opt.inspection.bits_per_weight
 ```
 
 ## coreai_opt.palettization
@@ -122,6 +127,7 @@ Palettization configuration classes.
    :toctree: generated
 
    coreai_opt.palettization.config.OpKMeansPalettizerConfig
+   coreai_opt.palettization.config.PATSchedule
 ```
 
 ### coreai_opt.palettization.spec
@@ -132,9 +138,12 @@ Palettization specs, granularity classes, and factory functions.
 .. autosummary::
    :toctree: generated
 
+   coreai_opt.palettization.spec.DefaultTrainingSpec
    coreai_opt.palettization.spec.PalettizationGranularity
    coreai_opt.palettization.spec.PerGroupedChannelGranularity
    coreai_opt.palettization.spec.PerTensorGranularity
+   coreai_opt.palettization.spec.TrainingStrategy
+   coreai_opt.palettization.spec.TrainingStrategySpec
    coreai_opt.palettization.spec.default_weight_palettization_spec
 ```
 
@@ -190,6 +199,7 @@ Quantization compressor, configuration, specs, and granularity classes.
    :toctree: generated
 
    coreai_opt.quantization.ExecutionMode
+   coreai_opt.quantization.InvalidExecutionModeError
    coreai_opt.quantization.ModuleQuantizerConfig
    coreai_opt.quantization.QuantizationSpec
    coreai_opt.quantization.Quantizer
@@ -236,6 +246,8 @@ Quantization specs, schemes, granularity classes, and parameter calculators.
    coreai_opt.quantization.spec.StaticQParamsCalculator
    coreai_opt.quantization.spec.default_activation_quantization_spec
    coreai_opt.quantization.spec.default_weight_quantization_spec
+   coreai_opt.quantization.spec.fp4_forward
+   coreai_opt.quantization.spec.resolve_block_sizes
 ```
 
 ### coreai_opt.quantization.spec.fake_quantize

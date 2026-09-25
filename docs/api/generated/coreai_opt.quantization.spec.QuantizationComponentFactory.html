@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../palettization/index.html">Palettization</a><ul>
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -247,6 +271,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.create_fake_quantizer_partial"><code class="docutils literal notranslate">create_fake_quantizer_partial()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.create_qparams_calculator"><code class="docutils literal notranslate">create_qparams_calculator()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator"><code class="docutils literal notranslate">create_range_calculator()</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.reconstruct_partial_qparams_calculator"><code class="docutils literal notranslate">reconstruct_partial_qparams_calculator()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -348,8 +373,11 @@ by centralizing the creation logic.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.create_qparams_calculator" title="coreai_opt.quantization.spec.QuantizationComponentFactory.create_qparams_calculator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_qparams_calculator</span></code></a>(spec, ...)</p></td>
 <td><p>Create a QParamsCalculatorBase instance from a QuantizationSpec.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator" title="coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_range_calculator</span></code></a>(spec)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator" title="coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_range_calculator</span></code></a>(spec[, ...])</p></td>
 <td><p>Create a RangeCalculatorBase instance from a QuantizationSpec.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.reconstruct_partial_qparams_calculator" title="coreai_opt.quantization.spec.QuantizationComponentFactory.reconstruct_partial_qparams_calculator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reconstruct_partial_qparams_calculator</span></code></a>(...)</p></td>
+<td><p>Return a new PartialConstructor whose qparams_calculator has attributes overridden.</p></td>
 </tr>
 </tbody>
 </table>
@@ -486,17 +514,47 @@ qparams_calculator.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create_range_calculator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spec</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/factory.html#QuantizationComponentFactory.create_range_calculator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create_range_calculator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantization_target</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">CompressionTargetTensor.WEIGHT</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/factory.html#QuantizationComponentFactory.create_range_calculator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator" title="Link to this definition">¶</a></dt>
 <dd><p>Create a RangeCalculatorBase instance from a QuantizationSpec.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>spec</strong> (<a class="reference internal" href="coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec" title="coreai_opt.quantization.spec.spec.QuantizationSpec"><em>QuantizationSpec</em></a>) – QuantizationSpec instance containing configuration</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spec</strong> (<a class="reference internal" href="coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec" title="coreai_opt.quantization.spec.spec.QuantizationSpec"><em>QuantizationSpec</em></a>) – QuantizationSpec instance containing configuration</p></li>
+<li><p><strong>quantization_target</strong> (<a class="reference internal" href="coreai_opt.config.spec.CompressionTargetTensor.html#coreai_opt.config.spec.CompressionTargetTensor" title="coreai_opt.config.spec.factory.CompressionTargetTensor"><em>CompressionTargetTensor</em></a>) – The target tensor for quantization (weight/activation).</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>RangeCalculatorBase instance configured from the spec</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="coreai_opt.quantization.spec.RangeCalculatorBase.html#coreai_opt.quantization.spec.RangeCalculatorBase" title="coreai_opt.quantization.spec.range_calculator.RangeCalculatorBase"><em>RangeCalculatorBase</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coreai_opt.quantization.spec.QuantizationComponentFactory.reconstruct_partial_qparams_calculator">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">reconstruct_partial_qparams_calculator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">partial_ctr</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/factory.html#QuantizationComponentFactory.reconstruct_partial_qparams_calculator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.spec.QuantizationComponentFactory.reconstruct_partial_qparams_calculator" title="Link to this definition">¶</a></dt>
+<dd><p>Return a new PartialConstructor whose qparams_calculator has attributes overridden.</p>
+<p>The replacement wraps the existing <code class="docutils literal notranslate"><span class="pre">qparams_calculator</span></code> callable arg so that
+each freshly constructed calculator has the given attributes set before it is
+returned.  All overridden attributes (e.g. <code class="docutils literal notranslate"><span class="pre">float_range</span></code>, <code class="docutils literal notranslate"><span class="pre">qscheme</span></code>) are
+plain instance attributes on <code class="docutils literal notranslate"><span class="pre">QParamsCalculatorBase</span></code> that are read lazily
+during <code class="docutils literal notranslate"><span class="pre">forward()</span></code>, so post-construction mutation is safe as long as no
+forward pass has run yet.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>partial_ctr</strong> (<em>PartialConstructor</em>) – The existing fake-quantizer partial to update.</p></li>
+<li><p><strong>**kwargs</strong> (<em>Any</em>) – Attribute name/value pairs to set on the calculator instance.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A new PartialConstructor whose qparams_calculator factory applies the
+overrides.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>PartialConstructor</em></p>
 </dd>
 </dl>
 </dd></dl>

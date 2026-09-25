@@ -1,0 +1,6 @@
+﻿coreai\_opt.quantization.spec.resolve\_block\_sizes
+===================================================
+
+.. currentmodule:: coreai_opt.quantization.spec
+
+.. autofunction:: resolve_block_sizes

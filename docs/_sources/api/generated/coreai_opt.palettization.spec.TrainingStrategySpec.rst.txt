@@ -1,0 +1,14 @@
+﻿coreai\_opt.palettization.spec.TrainingStrategySpec
+===================================================
+
+.. currentmodule:: coreai_opt.palettization.spec
+
+.. autopydantic_model:: TrainingStrategySpec
+
+   
+   
+   
+
+   
+   
+   

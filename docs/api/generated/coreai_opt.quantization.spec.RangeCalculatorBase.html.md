@@ -1,6 +1,6 @@
 # coreai_opt.quantization.spec.RangeCalculatorBase
 
-### *class* coreai_opt.quantization.spec.RangeCalculatorBase(granularity, \*\*kwargs)
+### *class* coreai_opt.quantization.spec.RangeCalculatorBase(granularity, quantization_target=CompressionTargetTensor.WEIGHT, \*\*kwargs)
 
 Bases: `ClassRegistryMixin`, `Module`
 
@@ -8,12 +8,14 @@ Base class and registry for classes used to compute the range
 of a given tensor.
 
 * **Parameters:**
-  **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
 
-#### \_\_init_\_(granularity, \*\*kwargs)
+#### \_\_init_\_(granularity, quantization_target=CompressionTargetTensor.WEIGHT, \*\*kwargs)
 
 * **Parameters:**
-  **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
 
 ### Methods
 

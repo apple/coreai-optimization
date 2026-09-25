@@ -1,0 +1,22 @@
+﻿coreai\_opt.palettization.spec.TrainingStrategy
+===============================================
+
+.. currentmodule:: coreai_opt.palettization.spec
+
+.. autoclass:: TrainingStrategy
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~TrainingStrategy.train_forward
+   
+   
+
+   
+   
+   

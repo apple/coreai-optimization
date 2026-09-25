@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="palettization/index.html">Palettization</a><ul>
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -239,13 +263,19 @@ data-aria-dark="Switch to auto color mode">
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#id1">0.2.1 - 2026-07-02</a><ul>
+<li><a class="reference internal" href="#id1">0.3.0 - 2026-09-25</a><ul>
 <li><a class="reference internal" href="#added">Added</a></li>
+<li><a class="reference internal" href="#changed">Changed</a></li>
 <li><a class="reference internal" href="#fixed">Fixed</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id2">0.2.0 - 2026-06-08</a><ul>
+<li><a class="reference internal" href="#id2">0.2.1 - 2026-07-02</a><ul>
 <li><a class="reference internal" href="#id3">Added</a></li>
+<li><a class="reference internal" href="#id4">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id5">0.2.0 - 2026-06-08</a><ul>
+<li><a class="reference internal" href="#id6">Added</a></li>
 </ul>
 </li>
 </ul>
@@ -317,26 +347,64 @@ data-aria-dark="Switch to auto color mode">
 and this project adheres to <a class="reference external" href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <!-- towncrier release notes start -->
 <section id="id1">
-<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/releases/tag/v0.2.1">0.2.1</a> - 2026-07-02<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/compare/v0.2.1...v0.3.0/">0.3.0</a> - 2026-09-25<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
 <section id="added">
 <h3>Added<a class="headerlink" href="#added" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Support <code class="docutils literal notranslate"><span class="pre">ignored_ops</span></code> in <code class="docutils literal notranslate"><span class="pre">cast_fp32_to_fp16</span></code> and <code class="docutils literal notranslate"><span class="pre">cast_to_16_bit_precision</span></code> to allow users to exclude sensitive operations (e.g. operations causing activation-level overflow like <code class="docutils literal notranslate"><span class="pre">exp</span></code> or <code class="docutils literal notranslate"><span class="pre">softplus</span></code>) from FP16 casting, keeping them in FP32 with appropriate boundary casts.</p></li>
+<li><p>Add training-aware palettization to <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code> via a <code class="docutils literal notranslate"><span class="pre">training_mode()</span></code> context manager and <code class="docutils literal notranslate"><span class="pre">step()</span></code> method, with a <code class="docutils literal notranslate"><span class="pre">PATSchedule</span></code> (<code class="docutils literal notranslate"><span class="pre">pat_schedule</span></code> on the module config) controlling when palettization activates during a training loop. <code class="docutils literal notranslate"><span class="pre">PalettizationSpec</span></code> gains a <code class="docutils literal notranslate"><span class="pre">training_strategy_spec</span></code> field for selecting pluggable training-time strategies.</p></li>
+<li><p>Added support for torchao 0.18.0.</p></li>
+<li><p>Added support for PyTorch 2.12 and 2.13.</p></li>
+<li><p>Graph mode quantization support with Core AI composite ops. Added tests and documentation for usage details.</p></li>
+<li><p>Add utility to compute analytical bits per weight (BPW) of a prepared eager-mode quantized or palettized model</p></li>
+<li><p>Support for memory-efficient finalize in graph mode via <code class="docutils literal notranslate"><span class="pre">finalize(...,</span> <span class="pre">mmap_dir=...)</span></code>, previously available only in eager mode. Supported with the Core AI backend only.</p></li>
+<li><p>Support new coreai-torch and coreai-core releases</p></li>
+</ul>
+</section>
+<section id="changed">
+<h3>Changed<a class="headerlink" href="#changed" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Replace the coremltools-based 1D k-means used by palettization with a vendored C++ core that is JIT-compiled at runtime via <code class="docutils literal notranslate"><span class="pre">torch.utils.cpp_extension</span></code>. <code class="docutils literal notranslate"><span class="pre">coremltools</span></code> is no longer a runtime dependency (it is now an optional dependency, installable via the <code class="docutils literal notranslate"><span class="pre">coreml</span></code> extra). This requires a C++ compiler to be available on the host at runtime.</p></li>
+<li><p>Carry the next planned release with a <code class="docutils literal notranslate"><span class="pre">.dev0</span></code> suffix on <code class="docutils literal notranslate"><span class="pre">main</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">0.2.2.dev0</span></code>). <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build</span></code> strips the suffix for a clean release and <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build-dev</span></code> builds a unique, timestamped dev wheel (<code class="docutils literal notranslate"><span class="pre">0.2.2.dev&lt;timestamp&gt;+&lt;shortsha&gt;</span></code>). A repo that vendors this one can insert one extra release segment via the <code class="docutils literal notranslate"><span class="pre">COREAI_OPT_VERSION_EXTENSION</span></code> environment variable to extend the version scheme.</p></li>
+<li><p>When a weight is incompatible with the configured quantization block size or palettization granularity, the warning now reports the weight’s fully qualified name and shape along with the module name to use in <code class="docutils literal notranslate"><span class="pre">module_name_configs</span></code>, instead of only the compression target.</p></li>
+<li><p>Re-cluster palettization centroids from the warmed-up weights when a <code class="docutils literal notranslate"><span class="pre">PATSchedule</span></code> enables fake palettization mid-training (<code class="docutils literal notranslate"><span class="pre">enable_fake_palettize</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>).</p></li>
+<li><p>Remove upper bound on torch, torchao. Add untested message for untested versions on coreai-opt</p></li>
+</ul>
+</section>
+<section id="fixed">
+<h3>Fixed<a class="headerlink" href="#fixed" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fix setting of qscheme and float_range for fixed output range ops.</p></li>
+<li><p>Fix graph-mode <code class="docutils literal notranslate"><span class="pre">Quantizer</span></code> resolving a tied weight’s QAT schedule from a different module than its dtype. A shared fake-quantize module’s owning module is now picked by the same config priority that decides its <code class="docutils literal notranslate"><span class="pre">dtype</span></code>, instead of by graph order, so the schedule and dtype for a shared weight always come from one consistent module.</p></li>
+<li><p>Reject per-channel activation quantization on CoreML export</p></li>
+<li><p>Fix per-channel activation quantization crashing with a shape-mismatch <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> on MaxPool/AvgPool/AdaptiveAvgPool layers whose shared observer spans an axis the pool shrinks (e.g. a spatial axis under a stride&gt;1 pool). Axes pooling never touches (batch, channel) keep working as per-channel; only the specific unsafe axis falls back to per-tensor, with a warning explaining why and how to pick a safe axis instead.</p></li>
+<li><p>Fix eager Quantizer.prepare failing on models that call a supported op whose inputs are all scalars or single-element tensors</p></li>
+<li><p>Ensure <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer.calibration_mode</span></code> cleans up temporary model checkpoints on failure and preserves caller exceptions without masking. Prevent fake palettization from remaining disabled after calibration abort, and fix sensitivity parameter name resolution for root modules.</p></li>
+<li><p>Finalized models in graph mode no longer contain the unused original full precision weights similar to eager mode</p></li>
+</ul>
+</section>
+</section>
+<section id="id2">
+<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/compare/v0.2.0...v0.2.1/">0.2.1</a> - 2026-07-02<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<section id="id3">
+<h3>Added<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Support palettization of <code class="docutils literal notranslate"><span class="pre">ConvTranspose1d</span></code>/<code class="docutils literal notranslate"><span class="pre">ConvTranspose2d</span></code>/<code class="docutils literal notranslate"><span class="pre">ConvTranspose3d</span></code> layers via <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code></p></li>
 <li><p>Support for <code class="docutils literal notranslate"><span class="pre">EAGER</span></code> execution mode in model inspection utility</p></li>
 </ul>
 </section>
-<section id="fixed">
-<h3>Fixed<a class="headerlink" href="#fixed" title="Link to this heading">¶</a></h3>
+<section id="id4">
+<h3>Fixed<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Fixed pruning mask <code class="docutils literal notranslate"><span class="pre">dtype</span></code> to match that of the weight being pruned</p></li>
 <li><p>Fixes to allow better support for <code class="docutils literal notranslate"><span class="pre">bfloat16</span></code> <code class="docutils literal notranslate"><span class="pre">dtype</span></code> in palettization and quantization</p></li>
 </ul>
 </section>
 </section>
-<section id="id2">
-<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/releases/tag/v0.2.0">0.2.0</a> - 2026-06-08<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
-<section id="id3">
-<h3>Added<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<section id="id5">
+<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/commits/v0.2.0/">0.2.0</a> - 2026-06-08<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<section id="id6">
+<h3>Added<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Initial release of <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code>. See the <a class="reference external" href="https://github.com/apple/coreai-optimization/releases/">GitHub Releases</a> page for release notes.</p></li>
 </ul>

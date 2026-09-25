@@ -1,0 +1,16 @@
+﻿coreai\_opt.inspection.BitsPerWeightResult
+==========================================
+
+.. currentmodule:: coreai_opt.inspection
+
+.. autoclass:: BitsPerWeightResult
+
+   
+   .. automethod:: __init__
+
+   
+   
+
+   
+   
+   

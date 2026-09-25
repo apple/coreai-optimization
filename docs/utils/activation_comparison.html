@@ -2,14 +2,14 @@
 <html lang="en" data-accent-color="indigo" data-content_root="../">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Comparing Intermediate Activations - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="16-bit PyTorch Model Casting" href="casting.html" /><link rel="prev" title="Inspecting PyTorch Model Structure" href="model_inspection.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Comparing Intermediate Activations - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="16-bit PyTorch Model Casting" href="casting.html" /><link rel="prev" title="Mixed-Precision Compression" href="mixed_precision.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../palettization/index.html">Palettization</a><ul>
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -337,11 +361,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="2">
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">def</span><span class="w"> </span><span class="nf">snr_db</span><span class="p">(</span><span class="n">reference</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">noisy</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="5"><span class="w">    </span><span class="sd">&quot;&quot;&quot;SNR in dB between a reference tensor and a noisy approximation of it.&quot;&quot;&quot;</span>
+</span><span data-line="5"><span class="w">    </span><span class="sd">"""SNR in dB between a reference tensor and a noisy approximation of it."""</span>
 </span><span data-line="6">    <span class="n">signal_power</span> <span class="o">=</span> <span class="n">reference</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 </span><span data-line="7">    <span class="n">noise_power</span> <span class="o">=</span> <span class="p">(</span><span class="n">reference</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">-</span> <span class="n">noisy</span><span class="o">.</span><span class="n">float</span><span class="p">())</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 </span><span data-line="8">    <span class="k">if</span> <span class="n">noise_power</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="9">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="9">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
 </span><span data-line="10">    <span class="k">return</span> <span class="mf">10.0</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">signal_power</span> <span class="o">/</span> <span class="n">noise_power</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </span></pre></div>
 </div>
@@ -417,7 +441,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="11"><span class="c1"># Save weight copies before prepare — prepare() registers parametrizations in-place,</span>
 </span><span data-line="12"><span class="c1"># making .weight return the fake-quantized value on both models after this point.</span>
 </span><span data-line="13"><span class="n">original_weights</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="14">    <span class="n">name</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span> <span class="k">if</span> <span class="s2">&quot;weight&quot;</span> <span class="ow">in</span> <span class="n">name</span>
+</span><span data-line="14">    <span class="n">name</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span> <span class="k">if</span> <span class="s2">"weight"</span> <span class="ow">in</span> <span class="n">name</span>
 </span><span data-line="15"><span class="p">}</span>
 </span><span data-line="16">
 </span><span data-line="17"><span class="c1"># Capture float activations before preparing.</span>
@@ -432,13 +456,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="26">
 </span><span data-line="27"><span class="c1"># Print weight SNR.</span>
 </span><span data-line="28"><span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">orig_w</span> <span class="ow">in</span> <span class="n">original_weights</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span data-line="29">    <span class="n">module_name</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.weight&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="29">    <span class="n">module_name</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">".weight"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 </span><span data-line="30">    <span class="n">quant_w</span> <span class="o">=</span> <span class="n">prepared_model</span><span class="o">.</span><span class="n">get_submodule</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span><span class="o">.</span><span class="n">weight</span>
-</span><span data-line="31">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: SNR = </span><span class="si">{</span><span class="n">snr_db</span><span class="p">(</span><span class="n">orig_w</span><span class="p">,</span><span class="w"> </span><span class="n">quant_w</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> dB&quot;</span><span class="p">)</span>
+</span><span data-line="31">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: SNR = </span><span class="si">{</span><span class="n">snr_db</span><span class="p">(</span><span class="n">orig_w</span><span class="p">,</span><span class="w"> </span><span class="n">quant_w</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> dB"</span><span class="p">)</span>
 </span><span data-line="32">
 </span><span data-line="33"><span class="c1"># Print activation SNR.</span>
 </span><span data-line="34"><span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">target_names</span><span class="p">:</span>
-</span><span data-line="35">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: SNR = </span><span class="si">{</span><span class="n">snr_db</span><span class="p">(</span><span class="n">fp_acts</span><span class="p">[</span><span class="n">name</span><span class="p">],</span><span class="w"> </span><span class="n">q_acts</span><span class="p">[</span><span class="n">name</span><span class="p">])</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> dB&quot;</span><span class="p">)</span>
+</span><span data-line="35">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: SNR = </span><span class="si">{</span><span class="n">snr_db</span><span class="p">(</span><span class="n">fp_acts</span><span class="p">[</span><span class="n">name</span><span class="p">],</span><span class="w"> </span><span class="n">q_acts</span><span class="p">[</span><span class="n">name</span><span class="p">])</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> dB"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 <p>Running <code class="docutils literal notranslate"><span class="pre">ToyModel</span></code> with the default INT8 config produces:</p>
@@ -491,7 +515,7 @@ graph LR
 </span><span data-line="3">
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">class</span><span class="w"> </span><span class="nc">ActivationCollector</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">fx</span><span class="o">.</span><span class="n">Interpreter</span><span class="p">):</span>
-</span><span data-line="6"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Run an fx.GraphModule and capture every tensor output, keyed by node name.&quot;&quot;&quot;</span>
+</span><span data-line="6"><span class="w">    </span><span class="sd">"""Run an fx.GraphModule and capture every tensor output, keyed by node name."""</span>
 </span><span data-line="7">
 </span><span data-line="8">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">graph_module</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">):</span>
 </span><span data-line="9">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">graph_module</span><span class="p">)</span>
@@ -516,10 +540,10 @@ graph LR
 <h3>Mapping ops to their fake-quantize nodes<a class="headerlink" href="#mapping-ops-to-their-fake-quantize-nodes" title="Link to this heading">¶</a></h3>
 <p>When the prepared graph adds an <code class="docutils literal notranslate"><span class="pre">activation_post_process</span></code> node consuming an op’s output, the <em>quantized</em> counterpart of that op output lives on the FQ, not on the op itself. Build the lookup with a single walk over the prepared graph:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">def</span><span class="w"> </span><span class="nf">op_to_fq</span><span class="p">(</span><span class="n">prepared</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-</span><span data-line="2"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Map each op (or weight/input) to the activation_post_process node consuming it.&quot;&quot;&quot;</span>
+</span><span data-line="2"><span class="w">    </span><span class="sd">"""Map each op (or weight/input) to the activation_post_process node consuming it."""</span>
 </span><span data-line="3">    <span class="n">mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="4">    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">prepared</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
-</span><span data-line="5">        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">!=</span> <span class="s2">&quot;call_module&quot;</span> <span class="ow">or</span> <span class="s2">&quot;activation_post_process&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span>
+</span><span data-line="5">        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span> <span class="o">!=</span> <span class="s2">"call_module"</span> <span class="ow">or</span> <span class="s2">"activation_post_process"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span>
 </span><span data-line="6">            <span class="n">node</span><span class="o">.</span><span class="n">target</span>
 </span><span data-line="7">        <span class="p">):</span>
 </span><span data-line="8">            <span class="k">continue</span>
@@ -530,12 +554,12 @@ graph LR
 </div>
 <p>This map covers <em>everything</em> the prepared graph fake-quantizes — weights, inputs, and op outputs alike. For a <code class="docutils literal notranslate"><span class="pre">Conv2d</span> <span class="pre">→</span> <span class="pre">ReLU</span> <span class="pre">→</span> <span class="pre">Linear</span></code> model with default quantization, the map looks like:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="p">{</span>
-</span><span data-line="2">    <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;activation_post_process_0&quot;</span><span class="p">,</span>  <span class="c1"># input FQ</span>
-</span><span data-line="3">    <span class="s2">&quot;conv_weight&quot;</span><span class="p">:</span> <span class="s2">&quot;activation_post_process_1&quot;</span><span class="p">,</span>  <span class="c1"># weight FQ</span>
-</span><span data-line="4">    <span class="s2">&quot;relu&quot;</span><span class="p">:</span> <span class="s2">&quot;activation_post_process_2&quot;</span><span class="p">,</span>  <span class="c1"># output FQ for the conv→relu fused chain</span>
-</span><span data-line="5">    <span class="s2">&quot;flatten&quot;</span><span class="p">:</span> <span class="s2">&quot;activation_post_process_3&quot;</span><span class="p">,</span>  <span class="c1"># shared quantizer through flatten</span>
-</span><span data-line="6">    <span class="s2">&quot;linear_weight&quot;</span><span class="p">:</span> <span class="s2">&quot;activation_post_process_4&quot;</span><span class="p">,</span>  <span class="c1"># weight FQ</span>
-</span><span data-line="7">    <span class="s2">&quot;linear&quot;</span><span class="p">:</span> <span class="s2">&quot;activation_post_process_5&quot;</span><span class="p">,</span>  <span class="c1"># output FQ</span>
+</span><span data-line="2">    <span class="s2">"x"</span><span class="p">:</span> <span class="s2">"activation_post_process_0"</span><span class="p">,</span>  <span class="c1"># input FQ</span>
+</span><span data-line="3">    <span class="s2">"conv_weight"</span><span class="p">:</span> <span class="s2">"activation_post_process_1"</span><span class="p">,</span>  <span class="c1"># weight FQ</span>
+</span><span data-line="4">    <span class="s2">"relu"</span><span class="p">:</span> <span class="s2">"activation_post_process_2"</span><span class="p">,</span>  <span class="c1"># output FQ for the conv→relu fused chain</span>
+</span><span data-line="5">    <span class="s2">"flatten"</span><span class="p">:</span> <span class="s2">"activation_post_process_3"</span><span class="p">,</span>  <span class="c1"># shared quantizer through flatten</span>
+</span><span data-line="6">    <span class="s2">"linear_weight"</span><span class="p">:</span> <span class="s2">"activation_post_process_4"</span><span class="p">,</span>  <span class="c1"># weight FQ</span>
+</span><span data-line="7">    <span class="s2">"linear"</span><span class="p">:</span> <span class="s2">"activation_post_process_5"</span><span class="p">,</span>  <span class="c1"># output FQ</span>
 </span><span data-line="8"><span class="p">}</span>
 </span></pre></div>
 </div>
@@ -571,7 +595,7 @@ graph LR
 </span><span data-line="22">    <span class="n">target</span> <span class="o">=</span> <span class="n">fq_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 </span><span data-line="23">    <span class="k">if</span> <span class="n">target</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">quant_acts</span> <span class="ow">or</span> <span class="n">fp</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">quant_acts</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
 </span><span data-line="24">        <span class="k">continue</span>
-</span><span data-line="25">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">20s</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">target</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2"> SNR = </span><span class="si">{</span><span class="n">snr_db</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="w"> </span><span class="n">quant_acts</span><span class="p">[</span><span class="n">target</span><span class="p">])</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> dB&quot;</span><span class="p">)</span>
+</span><span data-line="25">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">20s</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">target</span><span class="si">:</span><span class="s2">30s</span><span class="si">}</span><span class="s2"> SNR = </span><span class="si">{</span><span class="n">snr_db</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span><span class="w"> </span><span class="n">quant_acts</span><span class="p">[</span><span class="n">target</span><span class="p">])</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> dB"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 <p>You get one SNR row per <em>node</em> — weights, inputs, and op outputs alike.</p>
@@ -613,10 +637,10 @@ graph LR
   </svg>
   <span>Back to top</span>
 </button><div class="navigation flex print:hidden"><div class="navigation-prev">
-    <a href="model_inspection.html">
+    <a href="mixed_precision.html">
       <i class="i-lucide chevron-left"></i>
       <div class="page-info">
-        <span>Previous</span><div class="title">Inspecting PyTorch Model Structure</div></div>
+        <span>Previous</span><div class="title">Mixed-Precision Compression</div></div>
     </a>
   </div><div class="navigation-next">
     <a href="casting.html">

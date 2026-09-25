@@ -73,6 +73,11 @@ For end-to-end examples on API usage and common workflows, see [MNIST examples](
   * [Symmetric vs asymmetric quantization](advanced.md#symmetric-vs-asymmetric-quantization)
   * [Quantization Defaults for Known-Range Activations](advanced.md#quantization-defaults-for-known-range-activations)
   * [Customization options](advanced.md#customization-options)
+* [Quantization with Composite Ops](composite_op_quantization.md)
+  * [Example](composite_op_quantization.md#example)
+  * [Patch original model with custom ops](composite_op_quantization.md#patch-original-model-with-custom-ops)
+  * [Extract exported programs for submodules](composite_op_quantization.md#extract-exported-programs-for-submodules)
+  * [Notes](composite_op_quantization.md#notes)
 
 
 # index.html.md
@@ -100,15 +105,18 @@ For end-to-end examples on API usage and common workflows, see [MNIST examples](
 
 coreai_opt - A library for PyTorch model compression and optimizations.
 
-| [`coreai_opt.CoreMLExportError`](generated/coreai_opt.CoreMLExportError.md#coreai_opt.CoreMLExportError)(dtype, context)   | Raised when a model cannot be exported to the CoreML backend.   |
-|----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
-| [`coreai_opt.ExportBackend`](generated/coreai_opt.ExportBackend.md#coreai_opt.ExportBackend)(value, \*args, \*\*kwargs)    | Enum representing supported model export backends.              |
+| [`coreai_opt.CoreMLExportError`](generated/coreai_opt.CoreMLExportError.md#coreai_opt.CoreMLExportError)(message)                                           | Raised when a model cannot be exported to the CoreML backend.                   |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
+| [`coreai_opt.DependencyVersionWarning`](generated/coreai_opt.DependencyVersionWarning.md#coreai_opt.DependencyVersionWarning)                               | Base category for the dependency version checks run at import.                  |
+| [`coreai_opt.ExportBackend`](generated/coreai_opt.ExportBackend.md#coreai_opt.ExportBackend)(value, \*args, \*\*kwargs)                                     | Enum representing supported model export backends.                              |
+| [`coreai_opt.TorchaoTorchIncompatibilityWarning`](generated/coreai_opt.TorchaoTorchIncompatibilityWarning.md#coreai_opt.TorchaoTorchIncompatibilityWarning) | The installed torchao and torch are a known-incompatible pair.                  |
+| [`coreai_opt.UntestedTorchVersionWarning`](generated/coreai_opt.UntestedTorchVersionWarning.md#coreai_opt.UntestedTorchVersionWarning)                      | The installed torch is newer than the highest version coreai-opt tests against. |
 
 ## coreai_opt.casting
 
 Casting related utilities including FP32 -> FP16 and INT32 -> INT16 passes.
 
-| [`coreai_opt.casting.cast_fp32_to_fp16`](generated/coreai_opt.casting.cast_fp32_to_fp16.md#coreai_opt.casting.cast_fp32_to_fp16)(...)                      | Convert a torch exported program from FP32 to FP16 where applicable.                |
+| [`coreai_opt.casting.cast_fp32_to_fp16`](generated/coreai_opt.casting.cast_fp32_to_fp16.md#coreai_opt.casting.cast_fp32_to_fp16)(...[, ...])               | Convert a torch exported program from FP32 to FP16 where applicable.                |
 |------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | [`coreai_opt.casting.cast_int32_to_int16`](generated/coreai_opt.casting.cast_int32_to_int16.md#coreai_opt.casting.cast_int32_to_int16)(...)                | Convert INT32/INT64 tensors to INT16 in a torch exported program.                   |
 | [`coreai_opt.casting.cast_to_16_bit_precision`](generated/coreai_opt.casting.cast_to_16_bit_precision.md#coreai_opt.casting.cast_to_16_bit_precision)(...) | Convert a torch exported program to 16-bit precision: FP32→FP16 and INT32/64→INT16. |
@@ -157,15 +165,17 @@ Common enums and constants for coreai_opt.coreai_utils.
 
 Utilities for inspecting model operations and compression configuration.
 
-| [`coreai_opt.inspection.BoundaryEdge`](generated/coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)(op, index)        | A single data-flow edge crossing a module boundary.                       |
-|----------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| [`coreai_opt.inspection.InputEdge`](generated/coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge)(op, output_idx)            | One input edge into an op, pairing the producing op with its output slot. |
-| [`coreai_opt.inspection.ModelInspector`](generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector)(model, ...) | Inspect operations in a PyTorch model for compression configuration.      |
-| [`coreai_opt.inspection.ModelSummary`](generated/coreai_opt.inspection.ModelSummary.md#coreai_opt.inspection.ModelSummary)(model, mode)      | Complete listing of operations discovered in a model.                     |
-| [`coreai_opt.inspection.ModuleContext`](generated/coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext)(...)           | One level of the `nn.Module` nesting hierarchy.                           |
-| [`coreai_opt.inspection.ModuleInfo`](generated/coreai_opt.inspection.ModuleInfo.md#coreai_opt.inspection.ModuleInfo)(...)                    | A node in the `nn.Module` hierarchy with its directly-owned ops.          |
-| [`coreai_opt.inspection.OpInfo`](generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)(op_name, ...)                       | Information about a single operation discovered in a model.               |
-| [`coreai_opt.inspection.SourceFrame`](generated/coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame)(filename, ...)       | A single frame in the source call stack leading to an operation.          |
+| [`coreai_opt.inspection.BitsPerWeightResult`](generated/coreai_opt.inspection.BitsPerWeightResult.md#coreai_opt.inspection.BitsPerWeightResult)(...)   | Result of a bits-per-weight computation.                                  |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| [`coreai_opt.inspection.BoundaryEdge`](generated/coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge)(op, index)                  | A single data-flow edge crossing a module boundary.                       |
+| [`coreai_opt.inspection.InputEdge`](generated/coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge)(op, output_idx)                      | One input edge into an op, pairing the producing op with its output slot. |
+| [`coreai_opt.inspection.ModelInspector`](generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector)(model, ...)           | Inspect operations in a PyTorch model for compression configuration.      |
+| [`coreai_opt.inspection.ModelSummary`](generated/coreai_opt.inspection.ModelSummary.md#coreai_opt.inspection.ModelSummary)(model, mode)                | Complete listing of operations discovered in a model.                     |
+| [`coreai_opt.inspection.ModuleContext`](generated/coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext)(...)                     | One level of the `nn.Module` nesting hierarchy.                           |
+| [`coreai_opt.inspection.ModuleInfo`](generated/coreai_opt.inspection.ModuleInfo.md#coreai_opt.inspection.ModuleInfo)(...)                              | A node in the `nn.Module` hierarchy with its directly-owned ops.          |
+| [`coreai_opt.inspection.OpInfo`](generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo)(op_name, ...)                                 | Information about a single operation discovered in a model.               |
+| [`coreai_opt.inspection.SourceFrame`](generated/coreai_opt.inspection.SourceFrame.md#coreai_opt.inspection.SourceFrame)(filename, ...)                 | A single frame in the source call stack leading to an operation.          |
+| [`coreai_opt.inspection.bits_per_weight`](generated/coreai_opt.inspection.bits_per_weight.md#coreai_opt.inspection.bits_per_weight)(model)             | Compute the average bits-per-weight of a prepared `coreai-opt` model.     |
 
 ## coreai_opt.palettization
 
@@ -183,16 +193,20 @@ Palettization configuration classes.
 
 | [`coreai_opt.palettization.config.OpKMeansPalettizerConfig`](generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.md#coreai_opt.palettization.config.OpKMeansPalettizerConfig)   | Configuration class for palettization at the operation level.   |
 |------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
+| [`coreai_opt.palettization.config.PATSchedule`](generated/coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule)                                          | Schedule for enabling palettization-aware training (PAT).       |
 
 ### coreai_opt.palettization.spec
 
 Palettization specs, granularity classes, and factory functions.
 
-| [`coreai_opt.palettization.spec.PalettizationGranularity`](generated/coreai_opt.palettization.spec.PalettizationGranularity.md#coreai_opt.palettization.spec.PalettizationGranularity)                              | Base class for palettization granularity specifications.   |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------|
-| [`coreai_opt.palettization.spec.PerGroupedChannelGranularity`](generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.md#coreai_opt.palettization.spec.PerGroupedChannelGranularity)                  | Per-grouped-channel palettization granularity.             |
-| [`coreai_opt.palettization.spec.PerTensorGranularity`](generated/coreai_opt.palettization.spec.PerTensorGranularity.md#coreai_opt.palettization.spec.PerTensorGranularity)                                          | Per-tensor palettization granularity.                      |
-| [`coreai_opt.palettization.spec.default_weight_palettization_spec`](generated/coreai_opt.palettization.spec.default_weight_palettization_spec.md#coreai_opt.palettization.spec.default_weight_palettization_spec)() |                                                            |
+| [`coreai_opt.palettization.spec.DefaultTrainingSpec`](generated/coreai_opt.palettization.spec.DefaultTrainingSpec.md#coreai_opt.palettization.spec.DefaultTrainingSpec)                                             | Settings for the default, post-training one-shot k-means strategy.   |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| [`coreai_opt.palettization.spec.PalettizationGranularity`](generated/coreai_opt.palettization.spec.PalettizationGranularity.md#coreai_opt.palettization.spec.PalettizationGranularity)                              | Base class for palettization granularity specifications.             |
+| [`coreai_opt.palettization.spec.PerGroupedChannelGranularity`](generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.md#coreai_opt.palettization.spec.PerGroupedChannelGranularity)                  | Per-grouped-channel palettization granularity.                       |
+| [`coreai_opt.palettization.spec.PerTensorGranularity`](generated/coreai_opt.palettization.spec.PerTensorGranularity.md#coreai_opt.palettization.spec.PerTensorGranularity)                                          | Per-tensor palettization granularity.                                |
+| [`coreai_opt.palettization.spec.TrainingStrategy`](generated/coreai_opt.palettization.spec.TrainingStrategy.md#coreai_opt.palettization.spec.TrainingStrategy)()                                                    | Contract for a fake-palettize module's training-time forward pass.   |
+| [`coreai_opt.palettization.spec.TrainingStrategySpec`](generated/coreai_opt.palettization.spec.TrainingStrategySpec.md#coreai_opt.palettization.spec.TrainingStrategySpec)                                          | Base class for a fake-palettize module's training-strategy settings. |
+| [`coreai_opt.palettization.spec.default_weight_palettization_spec`](generated/coreai_opt.palettization.spec.default_weight_palettization_spec.md#coreai_opt.palettization.spec.default_weight_palettization_spec)() |                                                                      |
 
 ## coreai_opt.pruning
 
@@ -229,12 +243,13 @@ Pruning spec components: specs, schemes, and parametrizations.
 
 Quantization compressor, configuration, specs, and granularity classes.
 
-| [`coreai_opt.quantization.ExecutionMode`](generated/coreai_opt.quantization.ExecutionMode.md#coreai_opt.quantization.ExecutionMode)(value, ...)             | Enum representing quantization execution modes.                                                         |
-|-------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
-| [`coreai_opt.quantization.ModuleQuantizerConfig`](generated/coreai_opt.quantization.ModuleQuantizerConfig.md#coreai_opt.quantization.ModuleQuantizerConfig) | Configuration class for quantization at the module level.                                               |
-| [`coreai_opt.quantization.QuantizationSpec`](generated/coreai_opt.quantization.QuantizationSpec.md#coreai_opt.quantization.QuantizationSpec)                | Specification for quantizing tensors in neural networks.                                                |
-| [`coreai_opt.quantization.Quantizer`](generated/coreai_opt.quantization.Quantizer.md#coreai_opt.quantization.Quantizer)(model[, ...])                       | Unified quantizer API that provides a single entry point for various quantization workflows, including: |
-| [`coreai_opt.quantization.QuantizerConfig`](generated/coreai_opt.quantization.QuantizerConfig.md#coreai_opt.quantization.QuantizerConfig)                   | Top-level configuration class for quantization.                                                         |
+| [`coreai_opt.quantization.ExecutionMode`](generated/coreai_opt.quantization.ExecutionMode.md#coreai_opt.quantization.ExecutionMode)(value, ...)                              | Enum representing quantization execution modes.                                                         |
+|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| [`coreai_opt.quantization.InvalidExecutionModeError`](generated/coreai_opt.quantization.InvalidExecutionModeError.md#coreai_opt.quantization.InvalidExecutionModeError)(...) | Raised when an execution mode is not a recognized ExecutionMode value.                                  |
+| [`coreai_opt.quantization.ModuleQuantizerConfig`](generated/coreai_opt.quantization.ModuleQuantizerConfig.md#coreai_opt.quantization.ModuleQuantizerConfig)                  | Configuration class for quantization at the module level.                                               |
+| [`coreai_opt.quantization.QuantizationSpec`](generated/coreai_opt.quantization.QuantizationSpec.md#coreai_opt.quantization.QuantizationSpec)                                 | Specification for quantizing tensors in neural networks.                                                |
+| [`coreai_opt.quantization.Quantizer`](generated/coreai_opt.quantization.Quantizer.md#coreai_opt.quantization.Quantizer)(model[, ...])                                        | Unified quantizer API that provides a single entry point for various quantization workflows, including: |
+| [`coreai_opt.quantization.QuantizerConfig`](generated/coreai_opt.quantization.QuantizerConfig.md#coreai_opt.quantization.QuantizerConfig)                                    | Top-level configuration class for quantization.                                                         |
 
 ### coreai_opt.quantization.config
 
@@ -269,6 +284,8 @@ Quantization specs, schemes, granularity classes, and parameter calculators.
 | [`coreai_opt.quantization.spec.StaticQParamsCalculator`](generated/coreai_opt.quantization.spec.StaticQParamsCalculator.md#coreai_opt.quantization.spec.StaticQParamsCalculator)(...)                                     | Computes scale/zero-point/minval using min/max values from the current tensor.                      |
 | [`coreai_opt.quantization.spec.default_activation_quantization_spec`](generated/coreai_opt.quantization.spec.default_activation_quantization_spec.md#coreai_opt.quantization.spec.default_activation_quantization_spec)() |                                                                                                     |
 | [`coreai_opt.quantization.spec.default_weight_quantization_spec`](generated/coreai_opt.quantization.spec.default_weight_quantization_spec.md#coreai_opt.quantization.spec.default_weight_quantization_spec)()             |                                                                                                     |
+| [`coreai_opt.quantization.spec.fp4_forward`](generated/coreai_opt.quantization.spec.fp4_forward.md#coreai_opt.quantization.spec.fp4_forward)(tensor)                                                                      | Round to the nearest FP4 E2M1 value, returned in fp32.                                              |
+| [`coreai_opt.quantization.spec.resolve_block_sizes`](generated/coreai_opt.quantization.spec.resolve_block_sizes.md#coreai_opt.quantization.spec.resolve_block_sizes)(...)                                                 | Resolve a per-axis block partition against the shape it applies to.                                 |
 
 ### coreai_opt.quantization.spec.fake_quantize
 
@@ -289,6 +306,7 @@ Fake quantization implementation base class and default implementation.
 * [API Overview](overview.md)
   * [Vanilla K-means API](overview.md#vanilla-k-means-api)
   * [Sensitive K-means API](overview.md#sensitive-k-means-api)
+  * [Training a Palettized model](overview.md#training-a-palettized-model)
 * [Config API](config.md)
   * [PalettizationSpec](config.md#palettizationspec)
   * [Config classes and their defaults](config.md#config-classes-and-their-defaults)
@@ -753,17 +771,28 @@ The `qscheme` controls how these bins are distributed around zero, by determinin
 
 ## Quantization Defaults for Known-Range Activations
 
-In graph mode, certain ops have known output ranges. For these ops, the user’s `qscheme` setting is not respected — the activation is always treated as asymmetric or symmetric depending on the op, regardless of what the user configured. The treatment also differs between `relu` and the `sigmoid` / `tanh` family. For `relu`, only `qscheme` is overridden; `dtype`, scale, and zero point are still derived from the user’s spec and calibration data. For `sigmoid` and `tanh`, scale, zero point, **and** `dtype` are pinned to fixed values (always `torch.uint8`, ignoring whatever `dtype` the user configured).
+In graph mode, certain activation ops have analytically known output ranges. For these ops, the quantizer overrides the `qscheme` and `float_range` of the qparams calculator at prepare time, regardless of what the user configured. The user’s `dtype` is always preserved — these adjustments do not change the number of bits or the signed/unsigned choice.
 
-| Op        | Output range   | Always treated as   | Scale     | Zero point   |
-|-----------|----------------|---------------------|-----------|--------------|
-| `relu`    | [0, ∞)         | asymmetric          | dynamic   | dynamic      |
-| `sigmoid` | [0, 1]         | asymmetric          | `1 / 256` | `0`          |
-| `tanh`    | [-1, 1]        | symmetric           | `2 / 256` | `128`        |
+The scale and zero point values in the table below assume the default `int8` dtype. For other dtypes, the same formulas apply with the appropriate `quant_min` / `quant_max`.
 
-**Relu**: Treated as asymmetric. The user’s `qscheme` is ignored, but `dtype`, scale, and zero point are still derived from the user’s spec and calibration data. The zero point follows `zero_point = quant_min - round(min_val / scale)`. Since `relu`’s observed min is always `0`, the zero point very commonly ends up near `quant_min` (e.g., `-128` for `int8`).
+| Op            | Output range        | `qscheme`   | `float_range`   | Scale (int8)   | Zero point (int8)   |
+|---------------|---------------------|-------------|-----------------|----------------|---------------------|
+| `hardsigmoid` | [0, 1]              | asymmetric  | (0, 1)          | 1 / 255        | −128                |
+| `hardtanh`    | Depends (see below) | Depends     | Depends         | Depends        | Depends             |
+| `relu`        | [0, ∞)              | asymmetric  | (0, None)       | dynamic        | −128                |
+| `relu6`       | [0, 6]              | asymmetric  | (0, 6)          | 6 / 255        | −128                |
+| `sigmoid`     | [0, 1]              | asymmetric  | (0, 1)          | 1 / 255        | −128                |
+| `tanh`        | [−1, 1]             | symmetric   | (−1, 1)         | 2 / 255        | 0                   |
 
-> **Motivation for asymmetric `relu` and `sigmoid`**: Both ops produce non-negative outputs. With symmetric quantization, the zero point sits at the center of the quantized range, placing half the bins in negative territory that these ops never produce. Those bins are effectively wasted — no floating-point value will ever map to them, reducing quantization resolution by half. Asymmetric treatment shifts the zero point toward the edge of the range so all bins cover values the op actually produces.
+**Relu**: The lower bound of `float_range` is pinned to 0 and `qscheme` is set to asymmetric. Because the observed minimum is always 0, the zero point is fixed at `quant_min` (−128 for int8) and stays there regardless of calibration data. The upper bound remains `None` (data-driven), so the scale continues to update during calibration.
+
+**Sigmoid and hardsigmoid**: Both `qscheme` and `float_range` are fully pinned. Scale and zero point are entirely determined by the dtype and the fixed output range — calibration data has no effect on them.
+
+**Tanh**: `qscheme` (symmetric) and `float_range` (−1, 1) are fully pinned. Scale and zero point are entirely determined by the dtype and range.
+
+**Hardtanh**: Bounds are read from the op’s node arguments at prepare time, so the effective range and qscheme depend on how the op was configured. If `min_val == −max_val` the range is symmetric around zero and `qscheme` is set to symmetric; otherwise `qscheme` is set to asymmetric. Both ends of `float_range` are pinned to the configured bounds. `relu6` is a special case of `hardtanh(0, 6)` and is handled identically.
+
+> **Motivation for asymmetric treatment**: Symmetric quantization places the zero point at the center of the quantized range. For `relu`, `sigmoid`, and `hardsigmoid`, whose outputs are always non-negative, symmetric quantization places half the bins in negative territory that the op never produces — wasting half the available resolution. Asymmetric quantization shifts the zero point to the edge of the range so that all bins cover values the op actually generates. For `tanh` and symmetric `hardtanh`, the output is centered at zero so both halves of the range are used equally, and symmetric quantization is appropriate.
 
 Eager mode does not perform these adjustments — all activations are quantized uniformly using the user-configured spec.
 
@@ -1106,7 +1135,7 @@ These passes mutate the `ExportedProgram` in place and may change the dtypes of 
 
 The two casting passes apply different selection criteria, resulting in different levels of aggressiveness.
 
-**FP32 → FP16.** The FP pass is relatively aggressive: it attempts to cast all floating-point state and operations to FP16 by default. The main exception is numerical safety — tensors whose values exceed the FP16 representable range (approximately ±65504) are left in FP32 to avoid overflow.
+**FP32 → FP16.** The FP pass is relatively aggressive: it attempts to cast all floating-point state and operations to FP16 by default. The main exception is numerical safety — tensors whose values exceed the FP16 representable range (approximately ±65504) are left in FP32 to avoid overflow. Users can also provide `ignored_ops` (as a set/collection of `OpOverload` or `OpOverloadPacket` instances such as `{torch.ops.aten.exp}`, or as a predicate function `Callable[[torch.fx.Node], bool]`) to `cast_fp32_to_fp16` or `cast_to_16_bit_precision` to explicitly preserve specific operations in FP32 to avoid intermediate activation overflow.
 
 **INT32/INT64 → INT16.** The INT pass is more conservative. Rather than casting all integer tensors, it targets only those that are likely to benefit without risking correctness. A tensor is skipped if any of the following apply:
 
@@ -1224,7 +1253,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
-## [0.2.1](https://github.com/apple/coreai-optimization/releases/tag/v0.2.1) - 2026-07-02
+## [0.3.0](https://github.com/apple/coreai-optimization/compare/v0.2.1...v0.3.0/) - 2026-09-25
+
+### Added
+
+- Support `ignored_ops` in `cast_fp32_to_fp16` and `cast_to_16_bit_precision` to allow users to exclude sensitive operations (e.g. operations causing activation-level overflow like `exp` or `softplus`) from FP16 casting, keeping them in FP32 with appropriate boundary casts.
+- Add training-aware palettization to `KMeansPalettizer` via a `training_mode()` context manager and `step()` method, with a `PATSchedule` (`pat_schedule` on the module config) controlling when palettization activates during a training loop. `PalettizationSpec` gains a `training_strategy_spec` field for selecting pluggable training-time strategies.
+- Added support for torchao 0.18.0.
+- Added support for PyTorch 2.12 and 2.13.
+- Graph mode quantization support with Core AI composite ops. Added tests and documentation for usage details.
+- Add utility to compute analytical bits per weight (BPW) of a prepared eager-mode quantized or palettized model
+- Support for memory-efficient finalize in graph mode via `finalize(..., mmap_dir=...)`, previously available only in eager mode. Supported with the Core AI backend only.
+- Support new coreai-torch and coreai-core releases
+
+### Changed
+
+- Replace the coremltools-based 1D k-means used by palettization with a vendored C++ core that is JIT-compiled at runtime via `torch.utils.cpp_extension`. `coremltools` is no longer a runtime dependency (it is now an optional dependency, installable via the `coreml` extra). This requires a C++ compiler to be available on the host at runtime.
+- Carry the next planned release with a `.dev0` suffix on `main` (e.g. `0.2.2.dev0`). `make build` strips the suffix for a clean release and `make build-dev` builds a unique, timestamped dev wheel (`0.2.2.dev<timestamp>+<shortsha>`). A repo that vendors this one can insert one extra release segment via the `COREAI_OPT_VERSION_EXTENSION` environment variable to extend the version scheme.
+- When a weight is incompatible with the configured quantization block size or palettization granularity, the warning now reports the weight’s fully qualified name and shape along with the module name to use in `module_name_configs`, instead of only the compression target.
+- Re-cluster palettization centroids from the warmed-up weights when a `PATSchedule` enables fake palettization mid-training (`enable_fake_palettize > 0`).
+- Remove upper bound on torch, torchao. Add untested message for untested versions on coreai-opt
+
+### Fixed
+
+- Fix setting of qscheme and float_range for fixed output range ops.
+- Fix graph-mode `Quantizer` resolving a tied weight’s QAT schedule from a different module than its dtype. A shared fake-quantize module’s owning module is now picked by the same config priority that decides its `dtype`, instead of by graph order, so the schedule and dtype for a shared weight always come from one consistent module.
+- Reject per-channel activation quantization on CoreML export
+- Fix per-channel activation quantization crashing with a shape-mismatch `RuntimeError` on MaxPool/AvgPool/AdaptiveAvgPool layers whose shared observer spans an axis the pool shrinks (e.g. a spatial axis under a stride>1 pool). Axes pooling never touches (batch, channel) keep working as per-channel; only the specific unsafe axis falls back to per-tensor, with a warning explaining why and how to pick a safe axis instead.
+- Fix eager Quantizer.prepare failing on models that call a supported op whose inputs are all scalars or single-element tensors
+- Ensure `KMeansPalettizer.calibration_mode` cleans up temporary model checkpoints on failure and preserves caller exceptions without masking. Prevent fake palettization from remaining disabled after calibration abort, and fix sensitivity parameter name resolution for root modules.
+- Finalized models in graph mode no longer contain the unused original full precision weights similar to eager mode
+
+## [0.2.1](https://github.com/apple/coreai-optimization/compare/v0.2.0...v0.2.1/) - 2026-07-02
 
 ### Added
 
@@ -1236,11 +1296,139 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed pruning mask `dtype` to match that of the weight being pruned
 - Fixes to allow better support for `bfloat16` `dtype` in palettization and quantization
 
-## [0.2.0](https://github.com/apple/coreai-optimization/releases/tag/v0.2.0) - 2026-06-08
+## [0.2.0](https://github.com/apple/coreai-optimization/commits/v0.2.0/) - 2026-06-08
 
 ### Added
 
 - Initial release of `coreai-opt`. See the [GitHub Releases](https://github.com/apple/coreai-optimization/releases/) page for release notes.
+
+
+# composite_op_quantization.html.md
+
+# Quantization with Composite Ops
+
+Core AI recognizes certain well-known building blocks, such as SDPA or RMSNorm, as *composite ops* and applies optimized implementations for them at runtime. These composite ops are available via the [coreai_torch.composite_ops](https://apple.github.io/coreai-torch/main/api/composite-ops.html) API. When a PyTorch model uses one of these ops, it can be converted to Core AI using one of the following APIs:
+
+- **Using `TorchConverter.add_pytorch_module()` along with the `externalize_modules` arg**: As described in the [coreai-torch composite ops guide](https://apple.github.io/coreai-torch/main/guides/composite-ops.html), this approach takes as input an `nn.Module` torch model, along with the composite op torch module, specified via the  *[externalize_modules](https://apple.github.io/coreai-torch/main/guides/externalization.html)* arg. Any `coreai-opt` optimizer that yields a torch model of type `nn.Module` can be converted using this API.
+- **Using `TorchConverter.add_exported_program()`** : This [coreai-torch API](https://apple.github.io/coreai-torch/main/api/TorchConverter.html#add-exported-program) operates on an already exported torch program. When using `coreai-opt`’s quantizer with [graph execution mode](overview.md#two-execution-modes-graph-and-eager), which results in a torch `ExportedProgram`, there are a few additional steps required to ensure correct conversion and externalization of the composite op modules. This process is explained below with an example.
+
+## Example
+
+This example uses the same `RMSNormComposite` op from the [Externalization](https://apple.github.io/coreai-torch/main/guides/externalization.html) guide, however, the same process applies for all composite ops with their respective `ExternalizeSpec`s.
+
+First define the model that uses a composite op:
+
+```python
+import torch
+import torch.nn as nn
+
+
+# The composite op
+class RMSNormComposite(nn.Module):
+    def __init__(self, axes=-1, eps=1e-5, version=1):
+        super().__init__()
+        self.axes = axes
+        self.eps = eps
+        self.version = version
+
+    def forward(self, input: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
+        x_f32 = input.to(torch.float32)
+        inv_rms = torch.rsqrt((x_f32 * x_f32).mean(self.axes, keepdim=True) + self.eps)
+        return (input * inv_rms).to(input.dtype) * scale
+
+
+# A model that uses the composite op
+class Model(nn.Module):
+    def __init__(self, dim=32):
+        super().__init__()
+        self.proj = nn.Linear(dim, dim)
+        self.norm = RMSNormComposite()
+        self.norm_weight = nn.Parameter(torch.ones(dim))
+        self.out = nn.Linear(dim, dim)
+
+    def forward(self, x):
+        return self.out(self.norm(self.proj(x), self.norm_weight))
+
+
+original_model = Model().eval()
+example_inputs = (torch.randn(1, 32),)
+```
+
+Next, apply `coreai-opt` quantization with graph mode, and convert using `coreai-torch`:
+
+```python
+import coreai_opt as opt
+from coreai_opt.quantization import Quantizer, QuantizerConfig
+from coreai_opt.quantization.config import ExecutionMode
+import coreai_torch
+from coreai_torch import (
+    ExternalizeSpec,
+    TorchConverter,
+    _patch_model_for_externalization,
+    _subexport_and_restore,
+)
+
+# Patch the model in-place
+# to mark RMSNormComposite module for externalization
+_patch_model_for_externalization(
+    original_model,
+    targets=[
+        ExternalizeSpec(
+            target_class=RMSNormComposite,
+            composite_op_name="rms_norm",
+            composite_attrs=["axes", "eps", "version"],
+        )
+    ],
+)
+
+# Usual flow using coreai-opt APIs for quantization
+config = QuantizerConfig.presets.w8(execution_mode=ExecutionMode.GRAPH)
+quantizer = Quantizer(original_model, config)
+prepared_model = quantizer.prepare(example_inputs)
+finalized_quantized_model = quantizer.finalize(backend=opt.ExportBackend.CoreAI)
+
+# Export to Core AI
+exported_program = torch.export.export(
+    finalized_quantized_model, example_inputs
+).run_decompositions(coreai_torch.get_decomp_table())
+composite_module_exported_programs = _subexport_and_restore(
+    original_model, exported_program
+)
+coreai_program = (
+    TorchConverter()
+    .add_exported_program(
+        exported_program,
+        _externalized_exported_programs=composite_module_exported_programs,
+    )
+    .to_coreai()
+)
+```
+
+Compared to the [usual flow](../introduction/integration_coreai.md), there are *two* key differences:
+
+## Patch original model with custom ops
+
+In graph mode execution, `coreai-opt`’s `quantizer.prepare` invokes the `torch.export.export` API. By default, this causes the composite op body to be inlined in the graph and we lose the information about it’s boundary for externalization. In order to preserve this information, the `_patch_model_for_externalization` API modifies the original `torch` model in-place, before preparing the model for graph mode quantization using `coreai-opt`. Specifically, it replaces the forward method of the `nn.module`s specified in `ExternalizeSpec(target_class)` with a `torch.library.custom_op` that, in turn, invokes the original forward method of the composite op. This keeps the model functionally the same, however, now the sub-module (`RMSNormComposite` in this example) becomes opaque to the `torch.export.export` API, i.e., a single node instead of the composite op body being inlined in the exported graph.
+
+Note that in addition to replacing the `forward` method of the composite ops with a `torch.library.custom_op`, the `_patch_model_for_externalization` API also registers some additional information/metadata as attributes on the composite op sub-modules. This metadata is then used by `_subexport_and_restore` as explained below, after which the model is restored by removing this metadata along with the `torch.library.custom_op` from the model.
+
+## Extract exported programs for submodules
+
+Once a model is patched using the `_patch_model_for_externalization` API, it can be quantized as usual using `coreai-opt`’s graph mode (either for PTQ or QAT) and finalized to `CoreAI` backend.
+
+Now in order to convert the finalized model into a coreai graph (`aimodel`), the composite op sub-module bodies need to be exported as torch exported programs in order to be included in the graph as externalized function calls.
+The `_subexport_and_restore` takes in the **original torch model** and does exactly that.
+It returns a list of torch exported programs corresponding to all the composite op sub-modules that were *patched* for externalization by `_patch_model_for_externalization`.
+These torch exported programs are then passed to the `add_exported_program` API via the `_externalized_exported_programs` argument to prepare the coreai graph (`aimodel`).
+After this process, the coreai graph contains both the main graph and the sub-graphs corresponding to the composite op submodules preserved as function calls.
+
+## Notes
+
+- Quantization cannot be applied *inside* the composite op body because the `_patch_model_for_externalization` API replaces the composite op body with a torch custom op, thus making it opaque to `coreai-opt`’s graph mode quantizer.
+- However, the boundaries (incoming and outgoing tensors) of the composite ops can be quantized as usual, using the `module_input_spec` and `module_output_spec` config kwargs as described in the [`coreai-opt` configs documentation](config.md).
+
+#### WARNING
+The externalization APIs used above, `_patch_model_for_externalization` and `_subexport_and_restore` in coreai-torch are currently experimental.
 
 
 # config.html.md
@@ -1261,6 +1449,8 @@ Regarding the terminology of ops and modules, as used in these APIs, here is wha
   - For eager execution mode: these refer to all the `TorchFunction` call sites. These typically correspond to aten ops as well.
 
 `QuantizerConfig` lets you customize quantization settings for different parts of the model, via either modules or ops, or a combination of both.
+
+To estimate what a config costs in terms of bits per weight (BPW), use the [`bits_per_weight()`](../api/generated/coreai_opt.inspection.bits_per_weight.md#coreai_opt.inspection.bits_per_weight) utility to get an analytical BPW estimate for a model *prepared* by `coreai-opt`. See [Utility for computing analytical Bits Per Weight (BPW)](../utils/mixed_precision.md#utility-for-computing-analytical-bits-per-weight-bpw) for details.
 
 We will first take a look at the `QuantizationSpec` class and then through examples, will walk over how to define the config classes (and thereby covering how they are structured).
 
@@ -1415,7 +1605,7 @@ The defaults are:
 
 In [Quantization Overview](overview.md) we saw how to use the default `W_INT8_A_INT8` config. [Config classes and their defaults](#config-classes-and-their-defaults) described the default settings in `QuantizerConfig()`, `ModuleQuantizerConfig()`, and `OpQuantizerConfig()`. Let us now see how to configure quantization when non-default settings are desired.
 
-Several examples below configure specific module names, module types, op names, or op types. To determine these for your model, see [How to get names + types for modules and ops](#how-to-get-names-types-for-modules-and-ops) (eager mode) or [Inspecting Model Structure](../utils/model_inspection.md) (graph mode).
+Several examples below configure specific module names, module types, op names, or op types. To determine these for your model, see [Inspecting Model Structure](../debugging/model_inspection.md).
 
 ### Example: `W_MXFP4_A_FP8` applied to all supported ops
 
@@ -2022,7 +2212,7 @@ Here is how the hierarchy of the 3 config and 1 spec classes can be represented 
 
 ## How to get names + types for modules and ops
 
-**Graph mode** (for `module_name_configs`, `module_type_configs`, `op_name_config`, `op_type_config`): use [`ModelInspector`](../api/generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector) to discover module names, module types, op names, and op types.
+Use [`ModelInspector`](../api/generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector) to discover module names, module types, op names, and op types for both graph and eager execution modes.
 
 ```python
 import torch
@@ -2031,43 +2221,15 @@ from coreai_opt.inspection import ModelInspector
 
 model = nn.Sequential(nn.Linear(10, 20), nn.ReLU(), nn.Linear(20, 5))
 inspector = ModelInspector(
-    model, example_inputs=(torch.randn(1, 10),), execution_mode="graph"
+    # Use execution_mode="eager" for eager mode inspection.
+    model,
+    example_inputs=(torch.randn(1, 10),),
+    execution_mode="graph",
 )
 print(inspector.format_summary())
 ```
 
-See [Inspecting Model Structure](../utils/model_inspection.md) for full usage and examples.
-
-**Eager mode**: module names (for `module_name_configs`) can be obtained by inspecting `model.named_modules()`. This includes all modules in the model (nested and leaf). The names align with the structure of modules defined in code.
-
-Op names can be constructed by referring to the parent module and the op in it. Example:
-
-```python
-class TwoAddModule(torch.nn.Module):
-    def forward(self, x):
-        a = x + x
-        b = a + a
-        return b
-
-
-class Model(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.submodule_a = TwoAddModule()
-        self.submodule_b = TwoAddModule()
-
-    def forward(self, x):
-        x = self.submodule_a(x)
-        x = self.submodule_b(x)
-        return x
-
-
-# the names of ops in the model will be :
-# - submodule_a.add
-# - submodule_a.add_1
-# - submodule_b.add
-# - submodule_b.add_1
-```
+See [Inspecting Model Structure](../debugging/model_inspection.md) for full usage, examples, and a comparison of graph and eager mode op naming.
 
 
 # config.html.md
@@ -2259,6 +2421,8 @@ Palettization Configs follow the same philosophy as the [Quantization Config](..
 They are simpler as palettization applies only to the weights in the model.
 (Hence there are no `op_input_spec` and `op_output_spec` fields in the `ModuleKMeansPalettizerConfig` and [`OpKMeansPalettizerConfig`](../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.md#coreai_opt.palettization.config.OpKMeansPalettizerConfig).)
 
+To estimate what a config costs in terms of bits per weight (BPW), use the [`bits_per_weight()`](../api/generated/coreai_opt.inspection.bits_per_weight.md#coreai_opt.inspection.bits_per_weight) utility to get an analytical BPW estimate for a *prepared* `coreai-opt` model. See [Utility for computing analytical Bits Per Weight (BPW)](../utils/mixed_precision.md#utility-for-computing-analytical-bits-per-weight-bpw) for details.
+
 ## PalettizationSpec
 
 `PalettizationSpec` defines the following key properties, among others (for full list see API reference):
@@ -2367,7 +2531,7 @@ op_config = OpKMeansPalettizerConfig(
 
 ## Examples
 
-Several examples below configure specific module types or module names. To determine these for your model, see [How to get names + types](../quantization/config.md#how-to-get-names-types-for-modules-and-ops). Since palettization only supports eager execution mode, only the eager mode guidance in that section is relevant.
+Several examples below configure specific module types or module names. To determine these for your model, use [`ModelInspector`](../api/generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector) with `execution_mode="eager"` — see [Inspecting Model Structure](../debugging/model_inspection.md). Palettization supports eager mode only.
 
 ### Apply 4-bit palettization globally, 8-bit to linear layers
 
@@ -2454,6 +2618,59 @@ kmeans_palettization_config:
         weight:
           n_bits: 4
           granularity: { type: per_tensor }
+```
+
+### Enable palettization at different training steps per module (PATSchedule)
+
+For palettization-aware training, you can defer when each module’s palettizer turns on using a [`PATSchedule`](../api/generated/coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule) set on that module’s `ModuleKMeansPalettizerConfig`. Its `enable_fake_palettize` field is the step-count threshold at which that module’s palettizer becomes active; until then the module trains uncompressed. See [Using PATSchedule](overview.md#using-patschedule) for the training loop that drives the schedule via `palettizer.training_mode()` and `palettizer.step()`.
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.config import PATSchedule
+
+# All layers palettized 4-bit, but each named module's palettizer turns on at a different training step:
+# module1 after 100 steps, module2 after 500.
+config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+    ),
+    module_name_configs={
+        "module1": ModuleKMeansPalettizerConfig(
+            op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+            pat_schedule=PATSchedule(enable_fake_palettize=100),
+        ),
+        "module2": ModuleKMeansPalettizerConfig(
+            op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+            pat_schedule=PATSchedule(enable_fake_palettize=500),
+        ),
+    },
+)
+```
+
+```yaml
+# yaml
+kmeans_palettization_config:
+  global_config:
+    op_state_spec:
+      weight:
+        n_bits: 4
+  module_name_configs:
+    module1:
+      op_state_spec:
+        weight:
+          n_bits: 4
+      pat_schedule:
+        enable_fake_palettize: 100
+    module2:
+      op_state_spec:
+        weight:
+          n_bits: 4
+      pat_schedule:
+        enable_fake_palettize: 500
 ```
 
 
@@ -2618,17 +2835,47 @@ compressed_program = sparsify_weights(
 
 # coreai_opt.CoreMLExportError
 
-### *exception* coreai_opt.CoreMLExportError(dtype, context)
+### *exception* coreai_opt.CoreMLExportError(message)
 
 Bases: `ValueError`
 
 Raised when a model cannot be exported to the CoreML backend.
 
 * **Parameters:**
+  **message** (*str*)
+* **Return type:**
+  None
+
+#### *classmethod* from_config(config, context)
+
+Build the error for an unsupported quantization config attribute (e.g. granularity).
+
+* **Parameters:**
+  * **config** (*object*)
+  * **context** (*str*)
+* **Return type:**
+  [*CoreMLExportError*](#coreai_opt.CoreMLExportError)
+
+#### *classmethod* from_dtype(dtype, context)
+
+Build the error for an unsupported weight/activation/LUT dtype.
+
+* **Parameters:**
   * **dtype** (*Any*)
   * **context** (*str*)
 * **Return type:**
-  None
+  [*CoreMLExportError*](#coreai_opt.CoreMLExportError)
+
+
+# coreai_opt.DependencyVersionWarning.html.md
+
+# coreai_opt.DependencyVersionWarning
+
+### *exception* coreai_opt.DependencyVersionWarning
+
+Bases: `UserWarning`
+
+Base category for the dependency version checks run at import.
 
 
 # coreai_opt.ExportBackend.html.md
@@ -2669,11 +2916,33 @@ Deprecated. Use ExportBackend.CoreML instead.
 Deprecated. Use ExportBackend.CoreAI instead.
 
 
+# coreai_opt.TorchaoTorchIncompatibilityWarning.html.md
+
+# coreai_opt.TorchaoTorchIncompatibilityWarning
+
+### *exception* coreai_opt.TorchaoTorchIncompatibilityWarning
+
+Bases: [`DependencyVersionWarning`](coreai_opt.DependencyVersionWarning.md#coreai_opt.DependencyVersionWarning)
+
+The installed torchao and torch are a known-incompatible pair.
+
+
+# coreai_opt.UntestedTorchVersionWarning.html.md
+
+# coreai_opt.UntestedTorchVersionWarning
+
+### *exception* coreai_opt.UntestedTorchVersionWarning
+
+Bases: [`DependencyVersionWarning`](coreai_opt.DependencyVersionWarning.md#coreai_opt.DependencyVersionWarning)
+
+The installed torch is newer than the highest version coreai-opt tests against.
+
+
 # coreai_opt.casting.cast_fp32_to_fp16.html.md
 
 # coreai_opt.casting.cast_fp32_to_fp16
 
-### coreai_opt.casting.cast_fp32_to_fp16(exported_program)
+### coreai_opt.casting.cast_fp32_to_fp16(exported_program, ignored_ops=None)
 
 Convert a torch exported program from FP32 to FP16 where applicable.
 
@@ -2681,7 +2950,15 @@ Converts parameters, user inputs, and compute ops to FP16, inserting
 casts only where values would overflow FP16 range.
 
 * **Parameters:**
-  **exported_program** (*ExportedProgram*)
+  * **exported_program** (*ExportedProgram*) – Exported program to convert.
+  * **ignored_ops** (*Collection* *[**OpOverload* *|* *OpOverloadPacket* *]*  *|* *OpOverload* *|* *OpOverloadPacket* *|* *Callable* *[* *[**Node* *]* *,* *bool* *]*  *|* *None*) – Optional operations or predicate to exclude from FP16 casting.
+    Can be a collection/set of `OpOverload` or `OpOverloadPacket`
+    instances (e.g. `{torch.ops.aten.exp, torch.ops.aten.exp.default}`),
+    a single op instance, or a predicate callable taking a `torch.fx.Node`
+    and returning a boolean (e.g. `lambda node: node.name == "exp_1"`).
+    Ignored ops are kept in FP32 with boundary casts inserted.
+* **Returns:**
+  The modified exported program.
 * **Return type:**
   *ExportedProgram*
 
@@ -2707,7 +2984,7 @@ Only designated ops (data operations) are converted. Positional values
 
 # coreai_opt.casting.cast_to_16_bit_precision
 
-### coreai_opt.casting.cast_to_16_bit_precision(exported_program)
+### coreai_opt.casting.cast_to_16_bit_precision(exported_program, ignored_ops=None)
 
 Convert a torch exported program to 16-bit precision: FP32→FP16 and INT32/64→INT16.
 
@@ -2716,7 +2993,11 @@ Runs both cast passes sequentially:
 2. cast_int32_to_int16: INT32/INT64→INT16
 
 * **Parameters:**
-  **exported_program** (*ExportedProgram*)
+  * **exported_program** (*ExportedProgram*) – Exported program to convert.
+  * **ignored_ops** (*Collection* *[**OpOverload* *|* *OpOverloadPacket* *]*  *|* *OpOverload* *|* *OpOverloadPacket* *|* *Callable* *[* *[**Node* *]* *,* *bool* *]*  *|* *None*) – Optional operations or predicate to exclude from FP16 casting.
+    Forwarded to [`cast_fp32_to_fp16()`](coreai_opt.casting.cast_fp32_to_fp16.md#coreai_opt.casting.cast_fp32_to_fp16).
+* **Returns:**
+  The modified exported program.
 * **Return type:**
   *ExportedProgram*
 
@@ -3387,6 +3668,8 @@ specific compression technique.
 * **Return type:**
   *Tensor*
 
+#### tensor_fqn *: str* *= '<unknown>'*
+
 
 # coreai_opt.config.spec.CompressionTargetTensor.html.md
 
@@ -3713,6 +3996,72 @@ are candidates; ops that fail to be sparsified are skipped with a warning.
   * **ValueError** – If `block_size` is set and not greater than `1`.
   * **ValueError** – If `n_m_ratio` does not have length 2, contains non-integers,
         has `m <= 0`, or has `n` outside `[0, m]`.
+
+
+# coreai_opt.inspection.BitsPerWeightResult.html.md
+
+# coreai_opt.inspection.BitsPerWeightResult
+
+### *class* coreai_opt.inspection.BitsPerWeightResult(bpw, per_module_map, total_bits, total_weights)
+
+Bases: `object`
+
+Result of a bits-per-weight computation.
+
+* **Parameters:**
+  * **bpw** (*float*)
+  * **per_module_map** (*dict* *[**str* *,* *float* *]*)
+  * **total_bits** (*int*)
+  * **total_weights** (*int*)
+
+#### bpw
+
+Overall average bits per weight across all parameters
+(`total_bits / total_weights`).
+
+* **Type:**
+  float
+
+#### per_module_map
+
+Map from module name to that module’s own
+average bits per weight. Modules with no tensors are omitted.
+
+* **Type:**
+  dict[str, float]
+
+#### total_bits
+
+Total storage cost in bits, including amortized
+compression overhead.
+
+* **Type:**
+  int
+
+#### total_weights
+
+Total number of parameter elements.
+
+* **Type:**
+  int
+
+#### \_\_init_\_(bpw, per_module_map, total_bits, total_weights)
+
+* **Parameters:**
+  * **bpw** (*float*)
+  * **per_module_map** (*dict* *[**str* *,* *float* *]*)
+  * **total_bits** (*int*)
+  * **total_weights** (*int*)
+* **Return type:**
+  None
+
+#### bpw *: float*
+
+#### per_module_map *: dict[str, float]*
+
+#### total_bits *: int*
+
+#### total_weights *: int*
 
 
 # coreai_opt.inspection.BoundaryEdge.html.md
@@ -4389,6 +4738,35 @@ leading/trailing whitespace.
 #### lineno *: int*
 
 
+# coreai_opt.inspection.bits_per_weight.html.md
+
+# coreai_opt.inspection.bits_per_weight
+
+### coreai_opt.inspection.bits_per_weight(model)
+
+Compute the average bits-per-weight of a prepared `coreai-opt` model.
+
+Walks the module tree once. For each parametrized weight, the dense original
+tensor is counted at its effective compressed cost (eager mode quantization or
+palettization). Every other directly-owned parameter (biases, norms) and every
+buffer (BatchNorm running stats, RoPE caches, etc.) are counted at their
+full-precision dtype cost, regardless of `persistent=`.
+
+* **Parameters:**
+  **model** (*torch.nn.Module*) – A full-precision, eager-mode quantized, or
+  palettized prepared model.
+* **Returns:**
+  Overall bpw, per-module breakdown, and the total
+  number of bits and weights used to derive them.
+* **Return type:**
+  [BitsPerWeightResult](coreai_opt.inspection.BitsPerWeightResult.md#coreai_opt.inspection.BitsPerWeightResult)
+* **Raises:**
+  **NotImplementedError** – If `model` is a graph-mode prepared model (a
+      `torch.fx.GraphModule`) or a `torch.export.ExportedProgram`, or if it
+      contains a weight compression whose storage cost this utility cannot
+      compute.
+
+
 # coreai_opt.palettization.KMeansPalettizer.html.md
 
 # coreai_opt.palettization.KMeansPalettizer
@@ -4420,8 +4798,9 @@ Initialize the KMeans palettizer.
 | [`get_op_type_resolver`](#coreai_opt.palettization.KMeansPalettizer.get_op_type_resolver)()                    | Return a function that maps a torch function to its palettizable op type.                                       |
 | [`prepare`](#coreai_opt.palettization.KMeansPalettizer.prepare)(example_inputs[, sensitivity_path, ...])       | Prepare the model for palettization.                                                                            |
 | [`save_sensitivities`](#coreai_opt.palettization.KMeansPalettizer.save_sensitivities)(path)                    | Save sensitivity values from the prepared model to a file.                                                      |
+| [`step`](#coreai_opt.palettization.KMeansPalettizer.step)()                                                    | Advance the schedule by one step.                                                                               |
 | `supported_modules`()                                                                                          | Returns types of modules that are supported for compression with for a particular model optimization technique. |
-| `training_mode`([model])                                                                                       | Context manager for training time compression workflow.                                                         |
+| [`training_mode`](#coreai_opt.palettization.KMeansPalettizer.training_mode)()                                  | Context manager wrapping a training loop.                                                                       |
 
 #### calibration_mode(model=None, \*, loss_fn, sensitivity_path=None)
 
@@ -4532,6 +4911,18 @@ to apply the same weighted k-means clustering to a fresh model.
   * **ValueError** – If no sensitivities are found in the model
 * **Return type:**
   None
+
+#### step()
+
+Advance the schedule by one step. Must be called inside training_mode().
+
+* **Return type:**
+  None
+
+#### training_mode()
+
+Context manager wrapping a training loop. Mutually exclusive with
+calibration_mode().
 
 
 # coreai_opt.palettization.KMeansPalettizerConfig.html.md
@@ -4764,6 +5155,16 @@ speed benefits. Only used when enable_fast_kmeans_mode is True. Default: 4.
 * **Type:**
   int
 
+#### pat_schedule
+
+Schedule controlling when this
+module’s palettization is active during a training_mode() loop.
+If None, palettization is active immediately once training_mode()
+begins. Default: None.
+
+* **Type:**
+  [PATSchedule](coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule) | None
+
 
 # coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html.md
 
@@ -4884,6 +5285,17 @@ When set to True, weights are normalized along the
 output channels using per-channel scales before being palettized.
 Default: False.
 
+#### training_strategy_spec
+
+Which training-time behavior this weight’s
+fake-palettize module uses, and that strategy’s settings.
+`DefaultTrainingSpec()` is post-training, one-shot k-means
+(today’s KMeansPalettizer behavior). Additional strategies are added
+by subclassing `TrainingStrategySpec` (registered via
+`TrainingStrategySpec.register()`) and pointing its
+`_strategy_cls` at a `TrainingStrategy` subclass. Default:
+DefaultTrainingSpec().
+
 #### model_dump_preserve_objects()
 
 Custom model dump that preserves Pydantic BaseModel instances as objects
@@ -4934,6 +5346,36 @@ Provide default state spec for palettization.
 
 * **Return type:**
   dict[str, [*PalettizationSpec*](coreai_opt.palettization.PalettizationSpec.md#coreai_opt.palettization.PalettizationSpec) | None]
+
+
+# coreai_opt.palettization.config.PATSchedule.html.md
+
+# coreai_opt.palettization.config.PATSchedule
+
+### *class* coreai_opt.palettization.config.PATSchedule
+
+Bases: `BaseModel`
+
+Schedule for enabling palettization-aware training (PAT).
+
+Defines the step threshold at which a module’s fake palettization
+forward pass becomes active. Used with `KMeansPalettizer.step()`.
+
+#### enable_fake_palettize
+
+Step count at which fake palettization is
+enabled. Must be >= 0.
+
+
+# coreai_opt.palettization.spec.DefaultTrainingSpec.html.md
+
+# coreai_opt.palettization.spec.DefaultTrainingSpec
+
+### *class* coreai_opt.palettization.spec.DefaultTrainingSpec
+
+Bases: [`TrainingStrategySpec`](coreai_opt.palettization.spec.TrainingStrategySpec.md#coreai_opt.palettization.spec.TrainingStrategySpec)
+
+Settings for the default, post-training one-shot k-means strategy. No fields.
 
 
 # coreai_opt.palettization.spec.PalettizationGranularity.html.md
@@ -5059,6 +5501,59 @@ specified granularity.
       this granularity
 * **Return type:**
   int
+
+
+# coreai_opt.palettization.spec.TrainingStrategy.html.md
+
+# coreai_opt.palettization.spec.TrainingStrategy
+
+### *class* coreai_opt.palettization.spec.TrainingStrategy
+
+Bases: `ABC`
+
+Contract for a fake-palettize module’s training-time forward pass.
+
+#### \_\_init_\_()
+
+### Methods
+
+| [`train_forward`](#coreai_opt.palettization.spec.TrainingStrategy.train_forward)(module, weight)   | Return the training-time output for `weight`.   |
+|----------------------------------------------------------------------------------------------------|-------------------------------------------------|
+
+#### *abstract* train_forward(module, weight)
+
+Return the training-time output for `weight`.
+
+Defines how the palettized weight behaves during training (e.g. frozen,
+straight-through, soft assignment).
+
+* **Parameters:**
+  * **module** ( *\_FakePalettizeImplBase*)
+  * **weight** (*torch.Tensor*)
+* **Return type:**
+  torch.Tensor
+
+
+# coreai_opt.palettization.spec.TrainingStrategySpec.html.md
+
+# coreai_opt.palettization.spec.TrainingStrategySpec
+
+### *class* coreai_opt.palettization.spec.TrainingStrategySpec
+
+Bases: `BaseModel`, `ConfigRegistryMixin`
+
+Base class for a fake-palettize module’s training-strategy settings.
+
+Each subclass points `_strategy_cls` at its paired `TrainingStrategy`
+behavior class; `build_strategy()` constructs that strategy from this
+spec’s own fields.
+
+#### build_strategy()
+
+Construct this spec’s paired `TrainingStrategy` behavior instance.
+
+* **Return type:**
+  [*TrainingStrategy*](coreai_opt.palettization.spec.TrainingStrategy.md#coreai_opt.palettization.spec.TrainingStrategy)
 
 
 # coreai_opt.palettization.spec.default_weight_palettization_spec.html.md
@@ -5483,6 +5978,9 @@ Entire channels (slices along `axis`) are pruned or kept together.
 Channel importance is determined by the pruning algorithm (e.g. L1 norm
 of each channel for magnitude-based pruning).
 
+#### NOTE
+`axis` can be negatively indexed as per standard Python style indexing.
+
 
 # coreai_opt.pruning.spec.PruneImplBase.html.md
 
@@ -5661,6 +6159,22 @@ exportable.
 #### PT2E *: [ExecutionMode](#coreai_opt.quantization.ExecutionMode)* *= 'graph'*
 
 Deprecated. Use `ExecutionMode.GRAPH` instead.
+
+
+# coreai_opt.quantization.InvalidExecutionModeError.html.md
+
+# coreai_opt.quantization.InvalidExecutionModeError
+
+### *exception* coreai_opt.quantization.InvalidExecutionModeError(execution_mode)
+
+Bases: `ValueError`
+
+Raised when an execution mode is not a recognized ExecutionMode value.
+
+* **Parameters:**
+  **execution_mode** (*object*)
+* **Return type:**
+  None
 
 
 # coreai_opt.quantization.ModuleQuantizerConfig.html.md
@@ -5976,7 +6490,7 @@ Quantization scheme determining how values are mapped to the quantized
 range.
 Valid inputs:
 
-> - “symmetric” (default), “symmetric_with_clipping”, “asymmetric”
+- “symmetric” (default), “symmetric_with_clipping”, “asymmetric”
 
 On how it affects the quantization and dequantization formulae,
 please refer to the qformulation description below.
@@ -6153,7 +6667,8 @@ Valid inputs:
 - “global_minmax”: Tracks running min/max across all calibration samples
 - “dynamic”: Computes scale/zero/minval point on each forward pass from the
   current tensor — no calibration. Only valid for activation quantization
-  (rejected by the factory for weights/LUT).
+  (rejected by the factory for weights/LUT). Not supported with
+  qscheme=”symmetric_with_clipping”; use “symmetric” or “asymmetric”.
 - Custom registered class string name
 - coreai_opt.quantization.qparams_calculator.QParamsCalculatorBase
   class type: StaticQParamsCalculator,
@@ -6371,9 +6886,11 @@ Initialize the model compressor.
 Context manager for calibration-based post-training quantization.
 
 When entering this context, observers are enabled to collect statistics
-from calibration data, and fake quantization is disabled to get accurate
-statistics. When exiting, observers are disabled and fake quantization
-is re-enabled for evaluation.
+from calibration data. Weight fake quantization stays enabled, while
+activation fake quantization is disabled so that activation observers
+see the effect of quantized weights when computing activation ranges.
+When exiting, observers are disabled and fake quantization is
+re-enabled on both weights and activations for evaluation.
 
 **When to use:**
 
@@ -6449,11 +6966,11 @@ Backend-specific processing:
     CoreAI (default), CoreML, and \_TORCH backends.
   * **mmap_dir** (*str* *|* *None*) – If provided, serialize finalized quantized
     weights to safetensors files under this directory and re-load
-    them via mmap. Only supported in eager execution mode with the
-    CoreAI backend; raises `ValueError` otherwise. The files in
-    `mmap_dir` must remain in place for the lifetime of the
-    returned model; removing them invalidates the mmap-backed
-    weights.
+    them via mmap, one file per weight. Supported in both execution
+    modes, with the CoreAI backend only and raises `ValueError`
+    for other backends. The files must remain in place for
+    the lifetime of the returned model; removing them invalidates
+    the mmap-backed weights.
 * **Returns:**
   The finalized quantized model ready for deployment on the target backend.
 * **Return type:**
@@ -7060,7 +7577,7 @@ Return `(updated_min, updated_max)` using subclass-specific rule.
 
 # coreai_opt.quantization.spec.MinMaxRangeCalculator
 
-### *class* coreai_opt.quantization.spec.MinMaxRangeCalculator(granularity, \*\*kwargs)
+### *class* coreai_opt.quantization.spec.MinMaxRangeCalculator(granularity, quantization_target=CompressionTargetTensor.WEIGHT, \*\*kwargs)
 
 Bases: [`RangeCalculatorBase`](coreai_opt.quantization.spec.RangeCalculatorBase.md#coreai_opt.quantization.spec.RangeCalculatorBase)
 
@@ -7068,12 +7585,14 @@ Range calculator that computes the range of a given tensor as the min and max
 values of the tensor.
 
 * **Parameters:**
-  **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
 
-#### \_\_init_\_(granularity, \*\*kwargs)
+#### \_\_init_\_(granularity, quantization_target=CompressionTargetTensor.WEIGHT, \*\*kwargs)
 
 * **Parameters:**
-  **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
 
 ### Methods
 
@@ -7166,8 +7685,10 @@ Per-block quantization granularity.
 This applies quantization to blocks of values within the tensor. Supports two modes:
 
 1. Single-axis mode: Quantize blocks along one specific axis
-   (no blocking for axis>=2)
-   - `axis`: The axis to create blocks (0 or 1)
+   - `axis`: The axis to create blocks. May be negative (Python-style
+     indexing). For weight quantization this is typically `0` or `1`
+     (the channel axes); for activation quantization it is commonly the
+     last / reduction axis (e.g. `-1`).
    - `block_size`: Integer specifying block size for that axis
 2. Multi-axis mode: Create blocks across multiple axes simultaneously
    - `axis`: Must be None
@@ -7178,12 +7699,24 @@ In single-axis mode, when `axis` is `None` and `block_size` is an integer,
 `Quantizer.prepare()` automatically resolves the axis based on the module type
 for weight quantization.
 
-| Weight tensor shape (input)   | axis   | block_size     | Weight shape of each block (output)   |
-|-------------------------------|--------|----------------|---------------------------------------|
-| [C_out, C_in]                 | 1      | 32             | [1, 32]                               |
-| [C_out, C_in]                 | None   | (4, 8)         | [4, 8]                                |
-| [C_out, C_in, KH, KW]         | 0      | 16             | [16, 1, KH, KW]                       |
-| [C_out, C_in, KH, KW]         | None   | (4, 16, 3, -1) | [4, 16, 3, KW]                        |
+Single-axis mode treats weights and activations differently:
+
+- `WEIGHT`: only the two leading channel axes take part. Whichever of them
+  is not the block axis collapses to `1` (one scale per slice), while
+  trailing dimensions — e.g. conv kernel dims — keep their full size, so each
+  block spans the whole kernel.
+- `ACTIVATION`: every axis other than the block axis collapses to `1`, so
+  the scale holds one entry per block *and* per position along all the other
+  axes.
+
+| Tensor shape (input)   | target     | axis   | block_size     | Shape of each block (output)   |
+|------------------------|------------|--------|----------------|--------------------------------|
+| [C_out, C_in]          | weight     | 1      | 32             | [1, 32]                        |
+| [C_out, C_in]          | weight     | None   | (4, 8)         | [4, 8]                         |
+| [C_out, C_in, KH, KW]  | weight     | 0      | 16             | [16, 1, KH, KW]                |
+| [C_out, C_in, KH, KW]  | weight     | None   | (4, 16, 3, -1) | [4, 16, 3, KW]                 |
+| [B, S, D]              | activation | -1     | 16             | [1, 1, 16]                     |
+| [B, C, H, W]           | activation | 1      | 16             | [1, 16, 1, 1]                  |
 
 
 # coreai_opt.quantization.spec.PerChannelGranularity.html.md
@@ -7302,6 +7835,10 @@ Compute and return `(scale, zero_point, minval)` for `tensor`.
 
 Getter for granularity.
 
+#### *property* quantization_target
+
+Whether the quantized tensor is a weight or an activation.
+
 
 # coreai_opt.quantization.spec.QuantizationComponentFactory.html.md
 
@@ -7321,13 +7858,14 @@ by centralizing the creation logic.
 
 ### Methods
 
-| [`construct`](#coreai_opt.quantization.spec.QuantizationComponentFactory.construct)(spec, target)                                      | Create a fake quantizer instance from a QuantizationSpec.                                                      |
-|----------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| [`construct_partial`](#coreai_opt.quantization.spec.QuantizationComponentFactory.construct_partial)(spec, target)                      | Create a fake quantizer partial object for deferred construction.                                              |
-| [`create_fake_quantizer`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_fake_quantizer)(spec, quantization_target) | Create a FakeQuantizeImplBase instance from a QuantizationSpec.                                                |
-| [`create_fake_quantizer_partial`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_fake_quantizer_partial)(spec, ...) | Create a fake quantizer partial object for deferred construction by the graph-mode prepare API (torchao PT2E). |
-| [`create_qparams_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_qparams_calculator)(spec, ...)         | Create a QParamsCalculatorBase instance from a QuantizationSpec.                                               |
-| [`create_range_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator)(spec)                  | Create a RangeCalculatorBase instance from a QuantizationSpec.                                                 |
+| [`construct`](#coreai_opt.quantization.spec.QuantizationComponentFactory.construct)(spec, target)                                                  | Create a fake quantizer instance from a QuantizationSpec.                                                      |
+|----------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| [`construct_partial`](#coreai_opt.quantization.spec.QuantizationComponentFactory.construct_partial)(spec, target)                                  | Create a fake quantizer partial object for deferred construction.                                              |
+| [`create_fake_quantizer`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_fake_quantizer)(spec, quantization_target)             | Create a FakeQuantizeImplBase instance from a QuantizationSpec.                                                |
+| [`create_fake_quantizer_partial`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_fake_quantizer_partial)(spec, ...)             | Create a fake quantizer partial object for deferred construction by the graph-mode prepare API (torchao PT2E). |
+| [`create_qparams_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_qparams_calculator)(spec, ...)                     | Create a QParamsCalculatorBase instance from a QuantizationSpec.                                               |
+| [`create_range_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.create_range_calculator)(spec[, ...])                       | Create a RangeCalculatorBase instance from a QuantizationSpec.                                                 |
+| [`reconstruct_partial_qparams_calculator`](#coreai_opt.quantization.spec.QuantizationComponentFactory.reconstruct_partial_qparams_calculator)(...) | Return a new PartialConstructor whose qparams_calculator has attributes overridden.                            |
 
 #### *classmethod* construct(spec, target)
 
@@ -7405,16 +7943,37 @@ Create a QParamsCalculatorBase instance from a QuantizationSpec.
 * **Return type:**
   [*QParamsCalculatorBase*](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase)
 
-#### *classmethod* create_range_calculator(spec)
+#### *classmethod* create_range_calculator(spec, quantization_target=CompressionTargetTensor.WEIGHT)
 
 Create a RangeCalculatorBase instance from a QuantizationSpec.
 
 * **Parameters:**
-  **spec** ([*QuantizationSpec*](coreai_opt.quantization.QuantizationSpec.md#coreai_opt.quantization.QuantizationSpec)) – QuantizationSpec instance containing configuration
+  * **spec** ([*QuantizationSpec*](coreai_opt.quantization.QuantizationSpec.md#coreai_opt.quantization.QuantizationSpec)) – QuantizationSpec instance containing configuration
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor)) – The target tensor for quantization (weight/activation).
 * **Returns:**
   RangeCalculatorBase instance configured from the spec
 * **Return type:**
   [*RangeCalculatorBase*](coreai_opt.quantization.spec.RangeCalculatorBase.md#coreai_opt.quantization.spec.RangeCalculatorBase)
+
+#### *classmethod* reconstruct_partial_qparams_calculator(partial_ctr, \*\*kwargs)
+
+Return a new PartialConstructor whose qparams_calculator has attributes overridden.
+
+The replacement wraps the existing `qparams_calculator` callable arg so that
+each freshly constructed calculator has the given attributes set before it is
+returned.  All overridden attributes (e.g. `float_range`, `qscheme`) are
+plain instance attributes on `QParamsCalculatorBase` that are read lazily
+during `forward()`, so post-construction mutation is safe as long as no
+forward pass has run yet.
+
+* **Parameters:**
+  * **partial_ctr** (*PartialConstructor*) – The existing fake-quantizer partial to update.
+  * **\*\*kwargs** (*Any*) – Attribute name/value pairs to set on the calculator instance.
+* **Returns:**
+  A new PartialConstructor whose qparams_calculator factory applies the
+  overrides.
+* **Return type:**
+  *PartialConstructor*
 
 
 # coreai_opt.quantization.spec.QuantizationFormulation.html.md
@@ -7454,12 +8013,14 @@ Bases: `BaseModel`, `ConfigRegistryMixin`
 
 Base class for quantization granularity specifications.
 
-#### get_block_size(tensor_shape)
+#### get_block_size(tensor_shape, quantization_target=CompressionTargetTensor.WEIGHT)
 
 Get a list of block sizes based on the granularity.
 
 * **Parameters:**
-  **tensor_shape** (*Size*)
+  * **tensor_shape** (*Size*) – Shape of the tensor being quantized.
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor)) – Whether the tensor is a weight or an activation.
+    Defaults to `WEIGHT`, which preserves the historical behavior.
 * **Return type:**
   tuple[int, …]
 
@@ -7470,7 +8031,7 @@ Get a list of block sizes based on the granularity.
 
 ### *class* coreai_opt.quantization.spec.QuantizationScheme(value, names=None, \*, module=None, qualname=None, type=None, start=1, boundary=None)
 
-Bases: `Enum`
+Bases: `StrEnum`
 
 #### \_\_init_\_(\*args, \*\*kwds)
 
@@ -7479,7 +8040,7 @@ Bases: `Enum`
 
 # coreai_opt.quantization.spec.RangeCalculatorBase
 
-### *class* coreai_opt.quantization.spec.RangeCalculatorBase(granularity, \*\*kwargs)
+### *class* coreai_opt.quantization.spec.RangeCalculatorBase(granularity, quantization_target=CompressionTargetTensor.WEIGHT, \*\*kwargs)
 
 Bases: `ClassRegistryMixin`, `Module`
 
@@ -7487,12 +8048,14 @@ Base class and registry for classes used to compute the range
 of a given tensor.
 
 * **Parameters:**
-  **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
 
-#### \_\_init_\_(granularity, \*\*kwargs)
+#### \_\_init_\_(granularity, quantization_target=CompressionTargetTensor.WEIGHT, \*\*kwargs)
 
 * **Parameters:**
-  **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
 
 ### Methods
 
@@ -7781,7 +8344,7 @@ directly delegates to `_compute_scale_zero_point_minval` without any running sta
 
 # coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase
 
-### *class* coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase(dtype, qscheme, qformulation, granularity, target_dtype, quant_min, quant_max, qparams_calculator, quantization_target, n_bits=None, \*\*kwargs)
+### *class* coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase(dtype, qformulation, granularity, target_dtype, quant_min, quant_max, qparams_calculator, n_bits=None, \*\*kwargs)
 
 Bases: [`CompressionSimulatorBase`](coreai_opt.config.spec.CompressionSimulatorBase.md#coreai_opt.config.spec.CompressionSimulatorBase), `FakeQuantizeBase`
 
@@ -7789,30 +8352,26 @@ Base class for implementing fake quantization
 
 * **Parameters:**
   * **dtype** (*torch.dtype*)
-  * **qscheme** ([*QuantizationScheme*](coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme))
   * **qformulation** ([*QuantizationFormulation*](coreai_opt.quantization.spec.QuantizationFormulation.md#coreai_opt.quantization.spec.QuantizationFormulation))
   * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
   * **target_dtype** (*torch.dtype*)
   * **quant_min** (*int* *|* *float*)
   * **quant_max** (*int* *|* *float*)
   * **qparams_calculator** ([*QParamsCalculatorBase*](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase))
-  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
   * **n_bits** (*int* *|* *None*)
 
-#### \_\_init_\_(dtype, qscheme, qformulation, granularity, target_dtype, quant_min, quant_max, qparams_calculator, quantization_target, n_bits=None, \*\*kwargs)
+#### \_\_init_\_(dtype, qformulation, granularity, target_dtype, quant_min, quant_max, qparams_calculator, n_bits=None, \*\*kwargs)
 
 Initialize internal Module state, shared by both nn.Module and ScriptModule.
 
 * **Parameters:**
   * **dtype** (*dtype*)
-  * **qscheme** ([*QuantizationScheme*](coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme))
   * **qformulation** ([*QuantizationFormulation*](coreai_opt.quantization.spec.QuantizationFormulation.md#coreai_opt.quantization.spec.QuantizationFormulation))
   * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
   * **target_dtype** (*dtype*)
   * **quant_min** (*int* *|* *float*)
   * **quant_max** (*int* *|* *float*)
   * **qparams_calculator** ([*QParamsCalculatorBase*](coreai_opt.quantization.spec.QParamsCalculatorBase.md#coreai_opt.quantization.spec.QParamsCalculatorBase))
-  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
   * **n_bits** (*int* *|* *None*)
 
 ### Methods
@@ -7825,6 +8384,7 @@ Initialize internal Module state, shared by both nn.Module and ScriptModule.
 | [`enable_observer`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer)([enabled])               | Inverse of `disable_observer`: ignore `enabled=False` when the qparams calculator is stateless.                                                                                                                                     |
 | [`extra_repr`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr)()                                  | Return the extra representation of the module.                                                                                                                                                                                      |
 | [`forward`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward)(tensor)                                  | Performs fake quantization of the given tensor using the qparams (scale, zero point, minval) computed by the QParamsCalculator.                                                                                                     |
+| [`get_block_size`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.get_block_size)(tensor_shape)              | Resolve this module's granularity to a concrete block extent per dimension.                                                                                                                                                         |
 | `get_class`(key)                                                                                                               |                                                                                                                                                                                                                                     |
 | [`is_disabled`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.is_disabled)()                                | Return True if fake quantization has been disabled.                                                                                                                                                                                 |
 | `list_registry_keys`()                                                                                                         |                                                                                                                                                                                                                                     |
@@ -7921,6 +8481,15 @@ Performs fake quantization of the given tensor using the qparams
 * **Return type:**
   *Tensor*
 
+#### get_block_size(tensor_shape)
+
+Resolve this module’s granularity to a concrete block extent per dimension.
+
+* **Parameters:**
+  **tensor_shape** (*Size*)
+* **Return type:**
+  tuple[int, …]
+
 #### is_disabled()
 
 Return True if fake quantization has been disabled.
@@ -7968,6 +8537,64 @@ Set or unset export mode.
 #### *property* granularity *: [QuantizationGranularity](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity)*
 
 Getter for granularity.
+
+#### *property* is_stateless *: bool*
+
+Whether the qparams calculator holds no buffers.
+
+A stateless calculator recomputes the qparams on every forward, measuring from
+the tensor being quantized.
+
+#### *property* qscheme *: [QuantizationScheme](coreai_opt.quantization.spec.QuantizationScheme.md#coreai_opt.quantization.spec.QuantizationScheme)*
+
+The quantization scheme, delegated to the qparams_calculator.
+
+#### *property* quantization_target *: [CompressionTargetTensor](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor)*
+
+Getter for quantization target.
+
+
+# coreai_opt.quantization.spec.fp4_forward.html.md
+
+# coreai_opt.quantization.spec.fp4_forward
+
+### coreai_opt.quantization.spec.fp4_forward(tensor)
+
+Round to the nearest FP4 E2M1 value, returned in fp32.
+
+The E2M1 grid is not uniform – `0, 0.5, 1, 1.5, 2, 3, 4, 6` – so a cast cannot do
+this. Ties go to the even encoding index, and a magnitude above the grid saturates to
+`6.0`. A NaN is passed through unchanged instead.
+
+* **Parameters:**
+  **tensor** (*torch.Tensor*) – Values already divided by their scale, in fp32.
+* **Returns:**
+  The rounded values, in fp32, with any NaN preserved.
+* **Return type:**
+  torch.Tensor
+
+
+# coreai_opt.quantization.spec.resolve_block_sizes.html.md
+
+# coreai_opt.quantization.spec.resolve_block_sizes
+
+### coreai_opt.quantization.spec.resolve_block_sizes(tensor_shape, block_sizes)
+
+Resolve a per-axis block partition against the shape it applies to.
+
+`-1` takes the whole axis as one block, which is how per-channel and per-tensor are
+spelled as a partition. Every other entry blocks its axis and must divide it.
+
+* **Parameters:**
+  * **tensor_shape** (*Sequence* *[**int* *]*) – Shape of the tensor being partitioned.
+  * **block_sizes** (*Sequence* *[**int* *]*) – Block extent per axis, one entry per dimension.
+* **Returns:**
+  The resolved extents, with each `-1` replaced by its full dimension.
+* **Return type:**
+  list[int]
+* **Raises:**
+  * **ValueError** – If the two lengths differ, or an entry is neither positive nor `-1`.
+  * **\_BlockSizeMismatchError** – If an entry does not divide its dimension.
 
 
 # edsr.html.md
@@ -8085,7 +8712,7 @@ with quantizer.calibration_mode():
 
 The W_P4(INT8)_A_INT8 model achieves `29.86 dB` — a further drop of `0.47 dB` compared to W_INT8_A_INT8.
 
-Refer to [Joint Compression](../utils/joint_compression.md) for more information on joint compression.
+Refer to [Joint Compression](../../utils/joint_compression.md) for more information on joint compression.
 
 ## Finalize
 
@@ -8097,7 +8724,7 @@ finalized_model = quantizer.finalize(backend=opt.ExportBackend.CoreAI)
 ```
 
 At this point, the model is ready to be exported for downstream conversion with `coreai-torch`.
-Refer to [Integration with Core AI](../introduction/integration_coreai.md) for more details.
+Refer to [Integration with Core AI](../../introduction/integration_coreai.md) for more details.
 
 ## Summary
 
@@ -8114,7 +8741,101 @@ Users may also consider:
 
 - Increasing the number of calibration images to improve activation scale estimates
 - Applying palettization or quantization selectively to only the most compressible layers
-- Using [Sensitive K-Means](../palettization/overview.md#sensitive-k-means-api) calibration to place centroids near weight values that matter most for output quality
+- Using [Sensitive K-Means](../../palettization/overview.md#sensitive-k-means-api) calibration to place centroids near weight values that matter most for output quality
+
+
+# graph_mode_troubleshooting.html.md
+
+# Graph Mode Troubleshooting
+
+This guide helps debug common issues when using [Graph execution mode](../quantization/overview.md#two-execution-modes-graph-and-eager) in CoreAI-Opt.
+
+A `quantizer.prepare()` failure in graph mode happens in one of two stages, and the fix differs sharply between them. The first thing to do is figure out **which** stage is failing.
+
+## Step 1: Diagnose — does `torch.export.export` succeed?
+
+`Quantizer.prepare()` first calls `torch.export.export` to trace the model into an FX graph, then applies quantization annotations on the resulting graph and runs `torchao`’s `prepare_qat_pt2e`. To localize the failure, run the export step directly with the same arguments `prepare()` would use:
+
+```python
+import torch
+
+with torch.no_grad():  # matches export_with_no_grad=True (the prepare() default)
+    exported_program = torch.export.export(model, example_inputs)
+```
+
+The result of this experiment determines which path to follow:
+
+- **Export fails.** Go to If torch.export.export fails. The model isn’t `torch.export`-compatible as written; the workarounds in Steps 2-3 may help.
+- **Export succeeds but `prepare()` still fails.** Go to [If prepare() fails after a successful export](#if-prepare-fails-after-a-successful-export).
+
+## If `torch.export.export` fails
+
+### Step 2: Try `export_with_no_grad=False`
+
+The default `export_with_no_grad=True` wraps the export call in `torch.no_grad()`. For some models, this context modifies tracing behavior and causes guard failures.
+
+```python
+prepared = quantizer.prepare(
+    example_inputs=(input_tensor,),
+    export_with_no_grad=False,
+)
+```
+
+### Step 3: Use dynamic shapes for shape-related errors
+
+If the error mentions shape constraints, guards, or symbolic dimensions, the model likely has inputs with variable dimensions (e.g., sequence length, batch size). Specify `dynamic_shapes` to tell the exporter which dimensions can vary:
+
+```python
+from torch.export.dynamic_shapes import Dim
+
+# Example: dynamic batch dimension
+prepared = quantizer.prepare(
+    example_inputs=(input_tensor,),
+    dynamic_shapes={"x": (Dim.AUTO, Dim.STATIC, Dim.STATIC, Dim.STATIC)},
+)
+
+# Example: dynamic sequence length with a max constraint
+import torch.export
+
+dynamic_shapes = {
+    "input_ids": {1: torch.export.Dim("seq_len", max=2048)},
+    "attention_mask": {1: torch.export.Dim("seq_len", max=2048)},
+}
+prepared = quantizer.prepare(
+    example_inputs=(input_ids, attention_mask),
+    dynamic_shapes=dynamic_shapes,
+)
+```
+
+For full details on dynamic shapes, see the [PyTorch Export Tutorial – Dynamic Shapes](https://docs.pytorch.org/tutorials/intermediate/torch_export_tutorial.html#constraints-dynamic-shapes).
+
+If Steps 2-3 don’t resolve the export failure (e.g., the model has data-dependent control flow that `torch.export` cannot capture), the model definition itself may need to change to become exportable — this is worth fixing at the source, since the same construct can also block conversion via [coreai-torch](https://github.com/apple/coreai-torch) later on. Otherwise, see [Fall back to EAGER execution mode](#fall-back-to-eager-execution-mode) below.
+
+## If `prepare()` fails after a successful export
+
+After `torch.export.export` returns, `Quantizer.prepare()` applies coreai-opt’s annotation pass and then calls into torch’s `prepare_qat_pt2e` API. If the error you’re seeing comes from `prepare_qat_pt2e` itself, it is a torch-side issue — refer to the [`torchao` documentation](https://docs.pytorch.org/ao/stable/).
+
+If the error does **not** come from `prepare_qat_pt2e` (i.e. it originates inside coreai-opt’s annotation pass), it likely indicates a bug in coreai-opt. **Please file an issue on GitHub** with the error message and a minimal reproducer. In the meantime, [fall back to eager mode](#fall-back-to-eager-execution-mode) below — eager bypasses the entire graph-mode pipeline.
+
+## Fall back to EAGER execution mode
+
+EAGER mode bypasses `torch.export` entirely and uses runtime tracing instead. It is the common fallback for both export failures that can’t be worked around with Steps 2-3 and post-export `prepare()` failures.
+
+```python
+from coreai_opt.quantization import ExecutionMode
+
+config = QuantizerConfig.presets.w8()
+config.execution_mode = ExecutionMode.EAGER
+quantizer = Quantizer(model, config)
+prepared = quantizer.prepare(example_inputs=(input_tensor,))
+```
+
+See [Choosing between graph and eager mode](../quantization/overview.md#choosing-between-graph-and-eager-mode) for the trade-offs between the two modes.
+
+## External Resources
+
+- [PyTorch Export Tutorial](https://docs.pytorch.org/tutorials/intermediate/torch_export_tutorial.html)
+- [Dynamic Shapes](https://docs.pytorch.org/tutorials/intermediate/torch_export_tutorial.html#constraints-dynamic-shapes)
 
 
 # how_to_use_coreaiopt.html.md
@@ -8392,7 +9113,7 @@ final_model = quantizer.finalize(backend=opt.ExportBackend.CoreAI)
 
 - For a working end-to-end example, see `test_p4a8_compression_mnist_accuracy` in `tests/test_joint_compression.py`.
 - For export-related tests, see `test_mnist_p4a8_compression_export` in `tests/export/test_pt2e_mlir_export.py`.
-- We explore applying joint compression to the EDSR model [here](../examples/edsr.md).
+- We explore applying joint compression to the EDSR model in [the EDSR model example](../examples/model_examples/edsr.md).
 
 
 # landing_page.html.md
@@ -8480,6 +9201,9 @@ Once we have the sensitivity scores of all the layers and candidate configs, we 
 
 Several strategies can be applied for determining the mixed-precision recipe given a constraint — for example, a target average bits-per-weight (BPW) — and aim to balance model size reduction with minimal accuracy loss.
 
+#### NOTE
+To obtain the analytical average BPW of a model, see [Utility for computing analytical Bits Per Weight (BPW)](#utility-for-computing-analytical-bits-per-weight-bpw) below.
+
 A simple greedy approach often works well:
 
 1. Sort all `(layer, config)` tuples by sensitivity in descending order (least quality loss first).
@@ -8509,15 +9233,56 @@ Likewise, the per-layer setting being varied across candidate configs does not h
 
 ## Examples
 
-- [Mixed-precision palettization with ResNet50](../examples/mixed_precision_palettization.md) — applies palettization with 2/4/6-bit per-tensor candidate configs and the greedy approach targeting a BPW of 4.
+- [Mixed-precision palettization with ResNet50](../examples/model_examples/mixed_precision_palettization.md) — applies palettization with 2/4/6-bit per-tensor candidate configs and the greedy approach targeting a BPW of 4.
 - [coreai-models](https://github.com/apple/coreai-models) — the same workflow is applied to a few LLMs in this repository to produce mixed precision compression recipes. Users can find the mixed precision configs in the repo and apply them with `coreai-opt`.
+
+## Utility for computing analytical Bits Per Weight (BPW)
+
+[`bits_per_weight()`](../api/generated/coreai_opt.inspection.bits_per_weight.md#coreai_opt.inspection.bits_per_weight) is a utility that computes an analytical BPW estimate from a *prepared* `coreai-opt` model.
+
+It estimates the average bitwidth of a model, accounting for compression overhead such as quantization scales and zero-points as well as palettization look-up tables and per-channel scales. Compressed tensors are counted at their effective compressed cost and uncompressed tensors are counted at their full-precision dtype cost.
+
+**Usage:**
+
+```python
+from coreai_opt.quantization import Quantizer, QuantizerConfig
+from coreai_opt.quantization.config import ExecutionMode
+from coreai_opt.inspection import BitsPerWeightResult, bits_per_weight
+
+# Prepare an eager-mode weight-quantized model
+quantizer = Quantizer(
+    model, QuantizerConfig.presets.w8(execution_mode=ExecutionMode.EAGER)
+)
+prepared_model = quantizer.prepare(example_inputs)
+
+result: BitsPerWeightResult = bits_per_weight(prepared_model)
+print(result.bpw)  # e.g. 8.86
+```
+
+The returned [`BitsPerWeightResult`](../api/generated/coreai_opt.inspection.BitsPerWeightResult.md#coreai_opt.inspection.BitsPerWeightResult) also exposes `per_module_map`, a mapping from module name to the module’s own average BPW, which is useful for inspecting how bits are distributed across different parts of the model.
+
+The utility supports:
+
+- **Eager-mode integer weight quantization**: any spec-supported integer dtype, any quantization scheme (symmetric or asymmetric), at any granularity.
+- **Eager-mode floating-point weight quantization**: FP8 (`e4m3`, `e5m2`) and FP4 (`e2m1`).
+- **Palettization** at any spec-supported `n_bits`, including a quantized LUT.
+
+Sub-byte payloads and zero-points are packed at `n_bits` with no padding.
+
+#### NOTE
+Sparsity (pruning) and models quantized using graph mode (`ExecutionMode.GRAPH`) are currently not supported.
+
+#### NOTE
+This is an analytical estimate computed on a *prepared* `coreai-opt` model and as such does not reflect the exported asset size of any [`finalize()` backend](../introduction/integration_coreai.md). Passing a finalized model to the utility is not supported.
+
+For the full API, see the [`bits_per_weight()`](../api/generated/coreai_opt.inspection.bits_per_weight.md#coreai_opt.inspection.bits_per_weight) reference.
 
 
 # mixed_precision_palettization.html.md
 
 # Mixed-precision palettization with ResNet50
 
-In this article we walk through the [Mixed-Precision Compression](../utils/mixed_precision.md) workflow applied to ResNet50 weight palettization. We use 2/4/6-bit per-tensor palettization as our candidate configs, PSNR on logits as the sensitivity metric, and generate the recipe with the greedy approach targeting 4 bits-per-weight (BPW). See the linked page for definitions of each term and the three-stage workflow.
+In this article we walk through the [Mixed-Precision Compression](../../utils/mixed_precision.md) workflow applied to ResNet50 weight palettization. We use 2/4/6-bit per-tensor palettization as our candidate configs, PSNR on logits as the sensitivity metric, and generate the recipe with the greedy approach targeting 4 bits-per-weight (BPW). See the linked page for definitions of each term and the three-stage workflow.
 
 ## Model and dataset
 
@@ -8802,6 +9567,84 @@ Once the jointly compressed model is ready, call `finalize()` on the quantizer t
 The export proceeds in three steps: trace the model with `torch.export.export()`, cast remaining FP32 parameters to FP16 with `cast_to_16_bit_precision()`, then convert to Core AI format using `coreai-torch`.
 
 
+# mnist_pruning.html.md
+
+# Applying magnitude pruning to an MNIST model
+
+In this tutorial, we will be providing a basic introduction to pruning a model with CoreAI-Opt.
+
+After the end of this tutorial, you should be familiar with the following:
+
+1. [How to apply CoreAI-Opt’s post-training magnitude pruning](#Post-Training-Magnitude-Pruning)
+2. [How to apply CoreAI-Opt’s magnitude pruning with a sparsity schedule and fine-tuning](#Magnitude-Pruning-with-Fine-Tuning)
+3. [How to export CoreAI-Opt pruned models to Core AI](#Export-to-Core-AI)
+
+**Table of Contents:**
+
+- [Setup](#Setup)
+  - [MNIST Dataset download](#MNIST-Dataset-download)
+  - [Model definition](#Model-definition)
+  - [Training and Evaluation](#Training-and-Evaluation)
+  - [Train baseline model](#Train-baseline-model)
+- [Post-Training Magnitude Pruning](#Post-Training-Magnitude-Pruning)
+- [Magnitude Pruning with Fine-Tuning](#Magnitude-Pruning-with-Fine-Tuning)
+- [Export to Core AI](#Export-to-Core-AI)
+
+## Setup
+
+We will be using a basic CNN model and train it on the MNIST dataset and observe its final accuracy.
+
+Once we train this CNN model, we will apply magnitude pruning to it using `coreai-opt`, starting with a *post-training* pass (no fine-tuning), and then moving to a *scheduled* pass that ramps up sparsity while fine-tuning to recover accuracy.
+
+### MNIST Dataset download
+
+Helper to download the MNIST dataset with standard normalization applied.
+
+### Model definition
+
+A simple CNN with a single Conv2d → ReLU → MaxPool block, followed by Flatten and a Linear classifier.
+
+### Training and Evaluation
+
+Standard PyTorch training loop and evaluation function that computes accuracy.
+
+The CNN model used for this tutorial contains a single Conv2d, ReLU, MaxPool, Flatten, and Linear layer. Here’s the structure:
+
+### Train baseline model
+
+Let’s train this model so we can get a baseline accuracy. We save the trained weights so we can reload them for each pruning experiment.
+
+## Post-Training Magnitude Pruning
+
+Magnitude pruning sparsifies a model by zeroing out the smallest-magnitude weights, up to a `target_sparsity`. Post-training pruning applies the full sparsity in a single shot during the `prepare()` call — no calibration data or fine-tuning is required.
+
+Unless a model’s weights are already close to zero, post-training pruning will usually degrade accuracy. It’s most useful as a quick way to see the effect of sparsity before committing to a fine-tuning workflow.
+
+For this tutorial, we’ll apply 50% unstructured magnitude pruning (individual elements, not whole channels) via `PruningSpec`. Refer to the [Pruning Config](https://apple.github.io/coreai-optimization/pruning/config.html) page for all options.
+
+After calling `prepare()`, 50% of the values in each supported weight tensor are already zeroed out, so we can measure the accuracy impact immediately.
+
+## Magnitude Pruning with Fine-Tuning
+
+In most cases, fine-tuning is required to recover accuracy after pruning. Instead of applying the full sparsity in one shot, we configure a `sparsity_schedule` on the module config and call `pruner.step()` once per epoch to gradually ramp up sparsity while the model keeps training.
+
+Here we target 50% sparsity, ramped in via a `PolynomialDecaySchedule` over the 5 epochs of fine-tuning.
+
+We now fine-tune the model while incrementing the sparsity schedule. The `pruner.step()` call at the end of each epoch advances the schedule and recomputes the pruning masks against the current weight magnitudes for the next sparsity level.
+
+## Export to Core AI
+
+Once the pruned model is ready, call `finalize()` to prepare the sparsified modules for deployment. Pass `ExportBackend.CoreAI` to `finalize(backend=...)` to target the `.aimodel` format produced by `coreai-torch`.
+
+We’ll export the fine-tuned, scheduled-pruning model from the previous section.
+
+The export proceeds in three steps:
+
+- Trace the model with `torch.export.export()` to obtain a graph representation.
+- Apply `cast_to_16_bit_precision()` to cast remaining FP32 parameters to FP16 for optimal on-device performance.
+- Convert the exported program to Core AI format using `coreai-torch.TorchConverter`.
+
+
 # mnist_quantization.html.md
 
 # Applying quantization to an MNIST model
@@ -8884,7 +9727,7 @@ Two changes from the weight-only config:
 
 We now call `calibration_mode()` and feed it representative inputs to populate scale and zero-point value.
 
-The `calibration_mode()` context manager enables range observers (to collect activation statistics) while disabling fake quantization (so the forward pass is numerically identical to the unquantized model). After exiting the context, observers are frozen and fake quantization is re-enabled.
+The `calibration_mode()` context manager enables range observers (to collect activation statistics) and disables activation fake quantization (so the observed ranges reflect undistorted activation values), while leaving weight fake quantization enabled (so activations flowing into each observer are produced with quantized weights upstream). After exiting the context, observers are frozen and activation fake quantization is re-enabled.
 
 ## Quantization Aware Training
 
@@ -8922,9 +9765,9 @@ Check out the [coreai-models](https://github.com/apple/coreai-models/blob/main/m
 
 The examples in this section use simpler models (like ResNet50) to illustrate various compression options, hyper-parameters choices and processes that you may use for determining which methods to apply to your specific model.
 
-* [ResNet50 model: Weight + Activation Quantization (PTQ)](resnet50.md)
-* [Mixed-precision palettization with ResNet50](mixed_precision_palettization.md)
-* [EDSR model: Weight palettization + activation quantization (PTQ)](edsr.md)
+* [ResNet50 model: Weight + Activation Quantization (PTQ)](model_examples/resnet50.md)
+* [Mixed-precision palettization with ResNet50](model_examples/mixed_precision_palettization.md)
+* [EDSR model: Weight palettization + activation quantization (PTQ)](model_examples/edsr.md)
 
 
 # model_inspection.html.md
@@ -8933,8 +9776,16 @@ The examples in this section use simpler models (like ResNet50) to illustrate va
 
 `coreai-opt` configs reference module names, module types, op names, and op types to target specific parts of a model. Before writing a config, you need to know exactly which strings your model exposes. [`ModelInspector`](../api/generated/coreai_opt.inspection.ModelInspector.md#coreai_opt.inspection.ModelInspector) discovers these automatically and provides query methods corresponding to each config key type (`op_type_config`, `op_name_config`, `module_name_configs`, `module_type_configs`).
 
-#### NOTE
-`ModelInspector` currently supports **graph execution mode only**. Eager mode support is planned. For eager mode op naming, see [How to get names + types](../quantization/config.md#how-to-get-names-types-for-modules-and-ops).
+## Execution Modes
+
+`ModelInspector` supports two execution modes, selected via the `execution_mode` argument:
+
+- **Graph mode** (`execution_mode="graph"`): Exports the model with `torch.export` and walks the resulting FX graph. Op names are global identifiers assigned during export (for example, `"linear"`, `"linear_1"`). The compressor must be `Quantizer` or `None`.
+- **Eager mode** (`execution_mode="eager"`): Intercepts operations during a live forward pass. Op names are module-qualified identifiers that reflect the module hierarchy (for example, `"linear1.linear"`, `"linear2.linear"`). This mode supports both `Quantizer` and `KMeansPalettizer` as the compressor.
+
+If you plan to compress the model using one of `coreai-opt`’s compression techniques, choose the `execution_mode` you plan to use when compressing for inspection in order to identify the correct op and module names to use in the compression config.
+
+For more information on `graph` mode vs. `eager` mode, see [Two Execution Modes: graph and eager](../quantization/overview.md#two-execution-modes-graph-and-eager).
 
 ## Basic Usage
 
@@ -8968,49 +9819,162 @@ inspector = ModelInspector(
     compressor=Quantizer,
 )
 
-# Print a module-hierarchy tree showing ops, source locations, and connectivity
+# Print a module-hierarchy tree showing ops, connectivity, and source locations
 print(inspector.format_summary())
 ```
 
-Note the use of `compressor=Quantizer` in the list of arguments to `ModelInspector`. This filters the list of ops captured and displayed by `ModelInspector` to only those operations which are registered for compressibility by `Quantizer`. Omitting this argument allows for all ops to be captured and displayed.
+Pass `colorize=False` to suppress ANSI color codes, for example when writing to a file.
+
+#### NOTE
+Note the use of `compressor=Quantizer`. This filters the captured and displayed ops to those registered as compressible by `Quantizer`. Omit this argument to capture and display all ops.
 
 The above code produces output like the following (colors omitted for brevity):
 
 ```text
-Legend:  ■ module_name (module_type)  ◆ op_name [op_type]
+Legend:
+  ■ module_name (module_type)  ◆ op_name [op_type]
 
-(MyModel)
-    module inputs:  linear
-    module outputs: linear_1
+  op inputs:  {I: producer[N]}  —  I = op_input_spec index; N = output slot of the producing op
+  op states:     param_name    —  model parameter or buffer
+  op outputs: {N: [consumers]} —  N = output slot index; consumers = ops receiving that output
+  untracked_N                  —  input tensor whose producer was not intercepted (e.g. raw attribute or global tensor); still quantizable via op_input_spec
+  module inputs:  {I: [op[N], ...]}  —  I = module_input_spec index; op[N] = op and its input slot receiving data from outside; absent keys = non-quantizable
+  module outputs: {I: op[N]}         —  I = module_output_spec index; op[N] = op and its output slot leaving the module; absent keys = non-quantizable
+
+(__main__.MyModel)
+    module inputs:  {0: [linear[0]]}
+    module outputs: {0: linear_1[0]}
 ├── ■ linear1 (torch.nn.modules.linear.Linear)
-│       module inputs:  linear
-│       module outputs: linear
+│       module inputs:  {0: [linear[0]]}
+│       module outputs: {0: linear[0]}
 │   └── ◆ linear [linear]
-│         op inputs:  x, linear1_weight, linear1_bias
-│         op outputs: relu
-│         filepath:  my_model.py:16
-│         code:      x = self.linear1(x)
+│         op inputs:  {0: x[0]}
+│         op states:  weight, bias
+│         op outputs: {0: [relu]}
 ├── ■ relu (torch.nn.modules.activation.ReLU)
-│       module inputs:  relu
-│       module outputs: relu
+│       module inputs:  {0: [relu[0]]}
+│       module outputs: {0: relu[0]}
 └── ■ linear2 (torch.nn.modules.linear.Linear)
-        module inputs:  linear_1
-        module outputs: linear_1
+        module inputs:  {0: [linear_1[0]]}
+        module outputs: {0: linear_1[0]}
     └── ◆ linear_1 [linear]
-          op inputs:  relu, linear2_weight, linear2_bias
-          op outputs: output
-          filepath:  my_model.py:18
-          code:      x = self.linear2(x)
+          op inputs:  {0: relu[0]}
+          op states:  weight, bias
+          op outputs: {0: [output]}
 ```
 
-The output shows the model’s module hierarchy and the ops within each module. Note in particular that since `relu` is not a registered compressible op by `Quantizer`, it does not show up as an operation within the `ReLU` module.
+Note that `relu` does not appear as an operation (`◆`) within the `relu` module, because `ReLU` is not a compressible op in `Quantizer`. It still appears as a module node (`■`) and in connectivity lines such as `op outputs: {0: [relu]}` and `op inputs: {0: relu[0]}`, because the relu tensor passes through and connects the two linear ops.
 
-Reading the tree:
+## Reading the Tree
 
-- **Module name** and **module type** appear on module lines: `■ module_name (module_type)`. For example, `■ linear1 (torch.nn.modules.linear.Linear)` — `"linear1"` is the module name (usable in `module_name_configs`) and `"torch.nn.modules.linear.Linear"` is the module type (usable in `module_type_configs`).
-- **Op name** and **op type** appear on operation lines: `◆ op_name [op_type]`. For example, `◆ linear_1 [linear]` — `"linear_1"` is the op name (usable in `op_name_config`) and `"linear"` is the op type (usable in `op_type_config`).
-- **Op inputs/outputs** show connectivity between operations.
-- **filepath** and **code** (shown for user-defined modules) show where in your source code the operation originates.
+### Module lines
+
+Module lines use the form `■ module_name (module_type)`. For example, `■ linear1 (torch.nn.modules.linear.Linear)`:
+
+- `"linear1"` is the module name, usable in `module_name_configs`.
+- `"torch.nn.modules.linear.Linear"` is the module type, usable in `module_type_configs`.
+
+**Module boundaries** appear indented under the module header:
+
+- `module inputs: {I: [op[N], ...]}` — The activations entering this module from outside. `I` is the position in the module’s input spec (matching `module_input_spec` in a config), `op` is the name of the first compressible op inside the module that receives data at that position, and `N` is the input slot on that op. A single external input can fan out to multiple ops. Keys absent from this dict correspond to non-quantizable positions (for example, state tensors or unused arguments).
+- `module outputs: {I: op[N]}` — The activations leaving this module. `I` is the position in the module’s output spec, `op` is the compressible op producing that output, and `N` is the op’s output slot. Absent keys correspond to non-quantizable positions.
+
+### Op lines
+
+Op lines use the form `◆ op_name [op_type]`. For example, `◆ linear_1 [linear]`:
+
+- `"linear_1"` is the op name, usable in `op_name_config`.
+- `"linear"` is the op type, usable in `op_type_config`.
+
+**Op connectivity** appears indented under the op header:
+
+- `op inputs: {I: producer[N]}` — Activation inputs only (parameters and buffers are on a separate line). `I` is the argument position (matching `op_input_spec` in a config), `producer` is the name of the op that produced this tensor, and `N` is the output slot of that producer. For example, `{0: relu[0]}` means argument 0 comes from output slot 0 of the `relu` op.
+- `op states: param_name, ...` — Model parameters and buffers consumed by this op. This line is omitted if the op takes no states.
+- `op outputs: {N: [consumer1, consumer2, ...]}` — `N` is the output slot index, and the list contains the names of all ops consuming that output.
+- `untracked_N` — Appears in place of a producer name when the input tensor’s origin was not intercepted (for example, a raw module attribute or global tensor). These tensors are still quantizable via `op_input_spec`.
+- `filepath` and `code` — Source file and line of the call that produced the op, shown as dim text.
+
+## Eager Mode
+
+To inspect using eager mode, pass `execution_mode="eager"`. The same `MyModel` example above yields:
+
+```text
+(__main__.MyModel)
+    module inputs:  {0: [linear1.linear[0]]}
+    module outputs: {0: linear2.linear[0]}
+├── ■ linear1 (torch.nn.modules.linear.Linear)
+│       module inputs:  {0: [linear1.linear[0]]}
+│       module outputs: {0: linear1.linear[0]}
+│   └── ◆ linear1.linear [linear]
+│         op inputs:  {0: input_0}
+│         op states:  weight, bias
+│         op outputs: {0: [relu.relu]}
+│         filepath:  my_model.py:16
+├── ■ relu (torch.nn.modules.activation.ReLU)
+│       module inputs:  {0: [relu.relu[0]]}
+│       module outputs: {0: relu.relu[0]}
+└── ■ linear2 (torch.nn.modules.linear.Linear)
+        module inputs:  {0: [linear2.linear[0]]}
+        module outputs: {0: linear2.linear[0]}
+    └── ◆ linear2.linear [linear]
+          op inputs:  {0: relu.relu[0]}
+          op states:  weight, bias
+          op outputs: {0: [output_0]}
+          filepath:  my_model.py:18
+```
+
+## Querying Operations by Config Key
+
+Once you have reviewed the full summary to see what names and types are present, use the query methods to check which operations a specific pattern matches. This is useful for verifying that a config targets the intended ops before applying compression.
+
+Each query method returns a tuple of [`OpInfo`](../api/generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) objects matching the filter. The method names correspond directly to the config keys they help populate.
+
+From the graph mode summary above, this model exposes:
+
+- **Op types**: `linear`
+- **Op names**: `linear`, `linear_1`
+- **Module types**: `torch.nn.modules.linear.Linear`, `torch.nn.modules.activation.ReLU`
+- **Module names**: `linear1`, `relu`, `linear2`
+
+Op names and module names can be passed as a literal string or as a regex following [Python re syntax](https://docs.python.org/3/library/re.html) for wildcard matching. The pattern is matched against the full string. The matching behavior is identical to how compression config entries match modules and ops, so you can see exactly which ops a given pattern would select.
+
+**By op type** — exact-string match against `op_type_config` keys:
+
+```python
+inspector.get_matched_ops_for_op_type("linear")  # matches both linear ops
+```
+
+**By op name** — regex against `op_name_config` keys:
+
+```python
+inspector.get_matched_ops_for_op_name("linear_1")  # matches just linear_1
+inspector.get_matched_ops_for_op_name(".*linear.*")  # matches both linear and linear_1
+```
+
+**By module name** — regex against `module_name_configs` keys:
+
+```python
+inspector.get_matched_ops_for_module_name(
+    "linear1"
+)  # matches the op in module "linear1"
+inspector.get_matched_ops_for_module_name(
+    "linear[12]"
+)  # matches ops in "linear1" and "linear2"
+```
+
+Each returned [`OpInfo`](../api/generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) provides `op_name`, `op_type`, `module_stack`, `inputs`, `outputs`, and `is_state`. The `module_stack` is a tuple of [`ModuleContext`](../api/generated/coreai_opt.inspection.ModuleContext.md#coreai_opt.inspection.ModuleContext) entries from outermost to innermost module:
+
+```python
+>>> for op in inspector.get_matched_ops_for_op_type("linear"):
+...     print(f"  op_name={op.op_name}, op_type={op.op_type}")
+...     print(f"  module: {op.module_stack[-1].module_name} ({op.module_stack[-1].module_type})")
+  op_name=linear, op_type=linear
+  module: linear1 (torch.nn.modules.linear.Linear)
+  op_name=linear_1, op_type=linear
+  module: linear2 (torch.nn.modules.linear.Linear)
+```
+
+`OpInfo.inputs` is a tuple of [`InputEdge`](../api/generated/coreai_opt.inspection.InputEdge.md#coreai_opt.inspection.InputEdge) objects, one per input argument position. Each `InputEdge` carries the producing `OpInfo` and the output slot index (`output_idx`) of that producer. State inputs (parameters, buffers) are interleaved in the tuple at their actual argument positions, and their corresponding `InputEdge` objects have `is_state=True`.
 
 Using these strings directly in a config:
 
@@ -9041,61 +10005,6 @@ config = QuantizerConfig(
 )
 ```
 
-Pass `colorize=False` to suppress ANSI color codes (e.g., when writing to a file).
-
-## Querying Operations by Config Key
-
-Once you have reviewed the full summary to see what names and types are present, you can use query methods to check which operations would be matched by a specific name or type pattern. This is useful for verifying your config will target the intended ops before applying compression.
-
-Each query method returns a tuple of [`OpInfo`](../api/generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) objects matching the filter. The method names correspond directly to the config keys they help populate.
-
-From the Basic Usage summary, this model exposes:
-
-- **Op types**: `linear`
-- **Op names**: `linear`, `linear_1`
-- **Module types**: `torch.nn.modules.linear.Linear`, `torch.nn.modules.activation.ReLU`
-- **Module names**: `linear1`, `relu`, `linear2`
-
-Op names and module names can be passed as a literal name or as a regex following [Python re syntax](https://docs.python.org/3/library/re.html) for wildcard matching; the pattern is matched against the entire string. The matching methodology is identical to how compression config entries match modules and ops in a model, allowing the user to see exactly which modules or ops would be matched given a particular string.
-
-Each query method returns a tuple of [`OpInfo`](../api/generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) objects matching the filter:
-
-**By op type** — exact-string match against `op_type_config` keys:
-
-```python
-inspector.get_matched_ops_for_op_type("linear")  # matches both linear ops
-```
-
-**By op name** — regex against `op_name_config` keys:
-
-```python
-inspector.get_matched_ops_for_op_name("linear_1")  # matches just linear_1
-inspector.get_matched_ops_for_op_name(".*linear.*")  # matches both linear and linear_1
-```
-
-**By module name** — regex against `module_name_configs` keys:
-
-```python
-inspector.get_matched_ops_for_module_name(
-    "linear1"
-)  # matches the op in module "linear1"
-inspector.get_matched_ops_for_module_name(
-    "linear[12]"
-)  # matches ops in modules "linear1" and "linear2"
-```
-
-Each returned [`OpInfo`](../api/generated/coreai_opt.inspection.OpInfo.md#coreai_opt.inspection.OpInfo) provides `op_name`, `op_type`, and `module_stack` (the nesting of modules containing the op):
-
-```python
->>> for op in inspector.get_matched_ops_for_op_type("linear"):
-...     print(f"  op_name={op.op_name}, op_type={op.op_type}")
-...     print(f"  module: {op.module_stack[-1].module_name} ({op.module_stack[-1].module_type})")
-  op_name=linear, op_type=linear
-  module: linear1 (torch.nn.modules.linear.Linear)
-  op_name=linear_1, op_type=linear
-  module: linear2 (torch.nn.modules.linear.Linear)
-```
-
 ## Navigating the Module Hierarchy
 
 For programmatic access to the inspector’s data structures, the [`ModelSummary`](../api/generated/coreai_opt.inspection.ModelSummary.md#coreai_opt.inspection.ModelSummary) exposes a [`ModuleInfo`](../api/generated/coreai_opt.inspection.ModuleInfo.md#coreai_opt.inspection.ModuleInfo) tree that mirrors the `nn.Module` hierarchy. These types are publicly exported from `coreai_opt.inspection` for use in custom analysis or tooling.
@@ -9110,14 +10019,27 @@ linear2: torch.nn.modules.linear.Linear, 1 direct ops
 ```
 
 ```python
-# look up a specific submodule
+# Look up a specific submodule
 linear2_module = root.get_submodule("linear2")
 
-# get all ops under this subtree (depth-first)
+# Get all ops under this subtree (depth-first)
 linear2_ops = linear2_module.all_ops()
 ```
 
 `ModuleInfo` supports the same iteration patterns as `nn.Module`: `children()`, `named_children()`, `modules()`, `named_modules()`, and `get_submodule()`.
+
+`ModuleInfo` also exposes the module boundary connectivity described in the tree:
+
+- `input_ops` — dict mapping module input spec index to a list of [`BoundaryEdge`](../api/generated/coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge) objects, each holding the op and input slot receiving data from outside the module.
+- `output_ops` — dict mapping module output spec index to a single [`BoundaryEdge`](../api/generated/coreai_opt.inspection.BoundaryEdge.md#coreai_opt.inspection.BoundaryEdge), holding the op and output slot whose tensor leaves the module.
+
+```python
+# Inspect boundary connectivity for a submodule
+linear1_module = root.get_submodule("linear1")
+for idx, edges in linear1_module.input_ops.items():
+    for edge in edges:
+        print(f"  module input {idx} -> {edge.op.op_name}[{edge.index}]")
+```
 
 
 # overview.html.md
@@ -9195,7 +10117,7 @@ mlmodel.save("model.mlpackage")
 The workflow has three stages:
 
 - **Configure.** `QuantizerConfig` specifies the quantization scheme; the `presets` namespace provides ready-made recipes (e.g. `presets.w8()` for INT8 symmetric per-channel weights). See [Quantization Config](config.md) to customize the spec or apply different settings to different layers.
-- **Prepare.** `prepare()` compresses the weights according to the config and inserts fake-quantize ops. The prepared model runs like the final compressed model — its forward pass reflects the compression — so you can evaluate accuracy on it, and iterate by changing the config. For weight-only quantization this is the only step needed before export, unless you want to push accuracy further with training (see the [QAT section](#weight-and-or-activation-quantization-qat-quantization-aware-training) below).
+- **Prepare.** `prepare()` compresses the weights according to the config and inserts fake-quantize ops. The prepared model runs like the final compressed model — its forward pass reflects the compression — so you can evaluate accuracy on it, and iterate by changing the config. For weight-only quantization this is the only step needed before export, unless you want to push accuracy further with training (see the QAT section below).
 - **Finalize and export.** `finalize(backend=...)` freezes the quantization parameters and replaces the fake-quantize ops with the chosen backend’s compression ops or metadata. The finalized model is meant primarily for export and stays numerically close to the model just before `finalize()`. Export to Core AI with [`coreai-torch`](../introduction/integration_coreai.md) (the [`cast_to_16_bit_precision`](../utils/casting.md) step is recommended), or to Core ML with `coremltools`.
 
 ## Weight + Activation Quantization (Calibration-Based PTQ)
@@ -9235,9 +10157,10 @@ Right after `prepare()`, the activation scales come only from `example_inputs`, 
 This is what the context manager handles:
 
 - Inside the context:
-  - fake-quantization is turned **off**: forward pass gives the same output as the unquantized model. Hence without distorting the outputs, the quantization params can be computed.
-  - range observers are turned **on**: this means that each forward pass updates the observed activation ranges, and hence the activation quantization scales.
-- After exiting the context manager, observers are turned back off and fake-quantization back on, leaving the model ready for evaluation.
+  - activation fake-quantization is turned **off**: activation observers see undistorted activation values, so the observed ranges (and resulting scales) reflect the true distribution rather than already-quantized values.
+  - weight fake-quantization stays **on**: activations flowing into each observer are produced with quantized weights upstream, matching what the deployed model will actually see.
+  - range observers are turned **on**: each forward pass updates the observed activation ranges, and hence the activation quantization scales.
+- After exiting the context manager, observers are turned back off and activation fake-quantization back on, leaving the model ready for evaluation.
 
 A small amount of representative data is typically enough.
 
@@ -9325,8 +10248,8 @@ The two modes are expected to produce very similar models for weight-only quanti
 
 A few scenarios where `eager` mode may need to be used instead of `graph`:
 
-- If you run into any errors during the `prepare` call which, under the hood, invokes the `torch.export.export` and `torchao`’s `prepare_qat_pt2e`/`convert_pt2e` APIs.
-- When `torch.nn.Module` needs to be provided as an input, instead of `ExportedProgram` to the conversion API of [coreai-torch](https://github.com/apple/coreai-torch). This happens when the `coreai-torch` conversion needs to “externalize” certain sub-modules to map them to *composite ops* for better runtime performance.
+- If you run into any errors during the `prepare` call which, under the hood, invokes the `torch.export.export` and `torchao`’s `prepare_qat_pt2e`/`convert_pt2e` APIs. See [Graph Mode Troubleshooting](../debugging/graph_mode_troubleshooting.md) for common export errors and workarounds before falling back to eager mode.
+- When `torch.nn.Module` needs to be provided as an input, instead of `ExportedProgram` to the conversion API of [coreai-torch](https://github.com/apple/coreai-torch). Note that models whose submodules must be “externalized” to map them to *composite ops* for better runtime performance can still be quantized in graph mode. See [Quantization with Composite Ops](composite_op_quantization.md).
 
 #### Weights and activations quantization
 
@@ -9518,7 +10441,7 @@ val_metric = validate(prepared_model, val_dataset)
 # same as before
 ```
 
-To save the importance-scores (aka sensitivities) for the weights to reuse later:
+To save the importance-scores (aka sensitivities) for the weights to reuse later, specify a `sensitivity_path` argument in the `calibration_mode` context:
 
 ```python
 # provide path to save weight sensitivities
@@ -9530,7 +10453,7 @@ with palettizer.calibration_mode(
         skm.step(output, target)
 ```
 
-And then in a future new run, load precomputed sensitivities during prepare:
+Precomputed sensitivities can be loaded during preparation in a future new run to avoid needing to recalibrate:
 
 ```python
 prepared_model = palettizer.prepare(example_inputs, sensitivity_path="sensitivities.pt")
@@ -9542,7 +10465,90 @@ val_metric = validate(prepared_model, val_dataset)
 # same as before
 ```
 
+Note that `Sensitive K-means` shares the same `KMeansPalettizer` and `KMeansPalettizerConfig` as `Vanilla K-means`. `Sensitive K-means` is achieved simply by passing representative data samples through the model while inside the `calibration_mode` context.
+
 For more details on how to use `KMeansPalettizerConfig`, `ModuleKMeansPalettizerConfig` to apply different settings to different weights in the model, see [Palettization Config](config.md).
+
+## Training a Palettized model
+
+A `KMeansPalettizer` palettized model can still be fine-tuned in a training pipeline. As palettization is a hard assignment lookup, gradients cannot be propagated for palettized weights, meaning any parameter which is palettized will not update during `optimizer.step()` (the palettization codebook and index assignments will also be fixed).
+
+Any parameters not being palettized can still update and learn so that one can fine-tune any non-palettized portion of the model while being palettization-aware, i.e. adapting to other parameters which are palettized.
+
+Run the training loop inside `palettizer.training_mode()`, which places the model in train mode and restores its original train/eval state on exit:
+
+```python
+from coreai_opt.palettization import KMeansPalettizer, KMeansPalettizerConfig, ModuleKMeansPalettizerConfig, PalettizationSpec
+
+kmeans_palettizer_config = KMeansPalettizerConfig(...)
+
+palettizer = KMeansPalettizer(model, kmeans_palettizer_config)
+prepared_model = palettizer.prepare(example_inputs)
+
+with palettizer.training_mode():
+    for ...
+        # Perform whatever training forward pass / loss calculation / optimizer gradient application is desired
+        ...
+```
+
+### Using PATSchedule
+
+Users may also choose to enable palettization of parameters at a future point during training instead of right from the start. Weights which are marked for palettization, but have not yet had their palettizers enabled, will still be able to update during training. When a weight’s palettizer is switched from disabled to enabled, its codebook and index assignments are recomputed using the most current weight values.
+
+Since palettizer enabling can be configured on a module by module basis, this gives users more flexibility on training to be palettization-aware by allowing weights to update in response to palettization noise from other palettized weights before themselves being palettized.
+
+For example, users could choose to apply the following workflow:
+
+1. Begin training with all parameters marked to be palettized but with all palettizers disabled
+2. Fine-tune the model with no palettization noise for a few epochs
+3. Enable a subset of palettizers while keeping the rest of the palettizers disabled
+4. Fine-tune the model with palettization noise from the subset of enabled palettizers (any weights with enabled palettizers will not update further, but any weights with palettizers not yet enabled will continue training)
+5. Enable the rest of palettizers in the model and evaluate the final accuracy
+
+Steps 3 and 4 can be repeated as many times as desired with more and more palettizers being enabled.
+
+To achieve this, add a `PATSchedule` to the relevant module configs and call `palettizer.step()` inside the training loop to advance the schedule:
+
+```python
+from coreai_opt.palettization import KMeansPalettizer, KMeansPalettizerConfig, ModuleKMeansPalettizerConfig, PalettizationSpec
+from coreai_opt.palettization.config import PATSchedule
+
+# Create a KMeansPalettizer config with 2 modules being palettized using different PATSchedules
+kmeans_palettizer_config = KMeansPalettizerConfig(
+    global_config = ...,
+    module_name_configs = {
+        "module1": ModuleKMeansPalettizerConfig(
+            ...,
+            pat_schedule=PATSchedule(
+                enable_fake_palettize=2
+            )
+        ),
+        "module2": ModuleKMeansPalettizerConfig(
+            ...,
+            pat_schedule=PATSchedule(
+                enable_fake_palettize=4
+            )
+        )
+    }
+)
+
+palettizer = KMeansPalettizer(model, kmeans_palettizer_config)
+prepared_model = palettizer.prepare(example_inputs)
+
+# Track the palettizer's step count so palettizer state is managed
+# in accordance with each module's PATSchedule.
+with palettizer.training_mode():
+    for ...
+        # Perform whatever training forward pass / loss calculation / optimizer gradient application is desired
+        ...
+
+        # Call palettizer.step() to increase palettizer's step count by 1
+        palettizer.step()
+```
+
+Each time `palettizer.step()` is called, the palettizer checks each module’s `PATSchedule` to see whether any palettizer should be enabled. With the above config settings of `enable_fake_palettize` = 2 and 4 for `module1` and `module2` respectively, this results in both palettizers being disabled to start, `module1`’s palettizer enabled after `palettizer.step()` has been called twice, and `module2`’s palettizer enabled after `palettizer.step()` has been called 4 times in total.
+
+Note that `palettizer.step()` can be called whenever the user desires, whether it be per-batch, per-epoch, or on some other cadence.
 
 
 # resnet50.html.md
@@ -9602,9 +10608,9 @@ prepared_model = quantizer.prepare(example_inputs)
 
 Calibration is necessary when activation quantization is enabled. In order to determine proper quantization parameters for activation quantizers, representative data must be passed through the prepared model in the `calibration_mode()` context.
 
-Inside `calibration_mode()`, fake quantization is disabled and observers track tensor ranges seen at each activation quantizer.
-Each forward pass updates the activation scales without introducing quantization noise into the output.
-On exit, observers are disabled and fake quantization is re-enabled.
+Inside `calibration_mode()`, activation fake quantization is disabled while weight fake quantization stays on, and observers track tensor ranges seen at each activation quantizer.
+Each forward pass updates the activation scales using activations produced with quantized weights upstream, without injecting activation quantization noise into the observed values.
+On exit, observers are disabled and activation fake quantization is re-enabled.
 
 ```python
 with quantizer.calibration_mode():
@@ -9743,7 +10749,7 @@ finalized_model = quantizer.finalize(
 ```
 
 At this point, the model is ready to be exported or traced for downstream conversion with `coreai-torch` or `coremltools`.
-Refer to [Integration with Core AI](../introduction/integration_coreai.md) for more details.
+Refer to [Integration with Core AI](../../introduction/integration_coreai.md) for more details.
 
 ## Summary
 
@@ -9769,5 +10775,6 @@ These tutorials demonstrate model compression techniques using simple toy models
 * [Applying quantization to an MNIST model](../tutorials/mnist_quantization.md)
 * [Applying palettization to an MNIST model](../tutorials/mnist_palettization.md)
 * [Applying joint palettization and activation quantization to an MNIST model](../tutorials/mnist_palettization_and_activation_quantization.md)
+* [Applying magnitude pruning to an MNIST model](../tutorials/mnist_pruning.md)
 
 

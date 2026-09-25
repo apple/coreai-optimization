@@ -1,0 +1,14 @@
+﻿coreai\_opt.palettization.config.PATSchedule
+============================================
+
+.. currentmodule:: coreai_opt.palettization.config
+
+.. autopydantic_model:: PATSchedule
+
+   
+   
+   
+
+   
+   
+   

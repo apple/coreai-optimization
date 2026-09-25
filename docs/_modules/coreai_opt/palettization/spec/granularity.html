@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../palettization/index.html">Palettization</a><ul>
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -314,29 +338,29 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="9"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 </span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ConfigDict</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">model_serializer</span>
 </span><span data-line="11">
-</span><span data-line="12"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.registry_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigRegistryMixin</span>
+</span><span data-line="12"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.registry_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigRegistryMixin</span> <span class="k">as</span> <span class="n">_ConfigRegistryMixin</span>
 </span><span data-line="13">
 </span><span data-line="14"><span class="kn">from</span><span class="w"> </span><span class="nn">.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">_IncompatibleGranularityError</span>
 </span><span data-line="15">
 </span><span data-line="16">
 <div class="viewcode-block" id="PalettizationGranularity">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html#coreai_opt.palettization.spec.PalettizationGranularity">[docs]</a>
-</span><span data-line="17"><span class="k">class</span><span class="w"> </span><span class="nc">PalettizationGranularity</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">,</span> <span class="n">ConfigRegistryMixin</span><span class="p">):</span>
-</span><span data-line="18"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="17"><span class="k">class</span><span class="w"> </span><span class="nc">PalettizationGranularity</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">,</span> <span class="n">_ConfigRegistryMixin</span><span class="p">):</span>
+</span><span data-line="18"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="19"><span class="sd">    Base class for palettization granularity specifications.</span>
-</span><span data-line="20"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="20"><span class="sd">    """</span>
 </span><span data-line="21">
-</span><span data-line="22">    <span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s2">&quot;forbid&quot;</span><span class="p">)</span>
+</span><span data-line="22">    <span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s2">"forbid"</span><span class="p">)</span>
 </span><span data-line="23">
 </span><span data-line="24">    <span class="n">axis</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
 </span><span data-line="25">        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span data-line="26">        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The axis along which palettization is applied. &quot;</span>
-</span><span data-line="27">        <span class="s2">&quot;None for per-tensor granularity.&quot;</span><span class="p">,</span>
+</span><span data-line="26">        <span class="n">description</span><span class="o">=</span><span class="s2">"The axis along which palettization is applied. "</span>
+</span><span data-line="27">        <span class="s2">"None for per-tensor granularity."</span><span class="p">,</span>
 </span><span data-line="28">    <span class="p">)</span>
 </span><span data-line="29">
 </span><span data-line="30">    <span class="nd">@model_serializer</span>
 </span><span data-line="31">    <span class="k">def</span><span class="w"> </span><span class="nf">_serialize_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-</span><span data-line="32"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Custom serializer that includes the registry type.&quot;&quot;&quot;</span>
+</span><span data-line="32"><span class="w">        </span><span class="sd">"""Custom serializer that includes the registry type."""</span>
 </span><span data-line="33">        <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="34">
 </span><span data-line="35">        <span class="k">for</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">model_fields</span><span class="p">:</span>
@@ -351,7 +375,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="44">                <span class="k">break</span>
 </span><span data-line="45">
 </span><span data-line="46">        <span class="k">if</span> <span class="n">registry_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="47">            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">registry_key</span>
+</span><span data-line="47">            <span class="n">data</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">=</span> <span class="n">registry_key</span>
 </span><span data-line="48">
 </span><span data-line="49">        <span class="k">return</span> <span class="n">data</span>
 </span><span data-line="50">
@@ -359,7 +383,7 @@ data-aria-dark="Switch to auto color mode">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html#coreai_opt.palettization.spec.PalettizationGranularity.num_blocks_to_cluster">[docs]</a>
 </span><span data-line="51">    <span class="nd">@abstractmethod</span>
 </span><span data-line="52">    <span class="k">def</span><span class="w"> </span><span class="nf">num_blocks_to_cluster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="53"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="53"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="54"><span class="sd">        Return the number of weight blocks to cluster based on the</span>
 </span><span data-line="55"><span class="sd">        specified granularity.</span>
 </span><span data-line="56">
@@ -372,7 +396,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="63"><span class="sd">        Raises:</span>
 </span><span data-line="64"><span class="sd">            _IncompatibleGranularityError: If the tensor is incompatible with</span>
 </span><span data-line="65"><span class="sd">                this granularity</span>
-</span><span data-line="66"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="66"><span class="sd">        """</span>
 </span><span data-line="67">        <span class="k">pass</span></div>
 
 </span><span data-line="68">
@@ -380,7 +404,7 @@ data-aria-dark="Switch to auto color mode">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html#coreai_opt.palettization.spec.PalettizationGranularity.get_blocks_to_cluster">[docs]</a>
 </span><span data-line="69">    <span class="nd">@abstractmethod</span>
 </span><span data-line="70">    <span class="k">def</span><span class="w"> </span><span class="nf">get_blocks_to_cluster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-</span><span data-line="71"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="71"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="72"><span class="sd">        Extract weight blocks to cluster based on the specified granularity.</span>
 </span><span data-line="73">
 </span><span data-line="74"><span class="sd">        Args:</span>
@@ -393,7 +417,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="81"><span class="sd">        Raises:</span>
 </span><span data-line="82"><span class="sd">            _IncompatibleGranularityError: If the tensor is incompatible with</span>
 </span><span data-line="83"><span class="sd">                this granularity</span>
-</span><span data-line="84"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="84"><span class="sd">        """</span>
 </span><span data-line="85">        <span class="k">pass</span></div>
 </div>
 
@@ -401,13 +425,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="87">
 <div class="viewcode-block" id="PerTensorGranularity">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html#coreai_opt.palettization.spec.PerTensorGranularity">[docs]</a>
-</span><span data-line="88"><span class="nd">@PalettizationGranularity</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;per_tensor&quot;</span><span class="p">)</span>
+</span><span data-line="88"><span class="nd">@PalettizationGranularity</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"per_tensor"</span><span class="p">)</span>
 </span><span data-line="89"><span class="k">class</span><span class="w"> </span><span class="nc">PerTensorGranularity</span><span class="p">(</span><span class="n">PalettizationGranularity</span><span class="p">):</span>
-</span><span data-line="90"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="90"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="91"><span class="sd">    Per-tensor palettization granularity.</span>
 </span><span data-line="92">
 </span><span data-line="93"><span class="sd">    This applies palettization to the tensor as a whole.</span>
-</span><span data-line="94"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="94"><span class="sd">    """</span>
 </span><span data-line="95">
 </span><span data-line="96">    <span class="n">axis</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="97">
@@ -420,7 +444,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="PerTensorGranularity.get_blocks_to_cluster">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html#coreai_opt.palettization.spec.PerTensorGranularity.get_blocks_to_cluster">[docs]</a>
 </span><span data-line="101">    <span class="k">def</span><span class="w"> </span><span class="nf">get_blocks_to_cluster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-</span><span data-line="102"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="102"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="103"><span class="sd">        For per-tensor granularity, return the entire tensor as a single block.</span>
 </span><span data-line="104">
 </span><span data-line="105"><span class="sd">        Args:</span>
@@ -428,7 +452,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="107">
 </span><span data-line="108"><span class="sd">        Returns:</span>
 </span><span data-line="109"><span class="sd">            List containing the single weight tensor block</span>
-</span><span data-line="110"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="110"><span class="sd">        """</span>
 </span><span data-line="111">        <span class="k">return</span> <span class="p">[</span><span class="n">weight</span><span class="p">]</span></div>
 </div>
 
@@ -436,43 +460,43 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="113">
 <div class="viewcode-block" id="PerGroupedChannelGranularity">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html#coreai_opt.palettization.spec.PerGroupedChannelGranularity">[docs]</a>
-</span><span data-line="114"><span class="nd">@PalettizationGranularity</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">&quot;per_grouped_channel&quot;</span><span class="p">)</span>
+</span><span data-line="114"><span class="nd">@PalettizationGranularity</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"per_grouped_channel"</span><span class="p">)</span>
 </span><span data-line="115"><span class="k">class</span><span class="w"> </span><span class="nc">PerGroupedChannelGranularity</span><span class="p">(</span><span class="n">PalettizationGranularity</span><span class="p">):</span>
-</span><span data-line="116"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="116"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="117"><span class="sd">    Per-grouped-channel palettization granularity.</span>
 </span><span data-line="118">
 </span><span data-line="119"><span class="sd">    This applies palettization to a specific channel which is selected through the</span>
 </span><span data-line="120"><span class="sd">    ``axis`` argument. ``axis`` defaults to ``None``, in which case the default</span>
 </span><span data-line="121"><span class="sd">    axis for the consuming op is used (e.g. 0 for ``Linear``/``Conv``, 1 for</span>
 </span><span data-line="122"><span class="sd">    ``ConvTranspose``).</span>
-</span><span data-line="123"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="123"><span class="sd">    """</span>
 </span><span data-line="124">
 </span><span data-line="125">    <span class="n">axis</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span>
-</span><span data-line="126">    <span class="n">group_size</span><span class="p">:</span> <span class="nb">int</span>
+</span><span data-line="126">    <span class="n">group_size</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Field</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)]</span>
 </span><span data-line="127">
 <div class="viewcode-block" id="PerGroupedChannelGranularity.num_blocks_to_cluster">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html#coreai_opt.palettization.spec.PerGroupedChannelGranularity.num_blocks_to_cluster">[docs]</a>
 </span><span data-line="128">    <span class="k">def</span><span class="w"> </span><span class="nf">num_blocks_to_cluster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 </span><span data-line="129">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">axis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="130">            <span class="k">raise</span> <span class="n">_IncompatibleGranularityError</span><span class="p">(</span>
-</span><span data-line="131">                <span class="s2">&quot;axis is None; it must be resolved against an op or set explicitly before use.&quot;</span>
+</span><span data-line="131">                <span class="s2">"axis is None; it must be resolved against an op or set explicitly before use."</span>
 </span><span data-line="132">            <span class="p">)</span>
 </span><span data-line="133">
 </span><span data-line="134">        <span class="c1"># Validate tensor has enough dimensions</span>
 </span><span data-line="135">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="p">:</span>
 </span><span data-line="136">            <span class="k">raise</span> <span class="n">_IncompatibleGranularityError</span><span class="p">(</span>
-</span><span data-line="137">                <span class="sa">f</span><span class="s2">&quot;Tensor shape </span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> has insufficient dimensions for axis &quot;</span>
-</span><span data-line="138">                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="si">}</span><span class="s2">. Parameter must have at least </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> dimensions.&quot;</span>
+</span><span data-line="137">                <span class="sa">f</span><span class="s2">"Tensor shape </span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> has insufficient dimensions for axis "</span>
+</span><span data-line="138">                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="si">}</span><span class="s2">. Parameter must have at least </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> dimensions."</span>
 </span><span data-line="139">            <span class="p">)</span>
 </span><span data-line="140">
 </span><span data-line="141">        <span class="c1"># Validate divisibility</span>
 </span><span data-line="142">        <span class="n">shape_along_axis</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="p">]</span>
 </span><span data-line="143">        <span class="k">if</span> <span class="n">shape_along_axis</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="144">            <span class="k">raise</span> <span class="n">_IncompatibleGranularityError</span><span class="p">(</span>
-</span><span data-line="145">                <span class="sa">f</span><span class="s2">&quot;Tensor size </span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> along axis </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="si">}</span><span class="s2"> is not &quot;</span>
-</span><span data-line="146">                <span class="sa">f</span><span class="s2">&quot;divisible by group_size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="si">}</span><span class="s2">. For per-grouped-channel &quot;</span>
-</span><span data-line="147">                <span class="sa">f</span><span class="s2">&quot;palettization, the tensor shape along the specified axis must be &quot;</span>
-</span><span data-line="148">                <span class="sa">f</span><span class="s2">&quot;divisible by group_size.&quot;</span>
+</span><span data-line="145">                <span class="sa">f</span><span class="s2">"Tensor size </span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> along axis </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="si">}</span><span class="s2"> is not "</span>
+</span><span data-line="146">                <span class="sa">f</span><span class="s2">"divisible by group_size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="si">}</span><span class="s2">. For per-grouped-channel "</span>
+</span><span data-line="147">                <span class="sa">f</span><span class="s2">"palettization, the tensor shape along the specified axis must be "</span>
+</span><span data-line="148">                <span class="sa">f</span><span class="s2">"divisible by group_size."</span>
 </span><span data-line="149">            <span class="p">)</span>
 </span><span data-line="150">
 </span><span data-line="151">        <span class="k">return</span> <span class="n">shape_along_axis</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span></div>
@@ -481,7 +505,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="PerGroupedChannelGranularity.get_blocks_to_cluster">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html#coreai_opt.palettization.spec.PerGroupedChannelGranularity.get_blocks_to_cluster">[docs]</a>
 </span><span data-line="153">    <span class="k">def</span><span class="w"> </span><span class="nf">get_blocks_to_cluster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-</span><span data-line="154"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="154"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="155"><span class="sd">        Split weight tensor into blocks along the specified axis with group_size.</span>
 </span><span data-line="156">
 </span><span data-line="157"><span class="sd">        Args:</span>
@@ -493,27 +517,27 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="163"><span class="sd">        Raises:</span>
 </span><span data-line="164"><span class="sd">            _IncompatibleGranularityError: If tensor is incompatible with</span>
 </span><span data-line="165"><span class="sd">            this granularity</span>
-</span><span data-line="166"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="166"><span class="sd">        """</span>
 </span><span data-line="167">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">axis</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="168">            <span class="k">raise</span> <span class="n">_IncompatibleGranularityError</span><span class="p">(</span>
-</span><span data-line="169">                <span class="s2">&quot;axis is None; it must be resolved against an op or set explicitly before use.&quot;</span>
+</span><span data-line="169">                <span class="s2">"axis is None; it must be resolved against an op or set explicitly before use."</span>
 </span><span data-line="170">            <span class="p">)</span>
 </span><span data-line="171">
 </span><span data-line="172">        <span class="c1"># Validate tensor has enough dimensions</span>
 </span><span data-line="173">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="p">:</span>
 </span><span data-line="174">            <span class="k">raise</span> <span class="n">_IncompatibleGranularityError</span><span class="p">(</span>
-</span><span data-line="175">                <span class="sa">f</span><span class="s2">&quot;Tensor shape </span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> has insufficient dimensions for axis &quot;</span>
-</span><span data-line="176">                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="si">}</span><span class="s2">. Parameter must have at least </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> dimensions.&quot;</span>
+</span><span data-line="175">                <span class="sa">f</span><span class="s2">"Tensor shape </span><span class="si">{</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> has insufficient dimensions for axis "</span>
+</span><span data-line="176">                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="si">}</span><span class="s2">. Parameter must have at least </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> dimensions."</span>
 </span><span data-line="177">            <span class="p">)</span>
 </span><span data-line="178">
 </span><span data-line="179">        <span class="c1"># Validate divisibility</span>
 </span><span data-line="180">        <span class="n">shape_along_axis</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="p">]</span>
 </span><span data-line="181">        <span class="k">if</span> <span class="n">shape_along_axis</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="182">            <span class="k">raise</span> <span class="n">_IncompatibleGranularityError</span><span class="p">(</span>
-</span><span data-line="183">                <span class="sa">f</span><span class="s2">&quot;Tensor size </span><span class="si">{</span><span class="n">shape_along_axis</span><span class="si">}</span><span class="s2"> along axis </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="si">}</span><span class="s2"> is not &quot;</span>
-</span><span data-line="184">                <span class="sa">f</span><span class="s2">&quot;divisible by group_size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="si">}</span><span class="s2">. For per-grouped-channel &quot;</span>
-</span><span data-line="185">                <span class="sa">f</span><span class="s2">&quot;palettization, the tensor shape along the specified axis must be &quot;</span>
-</span><span data-line="186">                <span class="sa">f</span><span class="s2">&quot;divisible by group_size.&quot;</span>
+</span><span data-line="183">                <span class="sa">f</span><span class="s2">"Tensor size </span><span class="si">{</span><span class="n">shape_along_axis</span><span class="si">}</span><span class="s2"> along axis </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axis</span><span class="si">}</span><span class="s2"> is not "</span>
+</span><span data-line="184">                <span class="sa">f</span><span class="s2">"divisible by group_size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">group_size</span><span class="si">}</span><span class="s2">. For per-grouped-channel "</span>
+</span><span data-line="185">                <span class="sa">f</span><span class="s2">"palettization, the tensor shape along the specified axis must be "</span>
+</span><span data-line="186">                <span class="sa">f</span><span class="s2">"divisible by group_size."</span>
 </span><span data-line="187">            <span class="p">)</span>
 </span><span data-line="188">
 </span><span data-line="189">        <span class="c1"># Split tensor into blocks</span>

@@ -19,6 +19,7 @@
       ~QuantizationComponentFactory.create_fake_quantizer_partial
       ~QuantizationComponentFactory.create_qparams_calculator
       ~QuantizationComponentFactory.create_range_calculator
+      ~QuantizationComponentFactory.reconstruct_partial_qparams_calculator
    
    
 

@@ -1,6 +1,6 @@
 # coreai_opt.quantization.spec.MinMaxRangeCalculator
 
-### *class* coreai_opt.quantization.spec.MinMaxRangeCalculator(granularity, \*\*kwargs)
+### *class* coreai_opt.quantization.spec.MinMaxRangeCalculator(granularity, quantization_target=CompressionTargetTensor.WEIGHT, \*\*kwargs)
 
 Bases: [`RangeCalculatorBase`](coreai_opt.quantization.spec.RangeCalculatorBase.md#coreai_opt.quantization.spec.RangeCalculatorBase)
 
@@ -8,12 +8,14 @@ Range calculator that computes the range of a given tensor as the min and max
 values of the tensor.
 
 * **Parameters:**
-  **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
 
-#### \_\_init_\_(granularity, \*\*kwargs)
+#### \_\_init_\_(granularity, quantization_target=CompressionTargetTensor.WEIGHT, \*\*kwargs)
 
 * **Parameters:**
-  **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **granularity** ([*QuantizationGranularity*](coreai_opt.quantization.spec.QuantizationGranularity.md#coreai_opt.quantization.spec.QuantizationGranularity))
+  * **quantization_target** ([*CompressionTargetTensor*](coreai_opt.config.spec.CompressionTargetTensor.md#coreai_opt.config.spec.CompressionTargetTensor))
 
 ### Methods
 

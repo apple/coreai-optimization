@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../palettization/index.html">Palettization</a><ul>
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -350,7 +374,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="4">
 </span><span data-line="5"><span class="n">finalized_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="n">opt</span><span class="o">.</span><span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">)</span>
 </span><span data-line="6">
-</span><span data-line="7"><span class="c1"># torch.export the finalized model with coreai-torch&#39;s decomposition table.</span>
+</span><span data-line="7"><span class="c1"># torch.export the finalized model with coreai-torch's decomposition table.</span>
 </span><span data-line="8"><span class="n">exported_program</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">export</span><span class="o">.</span><span class="n">export</span><span class="p">(</span>
 </span><span data-line="9">    <span class="n">finalized_model</span><span class="p">,</span> <span class="n">example_inputs</span>
 </span><span data-line="10"><span class="p">)</span><span class="o">.</span><span class="n">run_decompositions</span><span class="p">(</span><span class="n">coreai_torch</span><span class="o">.</span><span class="n">get_decomp_table</span><span class="p">())</span>
@@ -364,7 +388,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="18"><span class="n">converter</span><span class="o">.</span><span class="n">add_exported_program</span><span class="p">(</span><span class="n">exported_program</span><span class="p">)</span>
 </span><span data-line="19"><span class="n">ai_program</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">to_coreai</span><span class="p">()</span>
 </span><span data-line="20"><span class="n">ai_program</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-</span><span data-line="21"><span class="n">ai_program</span><span class="o">.</span><span class="n">save_asset</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;model.aimodel&quot;</span><span class="p">))</span>
+</span><span data-line="21"><span class="n">ai_program</span><span class="o">.</span><span class="n">save_asset</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"model.aimodel"</span><span class="p">))</span>
 </span></pre></div>
 </div>
 <p>Core ML (<code class="docutils literal notranslate"><span class="pre">.mlpackage</span></code>):</p>
@@ -376,16 +400,16 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="6"><span class="n">traced_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">finalized_model</span><span class="p">,</span> <span class="n">example_inputs</span><span class="p">)</span>
 </span><span data-line="7"><span class="n">mlmodel</span> <span class="o">=</span> <span class="n">ct</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span>
 </span><span data-line="8">    <span class="n">traced_model</span><span class="p">,</span>
-</span><span data-line="9">    <span class="n">convert_to</span><span class="o">=</span><span class="s2">&quot;mlprogram&quot;</span><span class="p">,</span>
+</span><span data-line="9">    <span class="n">convert_to</span><span class="o">=</span><span class="s2">"mlprogram"</span><span class="p">,</span>
 </span><span data-line="10">    <span class="n">minimum_deployment_target</span><span class="o">=</span><span class="n">ct</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">iOS26</span><span class="p">,</span>
 </span><span data-line="11"><span class="p">)</span>
-</span><span data-line="12"><span class="n">mlmodel</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;model.mlpackage&quot;</span><span class="p">)</span>
+</span><span data-line="12"><span class="n">mlmodel</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"model.mlpackage"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 <p>The workflow has three stages:</p>
 <ul class="simple">
 <li><p><strong>Configure.</strong> <code class="docutils literal notranslate"><span class="pre">QuantizerConfig</span></code> specifies the quantization scheme; the <code class="docutils literal notranslate"><span class="pre">presets</span></code> namespace provides ready-made recipes (e.g. <code class="docutils literal notranslate"><span class="pre">presets.w8()</span></code> for INT8 symmetric per-channel weights). See <a class="reference internal" href="config.html"><span class="std std-doc">Quantization Config</span></a> to customize the spec or apply different settings to different layers.</p></li>
-<li><p><strong>Prepare.</strong> <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> compresses the weights according to the config and inserts fake-quantize ops. The prepared model runs like the final compressed model — its forward pass reflects the compression — so you can evaluate accuracy on it, and iterate by changing the config. For weight-only quantization this is the only step needed before export, unless you want to push accuracy further with training (see the <a class="reference internal" href="#weight-and-or-activation-quantization-qat-quantization-aware-training"><span class="std std-ref">QAT section</span></a> below).</p></li>
+<li><p><strong>Prepare.</strong> <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> compresses the weights according to the config and inserts fake-quantize ops. The prepared model runs like the final compressed model — its forward pass reflects the compression — so you can evaluate accuracy on it, and iterate by changing the config. For weight-only quantization this is the only step needed before export, unless you want to push accuracy further with training (see the QAT section below).</p></li>
 <li><p><strong>Finalize and export.</strong> <code class="docutils literal notranslate"><span class="pre">finalize(backend=...)</span></code> freezes the quantization parameters and replaces the fake-quantize ops with the chosen backend’s compression ops or metadata. The finalized model is meant primarily for export and stays numerically close to the model just before <code class="docutils literal notranslate"><span class="pre">finalize()</span></code>. Export to Core AI with <a class="reference internal" href="../introduction/integration_coreai.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">coreai-torch</span></code></span></a> (the <a class="reference internal" href="../utils/casting.html"><span class="std std-doc"><code class="docutils literal notranslate"><span class="pre">cast_to_16_bit_precision</span></code></span></a> step is recommended), or to Core ML with <code class="docutils literal notranslate"><span class="pre">coremltools</span></code>.</p></li>
 </ul>
 </section>
@@ -423,11 +447,12 @@ This is what the context manager handles:</p>
 <ul class="simple">
 <li><p>Inside the context:</p>
 <ul>
-<li><p>fake-quantization is turned <strong>off</strong>: forward pass gives the same output as the unquantized model. Hence without distorting the outputs, the quantization params can be computed.</p></li>
-<li><p>range observers are turned <strong>on</strong>: this means that each forward pass updates the observed activation ranges, and hence the activation quantization scales.</p></li>
+<li><p>activation fake-quantization is turned <strong>off</strong>: activation observers see undistorted activation values, so the observed ranges (and resulting scales) reflect the true distribution rather than already-quantized values.</p></li>
+<li><p>weight fake-quantization stays <strong>on</strong>: activations flowing into each observer are produced with quantized weights upstream, matching what the deployed model will actually see.</p></li>
+<li><p>range observers are turned <strong>on</strong>: each forward pass updates the observed activation ranges, and hence the activation quantization scales.</p></li>
 </ul>
 </li>
-<li><p>After exiting the context manager, observers are turned back off and fake-quantization back on, leaving the model ready for evaluation.</p></li>
+<li><p>After exiting the context manager, observers are turned back off and activation fake-quantization back on, leaving the model ready for evaluation.</p></li>
 </ul>
 <p>A small amount of representative data is typically enough.</p>
 <p>Finalize and export the calibrated <code class="docutils literal notranslate"><span class="pre">prepared_model</span></code> exactly as shown in the Weight-Only section above.</p>
@@ -510,8 +535,8 @@ This is what the context manager handles:</p>
 <p>The two modes are expected to produce very similar models for weight-only quantization. The only difference is that in graph mode, Batchnorm weights are folded with convolution weights such that quantization happens on the fused weights, whereas they are kept separate in the eager mode. This typically should not affect accuracy/latency by much, hence eager mode can be preferred over graph mode.</p>
 <p>A few scenarios where <code class="docutils literal notranslate"><span class="pre">eager</span></code> mode may need to be used instead of <code class="docutils literal notranslate"><span class="pre">graph</span></code>:</p>
 <ul class="simple">
-<li><p>If you run into any errors during the <code class="docutils literal notranslate"><span class="pre">prepare</span></code> call which, under the hood, invokes the <code class="docutils literal notranslate"><span class="pre">torch.export.export</span></code> and <code class="docutils literal notranslate"><span class="pre">torchao</span></code>’s <code class="docutils literal notranslate"><span class="pre">prepare_qat_pt2e</span></code>/<code class="docutils literal notranslate"><span class="pre">convert_pt2e</span></code> APIs.</p></li>
-<li><p>When <code class="docutils literal notranslate"><span class="pre">torch.nn.Module</span></code> needs to be provided as an input, instead of <code class="docutils literal notranslate"><span class="pre">ExportedProgram</span></code> to the conversion API of <a class="reference external" href="https://github.com/apple/coreai-torch">coreai-torch</a>. This happens when the <code class="docutils literal notranslate"><span class="pre">coreai-torch</span></code> conversion needs to “externalize” certain sub-modules to map them to <em>composite ops</em> for better runtime performance.</p></li>
+<li><p>If you run into any errors during the <code class="docutils literal notranslate"><span class="pre">prepare</span></code> call which, under the hood, invokes the <code class="docutils literal notranslate"><span class="pre">torch.export.export</span></code> and <code class="docutils literal notranslate"><span class="pre">torchao</span></code>’s <code class="docutils literal notranslate"><span class="pre">prepare_qat_pt2e</span></code>/<code class="docutils literal notranslate"><span class="pre">convert_pt2e</span></code> APIs. See <a class="reference internal" href="../debugging/graph_mode_troubleshooting.html"><span class="std std-doc">Graph Mode Troubleshooting</span></a> for common export errors and workarounds before falling back to eager mode.</p></li>
+<li><p>When <code class="docutils literal notranslate"><span class="pre">torch.nn.Module</span></code> needs to be provided as an input, instead of <code class="docutils literal notranslate"><span class="pre">ExportedProgram</span></code> to the conversion API of <a class="reference external" href="https://github.com/apple/coreai-torch">coreai-torch</a>. Note that models whose submodules must be “externalized” to map them to <em>composite ops</em> for better runtime performance can still be quantized in graph mode. See <a class="reference internal" href="composite_op_quantization.html"><span class="std std-doc">Quantization with Composite Ops</span></a>.</p></li>
 </ul>
 </section>
 <section id="weights-and-activations-quantization">

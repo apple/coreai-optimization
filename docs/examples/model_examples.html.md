@@ -4,6 +4,6 @@ Check out the [coreai-models](https://github.com/apple/coreai-models/blob/main/m
 
 The examples in this section use simpler models (like ResNet50) to illustrate various compression options, hyper-parameters choices and processes that you may use for determining which methods to apply to your specific model.
 
-* [ResNet50 model: Weight + Activation Quantization (PTQ)](resnet50.md)
-* [Mixed-precision palettization with ResNet50](mixed_precision_palettization.md)
-* [EDSR model: Weight palettization + activation quantization (PTQ)](edsr.md)
+* [ResNet50 model: Weight + Activation Quantization (PTQ)](model_examples/resnet50.md)
+* [Mixed-precision palettization with ResNet50](model_examples/mixed_precision_palettization.md)
+* [EDSR model: Weight palettization + activation quantization (PTQ)](model_examples/edsr.md)

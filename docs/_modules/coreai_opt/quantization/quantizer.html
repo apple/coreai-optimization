@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,12 +73,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +90,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../palettization/index.html">Palettization</a><ul>
@@ -97,21 +99,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -131,6 +146,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +155,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +177,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +199,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +242,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -328,607 +352,613 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="23"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.export_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span data-line="24">    <span class="n">validate_mmap_backend_and_device</span> <span class="k">as</span> <span class="n">_validate_mmap_backend_and_device</span><span class="p">,</span>
 </span><span data-line="25"><span class="p">)</span>
-</span><span data-line="26"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_module_name</span>
+</span><span data-line="26"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_module_name</span> <span class="k">as</span> <span class="n">_get_module_name</span>
 </span><span data-line="27"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExportBackend</span>
 </span><span data-line="28"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization._eager</span><span class="w"> </span><span class="kn">import</span> <span class="n">EagerQuantizer</span> <span class="k">as</span> <span class="n">_EagerQuantizer</span>
-</span><span data-line="29"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization._graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphQuantizer</span> <span class="k">as</span> <span class="n">_GraphQuantizer</span>
-</span><span data-line="30"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.base_quantizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">_BaseQuantizer</span>
-</span><span data-line="31"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.config.quantization_config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="32">    <span class="n">ExecutionMode</span><span class="p">,</span>
-</span><span data-line="33">    <span class="n">QATSchedule</span><span class="p">,</span>
-</span><span data-line="34">    <span class="n">QuantizerConfig</span><span class="p">,</span>
-</span><span data-line="35"><span class="p">)</span>
-</span><span data-line="36"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.spec.fake_quantize</span><span class="w"> </span><span class="kn">import</span> <span class="n">FakeQuantizeImplBase</span>
-</span><span data-line="37"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.spec.qparams_calculator</span><span class="w"> </span><span class="kn">import</span> <span class="n">StatelessQParamsCalculatorBase</span>
-</span><span data-line="38">
-</span><span data-line="39">
+</span><span data-line="29"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization._export_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="30">    <span class="n">can_export_stateless_fake_quant</span> <span class="k">as</span> <span class="n">_can_export_stateless_fake_quant</span><span class="p">,</span>
+</span><span data-line="31"><span class="p">)</span>
+</span><span data-line="32"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization._graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphQuantizer</span> <span class="k">as</span> <span class="n">_GraphQuantizer</span>
+</span><span data-line="33"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.base_quantizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">_BaseQuantizer</span>
+</span><span data-line="34"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.config.quantization_config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="35">    <span class="n">ExecutionMode</span><span class="p">,</span>
+</span><span data-line="36">    <span class="n">InvalidExecutionModeError</span><span class="p">,</span>
+</span><span data-line="37">    <span class="n">QATSchedule</span><span class="p">,</span>
+</span><span data-line="38">    <span class="n">QuantizerConfig</span><span class="p">,</span>
+</span><span data-line="39"><span class="p">)</span>
+</span><span data-line="40"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.spec.fake_quantize</span><span class="w"> </span><span class="kn">import</span> <span class="n">FakeQuantizeImplBase</span>
+</span><span data-line="41">
+</span><span data-line="42">
 <div class="viewcode-block" id="Quantizer">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer">[docs]</a>
-</span><span data-line="40"><span class="k">class</span><span class="w"> </span><span class="nc">Quantizer</span><span class="p">(</span><span class="n">_BaseQuantizer</span><span class="p">):</span>
-</span><span data-line="41"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="42"><span class="sd">    Unified quantizer API that provides a single entry point for various quantization</span>
-</span><span data-line="43"><span class="sd">    workflows, including:</span>
-</span><span data-line="44">
-</span><span data-line="45"><span class="sd">    - **Data Types**: Integer (e.g. int8, int4) and floating-point</span>
-</span><span data-line="46"><span class="sd">      (e.g. float8_e4m3fn, float8_e5m2) quantization</span>
-</span><span data-line="47"><span class="sd">    - **Quantization Workflows**: Post-training quantization (PTQ) and</span>
-</span><span data-line="48"><span class="sd">      quantization-aware training (QAT)</span>
-</span><span data-line="49"><span class="sd">    - **Execution Modes**: Graph mode (built on torchao&#39;s PT2E) or eager mode</span>
-</span><span data-line="50">
-</span><span data-line="51"><span class="sd">    The quantizer automatically selects the appropriate underlying implementation based</span>
-</span><span data-line="52"><span class="sd">    on the `execution_mode` specified in the configuration. Defaults to graph mode. Some</span>
-</span><span data-line="53"><span class="sd">    of the key differences between the execution modes are summarized below:</span>
-</span><span data-line="54">
-</span><span data-line="55"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
-</span><span data-line="56"><span class="sd">    | Feature               | Graph Mode (Default)            | Eager Mode                 |</span>
-</span><span data-line="57"><span class="sd">    +=======================+=================================+============================+</span>
-</span><span data-line="58"><span class="sd">    | Input/Output Types    | nn.Module                       | nn.Module -&gt; nn.Module     |</span>
-</span><span data-line="59"><span class="sd">    |                       | -&gt; fx.GraphModule.              |                            |</span>
-</span><span data-line="60"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
-</span><span data-line="61"><span class="sd">    | Module Fusion         | Automatic pattern-based fusion  | Manual fusion required     |</span>
-</span><span data-line="62"><span class="sd">    |                       | (e.g., conv+bn+relu)            |                            |</span>
+</span><span data-line="43"><span class="k">class</span><span class="w"> </span><span class="nc">Quantizer</span><span class="p">(</span><span class="n">_BaseQuantizer</span><span class="p">):</span>
+</span><span data-line="44"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="45"><span class="sd">    Unified quantizer API that provides a single entry point for various quantization</span>
+</span><span data-line="46"><span class="sd">    workflows, including:</span>
+</span><span data-line="47">
+</span><span data-line="48"><span class="sd">    - **Data Types**: Integer (e.g. int8, int4) and floating-point</span>
+</span><span data-line="49"><span class="sd">      (e.g. float8_e4m3fn, float8_e5m2) quantization</span>
+</span><span data-line="50"><span class="sd">    - **Quantization Workflows**: Post-training quantization (PTQ) and</span>
+</span><span data-line="51"><span class="sd">      quantization-aware training (QAT)</span>
+</span><span data-line="52"><span class="sd">    - **Execution Modes**: Graph mode (built on torchao's PT2E) or eager mode</span>
+</span><span data-line="53">
+</span><span data-line="54"><span class="sd">    The quantizer automatically selects the appropriate underlying implementation based</span>
+</span><span data-line="55"><span class="sd">    on the `execution_mode` specified in the configuration. Defaults to graph mode. Some</span>
+</span><span data-line="56"><span class="sd">    of the key differences between the execution modes are summarized below:</span>
+</span><span data-line="57">
+</span><span data-line="58"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
+</span><span data-line="59"><span class="sd">    | Feature               | Graph Mode (Default)            | Eager Mode                 |</span>
+</span><span data-line="60"><span class="sd">    +=======================+=================================+============================+</span>
+</span><span data-line="61"><span class="sd">    | Input/Output Types    | nn.Module                       | nn.Module -&gt; nn.Module     |</span>
+</span><span data-line="62"><span class="sd">    |                       | -&gt; fx.GraphModule.              |                            |</span>
 </span><span data-line="63"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
-</span><span data-line="64"><span class="sd">    | Control Flow          | Static graph only;              | Supports dynamic           |</span>
-</span><span data-line="65"><span class="sd">    |                       | Requires torch.export           | control flow               |</span>
-</span><span data-line="66"><span class="sd">    |                       | compatible model                | (if/else, loops)           |</span>
-</span><span data-line="67"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
-</span><span data-line="68"><span class="sd">    | Shared Observer Ops   | Handled correctly; ops like     | Not supported; Ops like    |</span>
-</span><span data-line="69"><span class="sd">    |                       | MaxPool that share the same     | MaxPool have independent   |</span>
-</span><span data-line="70"><span class="sd">    |                       | observer across inputs and      | observers for input vs     |</span>
-</span><span data-line="71"><span class="sd">    |                       | outputs are detected and        | output, which can cause    |</span>
-</span><span data-line="72"><span class="sd">    |                       | deduplicated on the graph.      | incorrect quantization.    |</span>
-</span><span data-line="73"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
-</span><span data-line="74"><span class="sd">    | FQ Node Deduplication | Back-to-back fake-quantize      | No deduplication; if both  |</span>
-</span><span data-line="75"><span class="sd">    |                       | nodes on the same tensor are    | the output of one op and   |</span>
-</span><span data-line="76"><span class="sd">    |                       | collapsed into a single node,   | the input of the next are  |</span>
-</span><span data-line="77"><span class="sd">    |                       | avoiding redundant quantization | quantized, two consecutive |</span>
-</span><span data-line="78"><span class="sd">    |                       | on intermediate edges.          | FQ nodes are inserted on   |</span>
-</span><span data-line="79"><span class="sd">    |                       |                                 | that intermediate edge.    |</span>
-</span><span data-line="80"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
-</span><span data-line="81">
-</span><span data-line="82"><span class="sd">    As a result of above mentioned differences, the total number of fake-quantize nodes</span>
-</span><span data-line="83"><span class="sd">    inserted by graph and eager mode can differ for the same ``QuantizerConfig``. This</span>
-</span><span data-line="84"><span class="sd">    means the two modes are **not guaranteed to produce equivalent quantized models**,</span>
-</span><span data-line="85"><span class="sd">    and final model performance (accuracy and latency) may differ between modes even</span>
-</span><span data-line="86"><span class="sd">    when using identical configurations.</span>
-</span><span data-line="87">
-</span><span data-line="88"><span class="sd">    Args:</span>
-</span><span data-line="89"><span class="sd">        model: The PyTorch model to quantize.</span>
-</span><span data-line="90"><span class="sd">        config: Quantization configuration. If None, a default configuration</span>
-</span><span data-line="91"><span class="sd">            with int8 weight and activation quantization is created.</span>
-</span><span data-line="92">
-</span><span data-line="93"><span class="sd">    Example:</span>
-</span><span data-line="94"><span class="sd">        &gt;&gt;&gt; from coreai_opt.quantization import Quantizer, QuantizerConfig, ExecutionMode</span>
-</span><span data-line="95"><span class="sd">        &gt;&gt;&gt;</span>
-</span><span data-line="96"><span class="sd">        &gt;&gt;&gt; # PTQ with calibration (default int8, graph mode)</span>
-</span><span data-line="97"><span class="sd">        &gt;&gt;&gt; config = QuantizerConfig()</span>
-</span><span data-line="98"><span class="sd">        &gt;&gt;&gt; quantizer = Quantizer(model, config)</span>
-</span><span data-line="99"><span class="sd">        &gt;&gt;&gt; prepared_model = quantizer.prepare((example_input,))</span>
-</span><span data-line="100"><span class="sd">        &gt;&gt;&gt; with quantizer.calibration_mode():</span>
-</span><span data-line="101"><span class="sd">        ...     for data in calibration_loader:</span>
-</span><span data-line="102"><span class="sd">        ...         prepared_model(data)</span>
-</span><span data-line="103"><span class="sd">        &gt;&gt;&gt; quantized_model = quantizer.finalize()</span>
-</span><span data-line="104"><span class="sd">        &gt;&gt;&gt;</span>
-</span><span data-line="105"><span class="sd">        &gt;&gt;&gt; # QAT workflow (default schedule — observers and fake_quant enabled throughout)</span>
-</span><span data-line="106"><span class="sd">        &gt;&gt;&gt; prepared_model = quantizer.prepare((example_input,))</span>
-</span><span data-line="107"><span class="sd">        &gt;&gt;&gt; with quantizer.training_mode():</span>
-</span><span data-line="108"><span class="sd">        ...     for epoch in range(num_epochs):</span>
-</span><span data-line="109"><span class="sd">        ...         for data, target in train_loader:</span>
-</span><span data-line="110"><span class="sd">        ...             optimizer.zero_grad()</span>
-</span><span data-line="111"><span class="sd">        ...             output = prepared_model(data)</span>
-</span><span data-line="112"><span class="sd">        ...             loss = criterion(output, target)</span>
-</span><span data-line="113"><span class="sd">        ...             loss.backward()</span>
-</span><span data-line="114"><span class="sd">        ...             optimizer.step()</span>
-</span><span data-line="115"><span class="sd">        &gt;&gt;&gt; quantized_model = quantizer.finalize()</span>
-</span><span data-line="116"><span class="sd">        &gt;&gt;&gt;</span>
-</span><span data-line="117"><span class="sd">        &gt;&gt;&gt; # QAT workflow with schedule</span>
-</span><span data-line="118"><span class="sd">        &gt;&gt;&gt; from coreai_opt.quantization import ModuleQuantizerConfig</span>
-</span><span data-line="119"><span class="sd">        &gt;&gt;&gt; from coreai_opt.quantization.config import QATSchedule</span>
-</span><span data-line="120"><span class="sd">        &gt;&gt;&gt; # Enable observers from the start, enable fake quant at the 100th step,</span>
-</span><span data-line="121"><span class="sd">        &gt;&gt;&gt; # and disable observers at the 500th step.</span>
-</span><span data-line="122"><span class="sd">        &gt;&gt;&gt; schedule = QATSchedule(</span>
-</span><span data-line="123"><span class="sd">        ...     enable_observer=0, enable_fake_quant=100, disable_observer=500</span>
-</span><span data-line="124"><span class="sd">        ... )</span>
-</span><span data-line="125"><span class="sd">        &gt;&gt;&gt; config = QuantizerConfig(</span>
-</span><span data-line="126"><span class="sd">        ...     global_config=ModuleQuantizerConfig(qat_schedule=schedule)</span>
+</span><span data-line="64"><span class="sd">    | Module Fusion         | Automatic pattern-based fusion  | Manual fusion required     |</span>
+</span><span data-line="65"><span class="sd">    |                       | (e.g., conv+bn+relu)            |                            |</span>
+</span><span data-line="66"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
+</span><span data-line="67"><span class="sd">    | Control Flow          | Static graph only;              | Supports dynamic           |</span>
+</span><span data-line="68"><span class="sd">    |                       | Requires torch.export           | control flow               |</span>
+</span><span data-line="69"><span class="sd">    |                       | compatible model                | (if/else, loops)           |</span>
+</span><span data-line="70"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
+</span><span data-line="71"><span class="sd">    | Shared Observer Ops   | Handled correctly; ops like     | Not supported; Ops like    |</span>
+</span><span data-line="72"><span class="sd">    |                       | MaxPool that share the same     | MaxPool have independent   |</span>
+</span><span data-line="73"><span class="sd">    |                       | observer across inputs and      | observers for input vs     |</span>
+</span><span data-line="74"><span class="sd">    |                       | outputs are detected and        | output, which can cause    |</span>
+</span><span data-line="75"><span class="sd">    |                       | deduplicated on the graph.      | incorrect quantization.    |</span>
+</span><span data-line="76"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
+</span><span data-line="77"><span class="sd">    | FQ Node Deduplication | Back-to-back fake-quantize      | No deduplication; if both  |</span>
+</span><span data-line="78"><span class="sd">    |                       | nodes on the same tensor are    | the output of one op and   |</span>
+</span><span data-line="79"><span class="sd">    |                       | collapsed into a single node,   | the input of the next are  |</span>
+</span><span data-line="80"><span class="sd">    |                       | avoiding redundant quantization | quantized, two consecutive |</span>
+</span><span data-line="81"><span class="sd">    |                       | on intermediate edges.          | FQ nodes are inserted on   |</span>
+</span><span data-line="82"><span class="sd">    |                       |                                 | that intermediate edge.    |</span>
+</span><span data-line="83"><span class="sd">    +-----------------------+---------------------------------+----------------------------+</span>
+</span><span data-line="84">
+</span><span data-line="85"><span class="sd">    As a result of above mentioned differences, the total number of fake-quantize nodes</span>
+</span><span data-line="86"><span class="sd">    inserted by graph and eager mode can differ for the same ``QuantizerConfig``. This</span>
+</span><span data-line="87"><span class="sd">    means the two modes are **not guaranteed to produce equivalent quantized models**,</span>
+</span><span data-line="88"><span class="sd">    and final model performance (accuracy and latency) may differ between modes even</span>
+</span><span data-line="89"><span class="sd">    when using identical configurations.</span>
+</span><span data-line="90">
+</span><span data-line="91"><span class="sd">    Args:</span>
+</span><span data-line="92"><span class="sd">        model: The PyTorch model to quantize.</span>
+</span><span data-line="93"><span class="sd">        config: Quantization configuration. If None, a default configuration</span>
+</span><span data-line="94"><span class="sd">            with int8 weight and activation quantization is created.</span>
+</span><span data-line="95">
+</span><span data-line="96"><span class="sd">    Example:</span>
+</span><span data-line="97"><span class="sd">        &gt;&gt;&gt; from coreai_opt.quantization import Quantizer, QuantizerConfig, ExecutionMode</span>
+</span><span data-line="98"><span class="sd">        &gt;&gt;&gt;</span>
+</span><span data-line="99"><span class="sd">        &gt;&gt;&gt; # PTQ with calibration (default int8, graph mode)</span>
+</span><span data-line="100"><span class="sd">        &gt;&gt;&gt; config = QuantizerConfig()</span>
+</span><span data-line="101"><span class="sd">        &gt;&gt;&gt; quantizer = Quantizer(model, config)</span>
+</span><span data-line="102"><span class="sd">        &gt;&gt;&gt; prepared_model = quantizer.prepare((example_input,))</span>
+</span><span data-line="103"><span class="sd">        &gt;&gt;&gt; with quantizer.calibration_mode():</span>
+</span><span data-line="104"><span class="sd">        ...     for data in calibration_loader:</span>
+</span><span data-line="105"><span class="sd">        ...         prepared_model(data)</span>
+</span><span data-line="106"><span class="sd">        &gt;&gt;&gt; quantized_model = quantizer.finalize()</span>
+</span><span data-line="107"><span class="sd">        &gt;&gt;&gt;</span>
+</span><span data-line="108"><span class="sd">        &gt;&gt;&gt; # QAT workflow (default schedule — observers and fake_quant enabled throughout)</span>
+</span><span data-line="109"><span class="sd">        &gt;&gt;&gt; prepared_model = quantizer.prepare((example_input,))</span>
+</span><span data-line="110"><span class="sd">        &gt;&gt;&gt; with quantizer.training_mode():</span>
+</span><span data-line="111"><span class="sd">        ...     for epoch in range(num_epochs):</span>
+</span><span data-line="112"><span class="sd">        ...         for data, target in train_loader:</span>
+</span><span data-line="113"><span class="sd">        ...             optimizer.zero_grad()</span>
+</span><span data-line="114"><span class="sd">        ...             output = prepared_model(data)</span>
+</span><span data-line="115"><span class="sd">        ...             loss = criterion(output, target)</span>
+</span><span data-line="116"><span class="sd">        ...             loss.backward()</span>
+</span><span data-line="117"><span class="sd">        ...             optimizer.step()</span>
+</span><span data-line="118"><span class="sd">        &gt;&gt;&gt; quantized_model = quantizer.finalize()</span>
+</span><span data-line="119"><span class="sd">        &gt;&gt;&gt;</span>
+</span><span data-line="120"><span class="sd">        &gt;&gt;&gt; # QAT workflow with schedule</span>
+</span><span data-line="121"><span class="sd">        &gt;&gt;&gt; from coreai_opt.quantization import ModuleQuantizerConfig</span>
+</span><span data-line="122"><span class="sd">        &gt;&gt;&gt; from coreai_opt.quantization.config import QATSchedule</span>
+</span><span data-line="123"><span class="sd">        &gt;&gt;&gt; # Enable observers from the start, enable fake quant at the 100th step,</span>
+</span><span data-line="124"><span class="sd">        &gt;&gt;&gt; # and disable observers at the 500th step.</span>
+</span><span data-line="125"><span class="sd">        &gt;&gt;&gt; schedule = QATSchedule(</span>
+</span><span data-line="126"><span class="sd">        ...     enable_observer=0, enable_fake_quant=100, disable_observer=500</span>
 </span><span data-line="127"><span class="sd">        ... )</span>
-</span><span data-line="128"><span class="sd">        &gt;&gt;&gt; quantizer = Quantizer(model, config)</span>
-</span><span data-line="129"><span class="sd">        &gt;&gt;&gt; prepared_model = quantizer.prepare((example_input,))</span>
-</span><span data-line="130"><span class="sd">        &gt;&gt;&gt; with quantizer.training_mode():</span>
-</span><span data-line="131"><span class="sd">        ...     for data, target in train_loader:</span>
-</span><span data-line="132"><span class="sd">        ...         optimizer.zero_grad()</span>
-</span><span data-line="133"><span class="sd">        ...         loss = criterion(prepared_model(data), target)</span>
-</span><span data-line="134"><span class="sd">        ...         loss.backward()</span>
-</span><span data-line="135"><span class="sd">        ...         optimizer.step()</span>
-</span><span data-line="136"><span class="sd">        ...         quantizer.step()</span>
-</span><span data-line="137"><span class="sd">        &gt;&gt;&gt; quantized_model = quantizer.finalize()</span>
-</span><span data-line="138"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="139">
+</span><span data-line="128"><span class="sd">        &gt;&gt;&gt; config = QuantizerConfig(</span>
+</span><span data-line="129"><span class="sd">        ...     global_config=ModuleQuantizerConfig(qat_schedule=schedule)</span>
+</span><span data-line="130"><span class="sd">        ... )</span>
+</span><span data-line="131"><span class="sd">        &gt;&gt;&gt; quantizer = Quantizer(model, config)</span>
+</span><span data-line="132"><span class="sd">        &gt;&gt;&gt; prepared_model = quantizer.prepare((example_input,))</span>
+</span><span data-line="133"><span class="sd">        &gt;&gt;&gt; with quantizer.training_mode():</span>
+</span><span data-line="134"><span class="sd">        ...     for data, target in train_loader:</span>
+</span><span data-line="135"><span class="sd">        ...         optimizer.zero_grad()</span>
+</span><span data-line="136"><span class="sd">        ...         loss = criterion(prepared_model(data), target)</span>
+</span><span data-line="137"><span class="sd">        ...         loss.backward()</span>
+</span><span data-line="138"><span class="sd">        ...         optimizer.step()</span>
+</span><span data-line="139"><span class="sd">        ...         quantizer.step()</span>
+</span><span data-line="140"><span class="sd">        &gt;&gt;&gt; quantized_model = quantizer.finalize()</span>
+</span><span data-line="141"><span class="sd">    """</span>
+</span><span data-line="142">
 <div class="viewcode-block" id="Quantizer.__init__">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.__init__">[docs]</a>
-</span><span data-line="140">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="141">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="142">        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
-</span><span data-line="143">        <span class="n">config</span><span class="p">:</span> <span class="n">QuantizerConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="144">    <span class="p">):</span>
-</span><span data-line="145">        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="146">            <span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">()</span>
-</span><span data-line="147">
-</span><span data-line="148">        <span class="n">execution_mode</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">execution_mode</span>
-</span><span data-line="149">        <span class="bp">self</span><span class="o">.</span><span class="n">_execution_mode</span> <span class="o">=</span> <span class="n">execution_mode</span>
+</span><span data-line="143">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="144">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="145">        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+</span><span data-line="146">        <span class="n">config</span><span class="p">:</span> <span class="n">QuantizerConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="147">    <span class="p">):</span>
+</span><span data-line="148">        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="149">            <span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">()</span>
 </span><span data-line="150">
-</span><span data-line="151">        <span class="c1"># Create the underlying quantizer based on execution mode</span>
-</span><span data-line="152">        <span class="k">if</span> <span class="n">execution_mode</span> <span class="o">==</span> <span class="n">ExecutionMode</span><span class="o">.</span><span class="n">GRAPH</span><span class="p">:</span>
-</span><span data-line="153">            <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span> <span class="o">=</span> <span class="n">_GraphQuantizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span data-line="154">        <span class="k">elif</span> <span class="n">execution_mode</span> <span class="o">==</span> <span class="n">ExecutionMode</span><span class="o">.</span><span class="n">EAGER</span><span class="p">:</span>
-</span><span data-line="155">            <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span> <span class="o">=</span> <span class="n">_EagerQuantizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span data-line="156">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="157">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported execution mode: </span><span class="si">{</span><span class="n">execution_mode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="158">
-</span><span data-line="159">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span data-line="160">
-</span><span data-line="161">        <span class="c1"># QAT schedule state</span>
-</span><span data-line="162">        <span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="163">        <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="164">        <span class="c1"># Mapping of FakeQuantize module to its corresponding QATSchedule</span>
-</span><span data-line="165">        <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">FakeQuantizeImplBase</span><span class="p">,</span> <span class="n">QATSchedule</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="166">        <span class="c1"># Cached module-name → FQ-modules map, populated after prepare()</span>
-</span><span data-line="167">        <span class="bp">self</span><span class="o">.</span><span class="n">_module_to_fqs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">FakeQuantizeImplBase</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span></div>
+</span><span data-line="151">        <span class="n">execution_mode</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">execution_mode</span>
+</span><span data-line="152">        <span class="bp">self</span><span class="o">.</span><span class="n">_execution_mode</span> <span class="o">=</span> <span class="n">execution_mode</span>
+</span><span data-line="153">
+</span><span data-line="154">        <span class="c1"># Create the underlying quantizer based on execution mode</span>
+</span><span data-line="155">        <span class="k">if</span> <span class="n">execution_mode</span> <span class="o">==</span> <span class="n">ExecutionMode</span><span class="o">.</span><span class="n">GRAPH</span><span class="p">:</span>
+</span><span data-line="156">            <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span> <span class="o">=</span> <span class="n">_GraphQuantizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span data-line="157">        <span class="k">elif</span> <span class="n">execution_mode</span> <span class="o">==</span> <span class="n">ExecutionMode</span><span class="o">.</span><span class="n">EAGER</span><span class="p">:</span>
+</span><span data-line="158">            <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span> <span class="o">=</span> <span class="n">_EagerQuantizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span data-line="159">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="160">            <span class="k">raise</span> <span class="n">InvalidExecutionModeError</span><span class="p">(</span><span class="n">execution_mode</span><span class="p">)</span>
+</span><span data-line="161">
+</span><span data-line="162">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span data-line="163">
+</span><span data-line="164">        <span class="c1"># QAT schedule state</span>
+</span><span data-line="165">        <span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="166">        <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="167">        <span class="c1"># Mapping of FakeQuantize module to its corresponding QATSchedule</span>
+</span><span data-line="168">        <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">FakeQuantizeImplBase</span><span class="p">,</span> <span class="n">QATSchedule</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="169">        <span class="c1"># Cached module-name → FQ-modules map, populated after prepare()</span>
+</span><span data-line="170">        <span class="bp">self</span><span class="o">.</span><span class="n">_module_to_fqs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">FakeQuantizeImplBase</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span></div>
 
-</span><span data-line="168">
-</span><span data-line="169">    <span class="nd">@property</span>
-</span><span data-line="170">    <span class="k">def</span><span class="w"> </span><span class="nf">_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="171"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Delegate to the underlying quantizer&#39;s model.&quot;&quot;&quot;</span>
-</span><span data-line="172">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span>
-</span><span data-line="173">
-</span><span data-line="174">    <span class="nd">@_model</span><span class="o">.</span><span class="n">setter</span>
-</span><span data-line="175">    <span class="k">def</span><span class="w"> </span><span class="nf">_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-</span><span data-line="176"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Delegate model setting to the underlying quantizer.&quot;&quot;&quot;</span>
-</span><span data-line="177">        <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">value</span>
-</span><span data-line="178">
-</span><span data-line="179">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_fake_quantize_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
-</span><span data-line="180"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Delegate to the underlying execution-mode quantizer.&quot;&quot;&quot;</span>
-</span><span data-line="181">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_get_fake_quantize_modules</span><span class="p">()</span>
-</span><span data-line="182">
-</span><span data-line="183">    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QATSchedule</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="184"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Look up the QAT schedule for a module via the config hierarchy.&quot;&quot;&quot;</span>
-</span><span data-line="185">        <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">_ConfigLevel</span><span class="o">.</span><span class="n">priority_order</span><span class="p">():</span>
-</span><span data-line="186">            <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_config_dict</span><span class="p">[</span><span class="n">level</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
-</span><span data-line="187">            <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="188">                <span class="k">return</span> <span class="n">config</span><span class="o">.</span><span class="n">qat_schedule</span>
-</span><span data-line="189">        <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="190">
-</span><span data-line="191">    <span class="k">def</span><span class="w"> </span><span class="nf">_build_fq_to_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="192"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Build ``_fq_to_schedule`` from cached config dict + FQ modules.</span>
+</span><span data-line="171">
+</span><span data-line="172">    <span class="nd">@property</span>
+</span><span data-line="173">    <span class="k">def</span><span class="w"> </span><span class="nf">_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="174"><span class="w">        </span><span class="sd">"""Delegate to the underlying quantizer's model."""</span>
+</span><span data-line="175">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span>
+</span><span data-line="176">
+</span><span data-line="177">    <span class="nd">@_model</span><span class="o">.</span><span class="n">setter</span>
+</span><span data-line="178">    <span class="k">def</span><span class="w"> </span><span class="nf">_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+</span><span data-line="179"><span class="w">        </span><span class="sd">"""Delegate model setting to the underlying quantizer."""</span>
+</span><span data-line="180">        <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">value</span>
+</span><span data-line="181">
+</span><span data-line="182">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_fake_quantize_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
+</span><span data-line="183"><span class="w">        </span><span class="sd">"""Delegate to the underlying execution-mode quantizer."""</span>
+</span><span data-line="184">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_get_fake_quantize_modules</span><span class="p">()</span>
+</span><span data-line="185">
+</span><span data-line="186">    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QATSchedule</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="187"><span class="w">        </span><span class="sd">"""Look up the QAT schedule for a module via the config hierarchy."""</span>
+</span><span data-line="188">        <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="n">_ConfigLevel</span><span class="o">.</span><span class="n">priority_order</span><span class="p">():</span>
+</span><span data-line="189">            <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_config_dict</span><span class="p">[</span><span class="n">level</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+</span><span data-line="190">            <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="191">                <span class="k">return</span> <span class="n">config</span><span class="o">.</span><span class="n">qat_schedule</span>
+</span><span data-line="192">        <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="193">
-</span><span data-line="194"><span class="sd">        Must be called after ``prepare()`` so that FQ modules exist.</span>
-</span><span data-line="195"><span class="sd">        Requires ``_module_config_dict`` to have been populated before</span>
-</span><span data-line="196"><span class="sd">        ``prepare()`` (since prepare may modify the module types in Eager</span>
-</span><span data-line="197"><span class="sd">        mode).</span>
-</span><span data-line="198"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="199">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span>
-</span><span data-line="200">            <span class="k">return</span>
-</span><span data-line="201">
-</span><span data-line="202">        <span class="k">for</span> <span class="n">module_name</span><span class="p">,</span> <span class="n">fq_list</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_to_fqs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span data-line="203">            <span class="n">schedule</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_schedule</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
-</span><span data-line="204">            <span class="k">if</span> <span class="n">schedule</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="205">                <span class="k">for</span> <span class="n">fq_mod</span> <span class="ow">in</span> <span class="n">fq_list</span><span class="p">:</span>
-</span><span data-line="206">                    <span class="k">if</span> <span class="n">fq_mod</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span>
-</span><span data-line="207">                        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-</span><span data-line="208">                            <span class="sa">f</span><span class="s2">&quot;FakeQuantize module under &#39;</span><span class="si">{</span><span class="n">module_name</span><span class="si">}</span><span class="s2">&#39; is shared &quot;</span>
-</span><span data-line="209">                            <span class="sa">f</span><span class="s2">&quot;with another module that already has a qat_schedule &quot;</span>
-</span><span data-line="210">                            <span class="sa">f</span><span class="s2">&quot;assigned. The existing schedule will be kept.&quot;</span><span class="p">,</span>
-</span><span data-line="211">                            <span class="ne">UserWarning</span><span class="p">,</span>
-</span><span data-line="212">                            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span><span data-line="213">                        <span class="p">)</span>
-</span><span data-line="214">                    <span class="k">else</span><span class="p">:</span>
-</span><span data-line="215">                        <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">[</span><span class="n">fq_mod</span><span class="p">]</span> <span class="o">=</span> <span class="n">schedule</span>
-</span><span data-line="216">
-</span><span data-line="217">    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_apply_qat_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="218"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply observer/fake-quant state for the current step count.&quot;&quot;&quot;</span>
-</span><span data-line="219">        <span class="k">for</span> <span class="n">fq_module</span><span class="p">,</span> <span class="n">schedule</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span data-line="220">            <span class="n">state</span> <span class="o">=</span> <span class="n">schedule</span><span class="o">.</span><span class="n">_compute_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span><span class="p">)</span>
-</span><span data-line="221">            <span class="n">fq_module</span><span class="o">.</span><span class="n">enable_observer</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">obs_on</span><span class="p">)</span>
-</span><span data-line="222">            <span class="n">fq_module</span><span class="o">.</span><span class="n">enable_fake_quant</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">fq_on</span><span class="p">)</span>
-</span><span data-line="223">
-</span><span data-line="224">    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_no_schedule_configured</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="225"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Raise RuntimeError if any FQ modules have a qat_schedule.&quot;&quot;&quot;</span>
-</span><span data-line="226">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span>
-</span><span data-line="227">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-</span><span data-line="228">                <span class="s2">&quot;Enable/disable APIs for observers or fake quantization cannot be &quot;</span>
-</span><span data-line="229">                <span class="s2">&quot;used with a qat_schedule configured. To use these APIs, make sure &quot;</span>
-</span><span data-line="230">                <span class="s2">&quot;there are no global or module-level qat_schedule configured. For &quot;</span>
-</span><span data-line="231">                <span class="s2">&quot;using the QAT schedule, refer to the step() API.&quot;</span>
-</span><span data-line="232">            <span class="p">)</span>
-</span><span data-line="233">
+</span><span data-line="194">    <span class="k">def</span><span class="w"> </span><span class="nf">_build_fq_to_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="195"><span class="w">        </span><span class="sd">"""Build ``_fq_to_schedule`` from cached config dict + FQ modules.</span>
+</span><span data-line="196">
+</span><span data-line="197"><span class="sd">        Must be called after ``prepare()`` so that FQ modules exist.</span>
+</span><span data-line="198"><span class="sd">        Requires ``_module_config_dict`` to have been populated before</span>
+</span><span data-line="199"><span class="sd">        ``prepare()`` (since prepare may modify the module types in Eager</span>
+</span><span data-line="200"><span class="sd">        mode).</span>
+</span><span data-line="201"><span class="sd">        """</span>
+</span><span data-line="202">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span>
+</span><span data-line="203">            <span class="k">return</span>
+</span><span data-line="204">
+</span><span data-line="205">        <span class="k">for</span> <span class="n">module_name</span><span class="p">,</span> <span class="n">fq_list</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_to_fqs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="206">            <span class="n">schedule</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_schedule</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+</span><span data-line="207">            <span class="k">if</span> <span class="n">schedule</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="208">                <span class="k">for</span> <span class="n">fq_mod</span> <span class="ow">in</span> <span class="n">fq_list</span><span class="p">:</span>
+</span><span data-line="209">                    <span class="k">if</span> <span class="n">fq_mod</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span>
+</span><span data-line="210">                        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+</span><span data-line="211">                            <span class="sa">f</span><span class="s2">"FakeQuantize module under '</span><span class="si">{</span><span class="n">module_name</span><span class="si">}</span><span class="s2">' is shared "</span>
+</span><span data-line="212">                            <span class="sa">f</span><span class="s2">"with another module that already has a qat_schedule "</span>
+</span><span data-line="213">                            <span class="sa">f</span><span class="s2">"assigned. The existing schedule will be kept."</span><span class="p">,</span>
+</span><span data-line="214">                            <span class="ne">UserWarning</span><span class="p">,</span>
+</span><span data-line="215">                            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+</span><span data-line="216">                        <span class="p">)</span>
+</span><span data-line="217">                    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="218">                        <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">[</span><span class="n">fq_mod</span><span class="p">]</span> <span class="o">=</span> <span class="n">schedule</span>
+</span><span data-line="219">
+</span><span data-line="220">    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_apply_qat_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="221"><span class="w">        </span><span class="sd">"""Apply observer/fake-quant state for the current step count."""</span>
+</span><span data-line="222">        <span class="k">for</span> <span class="n">fq_module</span><span class="p">,</span> <span class="n">schedule</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="223">            <span class="n">state</span> <span class="o">=</span> <span class="n">schedule</span><span class="o">.</span><span class="n">_compute_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span><span class="p">)</span>
+</span><span data-line="224">            <span class="n">fq_module</span><span class="o">.</span><span class="n">enable_observer</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">obs_on</span><span class="p">)</span>
+</span><span data-line="225">            <span class="n">fq_module</span><span class="o">.</span><span class="n">enable_fake_quant</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">fq_on</span><span class="p">)</span>
+</span><span data-line="226">
+</span><span data-line="227">    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_no_schedule_configured</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="228"><span class="w">        </span><span class="sd">"""Raise RuntimeError if any FQ modules have a qat_schedule."""</span>
+</span><span data-line="229">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span>
+</span><span data-line="230">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+</span><span data-line="231">                <span class="s2">"Enable/disable APIs for observers or fake quantization cannot be "</span>
+</span><span data-line="232">                <span class="s2">"used with a qat_schedule configured. To use these APIs, make sure "</span>
+</span><span data-line="233">                <span class="s2">"there are no global or module-level qat_schedule configured. For "</span>
+</span><span data-line="234">                <span class="s2">"using the QAT schedule, refer to the step() API."</span>
+</span><span data-line="235">            <span class="p">)</span>
+</span><span data-line="236">
 <div class="viewcode-block" id="Quantizer.step">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.step">[docs]</a>
-</span><span data-line="234">    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="235"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="236"><span class="sd">        Advance the QAT schedule by one step and apply observer/fake_quant</span>
-</span><span data-line="237"><span class="sd">        transitions after the step has been incremented.</span>
-</span><span data-line="238">
-</span><span data-line="239"><span class="sd">        Must be called inside a training_mode() context. Increments _step_count</span>
-</span><span data-line="240"><span class="sd">        (monotonically; never reset between training loops), then applies the</span>
-</span><span data-line="241"><span class="sd">        absolute observer/fake_quant state corresponding to the new step count.</span>
-</span><span data-line="242">
-</span><span data-line="243"><span class="sd">        Raises:</span>
-</span><span data-line="244"><span class="sd">            RuntimeError: If called outside a training_mode() context.</span>
+</span><span data-line="237">    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="238"><span class="w">        </span><span class="sd">"""</span>
+</span><span data-line="239"><span class="sd">        Advance the QAT schedule by one step and apply observer/fake_quant</span>
+</span><span data-line="240"><span class="sd">        transitions after the step has been incremented.</span>
+</span><span data-line="241">
+</span><span data-line="242"><span class="sd">        Must be called inside a training_mode() context. Increments _step_count</span>
+</span><span data-line="243"><span class="sd">        (monotonically; never reset between training loops), then applies the</span>
+</span><span data-line="244"><span class="sd">        absolute observer/fake_quant state corresponding to the new step count.</span>
 </span><span data-line="245">
-</span><span data-line="246"><span class="sd">        Warns:</span>
-</span><span data-line="247"><span class="sd">            UserWarning: If no qat_schedule is configured on any module.</span>
-</span><span data-line="248"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="249">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span><span class="p">:</span>
-</span><span data-line="250">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;step() must be called inside a training_mode() context.&quot;</span><span class="p">)</span>
-</span><span data-line="251">
-</span><span data-line="252">        <span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="253">
-</span><span data-line="254">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span>
-</span><span data-line="255">            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-</span><span data-line="256">                <span class="s2">&quot;step() was called but no qat_schedule is configured on any module. &quot;</span>
-</span><span data-line="257">                <span class="s2">&quot;step() has no effect. Configure a QATSchedule on at least one &quot;</span>
-</span><span data-line="258">                <span class="s2">&quot;ModuleQuantizerConfig to use QAT scheduling.&quot;</span><span class="p">,</span>
-</span><span data-line="259">                <span class="ne">UserWarning</span><span class="p">,</span>
-</span><span data-line="260">                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span><span data-line="261">            <span class="p">)</span>
-</span><span data-line="262">            <span class="k">return</span>
-</span><span data-line="263">
-</span><span data-line="264">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_qat_schedule</span><span class="p">()</span></div>
+</span><span data-line="246"><span class="sd">        Raises:</span>
+</span><span data-line="247"><span class="sd">            RuntimeError: If called outside a training_mode() context.</span>
+</span><span data-line="248">
+</span><span data-line="249"><span class="sd">        Warns:</span>
+</span><span data-line="250"><span class="sd">            UserWarning: If no qat_schedule is configured on any module.</span>
+</span><span data-line="251"><span class="sd">        """</span>
+</span><span data-line="252">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span><span class="p">:</span>
+</span><span data-line="253">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"step() must be called inside a training_mode() context."</span><span class="p">)</span>
+</span><span data-line="254">
+</span><span data-line="255">        <span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="256">
+</span><span data-line="257">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fq_to_schedule</span><span class="p">:</span>
+</span><span data-line="258">            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+</span><span data-line="259">                <span class="s2">"step() was called but no qat_schedule is configured on any module. "</span>
+</span><span data-line="260">                <span class="s2">"step() has no effect. Configure a QATSchedule on at least one "</span>
+</span><span data-line="261">                <span class="s2">"ModuleQuantizerConfig to use QAT scheduling."</span><span class="p">,</span>
+</span><span data-line="262">                <span class="ne">UserWarning</span><span class="p">,</span>
+</span><span data-line="263">                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+</span><span data-line="264">            <span class="p">)</span>
+</span><span data-line="265">            <span class="k">return</span>
+</span><span data-line="266">
+</span><span data-line="267">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_qat_schedule</span><span class="p">()</span></div>
 
-</span><span data-line="265">
-</span><span data-line="266">    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">:</span> <span class="nb">callable</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="267"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply fn to FQ modules if no QAT schedule is configured.</span>
 </span><span data-line="268">
-</span><span data-line="269"><span class="sd">        Validates that no schedule is set (raises RuntimeError otherwise).</span>
-</span><span data-line="270"><span class="sd">        If module is None, applies to the entire model. If module is given,</span>
-</span><span data-line="271"><span class="sd">        finds its FQs via the cached ``_module_to_fqs`` by resolving the module&#39;s</span>
-</span><span data-line="272"><span class="sd">        name and walking its children.</span>
-</span><span data-line="273">
-</span><span data-line="274"><span class="sd">        Args:</span>
-</span><span data-line="275"><span class="sd">            fn: A torchao function (e.g. ``enable_observer``) to apply.</span>
-</span><span data-line="276"><span class="sd">            module: If None, applies to the entire model.</span>
-</span><span data-line="277"><span class="sd">                    Otherwise, applies only to FQs associated with the given</span>
-</span><span data-line="278"><span class="sd">                    module and its children.</span>
-</span><span data-line="279">
-</span><span data-line="280"><span class="sd">        Raises:</span>
-</span><span data-line="281"><span class="sd">            RuntimeError: If any ModuleQuantizerConfig has qat_schedule configured.</span>
-</span><span data-line="282"><span class="sd">            ValueError: If the given module is not found in the model.</span>
-</span><span data-line="283"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="284">        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_no_schedule_configured</span><span class="p">()</span>
-</span><span data-line="285">        <span class="k">if</span> <span class="n">module</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="286">            <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
-</span><span data-line="287">            <span class="k">return</span>
-</span><span data-line="288">
-</span><span data-line="289">        <span class="n">prefix</span> <span class="o">=</span> <span class="n">get_module_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span>
-</span><span data-line="290">        <span class="k">if</span> <span class="n">prefix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="291">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Module </span><span class="si">{</span><span class="n">module</span><span class="si">}</span><span class="s2"> is not a submodule of the prepared model.&quot;</span><span class="p">)</span>
-</span><span data-line="292">
-</span><span data-line="293">        <span class="k">for</span> <span class="n">child_name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
-</span><span data-line="294">            <span class="n">full_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">child_name</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">child_name</span> <span class="k">else</span> <span class="n">prefix</span>
-</span><span data-line="295">            <span class="k">for</span> <span class="n">fq</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_to_fqs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">full_name</span><span class="p">,</span> <span class="p">[]):</span>
-</span><span data-line="296">                <span class="n">fq</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
-</span><span data-line="297">
+</span><span data-line="269">    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">:</span> <span class="nb">callable</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="270"><span class="w">        </span><span class="sd">"""Apply fn to FQ modules if no QAT schedule is configured.</span>
+</span><span data-line="271">
+</span><span data-line="272"><span class="sd">        Validates that no schedule is set (raises RuntimeError otherwise).</span>
+</span><span data-line="273"><span class="sd">        If module is None, applies to the entire model. If module is given,</span>
+</span><span data-line="274"><span class="sd">        finds its FQs via the cached ``_module_to_fqs`` by resolving the module's</span>
+</span><span data-line="275"><span class="sd">        name and walking its children.</span>
+</span><span data-line="276">
+</span><span data-line="277"><span class="sd">        Args:</span>
+</span><span data-line="278"><span class="sd">            fn: A torchao function (e.g. ``enable_observer``) to apply.</span>
+</span><span data-line="279"><span class="sd">            module: If None, applies to the entire model.</span>
+</span><span data-line="280"><span class="sd">                    Otherwise, applies only to FQs associated with the given</span>
+</span><span data-line="281"><span class="sd">                    module and its children.</span>
+</span><span data-line="282">
+</span><span data-line="283"><span class="sd">        Raises:</span>
+</span><span data-line="284"><span class="sd">            RuntimeError: If any ModuleQuantizerConfig has qat_schedule configured.</span>
+</span><span data-line="285"><span class="sd">            ValueError: If the given module is not found in the model.</span>
+</span><span data-line="286"><span class="sd">        """</span>
+</span><span data-line="287">        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_no_schedule_configured</span><span class="p">()</span>
+</span><span data-line="288">        <span class="k">if</span> <span class="n">module</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="289">            <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+</span><span data-line="290">            <span class="k">return</span>
+</span><span data-line="291">
+</span><span data-line="292">        <span class="n">prefix</span> <span class="o">=</span> <span class="n">_get_module_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span>
+</span><span data-line="293">        <span class="k">if</span> <span class="n">prefix</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="294">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Module </span><span class="si">{</span><span class="n">module</span><span class="si">}</span><span class="s2"> is not a submodule of the prepared model."</span><span class="p">)</span>
+</span><span data-line="295">
+</span><span data-line="296">        <span class="k">for</span> <span class="n">child_name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+</span><span data-line="297">            <span class="n">full_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">child_name</span><span class="si">}</span><span class="s2">"</span> <span class="k">if</span> <span class="n">child_name</span> <span class="k">else</span> <span class="n">prefix</span>
+</span><span data-line="298">            <span class="k">for</span> <span class="n">fq</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_to_fqs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">full_name</span><span class="p">,</span> <span class="p">[]):</span>
+</span><span data-line="299">                <span class="n">fq</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+</span><span data-line="300">
 <div class="viewcode-block" id="Quantizer.enable_observer">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.enable_observer">[docs]</a>
-</span><span data-line="298">    <span class="k">def</span><span class="w"> </span><span class="nf">enable_observer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="299"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Enable observers on the model or a specific module.&quot;&quot;&quot;</span>
-</span><span data-line="300">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="n">_torchao_enable_observer</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span></div>
+</span><span data-line="301">    <span class="k">def</span><span class="w"> </span><span class="nf">enable_observer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="302"><span class="w">        </span><span class="sd">"""Enable observers on the model or a specific module."""</span>
+</span><span data-line="303">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="n">_torchao_enable_observer</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span></div>
 
-</span><span data-line="301">
+</span><span data-line="304">
 <div class="viewcode-block" id="Quantizer.disable_observer">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.disable_observer">[docs]</a>
-</span><span data-line="302">    <span class="k">def</span><span class="w"> </span><span class="nf">disable_observer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="303"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Disable observers on the model or a specific module.&quot;&quot;&quot;</span>
-</span><span data-line="304">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="n">_torchao_disable_observer</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span></div>
+</span><span data-line="305">    <span class="k">def</span><span class="w"> </span><span class="nf">disable_observer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="306"><span class="w">        </span><span class="sd">"""Disable observers on the model or a specific module."""</span>
+</span><span data-line="307">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="n">_torchao_disable_observer</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span></div>
 
-</span><span data-line="305">
+</span><span data-line="308">
 <div class="viewcode-block" id="Quantizer.enable_fake_quant">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.enable_fake_quant">[docs]</a>
-</span><span data-line="306">    <span class="k">def</span><span class="w"> </span><span class="nf">enable_fake_quant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="307"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Enable fake quantization on the model or a specific module.&quot;&quot;&quot;</span>
-</span><span data-line="308">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="n">_torchao_enable_fake_quant</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span></div>
+</span><span data-line="309">    <span class="k">def</span><span class="w"> </span><span class="nf">enable_fake_quant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="310"><span class="w">        </span><span class="sd">"""Enable fake quantization on the model or a specific module."""</span>
+</span><span data-line="311">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="n">_torchao_enable_fake_quant</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span></div>
 
-</span><span data-line="309">
+</span><span data-line="312">
 <div class="viewcode-block" id="Quantizer.disable_fake_quant">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.disable_fake_quant">[docs]</a>
-</span><span data-line="310">    <span class="k">def</span><span class="w"> </span><span class="nf">disable_fake_quant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="311"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Disable fake quantization on the model or a specific module.&quot;&quot;&quot;</span>
-</span><span data-line="312">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="n">_torchao_disable_fake_quant</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span></div>
+</span><span data-line="313">    <span class="k">def</span><span class="w"> </span><span class="nf">disable_fake_quant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="314"><span class="w">        </span><span class="sd">"""Disable fake quantization on the model or a specific module."""</span>
+</span><span data-line="315">        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_fn_to_fqs</span><span class="p">(</span><span class="n">_torchao_disable_fake_quant</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span></div>
 
-</span><span data-line="313">
+</span><span data-line="316">
 <div class="viewcode-block" id="Quantizer.prepare">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.prepare">[docs]</a>
-</span><span data-line="314">    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span>
-</span><span data-line="315">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="316">        <span class="n">example_inputs</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-</span><span data-line="317">        <span class="n">dynamic_shapes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="318">        <span class="n">export_with_no_grad</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="319">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">:</span>
-</span><span data-line="320"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="321"><span class="sd">        Prepare the model for quantization by inserting fake quantization modules.</span>
-</span><span data-line="322">
-</span><span data-line="323"><span class="sd">        **Graph Mode:**</span>
-</span><span data-line="324"><span class="sd">        Exports the model using torch.export, applies quantization annotations, and</span>
-</span><span data-line="325"><span class="sd">        sets up fake quantization modules. Returns an fx.GraphModule.</span>
-</span><span data-line="326">
-</span><span data-line="327"><span class="sd">        **Eager Mode:**</span>
-</span><span data-line="328"><span class="sd">        Uses `__torch_function__` to trace model execution and insert fake quantizers</span>
-</span><span data-line="329"><span class="sd">        during the forward pass. Returns an nn.Module.</span>
-</span><span data-line="330">
-</span><span data-line="331"><span class="sd">        **Important Notes:**</span>
-</span><span data-line="332">
-</span><span data-line="333"><span class="sd">        - For weight-only PTQ: The prepared model can be directly finalized</span>
-</span><span data-line="334"><span class="sd">          (prepare() → finalize() workflow).</span>
-</span><span data-line="335"><span class="sd">        - For activation quantization: The prepared model should be calibrated using</span>
-</span><span data-line="336"><span class="sd">          calibration_mode() before finalization to collect statistics and achieve</span>
-</span><span data-line="337"><span class="sd">          good accuracy.</span>
-</span><span data-line="338">
-</span><span data-line="339"><span class="sd">        Args:</span>
-</span><span data-line="340"><span class="sd">            example_inputs: Tuple of example inputs for model tracing. When</span>
-</span><span data-line="341"><span class="sd">                activation quantization is in use, these should be</span>
-</span><span data-line="342"><span class="sd">                representative of the data the model would typically see.</span>
-</span><span data-line="343"><span class="sd">            dynamic_shapes: Dynamic shapes specification (graph mode only).</span>
-</span><span data-line="344"><span class="sd">                Ignored in EAGER mode.</span>
-</span><span data-line="345"><span class="sd">            export_with_no_grad: Whether to export with no_grad (graph mode</span>
-</span><span data-line="346"><span class="sd">                only). Ignored in EAGER mode.</span>
-</span><span data-line="347">
-</span><span data-line="348"><span class="sd">        Returns:</span>
-</span><span data-line="349"><span class="sd">            The prepared model with fake quantization modules inserted, ready for</span>
-</span><span data-line="350"><span class="sd">            calibration or training. This is a data-free PTQ compressed model.</span>
-</span><span data-line="351">
-</span><span data-line="352"><span class="sd">        Note:</span>
-</span><span data-line="353"><span class="sd">            In graph mode, the returned ``fx.GraphModule`` supports calling</span>
-</span><span data-line="354"><span class="sd">            ``.train()`` and ``.eval()``, but with limited effect: only dropout</span>
-</span><span data-line="355"><span class="sd">            and batchnorm ops are affected via FX graph rewriting. User code</span>
-</span><span data-line="356"><span class="sd">            branching on the ``training`` flag and other ops with</span>
-</span><span data-line="357"><span class="sd">            mode-dependent behavior are not affected.</span>
-</span><span data-line="358"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="359">        <span class="c1"># Cache config dict before prepare() so that module_type_configs can</span>
-</span><span data-line="360">        <span class="c1"># match original types. After prepare, modules can be modified such</span>
-</span><span data-line="361">        <span class="c1"># that the types no longer match what is given in the config.</span>
-</span><span data-line="362">        <span class="bp">self</span><span class="o">.</span><span class="n">_module_config_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">build_module_config_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span><span class="p">)</span>
-</span><span data-line="363">
-</span><span data-line="364">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execution_mode</span> <span class="o">==</span> <span class="n">ExecutionMode</span><span class="o">.</span><span class="n">EAGER</span><span class="p">:</span>
-</span><span data-line="365">            <span class="k">if</span> <span class="n">dynamic_shapes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="366">                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-</span><span data-line="367">                    <span class="s2">&quot;dynamic_shapes is only supported in graph mode and will be ignored.&quot;</span><span class="p">,</span>
-</span><span data-line="368">                    <span class="ne">UserWarning</span><span class="p">,</span>
-</span><span data-line="369">                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span><span data-line="370">                <span class="p">)</span>
-</span><span data-line="371">            <span class="k">if</span> <span class="ow">not</span> <span class="n">export_with_no_grad</span><span class="p">:</span>
-</span><span data-line="372">                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-</span><span data-line="373">                    <span class="s2">&quot;export_with_no_grad is only supported in graph mode and will be ignored.&quot;</span><span class="p">,</span>
-</span><span data-line="374">                    <span class="ne">UserWarning</span><span class="p">,</span>
-</span><span data-line="375">                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span><span data-line="376">                <span class="p">)</span>
-</span><span data-line="377">            <span class="n">prepared_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
-</span><span data-line="378">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="379">            <span class="n">prepared_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span>
-</span><span data-line="380">                <span class="n">example_inputs</span><span class="p">,</span>
-</span><span data-line="381">                <span class="n">dynamic_shapes</span><span class="o">=</span><span class="n">dynamic_shapes</span><span class="p">,</span>
-</span><span data-line="382">                <span class="n">export_with_no_grad</span><span class="o">=</span><span class="n">export_with_no_grad</span><span class="p">,</span>
-</span><span data-line="383">            <span class="p">)</span>
-</span><span data-line="384">
-</span><span data-line="385">        <span class="bp">self</span><span class="o">.</span><span class="n">_module_to_fqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fake_quantize_modules</span><span class="p">()</span>
-</span><span data-line="386">        <span class="bp">self</span><span class="o">.</span><span class="n">_build_fq_to_schedule</span><span class="p">()</span>
+</span><span data-line="317">    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span>
+</span><span data-line="318">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="319">        <span class="n">example_inputs</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+</span><span data-line="320">        <span class="n">dynamic_shapes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="321">        <span class="n">export_with_no_grad</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="322">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">:</span>
+</span><span data-line="323"><span class="w">        </span><span class="sd">"""</span>
+</span><span data-line="324"><span class="sd">        Prepare the model for quantization by inserting fake quantization modules.</span>
+</span><span data-line="325">
+</span><span data-line="326"><span class="sd">        **Graph Mode:**</span>
+</span><span data-line="327"><span class="sd">        Exports the model using torch.export, applies quantization annotations, and</span>
+</span><span data-line="328"><span class="sd">        sets up fake quantization modules. Returns an fx.GraphModule.</span>
+</span><span data-line="329">
+</span><span data-line="330"><span class="sd">        **Eager Mode:**</span>
+</span><span data-line="331"><span class="sd">        Uses `__torch_function__` to trace model execution and insert fake quantizers</span>
+</span><span data-line="332"><span class="sd">        during the forward pass. Returns an nn.Module.</span>
+</span><span data-line="333">
+</span><span data-line="334"><span class="sd">        **Important Notes:**</span>
+</span><span data-line="335">
+</span><span data-line="336"><span class="sd">        - For weight-only PTQ: The prepared model can be directly finalized</span>
+</span><span data-line="337"><span class="sd">          (prepare() → finalize() workflow).</span>
+</span><span data-line="338"><span class="sd">        - For activation quantization: The prepared model should be calibrated using</span>
+</span><span data-line="339"><span class="sd">          calibration_mode() before finalization to collect statistics and achieve</span>
+</span><span data-line="340"><span class="sd">          good accuracy.</span>
+</span><span data-line="341">
+</span><span data-line="342"><span class="sd">        Args:</span>
+</span><span data-line="343"><span class="sd">            example_inputs: Tuple of example inputs for model tracing. When</span>
+</span><span data-line="344"><span class="sd">                activation quantization is in use, these should be</span>
+</span><span data-line="345"><span class="sd">                representative of the data the model would typically see.</span>
+</span><span data-line="346"><span class="sd">            dynamic_shapes: Dynamic shapes specification (graph mode only).</span>
+</span><span data-line="347"><span class="sd">                Ignored in EAGER mode.</span>
+</span><span data-line="348"><span class="sd">            export_with_no_grad: Whether to export with no_grad (graph mode</span>
+</span><span data-line="349"><span class="sd">                only). Ignored in EAGER mode.</span>
+</span><span data-line="350">
+</span><span data-line="351"><span class="sd">        Returns:</span>
+</span><span data-line="352"><span class="sd">            The prepared model with fake quantization modules inserted, ready for</span>
+</span><span data-line="353"><span class="sd">            calibration or training. This is a data-free PTQ compressed model.</span>
+</span><span data-line="354">
+</span><span data-line="355"><span class="sd">        Note:</span>
+</span><span data-line="356"><span class="sd">            In graph mode, the returned ``fx.GraphModule`` supports calling</span>
+</span><span data-line="357"><span class="sd">            ``.train()`` and ``.eval()``, but with limited effect: only dropout</span>
+</span><span data-line="358"><span class="sd">            and batchnorm ops are affected via FX graph rewriting. User code</span>
+</span><span data-line="359"><span class="sd">            branching on the ``training`` flag and other ops with</span>
+</span><span data-line="360"><span class="sd">            mode-dependent behavior are not affected.</span>
+</span><span data-line="361"><span class="sd">        """</span>
+</span><span data-line="362">        <span class="c1"># Cache config dict before prepare() so that module_type_configs can</span>
+</span><span data-line="363">        <span class="c1"># match original types. After prepare, modules can be modified such</span>
+</span><span data-line="364">        <span class="c1"># that the types no longer match what is given in the config.</span>
+</span><span data-line="365">        <span class="bp">self</span><span class="o">.</span><span class="n">_module_config_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">build_module_config_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">_model</span><span class="p">)</span>
+</span><span data-line="366">
+</span><span data-line="367">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execution_mode</span> <span class="o">==</span> <span class="n">ExecutionMode</span><span class="o">.</span><span class="n">EAGER</span><span class="p">:</span>
+</span><span data-line="368">            <span class="k">if</span> <span class="n">dynamic_shapes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="369">                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+</span><span data-line="370">                    <span class="s2">"dynamic_shapes is only supported in graph mode and will be ignored."</span><span class="p">,</span>
+</span><span data-line="371">                    <span class="ne">UserWarning</span><span class="p">,</span>
+</span><span data-line="372">                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+</span><span data-line="373">                <span class="p">)</span>
+</span><span data-line="374">            <span class="k">if</span> <span class="ow">not</span> <span class="n">export_with_no_grad</span><span class="p">:</span>
+</span><span data-line="375">                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+</span><span data-line="376">                    <span class="s2">"export_with_no_grad is only supported in graph mode and will be ignored."</span><span class="p">,</span>
+</span><span data-line="377">                    <span class="ne">UserWarning</span><span class="p">,</span>
+</span><span data-line="378">                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+</span><span data-line="379">                <span class="p">)</span>
+</span><span data-line="380">            <span class="n">prepared_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="381">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="382">            <span class="n">prepared_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span>
+</span><span data-line="383">                <span class="n">example_inputs</span><span class="p">,</span>
+</span><span data-line="384">                <span class="n">dynamic_shapes</span><span class="o">=</span><span class="n">dynamic_shapes</span><span class="p">,</span>
+</span><span data-line="385">                <span class="n">export_with_no_grad</span><span class="o">=</span><span class="n">export_with_no_grad</span><span class="p">,</span>
+</span><span data-line="386">            <span class="p">)</span>
 </span><span data-line="387">
-</span><span data-line="388">        <span class="k">return</span> <span class="n">prepared_model</span></div>
+</span><span data-line="388">        <span class="bp">self</span><span class="o">.</span><span class="n">_module_to_fqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fake_quantize_modules</span><span class="p">()</span>
+</span><span data-line="389">        <span class="bp">self</span><span class="o">.</span><span class="n">_build_fq_to_schedule</span><span class="p">()</span>
+</span><span data-line="390">
+</span><span data-line="391">        <span class="k">return</span> <span class="n">prepared_model</span></div>
 
-</span><span data-line="389">
-</span><span data-line="390">    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_mmap_dir_constraints</span><span class="p">(</span>
-</span><span data-line="391">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="392">        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="393">        <span class="n">backend</span><span class="p">:</span> <span class="n">ExportBackend</span><span class="p">,</span>
-</span><span data-line="394">        <span class="n">mmap_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="395">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="396"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate that ``mmap_dir`` is compatible with the current execution mode,</span>
-</span><span data-line="397"><span class="sd">        target backend, and model device. No-op when ``mmap_dir is None``.</span>
-</span><span data-line="398"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="399">        <span class="k">if</span> <span class="n">mmap_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="400">            <span class="k">return</span>
-</span><span data-line="401">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execution_mode</span> <span class="o">!=</span> <span class="n">ExecutionMode</span><span class="o">.</span><span class="n">EAGER</span><span class="p">:</span>
-</span><span data-line="402">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="403">                <span class="s2">&quot;mmap_dir is only supported in eager execution mode, &quot;</span>
-</span><span data-line="404">                <span class="sa">f</span><span class="s2">&quot;got execution_mode=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_execution_mode</span><span class="si">}</span><span class="s2">.&quot;</span>
-</span><span data-line="405">            <span class="p">)</span>
-</span><span data-line="406">        <span class="n">model_to_check</span> <span class="o">=</span> <span class="n">model</span> <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
-</span><span data-line="407">        <span class="n">_validate_mmap_backend_and_device</span><span class="p">(</span><span class="n">model_to_check</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="n">mmap_dir</span><span class="p">)</span>
-</span><span data-line="408">
-</span><span data-line="409">    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_no_persistent_observer_calculators</span><span class="p">(</span>
-</span><span data-line="410">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="411">        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="412">        <span class="n">backend</span><span class="p">:</span> <span class="n">ExportBackend</span><span class="p">,</span>
-</span><span data-line="413">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="414"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reject CoreAI/CoreML export when any qparams calculator is a</span>
-</span><span data-line="415"><span class="sd">        ``StatelessQParamsCalculatorBase`` (e.g. dynamic quantization).</span>
-</span><span data-line="416"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="417">        <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">_TORCH</span><span class="p">:</span>
-</span><span data-line="418">            <span class="k">return</span>
-</span><span data-line="419">        <span class="n">model_to_check</span> <span class="o">=</span> <span class="n">model</span> <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
-</span><span data-line="420">        <span class="n">stateless_fq_names</span> <span class="o">=</span> <span class="p">[</span>
-</span><span data-line="421">            <span class="n">name</span>
-</span><span data-line="422">            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">model_to_check</span><span class="o">.</span><span class="n">named_modules</span><span class="p">()</span>
-</span><span data-line="423">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">FakeQuantizeImplBase</span><span class="p">)</span>
-</span><span data-line="424">            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mod</span><span class="o">.</span><span class="n">qparams_calculator</span><span class="p">,</span> <span class="n">StatelessQParamsCalculatorBase</span><span class="p">)</span>
-</span><span data-line="425">        <span class="p">]</span>
-</span><span data-line="426">        <span class="k">if</span> <span class="n">stateless_fq_names</span><span class="p">:</span>
-</span><span data-line="427">            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-</span><span data-line="428">                <span class="sa">f</span><span class="s2">&quot;backend=</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2"> does not yet support qparams calculators that &quot;</span>
-</span><span data-line="429">                <span class="sa">f</span><span class="s2">&quot;recompute every forward (e.g. dynamic quantization). &quot;</span>
-</span><span data-line="430">                <span class="sa">f</span><span class="s2">&quot;Affected FakeQuantize modules: </span><span class="si">{</span><span class="n">stateless_fq_names</span><span class="si">}</span><span class="s2">. Use &quot;</span>
-</span><span data-line="431">                <span class="sa">f</span><span class="s2">&quot;backend=ExportBackend._TORCH for torch-only inference.&quot;</span>
-</span><span data-line="432">            <span class="p">)</span>
-</span><span data-line="433">
+</span><span data-line="392">
+</span><span data-line="393">    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_mmap_dir_constraints</span><span class="p">(</span>
+</span><span data-line="394">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="395">        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="396">        <span class="n">backend</span><span class="p">:</span> <span class="n">ExportBackend</span><span class="p">,</span>
+</span><span data-line="397">        <span class="n">mmap_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="398">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="399"><span class="w">        </span><span class="sd">"""Validate that ``mmap_dir`` is compatible with the target backend and model</span>
+</span><span data-line="400"><span class="sd">        device. No-op when ``mmap_dir is None``.</span>
+</span><span data-line="401"><span class="sd">        """</span>
+</span><span data-line="402">        <span class="k">if</span> <span class="n">mmap_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="403">            <span class="k">return</span>
+</span><span data-line="404">        <span class="n">model_to_check</span> <span class="o">=</span> <span class="n">model</span> <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
+</span><span data-line="405">        <span class="n">_validate_mmap_backend_and_device</span><span class="p">(</span><span class="n">model_to_check</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="n">mmap_dir</span><span class="p">)</span>
+</span><span data-line="406">
+</span><span data-line="407">    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_no_persistent_observer_calculators</span><span class="p">(</span>
+</span><span data-line="408">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="409">        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="410">        <span class="n">backend</span><span class="p">:</span> <span class="n">ExportBackend</span><span class="p">,</span>
+</span><span data-line="411">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="412"><span class="w">        </span><span class="sd">"""Reject CoreAI/CoreML export when any qparams calculator is a</span>
+</span><span data-line="413"><span class="sd">        ``StatelessQParamsCalculatorBase`` (e.g. dynamic quantization).</span>
+</span><span data-line="414">
+</span><span data-line="415"><span class="sd">        An activation export handler registered for the module's granularity lifts</span>
+</span><span data-line="416"><span class="sd">        the restriction: a ``GraphActivationExportHandler`` in graph mode, an</span>
+</span><span data-line="417"><span class="sd">        ``EagerActivationExportHandler`` in eager mode.</span>
+</span><span data-line="418">
+</span><span data-line="419"><span class="sd">        """</span>
+</span><span data-line="420">        <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">_TORCH</span><span class="p">:</span>
+</span><span data-line="421">            <span class="k">return</span>
+</span><span data-line="422">        <span class="n">model_to_check</span> <span class="o">=</span> <span class="n">model</span> <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
+</span><span data-line="423">        <span class="n">stateless_fq_names</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="424">            <span class="n">name</span>
+</span><span data-line="425">            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">mod</span> <span class="ow">in</span> <span class="n">model_to_check</span><span class="o">.</span><span class="n">named_modules</span><span class="p">()</span>
+</span><span data-line="426">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">FakeQuantizeImplBase</span><span class="p">)</span>
+</span><span data-line="427">            <span class="ow">and</span> <span class="n">mod</span><span class="o">.</span><span class="n">is_stateless</span>
+</span><span data-line="428">            <span class="ow">and</span> <span class="ow">not</span> <span class="n">_can_export_stateless_fake_quant</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execution_mode</span><span class="p">)</span>
+</span><span data-line="429">        <span class="p">]</span>
+</span><span data-line="430">        <span class="k">if</span> <span class="n">stateless_fq_names</span><span class="p">:</span>
+</span><span data-line="431">            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+</span><span data-line="432">                <span class="sa">f</span><span class="s2">"backend=</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2"> does not yet support qparams calculators that "</span>
+</span><span data-line="433">                <span class="sa">f</span><span class="s2">"recompute every forward (e.g. dynamic quantization). "</span>
+</span><span data-line="434">                <span class="sa">f</span><span class="s2">"Affected FakeQuantize modules: </span><span class="si">{</span><span class="n">stateless_fq_names</span><span class="si">}</span><span class="s2">. Use "</span>
+</span><span data-line="435">                <span class="sa">f</span><span class="s2">"backend=ExportBackend._TORCH for torch-only inference."</span>
+</span><span data-line="436">            <span class="p">)</span>
+</span><span data-line="437">
 <div class="viewcode-block" id="Quantizer.finalize">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.finalize">[docs]</a>
-</span><span data-line="434">    <span class="k">def</span><span class="w"> </span><span class="nf">finalize</span><span class="p">(</span>
-</span><span data-line="435">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="436">        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="437">        <span class="n">backend</span><span class="p">:</span> <span class="n">ExportBackend</span> <span class="o">=</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">,</span>
-</span><span data-line="438">        <span class="o">*</span><span class="p">,</span>
-</span><span data-line="439">        <span class="n">mmap_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="440">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">:</span>
-</span><span data-line="441"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert quantized model to backend-specific representations.</span>
-</span><span data-line="442">
-</span><span data-line="443"><span class="sd">        Converts fake quantization modules into backend-specific quantization ops.</span>
-</span><span data-line="444"><span class="sd">        Only call ``finalize`` when exporting to a target backend. For torch-based evaluation, use</span>
-</span><span data-line="445"><span class="sd">        the model returned by ``prepare()`` directly rather than calling ``finalize``.</span>
+</span><span data-line="438">    <span class="k">def</span><span class="w"> </span><span class="nf">finalize</span><span class="p">(</span>
+</span><span data-line="439">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="440">        <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="441">        <span class="n">backend</span><span class="p">:</span> <span class="n">ExportBackend</span> <span class="o">=</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">,</span>
+</span><span data-line="442">        <span class="o">*</span><span class="p">,</span>
+</span><span data-line="443">        <span class="n">mmap_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="444">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span><span class="p">:</span>
+</span><span data-line="445"><span class="w">        </span><span class="sd">"""Convert quantized model to backend-specific representations.</span>
 </span><span data-line="446">
-</span><span data-line="447"><span class="sd">        Backend-specific processing:</span>
-</span><span data-line="448">
-</span><span data-line="449"><span class="sd">        - CoreAI: Prepares for CoreAI export by replacing fake quantization modules</span>
-</span><span data-line="450"><span class="sd">          with Core AI specific PyTorch custom ops.</span>
-</span><span data-line="451"><span class="sd">        - CoreML: Prepares for CoreML export by registering compression metadata</span>
-</span><span data-line="452"><span class="sd">          as buffers and removes fake quantization modules.</span>
-</span><span data-line="453">
-</span><span data-line="454"><span class="sd">        Args:</span>
-</span><span data-line="455"><span class="sd">            model: Optional model to finalize. If None, uses the internal</span>
-</span><span data-line="456"><span class="sd">                prepared model.</span>
-</span><span data-line="457"><span class="sd">            backend: Target export backend for the quantized model. Supports</span>
-</span><span data-line="458"><span class="sd">                CoreAI (default), CoreML, and _TORCH backends.</span>
-</span><span data-line="459"><span class="sd">            mmap_dir (str | None): If provided, serialize finalized quantized</span>
-</span><span data-line="460"><span class="sd">                weights to safetensors files under this directory and re-load</span>
-</span><span data-line="461"><span class="sd">                them via mmap. Only supported in eager execution mode with the</span>
-</span><span data-line="462"><span class="sd">                CoreAI backend; raises ``ValueError`` otherwise. The files in</span>
-</span><span data-line="463"><span class="sd">                ``mmap_dir`` must remain in place for the lifetime of the</span>
-</span><span data-line="464"><span class="sd">                returned model; removing them invalidates the mmap-backed</span>
-</span><span data-line="465"><span class="sd">                weights.</span>
-</span><span data-line="466">
-</span><span data-line="467"><span class="sd">        Returns:</span>
-</span><span data-line="468"><span class="sd">            The finalized quantized model ready for deployment on the target backend.</span>
-</span><span data-line="469">
-</span><span data-line="470"><span class="sd">        Note:</span>
-</span><span data-line="471"><span class="sd">            In graph mode, the returned ``fx.GraphModule`` supports calling</span>
-</span><span data-line="472"><span class="sd">            ``.train()`` and ``.eval()``, but with limited effect: only dropout</span>
-</span><span data-line="473"><span class="sd">            and batchnorm ops are affected via FX graph rewriting. User code</span>
-</span><span data-line="474"><span class="sd">            branching on the ``training`` flag and other ops with</span>
-</span><span data-line="475"><span class="sd">            mode-dependent behavior are not affected.</span>
-</span><span data-line="476">
-</span><span data-line="477"><span class="sd">        Note:</span>
-</span><span data-line="478"><span class="sd">            When ``backend=ExportBackend.CoreAI`` in execution_mode=ExecutionMode.EAGER,</span>
-</span><span data-line="479"><span class="sd">            finalize frees the original dense weights.</span>
-</span><span data-line="480"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="481">        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_mmap_dir_constraints</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="n">mmap_dir</span><span class="p">)</span>
-</span><span data-line="482">        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_no_persistent_observer_calculators</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">backend</span><span class="p">)</span>
-</span><span data-line="483">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="n">mmap_dir</span><span class="o">=</span><span class="n">mmap_dir</span><span class="p">)</span></div>
+</span><span data-line="447"><span class="sd">        Converts fake quantization modules into backend-specific quantization ops.</span>
+</span><span data-line="448"><span class="sd">        Only call ``finalize`` when exporting to a target backend. For torch-based evaluation, use</span>
+</span><span data-line="449"><span class="sd">        the model returned by ``prepare()`` directly rather than calling ``finalize``.</span>
+</span><span data-line="450">
+</span><span data-line="451"><span class="sd">        Backend-specific processing:</span>
+</span><span data-line="452">
+</span><span data-line="453"><span class="sd">        - CoreAI: Prepares for CoreAI export by replacing fake quantization modules</span>
+</span><span data-line="454"><span class="sd">          with Core AI specific PyTorch custom ops.</span>
+</span><span data-line="455"><span class="sd">        - CoreML: Prepares for CoreML export by registering compression metadata</span>
+</span><span data-line="456"><span class="sd">          as buffers and removes fake quantization modules.</span>
+</span><span data-line="457">
+</span><span data-line="458"><span class="sd">        Args:</span>
+</span><span data-line="459"><span class="sd">            model: Optional model to finalize. If None, uses the internal</span>
+</span><span data-line="460"><span class="sd">                prepared model.</span>
+</span><span data-line="461"><span class="sd">            backend: Target export backend for the quantized model. Supports</span>
+</span><span data-line="462"><span class="sd">                CoreAI (default), CoreML, and _TORCH backends.</span>
+</span><span data-line="463"><span class="sd">            mmap_dir (str | None): If provided, serialize finalized quantized</span>
+</span><span data-line="464"><span class="sd">                weights to safetensors files under this directory and re-load</span>
+</span><span data-line="465"><span class="sd">                them via mmap, one file per weight. Supported in both execution</span>
+</span><span data-line="466"><span class="sd">                modes, with the CoreAI backend only and raises ``ValueError``</span>
+</span><span data-line="467"><span class="sd">                for other backends. The files must remain in place for</span>
+</span><span data-line="468"><span class="sd">                the lifetime of the returned model; removing them invalidates</span>
+</span><span data-line="469"><span class="sd">                the mmap-backed weights.</span>
+</span><span data-line="470">
+</span><span data-line="471"><span class="sd">        Returns:</span>
+</span><span data-line="472"><span class="sd">            The finalized quantized model ready for deployment on the target backend.</span>
+</span><span data-line="473">
+</span><span data-line="474"><span class="sd">        Note:</span>
+</span><span data-line="475"><span class="sd">            In graph mode, the returned ``fx.GraphModule`` supports calling</span>
+</span><span data-line="476"><span class="sd">            ``.train()`` and ``.eval()``, but with limited effect: only dropout</span>
+</span><span data-line="477"><span class="sd">            and batchnorm ops are affected via FX graph rewriting. User code</span>
+</span><span data-line="478"><span class="sd">            branching on the ``training`` flag and other ops with</span>
+</span><span data-line="479"><span class="sd">            mode-dependent behavior are not affected.</span>
+</span><span data-line="480">
+</span><span data-line="481"><span class="sd">        Note:</span>
+</span><span data-line="482"><span class="sd">            When ``backend=ExportBackend.CoreAI`` in execution_mode=ExecutionMode.EAGER,</span>
+</span><span data-line="483"><span class="sd">            finalize frees the original dense weights.</span>
+</span><span data-line="484"><span class="sd">        """</span>
+</span><span data-line="485">        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_mmap_dir_constraints</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="n">mmap_dir</span><span class="p">)</span>
+</span><span data-line="486">        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_no_persistent_observer_calculators</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">backend</span><span class="p">)</span>
+</span><span data-line="487">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">backend</span><span class="p">,</span> <span class="n">mmap_dir</span><span class="o">=</span><span class="n">mmap_dir</span><span class="p">)</span></div>
 
-</span><span data-line="484">
+</span><span data-line="488">
 <div class="viewcode-block" id="Quantizer.calibration_mode">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.calibration_mode">[docs]</a>
-</span><span data-line="485">    <span class="nd">@contextmanager</span>
-</span><span data-line="486">    <span class="k">def</span><span class="w"> </span><span class="nf">calibration_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-</span><span data-line="487"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="488"><span class="sd">        Context manager for calibration-based post-training quantization.</span>
-</span><span data-line="489">
-</span><span data-line="490"><span class="sd">        When entering this context, observers are enabled to collect statistics</span>
-</span><span data-line="491"><span class="sd">        from calibration data, and fake quantization is disabled to get accurate</span>
-</span><span data-line="492"><span class="sd">        statistics. When exiting, observers are disabled and fake quantization</span>
-</span><span data-line="493"><span class="sd">        is re-enabled for evaluation.</span>
-</span><span data-line="494">
-</span><span data-line="495"><span class="sd">        **When to use:**</span>
-</span><span data-line="496">
-</span><span data-line="497"><span class="sd">        - Required for activation quantization to achieve good accuracy.</span>
-</span><span data-line="498"><span class="sd">          The model post prepare() may have poor accuracy for activation</span>
-</span><span data-line="499"><span class="sd">          quantization until calibrated with representative data</span>
-</span><span data-line="500"><span class="sd">        - Not needed for weight-only PTQ (prepare() → finalize() is sufficient)</span>
-</span><span data-line="501">
-</span><span data-line="502"><span class="sd">        Args:</span>
-</span><span data-line="503"><span class="sd">            model: Optional model to setup for calibration. If None, uses</span>
-</span><span data-line="504"><span class="sd">                the internal prepared model.</span>
-</span><span data-line="505">
-</span><span data-line="506"><span class="sd">        Example:</span>
-</span><span data-line="507"><span class="sd">            &gt;&gt;&gt; quantizer = Quantizer(model, config)</span>
-</span><span data-line="508"><span class="sd">            &gt;&gt;&gt; prepared_model = quantizer.prepare(example_inputs)</span>
-</span><span data-line="509"><span class="sd">            &gt;&gt;&gt; # For activation quantization, calibrate to improve accuracy:</span>
-</span><span data-line="510"><span class="sd">            &gt;&gt;&gt; with quantizer.calibration_mode():</span>
-</span><span data-line="511"><span class="sd">            ...     for batch in calibration_dataloader:</span>
-</span><span data-line="512"><span class="sd">            ...         prepared_model(batch)</span>
-</span><span data-line="513"><span class="sd">            &gt;&gt;&gt; finalized_model = quantizer.finalize()</span>
-</span><span data-line="514">
-</span><span data-line="515"><span class="sd">        Raises:</span>
-</span><span data-line="516"><span class="sd">            RuntimeError: If the model has not been prepared.</span>
-</span><span data-line="517"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="518">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">calibration_mode</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
-</span><span data-line="519">            <span class="k">yield</span></div>
-
+</span><span data-line="489">    <span class="nd">@contextmanager</span>
+</span><span data-line="490">    <span class="k">def</span><span class="w"> </span><span class="nf">calibration_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+</span><span data-line="491"><span class="w">        </span><span class="sd">"""</span>
+</span><span data-line="492"><span class="sd">        Context manager for calibration-based post-training quantization.</span>
+</span><span data-line="493">
+</span><span data-line="494"><span class="sd">        When entering this context, observers are enabled to collect statistics</span>
+</span><span data-line="495"><span class="sd">        from calibration data. Weight fake quantization stays enabled, while</span>
+</span><span data-line="496"><span class="sd">        activation fake quantization is disabled so that activation observers</span>
+</span><span data-line="497"><span class="sd">        see the effect of quantized weights when computing activation ranges.</span>
+</span><span data-line="498"><span class="sd">        When exiting, observers are disabled and fake quantization is</span>
+</span><span data-line="499"><span class="sd">        re-enabled on both weights and activations for evaluation.</span>
+</span><span data-line="500">
+</span><span data-line="501"><span class="sd">        **When to use:**</span>
+</span><span data-line="502">
+</span><span data-line="503"><span class="sd">        - Required for activation quantization to achieve good accuracy.</span>
+</span><span data-line="504"><span class="sd">          The model post prepare() may have poor accuracy for activation</span>
+</span><span data-line="505"><span class="sd">          quantization until calibrated with representative data</span>
+</span><span data-line="506"><span class="sd">        - Not needed for weight-only PTQ (prepare() → finalize() is sufficient)</span>
+</span><span data-line="507">
+</span><span data-line="508"><span class="sd">        Args:</span>
+</span><span data-line="509"><span class="sd">            model: Optional model to setup for calibration. If None, uses</span>
+</span><span data-line="510"><span class="sd">                the internal prepared model.</span>
+</span><span data-line="511">
+</span><span data-line="512"><span class="sd">        Example:</span>
+</span><span data-line="513"><span class="sd">            &gt;&gt;&gt; quantizer = Quantizer(model, config)</span>
+</span><span data-line="514"><span class="sd">            &gt;&gt;&gt; prepared_model = quantizer.prepare(example_inputs)</span>
+</span><span data-line="515"><span class="sd">            &gt;&gt;&gt; # For activation quantization, calibrate to improve accuracy:</span>
+</span><span data-line="516"><span class="sd">            &gt;&gt;&gt; with quantizer.calibration_mode():</span>
+</span><span data-line="517"><span class="sd">            ...     for batch in calibration_dataloader:</span>
+</span><span data-line="518"><span class="sd">            ...         prepared_model(batch)</span>
+</span><span data-line="519"><span class="sd">            &gt;&gt;&gt; finalized_model = quantizer.finalize()</span>
 </span><span data-line="520">
+</span><span data-line="521"><span class="sd">        Raises:</span>
+</span><span data-line="522"><span class="sd">            RuntimeError: If the model has not been prepared.</span>
+</span><span data-line="523"><span class="sd">        """</span>
+</span><span data-line="524">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">calibration_mode</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+</span><span data-line="525">            <span class="k">yield</span></div>
+
+</span><span data-line="526">
 <div class="viewcode-block" id="Quantizer.training_mode">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.training_mode">[docs]</a>
-</span><span data-line="521">    <span class="nd">@contextmanager</span>
-</span><span data-line="522">    <span class="k">def</span><span class="w"> </span><span class="nf">training_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-</span><span data-line="523"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="524"><span class="sd">        Context manager for quantization-aware training (QAT) workflow.</span>
-</span><span data-line="525">
-</span><span data-line="526"><span class="sd">        When entering this context, the model is configured for training with both</span>
-</span><span data-line="527"><span class="sd">        observers and fake quantization enabled (default behavior), or with the state</span>
-</span><span data-line="528"><span class="sd">        determined by the current step count if a QATSchedule is configured.</span>
-</span><span data-line="529"><span class="sd">        This allows the model to:</span>
-</span><span data-line="530">
-</span><span data-line="531"><span class="sd">        1. Set the model in training mode (model.training is set to True)</span>
-</span><span data-line="532"><span class="sd">        2. Enable the observers and activate the fake quantization</span>
-</span><span data-line="533"><span class="sd">        3. Using the observers, simulate quantization during forward/backward passes</span>
-</span><span data-line="534">
-</span><span data-line="535"><span class="sd">        When exiting the context, observers are disabled and fake quantization is</span>
-</span><span data-line="536"><span class="sd">        enabled (regardless of schedule).</span>
-</span><span data-line="537">
-</span><span data-line="538"><span class="sd">        The step count is not reset when re-entering training_mode() — it resumes</span>
-</span><span data-line="539"><span class="sd">        from the last value, so schedule state is restored from the accumulated count.</span>
+</span><span data-line="527">    <span class="nd">@contextmanager</span>
+</span><span data-line="528">    <span class="k">def</span><span class="w"> </span><span class="nf">training_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="n">fx</span><span class="o">.</span><span class="n">GraphModule</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+</span><span data-line="529"><span class="w">        </span><span class="sd">"""</span>
+</span><span data-line="530"><span class="sd">        Context manager for quantization-aware training (QAT) workflow.</span>
+</span><span data-line="531">
+</span><span data-line="532"><span class="sd">        When entering this context, the model is configured for training with both</span>
+</span><span data-line="533"><span class="sd">        observers and fake quantization enabled (default behavior), or with the state</span>
+</span><span data-line="534"><span class="sd">        determined by the current step count if a QATSchedule is configured.</span>
+</span><span data-line="535"><span class="sd">        This allows the model to:</span>
+</span><span data-line="536">
+</span><span data-line="537"><span class="sd">        1. Set the model in training mode (model.training is set to True)</span>
+</span><span data-line="538"><span class="sd">        2. Enable the observers and activate the fake quantization</span>
+</span><span data-line="539"><span class="sd">        3. Using the observers, simulate quantization during forward/backward passes</span>
 </span><span data-line="540">
-</span><span data-line="541"><span class="sd">        Nested calls to training_mode() are not allowed and will raise a RuntimeError.</span>
-</span><span data-line="542">
-</span><span data-line="543"><span class="sd">        **When to use:**</span>
-</span><span data-line="544">
-</span><span data-line="545"><span class="sd">        - For quantization-aware training (QAT) to fine-tune a prepared model</span>
-</span><span data-line="546"><span class="sd">        - The prepared model from prepare() may have poor accuracy for</span>
-</span><span data-line="547"><span class="sd">          weight-only quantization. Fine-tuning the model with the quantization</span>
-</span><span data-line="548"><span class="sd">          enabled will help the weights adapt to the effects of quantization.</span>
-</span><span data-line="549"><span class="sd">        - Upon calibrating an activation-quantized model, there wasn&#39;t enough</span>
-</span><span data-line="550"><span class="sd">          improvement in model accuracy. Fine-tuning the weights to adapt to</span>
-</span><span data-line="551"><span class="sd">          the effect of activation (and weight) quantization can help recover</span>
-</span><span data-line="552"><span class="sd">          the lost accuracy.</span>
-</span><span data-line="553">
-</span><span data-line="554"><span class="sd">        Args:</span>
-</span><span data-line="555"><span class="sd">            model: Optional model to setup for training. If None, uses</span>
-</span><span data-line="556"><span class="sd">                the internal prepared model.</span>
-</span><span data-line="557">
-</span><span data-line="558"><span class="sd">        Example:</span>
-</span><span data-line="559"><span class="sd">            &gt;&gt;&gt; quantizer = Quantizer(model, config)</span>
-</span><span data-line="560"><span class="sd">            &gt;&gt;&gt; prepared_model = quantizer.prepare(example_inputs)</span>
-</span><span data-line="561"><span class="sd">            &gt;&gt;&gt; # Fine-tune with quantization-aware training:</span>
-</span><span data-line="562"><span class="sd">            &gt;&gt;&gt; with quantizer.training_mode():</span>
-</span><span data-line="563"><span class="sd">            ...     # Model is put in training mode</span>
-</span><span data-line="564"><span class="sd">            ...     for epoch in range(num_epochs):</span>
-</span><span data-line="565"><span class="sd">            ...         for batch in train_dataloader:</span>
-</span><span data-line="566"><span class="sd">            ...             # Perform training step</span>
-</span><span data-line="567"><span class="sd">            ...             optimizer.zero_grad()</span>
-</span><span data-line="568"><span class="sd">            ...             loss = loss_fn(prepared_model(batch), targets)</span>
-</span><span data-line="569"><span class="sd">            ...             loss.backward()</span>
-</span><span data-line="570"><span class="sd">            ...             optimizer.step()</span>
-</span><span data-line="571"><span class="sd">            ...             quantizer.step()</span>
-</span><span data-line="572"><span class="sd">            ...</span>
-</span><span data-line="573"><span class="sd">            &gt;&gt;&gt; finalized_model = quantizer.finalize()</span>
-</span><span data-line="574">
-</span><span data-line="575"><span class="sd">        Raises:</span>
-</span><span data-line="576"><span class="sd">            RuntimeError: If the model has not been prepared.</span>
-</span><span data-line="577"><span class="sd">            RuntimeError: If called while already inside a training_mode() context.</span>
-</span><span data-line="578"><span class="sd">            TypeError: If the provided model is not a torch.fx.GraphModule (graph mode).</span>
-</span><span data-line="579"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="580">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span><span class="p">:</span>
-</span><span data-line="581">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-</span><span data-line="582">                <span class="s2">&quot;Cannot enter training_mode() while already inside a &quot;</span>
-</span><span data-line="583">                <span class="s2">&quot;training_mode() context. Nested training_mode() calls are not &quot;</span>
-</span><span data-line="584">                <span class="s2">&quot;supported.&quot;</span>
-</span><span data-line="585">            <span class="p">)</span>
-</span><span data-line="586">
-</span><span data-line="587">        <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="588">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="589">            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">training_mode</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
-</span><span data-line="590">                <span class="c1"># Inner training_mode enables obs+fq by default.</span>
-</span><span data-line="591">                <span class="c1"># Override with schedule state if configured.</span>
-</span><span data-line="592">                <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_qat_schedule</span><span class="p">()</span>
-</span><span data-line="593">                <span class="k">yield</span>
-</span><span data-line="594">        <span class="k">finally</span><span class="p">:</span>
-</span><span data-line="595">            <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span> <span class="o">=</span> <span class="kc">False</span></div>
+</span><span data-line="541"><span class="sd">        When exiting the context, observers are disabled and fake quantization is</span>
+</span><span data-line="542"><span class="sd">        enabled (regardless of schedule).</span>
+</span><span data-line="543">
+</span><span data-line="544"><span class="sd">        The step count is not reset when re-entering training_mode() — it resumes</span>
+</span><span data-line="545"><span class="sd">        from the last value, so schedule state is restored from the accumulated count.</span>
+</span><span data-line="546">
+</span><span data-line="547"><span class="sd">        Nested calls to training_mode() are not allowed and will raise a RuntimeError.</span>
+</span><span data-line="548">
+</span><span data-line="549"><span class="sd">        **When to use:**</span>
+</span><span data-line="550">
+</span><span data-line="551"><span class="sd">        - For quantization-aware training (QAT) to fine-tune a prepared model</span>
+</span><span data-line="552"><span class="sd">        - The prepared model from prepare() may have poor accuracy for</span>
+</span><span data-line="553"><span class="sd">          weight-only quantization. Fine-tuning the model with the quantization</span>
+</span><span data-line="554"><span class="sd">          enabled will help the weights adapt to the effects of quantization.</span>
+</span><span data-line="555"><span class="sd">        - Upon calibrating an activation-quantized model, there wasn't enough</span>
+</span><span data-line="556"><span class="sd">          improvement in model accuracy. Fine-tuning the weights to adapt to</span>
+</span><span data-line="557"><span class="sd">          the effect of activation (and weight) quantization can help recover</span>
+</span><span data-line="558"><span class="sd">          the lost accuracy.</span>
+</span><span data-line="559">
+</span><span data-line="560"><span class="sd">        Args:</span>
+</span><span data-line="561"><span class="sd">            model: Optional model to setup for training. If None, uses</span>
+</span><span data-line="562"><span class="sd">                the internal prepared model.</span>
+</span><span data-line="563">
+</span><span data-line="564"><span class="sd">        Example:</span>
+</span><span data-line="565"><span class="sd">            &gt;&gt;&gt; quantizer = Quantizer(model, config)</span>
+</span><span data-line="566"><span class="sd">            &gt;&gt;&gt; prepared_model = quantizer.prepare(example_inputs)</span>
+</span><span data-line="567"><span class="sd">            &gt;&gt;&gt; # Fine-tune with quantization-aware training:</span>
+</span><span data-line="568"><span class="sd">            &gt;&gt;&gt; with quantizer.training_mode():</span>
+</span><span data-line="569"><span class="sd">            ...     # Model is put in training mode</span>
+</span><span data-line="570"><span class="sd">            ...     for epoch in range(num_epochs):</span>
+</span><span data-line="571"><span class="sd">            ...         for batch in train_dataloader:</span>
+</span><span data-line="572"><span class="sd">            ...             # Perform training step</span>
+</span><span data-line="573"><span class="sd">            ...             optimizer.zero_grad()</span>
+</span><span data-line="574"><span class="sd">            ...             loss = loss_fn(prepared_model(batch), targets)</span>
+</span><span data-line="575"><span class="sd">            ...             loss.backward()</span>
+</span><span data-line="576"><span class="sd">            ...             optimizer.step()</span>
+</span><span data-line="577"><span class="sd">            ...             quantizer.step()</span>
+</span><span data-line="578"><span class="sd">            ...</span>
+</span><span data-line="579"><span class="sd">            &gt;&gt;&gt; finalized_model = quantizer.finalize()</span>
+</span><span data-line="580">
+</span><span data-line="581"><span class="sd">        Raises:</span>
+</span><span data-line="582"><span class="sd">            RuntimeError: If the model has not been prepared.</span>
+</span><span data-line="583"><span class="sd">            RuntimeError: If called while already inside a training_mode() context.</span>
+</span><span data-line="584"><span class="sd">            TypeError: If the provided model is not a torch.fx.GraphModule (graph mode).</span>
+</span><span data-line="585"><span class="sd">        """</span>
+</span><span data-line="586">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span><span class="p">:</span>
+</span><span data-line="587">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+</span><span data-line="588">                <span class="s2">"Cannot enter training_mode() while already inside a "</span>
+</span><span data-line="589">                <span class="s2">"training_mode() context. Nested training_mode() calls are not "</span>
+</span><span data-line="590">                <span class="s2">"supported."</span>
+</span><span data-line="591">            <span class="p">)</span>
+</span><span data-line="592">
+</span><span data-line="593">        <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="594">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="595">            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_quantizer</span><span class="o">.</span><span class="n">training_mode</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+</span><span data-line="596">                <span class="c1"># Inner training_mode enables obs+fq by default.</span>
+</span><span data-line="597">                <span class="c1"># Override with schedule state if configured.</span>
+</span><span data-line="598">                <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_apply_qat_schedule</span><span class="p">()</span>
+</span><span data-line="599">                <span class="k">yield</span>
+</span><span data-line="600">        <span class="k">finally</span><span class="p">:</span>
+</span><span data-line="601">            <span class="bp">self</span><span class="o">.</span><span class="n">_in_training_mode</span> <span class="o">=</span> <span class="kc">False</span></div>
 </div>
 
 </span></pre></div>

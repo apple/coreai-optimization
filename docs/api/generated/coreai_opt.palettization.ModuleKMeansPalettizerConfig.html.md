@@ -98,3 +98,13 @@ speed benefits. Only used when enable_fast_kmeans_mode is True. Default: 4.
 
 * **Type:**
   int
+
+#### pat_schedule
+
+Schedule controlling when this
+module’s palettization is active during a training_mode() loop.
+If None, palettization is active immediately once training_mode()
+begins. Default: None.
+
+* **Type:**
+  [PATSchedule](coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule) | None

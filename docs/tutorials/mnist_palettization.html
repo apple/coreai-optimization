@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
     <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
     <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css?v=2aa19091" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74,12 +74,13 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -90,6 +91,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../palettization/index.html">Palettization</a><ul>
@@ -98,21 +100,34 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -132,6 +147,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -140,6 +156,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -161,9 +178,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -179,6 +200,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -221,6 +243,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -377,9 +401,9 @@ data-aria-dark="Switch to auto color mode">
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Use the MPS (Apple Silicon GPU) backend when available; otherwise fall back to CPU.</span>
 </span><span data-line="2"><span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">mps</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
-</span><span data-line="3">    <span class="n">DEVICE</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;mps&quot;</span><span class="p">)</span>
+</span><span data-line="3">    <span class="n">DEVICE</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">"mps"</span><span class="p">)</span>
 </span><span data-line="4"><span class="k">else</span><span class="p">:</span>
-</span><span data-line="5">    <span class="n">DEVICE</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+</span><span data-line="5">    <span class="n">DEVICE</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">"cpu"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </div>
@@ -409,7 +433,7 @@ data-aria-dark="Switch to auto color mode">
 </span></pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Used to save intermediate results and datasets</span>
-</span><span data-line="2"><span class="n">SAVE_DIRECTORY</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span>
+</span><span data-line="2"><span class="n">SAVE_DIRECTORY</span> <span class="o">=</span> <span class="s2">"."</span>
 </span></pre></div>
 </div>
 </div>
@@ -516,7 +540,7 @@ data-aria-dark="Switch to auto color mode">
 </span></pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Download and instantiate datasets</span>
-</span><span data-line="2"><span class="n">DOWNLOAD_PATH</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">SAVE_DIRECTORY</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;.mnist_dataset&quot;</span>
+</span><span data-line="2"><span class="n">DOWNLOAD_PATH</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">SAVE_DIRECTORY</span><span class="p">)</span> <span class="o">/</span> <span class="s2">".mnist_dataset"</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="n">train_dataset</span><span class="p">,</span> <span class="n">test_dataset</span> <span class="o">=</span> <span class="n">download_mnist_dataset</span><span class="p">(</span>
 </span><span data-line="5">    <span class="n">download_path</span><span class="o">=</span><span class="n">DOWNLOAD_PATH</span>
@@ -597,10 +621,10 @@ Estimated Total Size (MB): 0.17
 </span><span data-line="10">    <span class="n">epoch_avg_loss</span> <span class="o">=</span> <span class="n">train_epoch</span><span class="p">(</span>
 </span><span data-line="11">        <span class="n">model</span><span class="o">=</span><span class="n">basic_cnn_model</span><span class="p">,</span> <span class="n">train_loader</span><span class="o">=</span><span class="n">train_loader</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">loss_fn</span><span class="o">=</span><span class="n">loss_fn</span>
 </span><span data-line="12">    <span class="p">)</span>
-</span><span data-line="13">    <span class="n">epoch_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">: loss=</span><span class="si">{</span><span class="n">epoch_avg_loss</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="13">    <span class="n">epoch_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">: loss=</span><span class="si">{</span><span class="n">epoch_avg_loss</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="14">
 </span><span data-line="15"><span class="n">basic_cnn_model</span> <span class="o">=</span> <span class="n">basic_cnn_model</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
-</span><span data-line="16"><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">epoch_results</span><span class="p">))</span>
+</span><span data-line="16"><span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">epoch_results</span><span class="p">))</span>
 </span><span data-line="17">
 </span><span data-line="18"><span class="c1"># Save trained weights for reuse in palettization sections</span>
 </span><span data-line="19"><span class="n">pretrained_state_dict</span> <span class="o">=</span> <span class="n">basic_cnn_model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
@@ -629,7 +653,7 @@ Estimated Total Size (MB): 0.17
 </span></pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">accuracy</span> <span class="o">=</span> <span class="n">eval_model</span><span class="p">(</span><span class="n">basic_cnn_model</span><span class="p">,</span> <span class="n">test_loader</span><span class="p">)</span>
-</span><span data-line="2"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Baseline accuracy: </span><span class="si">{</span><span class="n">accuracy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="2"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Baseline accuracy: </span><span class="si">{</span><span class="n">accuracy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </div>
@@ -687,13 +711,13 @@ Baseline accuracy: 0.9799
 </span><span data-line="7">
 </span><span data-line="8"><span class="n">kmeans_config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
 </span><span data-line="9">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
-</span><span data-line="10">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">weight_spec</span><span class="p">},</span>
+</span><span data-line="10">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">weight_spec</span><span class="p">},</span>
 </span><span data-line="11">    <span class="p">)</span>
 </span><span data-line="12"><span class="p">)</span>
 </span><span data-line="13">
 </span><span data-line="14"><span class="n">kmeans_palettizer</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">kmeans_model</span><span class="p">,</span> <span class="n">kmeans_config</span><span class="p">)</span>
 </span><span data-line="15"><span class="n">kmeans_prepared</span> <span class="o">=</span> <span class="n">kmeans_palettizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
-</span><span data-line="16"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Prepared k-means palettization with n_bits=</span><span class="si">{</span><span class="n">N_BITS</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="16"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Prepared k-means palettization with n_bits=</span><span class="si">{</span><span class="n">N_BITS</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </div>
@@ -730,7 +754,7 @@ Prepared k-means palettization with n_bits=4
 </span></pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">kmeans_accuracy</span> <span class="o">=</span> <span class="n">eval_model</span><span class="p">(</span><span class="n">kmeans_prepared</span><span class="p">,</span> <span class="n">test_loader</span><span class="p">)</span>
-</span><span data-line="2"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;K-means palettization accuracy: </span><span class="si">{</span><span class="n">kmeans_accuracy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="2"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"K-means palettization accuracy: </span><span class="si">{</span><span class="n">kmeans_accuracy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </div>
@@ -756,13 +780,13 @@ K-means palettization accuracy: 0.9787
 </span><span data-line="3">
 </span><span data-line="4"><span class="n">skm_config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
 </span><span data-line="5">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
-</span><span data-line="6">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">weight_spec</span><span class="p">},</span>
+</span><span data-line="6">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">weight_spec</span><span class="p">},</span>
 </span><span data-line="7">    <span class="p">)</span>
 </span><span data-line="8"><span class="p">)</span>
 </span><span data-line="9">
 </span><span data-line="10"><span class="n">skm_palettizer</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">skm_model</span><span class="p">,</span> <span class="n">skm_config</span><span class="p">)</span>
 </span><span data-line="11"><span class="n">skm_prepared</span> <span class="o">=</span> <span class="n">skm_palettizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
-</span><span data-line="12"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Prepared Sensitive K-Means palettization with n_bits=</span><span class="si">{</span><span class="n">N_BITS</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="12"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Prepared Sensitive K-Means palettization with n_bits=</span><span class="si">{</span><span class="n">N_BITS</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </div>
@@ -808,7 +832,7 @@ Prepared Sensitive K-Means palettization with n_bits=4
 </span><span data-line="10">        <span class="n">skm</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
 </span><span data-line="11">
 </span><span data-line="12"><span class="nb">print</span><span class="p">(</span>
-</span><span data-line="13">    <span class="sa">f</span><span class="s2">&quot;Calibrated with </span><span class="si">{</span><span class="n">NUM_CALIBRATION_BATCHES</span><span class="si">}</span><span class="s2"> batch(es) (</span><span class="si">{</span><span class="n">NUM_CALIBRATION_BATCHES</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">BATCH_SIZE</span><span class="si">}</span><span class="s2"> samples)&quot;</span>
+</span><span data-line="13">    <span class="sa">f</span><span class="s2">"Calibrated with </span><span class="si">{</span><span class="n">NUM_CALIBRATION_BATCHES</span><span class="si">}</span><span class="s2"> batch(es) (</span><span class="si">{</span><span class="n">NUM_CALIBRATION_BATCHES</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">BATCH_SIZE</span><span class="si">}</span><span class="s2"> samples)"</span>
 </span><span data-line="14"><span class="p">)</span>
 </span></pre></div>
 </div>
@@ -842,7 +866,7 @@ Calibrated with 1 batch(es) (128 samples)
 </span></pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">skm_accuracy</span> <span class="o">=</span> <span class="n">eval_model</span><span class="p">(</span><span class="n">skm_prepared</span><span class="p">,</span> <span class="n">test_loader</span><span class="p">)</span>
-</span><span data-line="2"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sensitive K-Means palettization accuracy: </span><span class="si">{</span><span class="n">skm_accuracy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="2"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Sensitive K-Means palettization accuracy: </span><span class="si">{</span><span class="n">skm_accuracy</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </div>
@@ -890,13 +914,12 @@ Sensitive K-Means palettization accuracy: 0.9783
 </span><span data-line="8"><span class="n">cast_to_16_bit_precision</span><span class="p">(</span><span class="n">exported_program</span><span class="p">)</span>
 </span><span data-line="9">
 </span><span data-line="10"><span class="n">coreai_program</span> <span class="o">=</span> <span class="n">TorchConverter</span><span class="p">()</span><span class="o">.</span><span class="n">add_exported_program</span><span class="p">(</span><span class="n">exported_program</span><span class="p">)</span><span class="o">.</span><span class="n">to_coreai</span><span class="p">()</span>
-</span><span data-line="11"><span class="n">coreai_program</span><span class="o">.</span><span class="n">optimize</span><span class="p">()</span>
-</span><span data-line="12">
-</span><span data-line="13"><span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">SAVE_DIRECTORY</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;exported_model.aimodel&quot;</span>
-</span><span data-line="14"><span class="k">if</span> <span class="n">output_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-</span><span data-line="15">    <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
-</span><span data-line="16"><span class="n">coreai_program</span><span class="o">.</span><span class="n">save_asset</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
-</span><span data-line="17"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Exported: </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">SAVE_DIRECTORY</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"exported_model.aimodel"</span>
+</span><span data-line="13"><span class="k">if</span> <span class="n">output_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+</span><span data-line="14">    <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
+</span><span data-line="15"><span class="n">coreai_program</span><span class="o">.</span><span class="n">save_asset</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
+</span><span data-line="16"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Exported: </span><span class="si">{</span><span class="n">output_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </div>
