@@ -166,17 +166,6 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         ``kmeans++`` is excluded despite also being GPU-resident, because it measured
         flat across 1/2/4/12 workers.
 
-        Reduces when **any** module is vector, not only when all of them are. A mixed
-        recipe -- vector globally with a few scalar overrides, which is what the shipped
-        Gemma 4 recipe looks like -- would otherwise keep the caller's value and run 32
-        processes against one GPU, the exact configuration measured 2.05x slower. Scalar
-        palettization is CPU-bound (``kmeans1d``) and does benefit from workers, so this
-        trade is only worth making because the scalar share of such a recipe is tiny: in
-        the Gemma 4 E4B case the scalar modules are 55M of 4.03B parameters (1.4%), whose
-        clustering is bounded by the 870s an all-scalar run of the whole model took, i.e.
-        ~12s. Losing worker parallelism on ~12s of work to avoid halving the throughput of
-        the other 98.6% is clearly right.
-
         A model with NO vector module keeps the caller's value, so pure scalar
         palettization is unaffected.
 
