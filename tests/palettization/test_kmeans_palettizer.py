@@ -1646,3 +1646,50 @@ def test_palettize_multihead_attention(
 
     output = prepared_model(simple_mha_model_input)
     assert output.shape == (1, 10, 64)
+
+
+class TestKMeansPalettizerLoadFromStateDict:
+    """prepare(state_dict=...) loads a prepared model's buffers instead of clustering."""
+
+    def test_reproduces_prepared_model(
+        self, simple_conv_linear_model, simple_model_input, basic_config
+    ):
+        """A skip-loaded model reproduces the source model's forward output exactly."""
+        src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        prepared = src.prepare((simple_model_input,))
+        state_dict = prepared.state_dict()
+        with torch.no_grad():
+            expected = prepared(simple_model_input)
+
+        dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        loaded = dst.prepare((simple_model_input,), state_dict=state_dict)
+        with torch.no_grad():
+            got = loaded(simple_model_input)
+
+        assert torch.equal(expected, got)
+
+    def test_skips_clustering(
+        self, monkeypatch, simple_conv_linear_model, simple_model_input, basic_config
+    ):
+        """Loading from a state dict must not run k-means clustering."""
+        src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        state_dict = src.prepare((simple_model_input,)).state_dict()
+
+        def _raise_assert(self, *args, **kwargs):
+            raise AssertionError("clustering must not run when loading from a state dict")
+
+        monkeypatch.setattr(_KMeansFakePalettize, "_cluster_to_centroids", _raise_assert)
+        dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        dst.prepare((simple_model_input,), state_dict=state_dict)
+
+    def test_missing_centroids_raises(
+        self, simple_conv_linear_model, simple_model_input, basic_config
+    ):
+        """Test that a state dict with missing centroids raises an error."""
+        src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        state_dict = src.prepare((simple_model_input,)).state_dict()
+        pruned = {k: v for k, v in state_dict.items() if not k.endswith(".centroids")}
+
+        dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        with pytest.raises(RuntimeError, match="does not match the palettizer config"):
+            dst.prepare((simple_model_input,), state_dict=pruned)
