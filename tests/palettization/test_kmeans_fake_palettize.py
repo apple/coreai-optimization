@@ -1899,6 +1899,18 @@ class TestLazyInitAndStaleness:
         assert target._centroids_initialized is True
         assert target._indices_stale is True
 
+    def test_stale_indices_are_not_saved(self):
+        """Stale indices are omitted from the state dict and recomputed on load."""
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
+        source = _KMeansFakePalettize(**spec.__dict__)
+        source._initialize(torch.randn(8, 8))
+        source._indices_stale = True
+        assert "indices" not in source.state_dict()
+
+        target = _KMeansFakePalettize(**spec.__dict__)
+        target.load_state_dict(source.state_dict())
+        assert target._indices_stale is True
+
 
 class TestReinitializeOnEnable:
     """enable_fake_palett(reinitialize=True) invalidates cached params on a
