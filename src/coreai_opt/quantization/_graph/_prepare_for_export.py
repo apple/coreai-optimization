@@ -265,6 +265,16 @@ def _mmap_quantized_buffers(
     mmapped_params.add(param_name)
 
 
+def _validate_sparsity_for_export(
+    fake_quant_mod: FakeQuantizeImplBase, zero_point: torch.Tensor | None
+) -> None:
+    """Reject sparsity combined with anything raw-0 padding can't represent."""
+    if is_float4_dtype(fake_quant_mod.dtype):
+        raise ValueError("FP4 dtype not supported for joint sparsity.")
+    if zero_point is not None and not torch.all(zero_point == 0):
+        raise ValueError("nonzero zero_point not supported for joint sparsity.")
+
+
 def _process_mlir_weight_quantization(
     model: torch.fx.GraphModule,
     node: Node,
@@ -307,8 +317,14 @@ def _process_mlir_weight_quantization(
     if minval is not None:
         minval = minval.to(dtype=_compute_dtype_for_export)
 
-    # Construct quantized weights
+    # Construct quantized weights, reusing the mask computed during
+    # prepare()'s forward pass if sparsity is set.
     dense_weight = resolve_attr(model, input_node.target).data
+    mask: torch.Tensor | None = None
+    if fake_quant_mod.sparsity is not None:
+        _validate_sparsity_for_export(fake_quant_mod, zero_point)
+        mask = fake_quant_mod._sparsity_mask.to(torch.bool)
+        dense_weight = dense_weight * mask
     quantized_data = fake_quant_mod.quantize(dense_weight, scale, zero_point, minval)
 
     # Drop one of the offsets so that the export
@@ -324,13 +340,28 @@ def _process_mlir_weight_quantization(
 
     # Register buffers and get buffer names
     param_name = str(input_node.target).replace(".", "_")
-    buffer_names = _register_quantization_buffers(
-        model, param_name, scale, zero_point, quantized_data, minval
-    )
+    if mask is not None:
+        nonzero_data = quantized_data[mask]
+        buffer_names = _register_quantization_buffers(
+            model, param_name, scale, zero_point, minval=minval
+        )
+        model.register_buffer(f"{param_name}_nonzero", nonzero_data)
+        model.register_buffer(f"{param_name}_mask", mask)
+    else:
+        buffer_names = _register_quantization_buffers(
+            model, param_name, scale, zero_point, quantized_data, minval
+        )
 
     # Create graph nodes and replace fake quantization
     with model.graph.inserting_before(node):
-        quantized_data_node = model.graph.get_attr(buffer_names["quantized_data"])
+        if mask is not None:
+            nonzero_node = model.graph.get_attr(f"{param_name}_nonzero")
+            mask_node = model.graph.get_attr(f"{param_name}_mask")
+            quantized_data_node = model.graph.call_function(
+                coreai.sparse_to_dense, (nonzero_node, mask_node)
+            )
+        else:
+            quantized_data_node = model.graph.get_attr(buffer_names["quantized_data"])
         scale_node = model.graph.get_attr(buffer_names["scale"])
 
         if zero_point is not None:
@@ -359,7 +390,10 @@ def _process_mlir_weight_quantization(
     remove_fake_quant_module(model, node)
 
     # mmap quantized weights, scales and offsets
-    mmap_buffer_names = [buffer_names["quantized_data"], buffer_names["scale"]]
+    if mask is not None:
+        mmap_buffer_names = [f"{param_name}_nonzero", f"{param_name}_mask", buffer_names["scale"]]
+    else:
+        mmap_buffer_names = [buffer_names["quantized_data"], buffer_names["scale"]]
     if zero_point is not None:
         mmap_buffer_names.append(buffer_names["zero_point"])
     if minval is not None:
@@ -485,10 +519,22 @@ def _process_mil_weight_quantization(
     # Get the module that owns the weight parameter
     weight_module: torch.nn.Module = _get_weight_module(modules, module_name)
 
+    # coremltools' own torch-frontend converter auto-detects sparsity from raw
+    # zeros in the registered weight value when compression_type lists PRUNING
+    # first, then chains QUANTIZATION onto its constexpr_sparse_to_dense output
+    # (see coremltools.converters.mil.frontend.torch.converter._construct_compression_op).
+    # Unlike CoreAI's sparse_to_dense, that chain dequantizes the compact
+    # nonzero_data before scattering it into the padded dense tensor, so the
+    # padding is a real float 0.0, not a raw int later reinterpreted through
+    # zero_point -- safe for any zero_point, so there's nothing to gate here.
+    compression_type = [CompressionType.QUANTIZATION]
+    if fake_quant_mod.sparsity is not None:
+        compression_type = [CompressionType.PRUNING, CompressionType.QUANTIZATION]
+
     # Create and register metadata
     metadata = MILCompressionMetadata(
         param_name=param_name,
-        compression_type=CompressionType.QUANTIZATION,
+        compression_type=compression_type,
         quantization_n_bits=fake_quant_mod.n_bits,
         quantization_scale=scale,
         zero_point=zero_point,
