@@ -167,6 +167,18 @@ def release_branch_exists(repo_root: Path, version: str) -> bool:
     return bool(result.stdout.strip())
 
 
+def current_branch(repo_root: Path) -> str | None:
+    """Return the branch ``HEAD`` is on, or ``None`` when ``HEAD`` is detached."""
+    result = subprocess.run(
+        ["git", "symbolic-ref", "--quiet", "--short", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,  # exits 1 on a detached HEAD
+    )
+    return result.stdout.strip() or None
+
+
 # =============================================================================
 # Version arithmetic
 # =============================================================================
@@ -216,27 +228,6 @@ def valid_next_versions(version: str) -> list[str]:
         ".".join(str(n) for n in numbers[:i] + [numbers[i] + 1] + [0] * (len(numbers) - i - 1))
         for i in range(len(numbers))
     ]
-
-
-def release_branch_version(latest_released_version: str) -> str:
-    """Return the ``__version__`` a ``release/<version>`` branch carries.
-
-    A release branch names its own release: ``latest_released_version`` is set
-    to the version the branch produces, so ``__version__`` is that same version
-    plus ``.dev0`` rather than a next candidate. On ``main`` the two always
-    differ, which is what tells a release branch apart from ``main``.
-
-    Making the branch self-describing is what lets a downstream repo pin
-    ``external/`` to a release branch and still resolve the right baseline —
-    ``latest_released_version`` then means the same thing on every commit.
-
-    Args:
-        latest_released_version: The release the branch produces, e.g. ``"1.1.0"``.
-
-    Returns:
-        str: The ``__version__`` that branch carries, e.g. ``"1.1.0.dev0"``.
-    """
-    return f"{latest_released_version}.dev0"
 
 
 # =============================================================================

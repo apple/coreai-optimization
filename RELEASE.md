@@ -42,7 +42,7 @@ flowchart TB
     ask -->|Yes| fin
     pr --> fin["main: 1.1.0.dev0<br/>assume we release 1.1.0;<br/>it could also stay 1.0.1"]
     fin --> nxt["main: 1.1.1.dev0<br/>placeholder, last digit + 1"]
-    fin -->|cut| rb["release/1.1.0<br/>set latest_released_version = 1.1.0"]
+    fin -->|cut| rb["release/1.1.0<br/>set latest_released_version<br/>and __version__ = 1.1.0"]
     rb --> stab["stabilize"]
     stab -->|"tag v1.1.0"| rel("1.1.0 released")
     nxt --> nextsched["next release schedule"]
@@ -63,17 +63,17 @@ Therefore, we have the following order:
 
 This is the order we want. `1.1.0.dev0` is the bare marker `main` carries, so it sorts below every wheel actually built for `1.1.0`. Each nightly sorts above it, and above the nightly before it, because the timestamp only grows. The published `1.1.0` sorts highest of all, so installers pick it over any dev wheel.
 
-A release branch is the one place where the two match: it sets `latest_released_version` to the release it produces, so `__version__` is that same version plus `.dev0` rather than a next candidate. On `main` they always differ, which is what tells a release branch apart — and what lets a repo that vendors this one pin to a release branch and still resolve the right baseline.
+A release branch is the one place where the two match: it sets both `latest_released_version` and `__version__` to the release it produces, with no `.dev0` — both read `1.1.0` on `release/1.1.0`. On `main` they always differ, which is what tells a release branch apart — and what lets a repo that vendors this one pin to a release branch and still resolve the right baseline. When a commit touching `_about.py` is made on `release/<version>`, `check-about-version` requires both fields to equal `<version>`.
 
 `__version__` must always be a literal string, never an expression.
 
 ### Release branches
 
-1. `release/<version>` is created from `main`, once the version of the next release has been decided — that is, which digit gets one added to it. Its first commit sets `latest_released_version` to that version, so the branch names its own release.
+1. `release/<version>` is created from `main`, once the version of the next release has been decided — that is, which digit gets one added to it. Its first commit sets `latest_released_version` and `__version__` to that version, with no `.dev0`, so the branch names its own release.
 2. The tag is created on the `release/<version>` branch, never on `main`.
 3. After the cut, `main` continues on to the next release's `.dev0`.
-4. The `check-about-version` pre-commit hook enforces the version rules on every commit.
-5. After the cut, the release branch takes no new commits, unless a must-fix issue comes up. Those commits are later cherry-picked back to `main`.
+4. The `check-about-version` pre-commit hook enforces the version rules on every commit that touches `_about.py`.
+5. After the cut, the release branch takes only the commits the procedure calls for, plus any must-fix issue. Those commits are later cherry-picked back to `main`.
 
 Cut the branch before moving `main` to the next dev release.
 
