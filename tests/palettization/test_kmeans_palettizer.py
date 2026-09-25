@@ -1652,16 +1652,18 @@ class TestKMeansPalettizerLoadFromStateDict:
     """prepare(state_dict=...) loads a prepared model's buffers instead of clustering."""
 
     def test_reproduces_prepared_model(
-        self, simple_conv_linear_model, simple_model_input, basic_config
+        self, simple_conv_linear_model, simple_model_input, basic_config, temp_dir
     ):
         """A skip-loaded model reproduces the source model's forward output exactly."""
         src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
         prepared = src.prepare((simple_model_input,))
-        state_dict = prepared.state_dict()
+        state_dict_path = os.path.join(temp_dir, "palettizer_state_dict.pt")
+        torch.save(prepared.state_dict(), state_dict_path)
         with torch.no_grad():
             expected = prepared(simple_model_input)
 
         dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        state_dict = torch.load(state_dict_path)
         loaded = dst.prepare((simple_model_input,), state_dict=state_dict)
         with torch.no_grad():
             got = loaded(simple_model_input)
