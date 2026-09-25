@@ -313,8 +313,9 @@ class TestJointPalettizationCompression:
         config = KMeansPalettizerConfig(
             global_config=ModuleKMeansPalettizerConfig(
                 op_state_spec={"weight": PalettizationSpec(_sparsity=_SPARSITY, **spec_kwargs)},
-                # Required whenever cluster_dim > 1 is among the configs under test.
-                enable_fast_kmeans_mode=False,
+                # cluster_dim > 1 requires fast mode off; scalar palettization keeps it on,
+                # since non-fast 1-D k-means allocates O(2**n_bits * weight.numel()) memory.
+                enable_fast_kmeans_mode=spec_kwargs.get("cluster_dim", 1) == 1,
             )
         )
         return KMeansPalettizer(model, config)
