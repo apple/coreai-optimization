@@ -574,3 +574,291 @@ class TestSelectiveOpSkipping:
         out = _run_ep(ep, x.half())
         assert not torch.isinf(out).any()
         assert torch.allclose(out.float(), x, atol=1e-3)
+
+
+# =============================================================================
+# Dynamic Activation Range Calibration tests (Issue #7)
+# =============================================================================
+class _MultiStageOverflowModel(nn.Module):
+    """Chained ops where intermediate values reach millions before recovering."""
+
+    def forward(self, x):
+        h1 = torch.exp(x)
+        h2 = h1 * 2.0
+        h3 = torch.log(h2)
+        h4 = h3 + 1.0
+        return h4
+
+
+class _TupleChunkModel(nn.Module):
+    """Op returning tuple of tensors whose elements overflow FP16."""
+
+    def forward(self, x):
+        a = torch.exp(x)
+        chunks = torch.chunk(a, 2, dim=-1)
+        c0 = torch.log(chunks[0])
+        c1 = torch.log(chunks[1])
+        return torch.cat([c0, c1], dim=-1)
+
+
+class TestDynamicActivationCalibration:
+    """End-to-end tests for dynamic activation range calibration in FP16 casting."""
+
+    def test_dynamic_calibration_prevents_activation_overflow(self):
+        """Supplying calibration data automatically prevents FP16 overflow."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ref = model(x)
+
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=x)
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any(), "Expected finite output with calibration_data"
+        assert torch.allclose(out.float(), ref, atol=1e-3)
+
+    def test_dynamic_calibration_dataloader(self):
+        """Calibration data passed as a DataLoader works identically."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ref = model(x)
+
+        loader = torch.utils.data.DataLoader([x, x], batch_size=1)
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=loader)
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-3)
+
+    def test_dynamic_calibration_multi_stage_overflow(self):
+        """Downstream non-overflowing ops (add) run in FP16 while overflowing ops stay FP32."""
+        model = _MultiStageOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ref = model(x)
+
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=x)
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-2)
+
+        # The trailing add op should run in FP16
+        add_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.add.Tensor
+        )
+        assert add_node.meta["val"].dtype == torch.float16
+
+    def test_dynamic_calibration_tuple_return(self):
+        """Multi-output ops (chunk) correctly propagate overflow through getitem."""
+        model = _TupleChunkModel().eval()
+        x = torch.tensor([[15.0, 15.0]])
+        ref = model(x)
+
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=x)
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-2)
+
+    def test_dynamic_calibration_no_overflow_model(self):
+        """Model without overflow retains >= 95% FP16 ops and expected weight reduction."""
+        model = SimpleModel().eval()
+        x = torch.randn(1, 1, 28, 28)
+        ep = _export(model, x)
+        before_bytes = _total_param_bytes(ep)
+
+        cast_fp32_to_fp16(ep, calibration_data=x)
+        out = _run_ep(ep, x.half())
+        ref = _run_ep(_export(model, x), x)
+
+        snr = _snr_db(ref, out)
+        assert snr > 30, f"SNR too low: {snr:.1f} dB"
+
+        ratio = _fp16_ratio(_count_op_dtypes(ep))
+        assert ratio >= 0.95, f"Expected >= 95% FP16 ops, got {ratio:.0%}"
+
+        reduction = 1 - _total_param_bytes(ep) / before_bytes
+        assert reduction >= 0.45, f"Weight reduction only {reduction:.0%}"
+
+    def test_dynamic_calibration_with_ignored_ops(self):
+        """Passing both calibration_data and ignored_ops respects both exclusions."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[1.0]])  # x=1 does not overflow exp
+        ep = _export(model, x)
+
+        # Explicitly ignore exp via ignored_ops even though calibration doesn't overflow
+        cast_fp32_to_fp16(ep, calibration_data=x, ignored_ops={torch.ops.aten.exp})
+
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        assert exp_node.meta["val"].dtype == torch.float32
+
+    def test_cast_to_16_bit_precision_forwards_calibration_data(self):
+        """cast_to_16_bit_precision forwards calibration_data to FP16 casting."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ref = model(x)
+
+        ep = _export(model, x)
+        cast_to_16_bit_precision(ep, calibration_data=x)
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-3)
+
+    def test_positional_ignored_ops_backward_compatibility(self):
+        """Passing ignored_ops as the second positional argument works for backward compat."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[1.0]])
+        ep = _export(model, x)
+
+        # Positional 2nd arg is a set of OpOverload
+        cast_fp32_to_fp16(ep, {torch.ops.aten.exp})
+
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        assert exp_node.meta["val"].dtype == torch.float32
+
+    def test_attention_logit_overflow_preserved_in_fp32(self):
+        """Attention dot-product logits exceeding 65504 are preserved in FP32."""
+
+        class _AttentionBlock(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.q = nn.Linear(32, 32)
+                self.k = nn.Linear(32, 32)
+                self.v = nn.Linear(32, 32)
+
+            def forward(self, x):
+                q = self.q(x)
+                k = self.k(x)
+                v = self.v(x)
+                scores = torch.matmul(q, k.transpose(-2, -1))
+                attn = torch.softmax(scores, dim=-1)
+                return torch.matmul(attn, v)
+
+        model = _AttentionBlock().eval()
+        with torch.no_grad():
+            model.q.weight.mul_(150.0)
+            model.k.weight.mul_(150.0)
+
+        x = torch.randn(2, 4, 32)
+        ref = model(x)
+        assert not torch.isinf(ref).any()
+
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=x)
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-2, rtol=1e-2)
+
+    def test_residual_block_with_overflow_in_branch(self):
+        """Residual addition preserves FP32 precision when one branch overflows."""
+
+        class _ResidualBlock(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc1 = nn.Linear(8, 8)
+                self.fc2 = nn.Linear(8, 8)
+
+            def forward(self, x):
+                residual = x
+                out = self.fc1(x)
+                out = torch.exp(out)
+                out = self.fc2(out)
+                out = torch.log1p(torch.abs(out))
+                return out + residual
+
+        model = _ResidualBlock().eval()
+        with torch.no_grad():
+            model.fc1.weight.fill_(0.01)
+            model.fc1.bias.fill_(12.0)
+            model.fc2.weight.fill_(0.001)
+            model.fc2.bias.fill_(0.0)
+
+        x = torch.ones(2, 8) * 0.1
+        ref = model(x)
+        assert not torch.isinf(ref).any()
+
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=x)
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-1, rtol=1e-2)
+
+    def test_dynamic_calibration_dict_inputs(self):
+        """Calibration data passed as a dictionary of kwargs works correctly."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ref = model(x)
+
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data={"x": x})
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-3)
+
+    def test_dynamic_calibration_multi_inputs(self):
+        """Multi-input models calibrate correctly using tuple of arguments."""
+
+        class _MultiInputModel(nn.Module):
+            def forward(self, a, b):
+                return torch.log(torch.exp(a) + b)
+
+        model = _MultiInputModel().eval()
+        a = torch.tensor([[15.0]])
+        b = torch.tensor([[1.0]])
+        ref = model(a, b)
+
+        ep = _export(model, (a, b))
+        cast_fp32_to_fp16(ep, calibration_data=(a, b))
+        out = _run_ep(ep, (a.half(), b.half()))
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-2)
+
+    def test_positional_callable_ignored_ops(self):
+        """Passing a callable predicate function as positional ignored_ops works correctly."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[1.0]])
+        ep = _export(model, x)
+
+        # Positional 2nd argument is a callable predicate
+        cast_fp32_to_fp16(ep, lambda node: node.target == torch.ops.aten.exp.default)
+
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        assert exp_node.meta["val"].dtype == torch.float32
+
+    def test_positional_list_ignored_ops(self):
+        """Passing a list of ops as positional ignored_ops works correctly."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[1.0]])
+        ep = _export(model, x)
+
+        # Positional 2nd argument is a list of OpOverload
+        cast_fp32_to_fp16(ep, [torch.ops.aten.exp.default])
+
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        assert exp_node.meta["val"].dtype == torch.float32
