@@ -251,6 +251,12 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             self.indices = self._assign_indices(weight, self.centroids).detach()
             self._indices_stale = False
 
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        """Omit stale indices so they are recomputed from centroids on load."""
+        super()._save_to_state_dict(destination, prefix, keep_vars)
+        if self._indices_stale:
+            destination.pop(prefix + "indices", None)
+
     def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
         """Load centroids from a checkpoint, reconstructing them from a legacy
         ``lut`` buffer when present.
