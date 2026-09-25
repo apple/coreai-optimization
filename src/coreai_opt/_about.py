@@ -21,4 +21,4 @@ lot of dependencies).
 """
 
 latest_released_version = "0.2.1"
-__version__ = "0.2.2.dev0"
+__version__ = "0.3.0"
