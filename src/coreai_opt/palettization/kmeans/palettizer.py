@@ -153,6 +153,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         example_inputs: tuple[torch.Tensor],
         sensitivity_path: str | None = None,
         num_workers: int = 1,
+        state_dict: dict[str, torch.Tensor] | None = None,
     ) -> torch.nn.Module:
         """
         Prepare the model for palettization.
@@ -171,6 +172,9 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 across layers. It is recommended to use more than one worker
                 process to parallelize the clustering, especially when multiple
                 CPUs are available. Defaults to ``1``.
+            state_dict: Optional state dict from a model previously prepared
+                with the same config. When provided, buffers are loaded from it
+                instead of running k-means clustering.
 
         Returns:
             The prepared nn.Module with fake palettization
@@ -207,18 +211,21 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             sensitivities = torch.load(sensitivity_path, weights_only=True)
             self._set_sensitivities_in_fake_palettize_modules(sensitivities)
 
-        self._model.apply(_disable_fake_palett)
+        if state_dict is None:
+            self._model.apply(_disable_fake_palett)
 
-        if self._num_workers > 1:
-            self._calculate_centroids_parallel(num_workers)
+            if self._num_workers > 1:
+                self._calculate_centroids_parallel(num_workers)
+            else:
+                self._calculate_centroids_sequential()
+
+            # Remove FakePalettize modules that were disabled during the forward
+            # pass due to incompatible granularity or cluster dimensions.
+            self._remove_disabled_fake_palett_modules(self._model)
+
+            self._model.apply(_enable_fake_palett)
         else:
-            self._calculate_centroids_sequential()
-
-        # Remove FakePalettize modules that were disabled during the forward
-        # pass due to incompatible granularity or cluster dimensions.
-        self._remove_disabled_fake_palett_modules(self._model)
-
-        self._model.apply(_enable_fake_palett)
+            self._load_prepared_state_dict(state_dict)
 
         # Mark the model as prepared to prevent re-preparation
         self._mark_model_as_prepared(prepared_model)
@@ -227,6 +234,40 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         self._model = prepared_model
 
         return self._model
+
+    def _load_prepared_state_dict(self, state_dict: dict[str, torch.Tensor]) -> None:
+        """Load a previously-prepared model's buffers instead of computing centroids.
+
+        Prunes the same incompatible modules a normal ``prepare()`` would (decided
+        from config and weight shapes, not from ``state_dict``), strict-loads, then
+        verifies every surviving module received its centroids.
+
+        Args:
+            state_dict (dict[str, torch.Tensor]): State dict from a model
+                previously prepared with the same config.
+
+        Raises:
+            RuntimeError: If a compatible module has no centroids after loading,
+                meaning the checkpoint does not match the palettizer config.
+        """
+        # Disable exactly the modules a normal prepare() would remove, using a
+        # shape-only (meta) compatibility probe. Structure comes from the config,
+        # never from the state dict.
+        for info in self._collect_fake_palett_info(to_cpu=False):
+            if not info.fp_module.check_compatible(info.weight):
+                info.fp_module._disabled = True
+        self._remove_disabled_fake_palett_modules(self._model)
+
+        self._model.load_state_dict(state_dict)
+
+        # Verify all surviving modules have centroids
+        for info in self._collect_fake_palett_info(to_cpu=False):
+            fp = info.fp_module
+            if fp.centroids is None:
+                raise RuntimeError(
+                    f"State dict has no centroids/lut for compatible palettized weight "
+                    f"{fp.tensor_fqn!r}; checkpoint does not match the palettizer config."
+                )
 
     @contextmanager
     def calibration_mode(

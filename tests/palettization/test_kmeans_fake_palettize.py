@@ -1860,18 +1860,42 @@ class TestLazyInitAndStaleness:
         palettizer.hard_assign(weight)
         assert palettizer.indices is indices_before  # untouched
 
-    def test_load_from_state_dict_marks_initialized_but_stale(self):
-        """Loading centroids from a checkpoint marks the module initialized AND
-        stale (unlike _initialize(), which leaves indices fresh) -- indices are
-        reconstructed lazily against the loaded centroids on next use.
-        """
+    def test_load_from_state_dict_with_and_without_indices(self):
+        """Test _centroids_initialized and _indices_stale settings when loading a state dict with
+        and without indices."""
         spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
         source = _KMeansFakePalettize(**spec.__dict__)
         source._initialize(torch.randn(8, 8))
+        state_dict = source.state_dict()
 
+        # Loading state dict with indices sets _indices_stale to False
         target = _KMeansFakePalettize(**spec.__dict__)
         assert target._centroids_initialized is False
-        target.load_state_dict(source.state_dict())
+        target.load_state_dict(state_dict)
+        assert target._centroids_initialized is True
+        assert target._indices_stale is False
+
+        # Loading state dict without indices sets _indices_stale to True
+        del state_dict["indices"]
+        target = _KMeansFakePalettize(**spec.__dict__)
+        target.load_state_dict(state_dict)
+        assert target._centroids_initialized is True
+        assert target._indices_stale is True
+
+    def test_load_from_state_dict_missing_scale_is_stale(self):
+        """With per-channel scale enabled, loading indices but no scale marks stale
+        so both are recomputed together on next use.
+        """
+        spec = PalettizationSpec(
+            n_bits=2, granularity=PerTensorGranularity(), enable_per_channel_scale=True
+        )
+        source = _KMeansFakePalettize(**spec.__dict__)
+        source._initialize(torch.randn(8, 8))
+        state_dict = source.state_dict()
+        del state_dict["per_channel_scale"]
+
+        target = _KMeansFakePalettize(**spec.__dict__)
+        target.load_state_dict(state_dict)
         assert target._centroids_initialized is True
         assert target._indices_stale is True
 
@@ -2219,3 +2243,15 @@ def test_from_cluster_vectors_rejects_element_count_mismatch():
     vectors = torch.randn(1, 5, 2)  # 5 * 2 = 10 elements, but rows * cols = 8
     with pytest.raises(ValueError):
         palettizer._from_cluster_vectors(vectors, rows=4, cols=2)
+
+
+@pytest.mark.parametrize("axis", [0, 1])
+@pytest.mark.parametrize("group_size", [3, 4])
+def test_check_compatible(axis, group_size):
+    """Test check_compatible for a variety of axes and group sizes."""
+    tensor = torch.randn(8, 8)
+    spec = PalettizationSpec(
+        n_bits=2, granularity=PerGroupedChannelGranularity(axis=axis, group_size=group_size)
+    )
+    palettizer = _KMeansFakePalettize(**spec.__dict__)
+    assert palettizer.check_compatible(torch.randn(8, 8)) is (tensor.shape[axis] % group_size == 0)
