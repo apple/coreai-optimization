@@ -1,0 +1,1 @@
+Re-export `QScheme` from `coreai_opt.coreai_utils` alongside `CompressionGranularity` and `DType`, resolving documented `ImportError`.
