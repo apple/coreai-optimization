@@ -94,6 +94,24 @@ Note that `Sensitive K-means` shares the same `KMeansPalettizer` and `KMeansPale
 
 For more details on how to use {class}`~coreai_opt.palettization.config.KMeansPalettizerConfig`, {class}`~coreai_opt.palettization.config.ModuleKMeansPalettizerConfig` to apply different settings to different weights in the model, see [Palettization Config](config.md).
 
+## Loading a Prepared Model
+
+Preparing a model runs k-means clustering to compute each layer's codebook, which can be expensive for large models. If you have already prepared a model and saved its `state_dict`, reload it into a fresh palettizer with `prepare(..., state_dict=...)` to skip clustering:
+
+```python
+# ---- first run: prepare and save ----
+palettizer = KMeansPalettizer(model, config)
+prepared_model = palettizer.prepare(example_inputs)
+torch.save(prepared_model.state_dict(), "palettized_state.pt")
+
+# ---- later run: reload without re-clustering ----
+state_dict = torch.load("palettized_state.pt", weights_only=True)
+palettizer = KMeansPalettizer(MyModel().eval(), config)  # same config as the saved run
+prepared_model = palettizer.prepare(example_inputs, state_dict=state_dict)
+```
+
+The `config` and model architecture must match the run that produced the state dict; a mismatch raises an error rather than loading a wrong codebook. Sensitivities are not part of the state dict — reload them separately via `prepare(..., sensitivity_path=...)` if a later re-clustering step needs them.
+
 ## Training a Palettized model
 
 A `KMeansPalettizer` palettized model can still be fine-tuned in a training pipeline. As palettization is a hard assignment lookup, gradients cannot be propagated for palettized weights, meaning any parameter which is palettized will not update during `optimizer.step()` (the palettization codebook and index assignments will also be fixed).

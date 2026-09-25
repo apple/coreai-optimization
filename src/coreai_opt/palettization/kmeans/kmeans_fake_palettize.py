@@ -197,6 +197,24 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             )
             self._disabled = True
 
+    def check_compatible(self, weight: torch.Tensor) -> bool:
+        """Return whether ``weight``'s shape is compatible with this module's spec.
+
+        Runs the reshape/block prefix on a meta (zero-storage) copy of ``weight``:
+        no data is read, no scaling is applied, and nothing is allocated.
+
+        Args:
+            weight (torch.Tensor): Weight tensor in its original shape.
+
+        Returns:
+            bool: True if the shape is compatible with the configured spec.
+        """
+        try:
+            self._reshape_and_block(weight.to("meta"))
+        except (_IncompatibleClusterDimError, _IncompatibleGranularityError):
+            return False
+        return True
+
     def forward_enabled(self, tensor: torch.Tensor) -> torch.Tensor:
         if self.training:
             return self._training_strategy.train_forward(self, tensor)
@@ -233,17 +251,25 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             self.indices = self._assign_indices(weight, self.centroids).detach()
             self._indices_stale = False
 
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        """Omit stale indices so they are recomputed from centroids on load."""
+        super()._save_to_state_dict(destination, prefix, keep_vars)
+        if self._indices_stale:
+            destination.pop(prefix + "indices", None)
+
     def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
         """Load centroids from a checkpoint, reconstructing them from a legacy
         ``lut`` buffer when present.
         """
-        lut_key, centroids_key = prefix + "lut", prefix + "centroids"
+        lut_key, centroids_key, index_key = prefix + "lut", prefix + "centroids", prefix + "indices"
         if centroids_key not in state_dict and lut_key in state_dict:
             state_dict[centroids_key] = self._centroids_from_lut(state_dict[lut_key])
+        had_indices = index_key in state_dict
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
         if self.centroids is not None:
             self._centroids_initialized = True
-            self._indices_stale = True
+            scale_ok = not self.enable_per_channel_scale or self.per_channel_scale is not None
+            self._indices_stale = not (had_indices and scale_ok)
 
     def _centroids_from_lut(self, lut: torch.Tensor) -> torch.Tensor:
         """Invert ``_reshape_lut_tensor`` to recover ``(num_blocks, num_clusters,
@@ -389,6 +415,24 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         """
         if self.enable_per_channel_scale:
             weight = self._scale_by_per_channel_scale(weight)
+        return self._reshape_and_block(weight)
+
+    def _reshape_and_block(self, weight: torch.Tensor) -> tuple[list[torch.Tensor], int]:
+        """Reshape to 2D and split into per-block tensors (no scaling).
+
+        Shared by the clustering path and the compatibility probe.
+
+        Args:
+            weight (torch.Tensor): Weight tensor in its original shape.
+
+        Returns:
+            tuple[list[torch.Tensor], int]: The per-block 2D tensors and the
+            resolved palettization axis.
+
+        Raises:
+            _IncompatibleGranularityError: If the shape is incompatible with the granularity.
+            _IncompatibleClusterDimError: If the shape is incompatible with cluster_dim.
+        """
         axis = self._resolved_axis
 
         # Produce a 2d tensor with output channel axis remaining as is, and all other axes flattened
@@ -945,6 +989,8 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         per channel scales.
         """
         flattened_scaled_weight = scaled_weight.flatten(1)
-        flattened_unscaled_weight = flattened_scaled_weight * self.per_channel_scale
+        flattened_unscaled_weight = flattened_scaled_weight * self.per_channel_scale.to(
+            flattened_scaled_weight.device
+        )
         unscaled_weight = flattened_unscaled_weight.reshape(scaled_weight.shape)
         return unscaled_weight
