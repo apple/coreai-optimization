@@ -1,1 +1,0 @@
-Support ``ignored_ops`` in ``cast_fp32_to_fp16`` and ``cast_to_16_bit_precision`` to allow users to exclude sensitive operations (e.g. operations causing activation-level overflow like ``exp`` or ``softplus``) from FP16 casting, keeping them in FP32 with appropriate boundary casts.
