@@ -9,6 +9,7 @@ from collections import defaultdict
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from os import PathLike
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -171,7 +172,7 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
                 stacklevel=2,
             )
 
-    def prepare(self, example_inputs: tuple[torch.Tensor]) -> nn.Module:
+    def prepare(self, example_inputs: tuple[Any, ...]) -> nn.Module:
         """Prepare model for quantization by inserting fake quantizers.
 
         Args:

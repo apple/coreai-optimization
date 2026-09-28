@@ -10,6 +10,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from os import PathLike
+from typing import Any
 
 import torch
 import torch.multiprocessing as mp
@@ -150,7 +151,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
     def prepare(
         self,
-        example_inputs: tuple[torch.Tensor],
+        example_inputs: tuple[Any, ...],
         sensitivity_path: str | None = None,
         num_workers: int = 1,
     ) -> torch.nn.Module:

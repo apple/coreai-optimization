@@ -1,0 +1,1 @@
+Fix `example_inputs: tuple[torch.Tensor]` 1-tuple typing defect in `_EagerQuantizer.prepare`, `KMeansPalettizer.prepare`, and `MagnitudePruner.prepare` to `tuple[Any, ...]`, allowing multi-input models to pass static type checking.
