@@ -6,6 +6,7 @@
 import copy
 import logging
 import os
+from unittest.mock import patch
 
 import pytest
 import torch
@@ -1646,3 +1647,53 @@ def test_palettize_multihead_attention(
 
     output = prepared_model(simple_mha_model_input)
     assert output.shape == (1, 10, 64)
+
+
+@pytest.mark.parametrize(
+    "cluster_dim, granularity",
+    [
+        pytest.param(1, PerTensorGranularity(), id="scalar-per_tensor"),
+        pytest.param(1, PerGroupedChannelGranularity(axis=0, group_size=8), id="scalar-grouped"),
+        pytest.param(2, PerTensorGranularity(), id="vector-per_tensor"),
+        pytest.param(2, PerGroupedChannelGranularity(axis=0, group_size=8), id="vector-grouped"),
+    ],
+)
+def test_prepare_on_fake_palettized_model_skips_kmeans(cluster_dim, granularity):
+    """End to end: palettize a model, bake its weights into a fresh copy (a fake-palettized
+    checkpoint), and ``prepare()`` that copy with the same config. Every weight must reuse
+    its existing palette (no k-means call) and come out bit-identical.
+    """
+    torch.manual_seed(0)
+    config = KMeansPalettizerConfig(
+        global_config=ModuleKMeansPalettizerConfig(
+            op_state_spec={
+                "weight": PalettizationSpec(
+                    n_bits=3, granularity=granularity, cluster_dim=cluster_dim
+                )
+            },
+            enable_fast_kmeans_mode=cluster_dim == 1,
+        )
+    )
+    example_inputs = (torch.randn(2, 32),)
+
+    def make_model():
+        return nn.Sequential(nn.Linear(32, 32), nn.ReLU(), nn.Linear(32, 16))
+
+    model = KMeansPalettizer(make_model(), config).prepare(example_inputs)
+    for module in (model[0], model[2]):
+        P.remove_parametrizations(module, "weight", leave_parametrized=True)
+    baked = make_model()
+    baked.load_state_dict(model.state_dict())
+    expected = {name: p.detach().clone() for name, p in baked.named_parameters()}
+
+    name = "_cluster_weights_1d" if cluster_dim == 1 else "_cluster_weights_2d"
+    with patch.object(
+        _KMeansFakePalettize, name, autospec=True, side_effect=getattr(_KMeansFakePalettize, name)
+    ) as kmeans:
+        repalettized = KMeansPalettizer(baked, config).prepare(example_inputs)
+
+    kmeans.assert_not_called()
+    for module_name in ("0", "2"):
+        module = getattr(repalettized, module_name)
+        assert is_parametrized(module, "weight")
+        assert torch.equal(module.weight, expected[f"{module_name}.weight"])

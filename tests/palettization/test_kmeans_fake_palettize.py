@@ -5,7 +5,7 @@
 
 import os
 import tempfile
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 import torch
@@ -2219,3 +2219,268 @@ def test_from_cluster_vectors_rejects_element_count_mismatch():
     vectors = torch.randn(1, 5, 2)  # 5 * 2 = 10 elements, but rows * cols = 8
     with pytest.raises(ValueError):
         palettizer._from_cluster_vectors(vectors, rows=4, cols=2)
+
+
+# --------------------------------------------------------------------------------------
+# Already-palettized weights: detection, palette reuse and fallback to k-means
+# --------------------------------------------------------------------------------------
+
+_DETECTION_N_BITS = 3  # 8-entry palette: small, but far below the distinct count of randn blocks
+_DETECTION_WEIGHT_SHAPE = (16, 32)  # 4 blocks of 4 output rows for the grouped cases
+
+_DETECTION_COMBOS = [
+    pytest.param(1, PerTensorGranularity(), id="scalar-per_tensor"),
+    pytest.param(1, PerGroupedChannelGranularity(axis=0, group_size=4), id="scalar-grouped"),
+    pytest.param(2, PerTensorGranularity(), id="vector-per_tensor"),
+    pytest.param(2, PerGroupedChannelGranularity(axis=0, group_size=4), id="vector-grouped"),
+]
+
+
+def _detection_palettizer(cluster_dim, granularity, n_bits=_DETECTION_N_BITS):
+    return _KMeansFakePalettize(
+        n_bits=n_bits,
+        lut_qspec=None,
+        granularity=granularity,
+        cluster_dim=cluster_dim,
+        enable_per_channel_scale=False,
+        enable_fast_kmeans_mode=cluster_dim == 1,  # fast mode is scalar-only
+    )
+
+
+def _fake_palettized(weight, cluster_dim, granularity, n_bits=_DETECTION_N_BITS):
+    """Palettize ``weight`` once and return the dense palettized tensor, i.e. what a
+    fake-palettized checkpoint stores (at most ``2 ** n_bits`` distinct values or vectors
+    per block).
+    """
+    palettizer = _detection_palettizer(cluster_dim, granularity, n_bits)
+    lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
+    return palettizer._palettize(lut, indices, weight)
+
+
+def _num_blocks(granularity):
+    if isinstance(granularity, PerGroupedChannelGranularity):
+        return _DETECTION_WEIGHT_SHAPE[0] // granularity.group_size
+    return 1
+
+
+def _kmeans_spy(cluster_dim):
+    """Patch the k-means path of ``cluster_dim`` with a call-counting pass-through."""
+    name = "_cluster_weights_1d" if cluster_dim == 1 else "_cluster_weights_2d"
+    return patch.object(
+        _KMeansFakePalettize, name, autospec=True, side_effect=getattr(_KMeansFakePalettize, name)
+    )
+
+
+def _detection_spy():
+    return patch.object(
+        _KMeansFakePalettize,
+        "_existing_palette",
+        side_effect=_KMeansFakePalettize._existing_palette,
+    )
+
+
+class TestExistingPaletteDetection:
+    """A weight that already holds at most ``2 ** n_bits`` distinct values (or vectors) per
+    block reuses that palette; any other weight falls back to k-means.
+    """
+
+    @pytest.mark.parametrize(
+        "dtype", [torch.float32, torch.float16, torch.bfloat16], ids=["fp32", "fp16", "bf16"]
+    )
+    @pytest.mark.parametrize("cluster_dim, granularity", _DETECTION_COMBOS)
+    def test_fake_palettized_weight_reuses_its_palette(self, cluster_dim, granularity, dtype):
+        """Re-palettizing a fake-palettized weight with the same spec skips k-means and
+        reproduces the weight bit-exactly.
+        """
+        torch.manual_seed(0)
+        weight = _fake_palettized(
+            torch.randn(_DETECTION_WEIGHT_SHAPE, dtype=dtype), cluster_dim, granularity
+        )
+        palettizer = _detection_palettizer(cluster_dim, granularity)
+
+        with _kmeans_spy(cluster_dim) as kmeans:
+            lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
+
+        kmeans.assert_not_called()
+        assert lut.shape == (_num_blocks(granularity), 1, 2**_DETECTION_N_BITS, cluster_dim)
+        assert lut.dtype == weight.dtype
+        assert torch.equal(palettizer._palettize(lut, indices, weight), weight)
+
+    @pytest.mark.parametrize("cluster_dim, granularity", _DETECTION_COMBOS)
+    def test_ordinary_weight_falls_back_to_kmeans(self, cluster_dim, granularity):
+        """A continuous weight is rejected on its first block, and every block (including
+        the first) is clustered with k-means.
+        """
+        torch.manual_seed(0)
+        weight = torch.randn(_DETECTION_WEIGHT_SHAPE)
+        palettizer = _detection_palettizer(cluster_dim, granularity)
+
+        with _kmeans_spy(cluster_dim) as kmeans, _detection_spy() as detect:
+            _initialize_and_get_lut_indices(palettizer, weight)
+
+        assert detect.call_count == 1  # detection stops after the first block fails
+        assert kmeans.call_count == _num_blocks(granularity)
+
+    @pytest.mark.parametrize("cluster_dim", [1, 2])
+    def test_detection_stops_at_first_mismatched_block(self, cluster_dim):
+        """Blocks before the first mismatch reuse their palette; from the first mismatch on,
+        the remaining blocks use k-means without further detection.
+        """
+        torch.manual_seed(0)
+        granularity = PerGroupedChannelGranularity(axis=0, group_size=4)
+        weight = _fake_palettized(torch.randn(_DETECTION_WEIGHT_SHAPE), cluster_dim, granularity)
+        weight[4:8] = torch.randn(4, _DETECTION_WEIGHT_SHAPE[1])  # block 1 is continuous again
+        palettizer = _detection_palettizer(cluster_dim, granularity)
+
+        with _kmeans_spy(cluster_dim) as kmeans, _detection_spy() as detect:
+            lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
+
+        assert detect.call_count == 2  # block 0 (match) and block 1 (mismatch)
+        assert kmeans.call_count == 3  # blocks 1, 2, 3
+        palettized = palettizer._palettize(lut, indices, weight)
+        assert torch.equal(palettized[:4], weight[:4])  # block 0 reproduced exactly
+
+    @pytest.mark.parametrize("cluster_dim", [1, 2])
+    def test_weight_palettized_with_a_larger_palette_falls_back(self, cluster_dim):
+        """A weight palettized with more bits than the requested spec has too many distinct
+        values per block, so it is clustered with k-means rather than reused.
+        """
+        torch.manual_seed(0)
+        granularity = PerGroupedChannelGranularity(axis=0, group_size=4)
+        weight = _fake_palettized(
+            torch.randn(_DETECTION_WEIGHT_SHAPE), cluster_dim, granularity, n_bits=4
+        )
+        palettizer = _detection_palettizer(cluster_dim, granularity, n_bits=2)
+
+        with _kmeans_spy(cluster_dim) as kmeans:
+            _initialize_and_get_lut_indices(palettizer, weight)
+
+        assert kmeans.call_count == _num_blocks(granularity)
+
+    @pytest.mark.parametrize("cluster_dim", [1, 2])
+    def test_grouped_palette_does_not_match_per_tensor_spec(self, cluster_dim):
+        """A per-group palettized weight re-palettized per-tensor has one palette per group,
+        more than ``2 ** n_bits`` distinct values in total, so k-means runs.
+        """
+        torch.manual_seed(0)
+        weight = _fake_palettized(
+            torch.randn(_DETECTION_WEIGHT_SHAPE),
+            cluster_dim,
+            PerGroupedChannelGranularity(axis=0, group_size=4),
+        )
+        palettizer = _detection_palettizer(cluster_dim, PerTensorGranularity())
+
+        with _kmeans_spy(cluster_dim) as kmeans:
+            _initialize_and_get_lut_indices(palettizer, weight)
+
+        kmeans.assert_called_once()
+
+    @pytest.mark.parametrize("cluster_dim", [1, 2])
+    def test_fewer_distinct_values_than_palette_entries_are_padded(self, cluster_dim):
+        """A block with fewer distinct points than palette entries is reused as-is and the
+        LUT padded to ``2 ** n_bits`` entries.
+        """
+        weight = torch.tensor([[1.0, -1.0], [2.0, -2.0]]).repeat(4, 8)  # (8, 16), 2 distinct cols
+        palettizer = _detection_palettizer(cluster_dim, PerTensorGranularity())
+
+        with _kmeans_spy(cluster_dim) as kmeans:
+            lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
+
+        kmeans.assert_not_called()
+        assert lut.shape == (1, 1, 2**_DETECTION_N_BITS, cluster_dim)
+        assert torch.equal(palettizer._palettize(lut, indices, weight), weight)
+
+    @pytest.mark.parametrize("cluster_dim, granularity", _DETECTION_COMBOS)
+    def test_detection_with_sensitivities(self, cluster_dim, granularity):
+        """Sensitivity-weighted clustering cannot beat the exact palette, so detection
+        applies with sensitivities too.
+        """
+        torch.manual_seed(0)
+        weight = _fake_palettized(torch.randn(_DETECTION_WEIGHT_SHAPE), cluster_dim, granularity)
+        palettizer = _detection_palettizer(cluster_dim, granularity)
+        palettizer.sensitivities = torch.rand_like(weight) + 1.0
+
+        with _kmeans_spy(cluster_dim) as kmeans:
+            lut, indices = _initialize_and_get_lut_indices(palettizer, weight)
+
+        kmeans.assert_not_called()
+        assert torch.equal(palettizer._palettize(lut, indices, weight), weight)
+
+
+class TestExistingPalette:
+    """``_KMeansFakePalettize._existing_palette`` on raw ``(N, cluster_dim)`` points."""
+
+    @pytest.mark.parametrize(
+        "dtype", [torch.float32, torch.float16, torch.bfloat16], ids=["fp32", "fp16", "bf16"]
+    )
+    @pytest.mark.parametrize("cluster_dim", [1, 2, 3, 4, 8])
+    def test_returns_exact_palette_and_labels(self, cluster_dim, dtype):
+        """Covers both vector representations: rows packed into one integer key (2/4/8-byte
+        rows, e.g. fp16 cd2/cd4, fp32 cd2) and the row-wise fallback (e.g. fp16 cd3/cd8).
+        """
+        palette = torch.randn(5, cluster_dim, dtype=dtype)
+        labels = torch.randint(0, 5, (200,))
+        points = palette[labels]
+
+        result = _KMeansFakePalettize._existing_palette(points, num_clusters=8)
+
+        assert result is not None
+        centroids, found_labels = result
+        assert centroids.dtype == dtype
+        assert centroids.shape == ((5,) if cluster_dim == 1 else (5, cluster_dim))
+        assert found_labels.shape == (200,)
+        rebuilt = centroids[found_labels]
+        assert torch.equal(rebuilt.reshape(points.shape), points)
+
+    @pytest.mark.parametrize(
+        "dtype, cluster_dim, packed",
+        [
+            (torch.float16, 2, True),  # 4-byte rows
+            (torch.float16, 4, True),  # 8-byte rows
+            (torch.float32, 2, True),  # 8-byte rows
+            (torch.float16, 3, False),  # 6-byte rows
+            (torch.float32, 4, False),  # 16-byte rows
+        ],
+    )
+    def test_vector_rows_use_flat_unique_when_packable(self, dtype, cluster_dim, packed):
+        """2/4/8-byte rows are compared as single integers (flat ``torch.unique``); any
+        other row size falls back to the row-wise ``torch.unique(dim=0)``.
+        """
+        points = torch.randn(4, cluster_dim, dtype=dtype).repeat(10, 1)
+
+        with patch.object(torch, "unique", wraps=torch.unique) as unique:
+            assert _KMeansFakePalettize._existing_palette(points, num_clusters=4) is not None
+
+        for call in unique.call_args_list:
+            assert (call.args[0].dim() == 1) == packed
+            assert call.kwargs.get("dim") == (None if packed else 0)
+
+    @pytest.mark.parametrize("cluster_dim", [1, 2])
+    def test_prefix_probe_rejects_ordinary_points_without_full_scan(self, cluster_dim):
+        """Continuous points fail on the probe: a single ``unique`` over the prefix only."""
+        num_clusters = 8
+        points = torch.randn(10_000, cluster_dim)
+
+        with patch.object(torch, "unique", wraps=torch.unique) as unique:
+            result = _KMeansFakePalettize._existing_palette(points, num_clusters)
+
+        assert result is None
+        assert unique.call_count == 1
+        probed = unique.call_args.args[0]
+        assert probed.shape[0] == 8 * num_clusters  # _PREPALETTIZED_PROBE_FACTOR x palette
+
+    def test_full_scan_rejects_points_that_pass_the_probe(self):
+        """A discrete prefix followed by continuous points passes the probe but not the
+        full distinct count.
+        """
+        num_clusters = 8
+        prefix = torch.randn(num_clusters, 2).repeat(20, 1)  # 160 points, 8 distinct
+        points = torch.cat([prefix, torch.randn(1_000, 2)])
+
+        assert _KMeansFakePalettize._existing_palette(points, num_clusters) is None
+
+    def test_probe_covers_blocks_smaller_than_the_probe(self):
+        points = torch.randn(4, 3).repeat(3, 1)  # 12 points < probe size, 4 distinct
+        result = _KMeansFakePalettize._existing_palette(points, num_clusters=4)
+        assert result is not None
+        assert result[0].shape == (4, 3)

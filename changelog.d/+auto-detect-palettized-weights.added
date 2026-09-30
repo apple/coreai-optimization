@@ -1,0 +1,1 @@
+K-means palettization detects weights that are already palettized for their spec (at most ``2 ** n_bits`` distinct values or vectors per block, e.g. a fake-palettized checkpoint) and reuses their palette instead of running k-means, reproducing them exactly; ordinary weights fall back to k-means after one small probe.
