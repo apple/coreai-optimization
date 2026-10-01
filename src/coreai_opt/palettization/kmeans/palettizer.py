@@ -255,20 +255,26 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         # shape-only (meta) compatibility probe. Structure comes from the config,
         # never from the state dict.
         for info in self._collect_fake_palett_info(to_cpu=False):
-            if not info.fp_module.check_compatible(info.weight):
-                info.fp_module._disabled = True
+            compatible = info.fp_module.check_compatible(info.weight)
+            info.fp_module._disabled = not compatible
         self._remove_disabled_fake_palett_modules(self._model)
 
         self._model.load_state_dict(state_dict)
 
         # Verify all surviving modules have centroids
+        missing_centroids = []
         for info in self._collect_fake_palett_info(to_cpu=False):
             fp = info.fp_module
             if fp.centroids is None:
-                raise RuntimeError(
-                    f"State dict has no centroids/lut for compatible palettized weight "
-                    f"{fp.tensor_fqn!r}; checkpoint does not match the palettizer config."
-                )
+                missing_centroids.append(fp)
+
+        if missing_centroids:
+            error_msg = (
+                "Error when loading state dict. The following palettized weights are missing "
+                "centroids/lut. State dict does not match the palettizer config: "
+                f"{[fp.tensor_fqn for fp in missing_centroids]}"
+            )
+            raise RuntimeError(error_msg)
 
     @contextmanager
     def calibration_mode(
