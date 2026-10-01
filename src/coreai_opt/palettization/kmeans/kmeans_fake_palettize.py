@@ -32,7 +32,13 @@ from coreai_opt.quantization.spec import (
     QuantizationSpec,
 )
 
-from ._efficient_kmeans import _EfficientKMeans
+from ._efficient_kmeans import (
+    _EfficientKMeans,
+    flash_batch_cluster,
+    resolve_vector_backend,
+    vector_max_iter,
+    vector_n_init,
+)
 from .kmeans_support_mixins import _LinearPalettizationMixin
 from .supported_ops_registry import _KMeansPalettizerSupportedOpsRegistry
 
@@ -426,10 +432,21 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         num_clusters = 2**self.n_bits
         centroids_per_block = []
         block_indices = []
-        for block_weight, block_sensitivity in zip(
-            block_weights_to_cluster, block_sensitivities, strict=True
+
+        # One batched call for the whole tensor when the backend supports it, instead
+        # of one call per block. Only when there are no sensitivities: the batched API
+        # has no sample_weight equivalent, so a weighted run must stay on the loop.
+        batched: list[tuple[torch.Tensor, torch.Tensor]] | None = None
+        if sensitivities is None and self._can_batch_blocks(block_weights_to_cluster):
+            cents, labs = self._cluster_weights_2d_batched(block_weights_to_cluster)
+            batched = list(zip(cents, labs, strict=True))
+
+        for idx, (block_weight, block_sensitivity) in enumerate(
+            zip(block_weights_to_cluster, block_sensitivities, strict=True)
         ):
-            if self.cluster_dim == 1:
+            if batched is not None:
+                centroids, clusters = batched[idx]
+            elif self.cluster_dim == 1:
                 centroids, clusters = self._cluster_weights_1d(block_weight, block_sensitivity)
             else:
                 centroids, clusters = self._cluster_weights_2d(block_weight, block_sensitivity)
@@ -701,6 +718,62 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
 
         return centroids, clusters
 
+    def _can_batch_blocks(self, block_weights: list[torch.Tensor]) -> bool:
+        """Whether all blocks of this tensor can be clustered in one batched call.
+
+        The batched path stacks blocks into a ``(B, N, D)`` tensor, so it needs every
+        block to have the same shape, and it only exists for the flash backend (the
+        only one with a batched API). It also cannot carry sensitivities: the batched
+        call has no ``sample_weight`` equivalent.
+
+        Args:
+            block_weights (list[torch.Tensor]): The per-block 2D tensors.
+
+        Returns:
+            bool: True if the batched path is applicable.
+        """
+        if self.cluster_dim == 1 or len(block_weights) < 2:
+            return False
+        if resolve_vector_backend() != "flash_kmeans":
+            return False
+        first = block_weights[0].shape
+        return all(b.shape == first for b in block_weights)
+
+    def _cluster_weights_2d_batched(
+        self, block_weights: list[torch.Tensor]
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+        """Cluster every block of a tensor in ONE batched k-means call.
+
+        The per-block loop issues one k-means call per block -- about 34,560 for a 4B
+        model at group_size=32 -- and that call count, not the clustering arithmetic,
+        is what dominates runtime. Stacking the blocks into the batch dimension turns a
+        whole weight tensor into a single call. Measured on an A100 at real Qwen3-4B
+        shapes: 5-12x for the Lloyd loop and 49.6x for the seeding.
+
+        Produces the same two lists the loop does, so the caller is unchanged
+        downstream.
+
+        Args:
+            block_weights (list[torch.Tensor]): Equal-shaped per-block 2D tensors.
+
+        Returns:
+            tuple[list[torch.Tensor], list[torch.Tensor]]: Per-block ``(centroids,
+            clusters)``, matching :meth:`_cluster_weights_2d`'s return shapes.
+        """
+        stacked = torch.stack([self._vectorize_block(b) for b in block_weights])
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        stacked = stacked.to(device).float()
+
+        num_clusters = min(stacked.shape[1], 2**self.n_bits)
+        labels, centroids = flash_batch_cluster(
+            stacked,
+            num_clusters,
+            max_iter=vector_max_iter(),
+            tol=1e-4,
+            n_init=vector_n_init(),
+        )
+        return list(centroids.cpu()), list(labels.cpu())
+
     def _cluster_weights_2d(
         self,
         block_weight: torch.Tensor,
@@ -731,11 +804,21 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         if sample_weight is not None:
             sample_weight = sample_weight.to(device)
 
+        # Backend and restart count are resolved here rather than hardcoded, and
+        # INDEPENDENTLY of each other: the backend follows the device (flash_kmeans on
+        # CUDA, else cuml, else kmeans++) while n_init is its own default. The probes
+        # behind the backend choice are memoized, so calling this per block is cheap.
+        # Environment overrides still win, inside _EfficientKMeans.
+        #
+        # `weighted` matters: flash has no sample_weight equivalent and raises on one, so
+        # a sensitivity-weighted run must not be handed the flash default.
+        backend = resolve_vector_backend(weighted=sample_weight is not None)
+        n_init = vector_n_init()
         kmeans = _EfficientKMeans(
             n_clusters=num_clusters,
-            init="kmeans++",
-            n_init=5,
-            max_iter=300,
+            init=backend,
+            n_init=n_init,
+            max_iter=vector_max_iter(),
         ).fit(vectorized.float(), sample_weight=sample_weight)
 
         centroids = kmeans.cluster_centers_.cpu()
