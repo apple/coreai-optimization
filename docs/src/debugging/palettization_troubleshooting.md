@@ -6,9 +6,9 @@ This guide helps debug issues when using [palettization](../palettization/index.
 
 ### Symptoms
 
-- `KMeansPalettizer.prepare()` or `coreai_opt.coreai_utils.palettize_weights()` never returns and raises no error.
+- `KMeansPalettizer.prepare()` or `coreai_opt.coreai_utils.palettize_weights()` when `cluster_dim=1` never returns and raises no error.
 - The `Palettizing layers` progress bar never appears, or stays at 0%.
-- The Python process, and its worker processes when `num_workers > 1`, sit near 0% CPU.
+- The original Python process (when `num_workers >= 0`), and its worker processes when `num_workers > 1`, sit near 0% CPU.
 - If you interrupt the run with Ctrl+C, the traceback ends in `torch/utils/file_baton.py`, in `wait`.
 
 ### Cause
