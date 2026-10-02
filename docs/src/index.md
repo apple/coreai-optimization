@@ -51,6 +51,7 @@ utils/coreai_compression
 
 debugging/model_inspection
 debugging/graph_mode_troubleshooting
+debugging/palettization_troubleshooting
 ```
 
 ```{toctree}
