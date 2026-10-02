@@ -17,6 +17,7 @@ from scripts.release.release_utils import (
     VERSION_EXTENSION_ENV_VAR,
     AboutFile,
     apply_version_extension,
+    current_branch,
     get_dev_version_override,
     get_version_extension,
     latest_release_tag,
@@ -26,7 +27,6 @@ from scripts.release.release_utils import (
     read_latest_released_version,
     read_version,
     release_branch_exists,
-    release_branch_version,
     resolve_about_path,
     resolve_build_version,
     restore_about,
@@ -93,24 +93,6 @@ class TestValidNextVersions:
         # 1.0.3 / 1.2.0 / 3.0.0 skip a number, 1.1.1 bumps the minor without
         # resetting the patch, 1.0.1 stands still, 0.9.0 goes backwards.
         assert skipped not in valid_next_versions("1.0.1")
-
-
-class TestReleaseBranchVersion:
-    """Tests for release_branch_version, the shape a release branch carries."""
-
-    @pytest.mark.parametrize(
-        ("latest_released", "expected"),
-        [("1.1.0", "1.1.0.dev0"), ("2.0.0", "2.0.0.dev0"), ("0.2.1", "0.2.1.dev0")],
-    )
-    def test_names_its_own_release(self, latest_released: str, expected: str) -> None:
-        assert release_branch_version(latest_released) == expected
-
-    def test_differs_from_every_next_candidate(self) -> None:
-        # On `main` the two never coincide, which is what tells the two apart.
-        latest = "1.1.0"
-        assert release_branch_version(latest) not in [
-            f"{c}.dev0" for c in valid_next_versions(latest)
-        ]
 
 
 class TestNextVersion:
@@ -467,3 +449,21 @@ class TestReleaseBranchExists:
         subprocess.run(["git", "branch", "release/0.2.2"], cwd=tmp_path, check=True)
 
         assert release_branch_exists(tmp_path, "0.2.2") is False
+
+
+class TestCurrentBranch:
+    """Tests for current_branch, which scopes the release-branch check."""
+
+    def test_returns_the_checked_out_branch(self, tmp_path: Path) -> None:
+        TestReleaseBranchExists._init_repo(tmp_path)
+        subprocess.run(
+            ["git", "switch", "--quiet", "-c", "release/1.1.0"], cwd=tmp_path, check=True
+        )
+
+        assert current_branch(tmp_path) == "release/1.1.0"
+
+    def test_returns_none_on_a_detached_head(self, tmp_path: Path) -> None:
+        TestReleaseBranchExists._init_repo(tmp_path)
+        subprocess.run(["git", "switch", "--quiet", "--detach"], cwd=tmp_path, check=True)
+
+        assert current_branch(tmp_path) is None

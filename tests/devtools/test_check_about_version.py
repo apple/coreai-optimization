@@ -57,6 +57,10 @@ def _track_branch(repo: Path, name: str) -> None:
     )
 
 
+def _switch(repo: Path, branch: str) -> None:
+    subprocess.run(["git", "switch", "--quiet", "-c", branch], cwd=repo, check=True)
+
+
 def _run_checker(cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(SCRIPT)],
@@ -76,13 +80,22 @@ class TestCheckAboutVersion:
         result = _run_checker(repo)
         assert result.returncode == 0, result.stdout
 
-    def test_fails_when_version_is_not_the_bumped_candidate(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        ("latest_released", "version"),
+        [
+            ("0.2.1", "0.2.5.dev0"),  # skips a number
+            ("1.1.0", "1.1.0.dev0"),  # names the release but keeps .dev0
+        ],
+    )
+    def test_fails_when_version_is_not_the_bumped_candidate(
+        self, tmp_path: Path, latest_released: str, version: str
+    ) -> None:
         repo = tmp_path / "repo"
         _init_repo(repo)
-        _write_about(repo, latest_released="0.2.1", version="0.2.5.dev0")
+        _write_about(repo, latest_released=latest_released, version=version)
         result = _run_checker(repo)
         assert result.returncode == 1
-        assert "latest_released_version '0.2.1' allows only" in result.stdout
+        assert f"latest_released_version {latest_released!r} allows only" in result.stdout
 
     @pytest.mark.parametrize("version", ["1.1.0.dev0"])
     def test_accepts_a_patch_minor_or_major_as_the_next_release(
@@ -160,15 +173,37 @@ class TestCheckAboutVersion:
         assert result.returncode == 0, result.stdout
 
     def test_accepts_a_release_branch_naming_its_own_release(self, tmp_path: Path) -> None:
-        # A release branch sets latest_released_version to the version it
-        # produces, so __version__ is that same version rather than a next one.
+        # A release branch sets both fields to the version it produces, with no
+        # .dev0, rather than __version__ naming a next release.
         repo = tmp_path / "repo"
         _init_repo(repo)
-        _write_about(repo, latest_released="1.1.0", version="1.1.0.dev0")
+        _write_about(repo, latest_released="1.1.0", version="1.1.0")
         _tag(repo, "v1.0.0")
         _track_branch(repo, "release/1.1.0")
+        _switch(repo, "release/1.1.0")
         result = _run_checker(repo)
         assert result.returncode == 0, result.stdout
+
+    @pytest.mark.parametrize(
+        ("latest_released", "version"),
+        [
+            ("1.0.0", "1.1.0.dev0"),  # cut from main, first commit not made yet
+            ("1.2.0", "1.2.0"),  # names a different release than the branch
+        ],
+    )
+    def test_fails_on_a_release_branch_that_does_not_name_its_release(
+        self, tmp_path: Path, latest_released: str, version: str
+    ) -> None:
+        repo = tmp_path / "repo"
+        _init_repo(repo)
+        _write_about(repo, latest_released=latest_released, version=version)
+        _tag(repo, "v1.0.0")
+        _track_branch(repo, "release/1.1.0")
+        _track_branch(repo, "release/1.2.0")
+        _switch(repo, "release/1.1.0")
+        result = _run_checker(repo)
+        assert result.returncode == 1
+        assert "release/1.1.0 must name its own release" in result.stdout
 
     def test_fails_when_the_branch_is_for_a_different_version(self, tmp_path: Path) -> None:
         repo = tmp_path / "repo"
