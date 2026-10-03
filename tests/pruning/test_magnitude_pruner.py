@@ -23,7 +23,12 @@ from coreai_opt.pruning.config import (
     OpMagnitudePrunerConfig,
     PolynomialDecaySchedule,
 )
-from coreai_opt.pruning.spec import ChannelStructured, PruneImplBase, Unstructured
+from coreai_opt.pruning.spec import (
+    ChannelStructured,
+    PruneImplBase,
+    Unstructured,
+    _MagnitudePruneImpl,
+)
 
 
 @pytest.fixture
@@ -461,6 +466,18 @@ class TestMagnitudePruner:
 
         with pytest.raises(ValueError, match="Invalid axis"):
             pruner.prepare((torch.randn(1, 4),))
+
+    @pytest.mark.parametrize("target_sparsity", [0.0, 0.5])
+    @pytest.mark.parametrize("axis", [0, -1], ids=["axis-0", "axis-neg-1"])
+    def test_channel_structured_1d_tensor_raises(self, axis: int, target_sparsity: float) -> None:
+        """Channel-structured pruning requires >= 2 dimensions; 1D tensors raise ValueError."""
+        weight = torch.tensor([1.0, 5.0, 2.0, 8.0])
+        scheme = ChannelStructured(axis=axis)
+        with pytest.raises(
+            ValueError,
+            match=r"Channel-structured pruning requires a tensor with at least 2 dimensions",
+        ):
+            _MagnitudePruneImpl.compute_mask(weight, target_sparsity, scheme)
 
     def test_linear_unstructured_conv2d_channel_structured(self) -> None:
         """Apply unstructured to Linear and channel-structured to Conv2d in same model."""
