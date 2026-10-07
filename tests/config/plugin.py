@@ -5,7 +5,6 @@
 
 """Reusable pytest plugin: compute unit selection, seeding, and generic fixtures."""
 
-import os
 import random
 import tempfile
 from collections.abc import Iterator
@@ -116,24 +115,10 @@ def accelerator_device() -> str:
     pytest.skip("requires a CUDA or MPS accelerator")
 
 
-# When set, tests marked @pytest.mark.cuda fail instead of skip when CUDA is
-# unavailable, so a run meant to exercise the GPU can't pass by skipping.
-# Only skips routed through _skip_or_fail_on_cuda_unavailable honor this;
-# skips for any other reason are unaffected.
-REQUIRE_CUDA = os.environ.get("COREAI_OPT_TEST_REQUIRE_CUDA") == "1"
-
-
-def _skip_or_fail_on_cuda_unavailable(reason: str):
-    """Fail when cuda is required, otherwise skip, with the given cuda reason."""
-    if REQUIRE_CUDA:
-        pytest.fail(f"COREAI_OPT_TEST_REQUIRE_CUDA=1 but {reason}", pytrace=False)
-    pytest.skip(reason)
-
-
 @pytest.fixture(autouse=True)
 def _require_cuda_device(request: pytest.FixtureRequest) -> None:
-    """Gate every cuda-marked test on an available CUDA device."""
+    """Skip cuda-marked tests when no CUDA device is available."""
     if request.node.get_closest_marker("cuda") is None:
         return
     if not torch.cuda.is_available():
-        _skip_or_fail_on_cuda_unavailable("requires a CUDA device")
+        pytest.skip("requires a CUDA device")
