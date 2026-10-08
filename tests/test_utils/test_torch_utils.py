@@ -14,6 +14,7 @@ from torchao.quantization.pt2e import allow_exported_model_train_eval
 
 from coreai_opt._utils.fx_utils import normalize_module_fqn
 from coreai_opt._utils.torch_utils import (
+    extract_name_from_parametrization,
     mmap_module_state_dict,
     mmap_named_tensors,
     move_model_to_eval,
@@ -94,6 +95,31 @@ class TestNormalizeModuleFqn:
     def test_normalize_module_fqn(raw: str, expected: str) -> None:
         """Verify various path formats are normalized correctly."""
         assert normalize_module_fqn(raw) == expected
+
+
+class TestExtractNameFromParametrization:
+    """Test extract_name_from_parametrization utility."""
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("parametrizations.weight", ""),
+            ("parametrizations.bias", ""),
+            ("layer.parametrizations.weight", "layer"),
+            ("encoder.layers.0.parametrizations.weight", "encoder.layers.0"),
+            ("blocks.1.linear.parametrizations.bias", "blocks.1.linear"),
+            ("layer.parametrizations", "layer"),
+            ("parametrizations", ""),
+            ("layer.parametrizations.weight.0", "layer"),
+            ("parametrizations.weight.0", ""),
+            ("simple_layer", "simple_layer"),
+            ("", ""),
+        ],
+    )
+    def test_extract_name_from_parametrization(raw: str, expected: str) -> None:
+        """Verify module name is correctly extracted from parametrization FQN."""
+        assert extract_name_from_parametrization(raw) == expected
 
 
 class TestNormalizeAxis:

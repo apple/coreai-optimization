@@ -154,6 +154,30 @@ def test_get_fake_quantize_modules(execution_mode):
     assert len(set(id(fq) for fq in all_fqs)) == len(all_fqs), "Duplicate FQ instances in map"
 
 
+@pytest.mark.parametrize("execution_mode", [ExecutionMode.EAGER, ExecutionMode.GRAPH])
+def test_root_module_fake_quantize_mapping(execution_mode):
+    """Standalone root module maps all fake-quantize modules to root key ''."""
+    config = QuantizerConfig(
+        global_config=ModuleQuantizerConfig(
+            op_state_spec={"weight": default_weight_quantization_spec()},
+            op_input_spec={"*": default_activation_quantization_spec()},
+            op_output_spec={"*": default_activation_quantization_spec()},
+        ),
+        execution_mode=execution_mode,
+    )
+    model = nn.Linear(4, 4)
+    quantizer = Quantizer(model, config)
+    example_input = torch.randn(2, 4)
+    prepared_model = quantizer.prepare((example_input,))
+
+    fq_map = quantizer._get_fake_quantize_modules()
+    assert list(fq_map.keys()) == [""], f"Expected only root key '', got: {list(fq_map.keys())}"
+    assert "parametrizations" not in fq_map
+
+    all_fqs_from_model = _get_fake_quant_modules(prepared_model)
+    assert len(fq_map[""]) == len(all_fqs_from_model)
+
+
 class SharedWeightModel(nn.Module):
     """Two Linear layers sharing the same weight parameter."""
 
