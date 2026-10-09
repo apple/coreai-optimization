@@ -348,6 +348,36 @@ class TestStaticQParamsCalculator:
         )
 
 
+@pytest.mark.parametrize("qparam_calculator_cls", ["default", "dynamic"])
+def test_int8_e8m0_scale_zero_point_minval(qparam_calculator_cls):
+    """int8 with an e8m0 scale gets a power-of-2 scale and zero offsets for integer fake-quant."""
+    x = torch.tensor([[-3.0, 0.01, 1.01, 3.0]])
+    spec = QuantizationSpec(
+        dtype=torch.int8,
+        qscheme=QuantizationScheme.SYMMETRIC,
+        granularity=PerTensorGranularity(),
+        qparam_calculator_cls=qparam_calculator_cls,
+        scale_dtype=torch.float8_e8m0fnu,
+    )
+    fake_quant = QuantizationComponentFactory.create_fake_quantizer(
+        spec, CompressionTargetTensor.ACTIVATION
+    )
+
+    scale, zero_point, minval = fake_quant.qparams_calculator(x)
+
+    # 2^(floor(log2(3.0)) - E8M0_TARGET_MAX_POW2[int8]) = 2^(1 - 6)
+    torch.testing.assert_close(scale, torch.full((1, 1), 2.0**-5))
+    assert torch.equal(zero_point, torch.zeros((1, 1), dtype=torch.int32))
+    torch.testing.assert_close(minval, torch.full((1, 1), -3.0))
+
+    # 0.01 and 1.01 are not multiples of the scale, so they round to codes 0 and 32.
+    # disable_observer() switches the stateful calculator to its cached qparams.
+    expected = torch.tensor([[-3.0, 0.0, 1.0, 3.0]])
+    torch.testing.assert_close(fake_quant(x), expected)
+    fake_quant.disable_observer()
+    torch.testing.assert_close(fake_quant(x), expected)
+
+
 def test_extra_repr():
     qparams_calc = StaticQParamsCalculator(
         dtype=torch.int8,
