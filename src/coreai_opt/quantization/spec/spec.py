@@ -310,15 +310,16 @@ class QuantizationSpec(CompressionSpec):
               choose_qparams_affine_with_min_max (integer and FP8 dtypes).
               For FP4, None is resolved to torch.float8_e8m0fnu automatically.
             - torch.float8_e8m0fnu: Power-of-2 scales following OCP Microscaling (MX)
-              spec. Required for FP4 quantization, optional for FP8.
+              spec. Required for FP4 quantization, optional for FP8 and int8.
 
             Constraints:
 
             - FP4 (float4_e2m1fn_x2): scale_dtype must be torch.float8_e8m0fnu or None
               (defaults to e8m0)
-            - FP8 (float8_e4m3fn, float8_e5m2): scale_dtype must be
+            - FP8 (float8_e4m3fn, float8_e5m2) and int8: scale_dtype must be
               torch.float8_e8m0fnu or None (defaults to None)
-            - Integer dtypes: scale_dtype must be None (defaults to None)
+            - Other integer dtypes: scale_dtype must be None (defaults to None)
+            - torch.float8_e8m0fnu requires qscheme="symmetric" and qformulation="zp"
 
             Default: None
 
@@ -505,12 +506,13 @@ class QuantizationSpec(CompressionSpec):
     @model_validator(mode="after")
     def validate_qscheme_for_fp_quant(self) -> QuantizationSpec:
         """
-        Validate that FP quantization uses symmetric quantization scheme.
+        Validate that FP quantization and e8m0 scales use symmetric quantization scheme.
         """
-        if self.dtype.is_floating_point:
+        if self.dtype.is_floating_point or self.scale_dtype is not None:
             if self.qscheme != QuantizationScheme.SYMMETRIC:
                 error_msg = (
-                    f"FP quantization (dtype={self.dtype}) requires "
+                    f"FP quantization or an e8m0 scale (dtype={self.dtype}, "
+                    f"scale_dtype={self.scale_dtype}) requires "
                     f"symmetric quantization scheme, got "
                     f"qscheme={self.qscheme}. Valid option: 'symmetric'"
                 )
@@ -520,12 +522,13 @@ class QuantizationSpec(CompressionSpec):
     @model_validator(mode="after")
     def validate_qformulation_for_fp_quant(self) -> QuantizationSpec:
         """
-        Validate that FP quantization uses zero-point quantization formulation.
+        Validate that FP quantization and e8m0 scales use zero-point quantization formulation.
         """
-        if self.dtype.is_floating_point:
+        if self.dtype.is_floating_point or self.scale_dtype is not None:
             if self.qformulation != QuantizationFormulation.ZP:
                 error_msg = (
-                    f"FP quantization (dtype={self.dtype}) requires "
+                    f"FP quantization or an e8m0 scale (dtype={self.dtype}, "
+                    f"scale_dtype={self.scale_dtype}) requires "
                     f"zero-point quantization formulation, got "
                     f"qformulation={self.qformulation}. Valid option: 'zp'"
                 )
@@ -540,8 +543,8 @@ class QuantizationSpec(CompressionSpec):
         Rules:
             - Only None or torch.float8_e8m0fnu are supported.
             - When scale_dtype is set, dtype must be a key of ``E8M0_TARGET_MAX_POW2``
-              (the dtypes with an e8m0 target exponent); for any other dtype, including
-              all integer dtypes, scale_dtype must be None.
+              (the dtypes with an e8m0 target exponent); for any other dtype,
+              scale_dtype must be None.
             - FP4 dtypes: scale_dtype is resolved to torch.float8_e8m0fnu
               by resolve_scale_dtype (before validator).
         """
