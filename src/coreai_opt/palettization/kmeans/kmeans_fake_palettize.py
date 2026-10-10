@@ -38,12 +38,6 @@ from .supported_ops_registry import _KMeansPalettizerSupportedOpsRegistry
 
 logger = logging.getLogger(__name__)
 
-#: Size of the prefix probe used to detect already-palettized blocks, as a multiple of the
-#: palette size (``2 ** n_bits``). A prefix of 8x the palette size can only fit in the palette
-#: if the block is already discrete, so ordinary weights are rejected by one small
-#: ``torch.unique`` call before the whole block is scanned.
-_PREPALETTIZED_PROBE_FACTOR = 8
-
 
 @dataclass(frozen=True)
 class _WeightVectorization:
@@ -432,22 +426,22 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         num_clusters = 2**self.n_bits
         centroids_per_block = []
         block_indices = []
-        # Already-palettized weights (e.g. a fake-palettized checkpoint re-palettized with the
-        # same spec) are detected block by block and reuse their own palette instead of
-        # running k-means. Detection stops at the first block that does not match, so an
-        # ordinary weight pays for a single small probe on its first block.
         detect_existing_palette = True
-        reused_blocks = 0
+        n_kmeans_skipped = 0
         for block_weight, block_sensitivity in zip(
             block_weights_to_cluster, block_sensitivities, strict=True
         ):
-            existing = None
+            existing_palette = None
             if detect_existing_palette:
-                existing = self._existing_palette(self._vectorize_block(block_weight), num_clusters)
-                detect_existing_palette = existing is not None
-            if existing is not None:
-                centroids, clusters = existing
-                reused_blocks += 1
+                # check if the weights are already clustered
+                existing_palette = self._existing_palette(
+                    self._vectorize_block(block_weight), num_clusters
+                )
+                # Detection stops at the first block that is not already clustered.
+                detect_existing_palette = existing_palette is not None
+            if existing_palette is not None:
+                centroids, clusters = existing_palette
+                n_kmeans_skipped += 1
             elif self.cluster_dim == 1:
                 centroids, clusters = self._cluster_weights_1d(block_weight, block_sensitivity)
             else:
@@ -456,12 +450,12 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             centroids_per_block.append(centroids.to(weight.dtype))
             block_indices.append(self._build_block_indices(clusters, block_weight).to(torch.uint8))
 
-        if reused_blocks:
+        if n_kmeans_skipped:
             logger.info(
                 "'%s': %d/%d blocks already hold at most %d distinct entries; reused their "
-                "palette instead of running k-means",
+                "centroids instead of running k-means",
                 self.tensor_fqn,
-                reused_blocks,
+                n_kmeans_skipped,
                 len(block_weights_to_cluster),
                 num_clusters,
             )
@@ -675,54 +669,65 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
     def _existing_palette(
         points: torch.Tensor, num_clusters: int
     ) -> tuple[torch.Tensor, torch.Tensor] | None:
-        """Return a block's own palette if it already takes at most ``num_clusters`` values.
+        """Return the centroids and labels of ``points`` if already clustered, else ``None``.
 
-        ``points`` is the ``(N, cluster_dim)`` matrix k-means would cluster (see
-        ``_vectorize_block``). If it has at most ``num_clusters`` distinct rows -- e.g. a
-        weight palettized with the same spec and baked into a dense tensor -- those rows are
-        an exact, zero-error clustering, which no k-means run (weighted or not) can improve
-        on. They are returned as ``(centroids, labels)`` in the same layout as
-        ``_cluster_weights_1d`` / ``_cluster_weights_2d``: centroids ``(k,)`` for scalar or
-        ``(k, cluster_dim)`` for vector palettization with ``k <= num_clusters``, labels
-        ``(N,)``.
-
-        A prefix probe rejects ordinary weights cheaply: if the first
-        ``_PREPALETTIZED_PROBE_FACTOR * num_clusters`` points already hold more than
-        ``num_clusters`` distinct rows, this returns ``None`` without scanning the rest.
-
-        Vectors are compared by their bits: when a row is 2, 4 or 8 bytes (e.g. fp16 with
-        ``cluster_dim`` 2 or 4), each row is reinterpreted as one integer, so a flat
-        ``torch.unique`` replaces the much slower row-wise ``torch.unique(dim=0)``. Other row
-        sizes use the row-wise form.
+        ``points`` are already clustered if they hold at most ``num_clusters`` distinct points.
 
         Args:
-            points (torch.Tensor): Block points of shape ``(N, cluster_dim)``.
+            points (torch.Tensor): Data points of shape ``(N, cluster_dim)``.
             num_clusters (int): Palette size, ``2 ** n_bits``.
 
         Returns:
-            tuple[torch.Tensor, torch.Tensor] | None: ``(centroids, labels)``, or ``None``
-            if the block has more than ``num_clusters`` distinct points.
+            tuple[torch.Tensor, torch.Tensor] | None: ``(centroids, labels)``, or ``None`` if
+            ``points`` hold more than ``num_clusters`` distinct points. ``centroids`` has shape
+            ``(k,)`` if ``cluster_dim`` is 1, else ``(k, cluster_dim)``, where
+            ``k <= num_clusters`` is the number of distinct points. ``labels`` has shape
+            ``(N,)``.
         """
-        cluster_dim = points.shape[1]
-        keys = points.flatten() if cluster_dim == 1 else _KMeansFakePalettize._row_keys(points)
-        # dim=None (flat unique) whenever each point is a single element; much faster.
-        dim = None if keys is not None else 0
-        values = keys if keys is not None else points
+        _SUBSET_SCAN_FACTOR = 8
 
-        probe = values[: _PREPALETTIZED_PROBE_FACTOR * num_clusters]
-        if torch.unique(probe, dim=dim).shape[0] > num_clusters:
-            return None
-        centroids, labels = torch.unique(values, dim=dim, return_inverse=True)
-        if centroids.shape[0] > num_clusters:
-            return None
-        if cluster_dim > 1 and keys is not None:  # reinterpret the unique row keys as rows
-            centroids = centroids.view(points.dtype).reshape(-1, cluster_dim)
-        return centroids, labels
+        def _unique_values_and_labels(
+            values: torch.Tensor, num_clusters: int, dim: int | None = None
+        ) -> tuple[torch.Tensor, torch.Tensor] | None:
+            # First scan only the first _SUBSET_SCAN_FACTOR * num_clusters rows of values, to
+            # make a quick exit if values are not clustered.
+            probe = values[: _SUBSET_SCAN_FACTOR * num_clusters]
+            if torch.unique(probe, dim=dim).shape[0] > num_clusters:
+                return None
+            # Scan the full tensor now.
+            unique_values, labels = torch.unique(values, dim=dim, return_inverse=True)
+            # unique_values: (k,) or (k, d); labels: (N,)
+            if unique_values.shape[0] > num_clusters:
+                return None
+            return unique_values, labels
+
+        # N = number of points, d = cluster_dim, k = number of distinct points (<= num_clusters)
+        cluster_dim = points.shape[1]
+        if cluster_dim == 1:
+            values = points.flatten()  # (N,)
+            # Returns unique values (k,), labels (N,); or None.
+            return _unique_values_and_labels(values, num_clusters)
+        else:
+            keys = _KMeansFakePalettize._row_keys(points)  # (N,) ints, or None
+            if keys is None:
+                # Rows can't be packed into one integer: compare whole rows (slower).
+                # Returns centroids (k, d), labels (N,); or None.
+                return _unique_values_and_labels(points, num_clusters, dim=0)
+            # Fast path: each row is packed into one integer, so a flat unique compares rows.
+            # Returns unique keys (k,) ints, labels (N,); or None.
+            unique_keys = _unique_values_and_labels(keys, num_clusters)
+            if unique_keys is None:
+                return None
+            centroids, labels = unique_keys  # (k,) ints, (N,)
+            centroids = centroids.view(points.dtype)  # (k * d,), unpack each key into d elements
+            centroids = centroids.reshape(-1, cluster_dim)  # (k, d)
+            return centroids, labels
 
     @staticmethod
     def _row_keys(points: torch.Tensor) -> torch.Tensor | None:
-        """Each row of ``points`` reinterpreted as one integer, or ``None`` if a row is not
-        2, 4 or 8 bytes. Rows are equal exactly when their keys are equal.
+        """Reinterpret each row of an ``(N, d)`` tensor as one integer, giving an ``(N,)`` tensor.
+        For example, a row of 4 fp16 values occupies 8 bytes and becomes one int64.
+        Return ``None`` if a row does not occupy 2, 4 or 8 bytes. 
         """
         key_dtype = {2: torch.int16, 4: torch.int32, 8: torch.int64}.get(
             points.element_size() * points.shape[1]

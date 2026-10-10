@@ -2467,7 +2467,7 @@ class TestExistingPalette:
         assert result is None
         assert unique.call_count == 1
         probed = unique.call_args.args[0]
-        assert probed.shape[0] == 8 * num_clusters  # _PREPALETTIZED_PROBE_FACTOR x palette
+        assert probed.shape[0] == 8 * num_clusters  # _SUBSET_SCAN_FACTOR x palette
 
     def test_full_scan_rejects_points_that_pass_the_probe(self):
         """A discrete prefix followed by continuous points passes the probe but not the
