@@ -422,3 +422,92 @@ class TestApplyDefaultsGrouping:
         _apply_defaults(fq_map)
         assert fq_linear.granularity.axis == 0
         assert fq_conv_t.granularity.axis == 0
+
+
+class TestConvTransposeAxisDefaultsGraph:
+    """Graph-mode regression tests for ConvTranspose2d/3d axis default resolution.
+
+    ``ATEN_OP_TO_MODULE_TYPE`` maps the aten op emitted in the exported graph
+    (e.g. ``aten.conv_transpose2d.input``) to the corresponding ``nn.Module``
+    type so that ``_apply_defaults`` can look up the correct weight axis from
+    ``_WEIGHT_AXIS_SPECS``.  These tests verify the full coreai-opt path:
+    Quantizer.prepare → axis-defaults pass → correct axis on weight FQ.
+
+    ConvTranspose weight layout is ``[in_ch, out_ch, ...]``, so:
+      - per-channel axis (output channels) = 1
+      - per-block axis  (input channels)   = 0
+    """
+
+    @pytest.mark.parametrize(
+        ("make_model", "make_input"),
+        [
+            pytest.param(
+                lambda: nn.ConvTranspose2d(16, 8, 3, padding=1),
+                lambda: torch.randn(1, 16, 8, 8),
+                id="conv_transpose2d",
+            ),
+            pytest.param(
+                lambda: nn.ConvTranspose3d(16, 8, 3, padding=1),
+                lambda: torch.randn(1, 16, 4, 4, 4),
+                id="conv_transpose3d",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        ("granularity", "expected_axis"),
+        [
+            pytest.param(PerChannelGranularity(axis=None), 1, id="per_channel_axis_1"),
+            pytest.param(
+                PerBlockGranularity(axis=None, block_size=_TEST_BLOCK_SIZE), 0, id="per_block_axis_0"
+            ),
+        ],
+    )
+    def test_axis_none_resolves_for_conv_transpose(
+        self,
+        make_model,
+        make_input,
+        granularity,
+        expected_axis,
+    ):
+        """ConvTranspose axis=None resolves to the correct default in graph mode.
+
+        Per-channel should resolve to axis 1 (output channels), per-block to
+        axis 0 (input channels), reflecting the [in_ch, out_ch, ...] weight layout.
+        """
+        config = _make_config(granularity, execution_mode="graph")
+        prepared = Quantizer(make_model(), config).prepare((make_input(),))
+
+        weight_fqs = _get_weight_fqs(prepared)
+        assert len(weight_fqs) == 1
+        assert weight_fqs[0].granularity.axis == expected_axis
+
+    @pytest.mark.parametrize(
+        ("make_model", "make_input"),
+        [
+            pytest.param(
+                lambda: nn.ConvTranspose2d(16, 8, 3, padding=1),
+                lambda: torch.randn(1, 16, 8, 8),
+                id="conv_transpose2d",
+            ),
+            pytest.param(
+                lambda: nn.ConvTranspose3d(16, 8, 3, padding=1),
+                lambda: torch.randn(1, 16, 4, 4, 4),
+                id="conv_transpose3d",
+            ),
+        ],
+    )
+    def test_prepare_calibrate_finalize_conv_transpose_graph(self, make_model, make_input):
+        """Full graph-mode workflow succeeds for ConvTranspose with axis=None."""
+        config = _make_config(PerChannelGranularity(axis=None), execution_mode="graph")
+        quantizer = Quantizer(make_model(), config)
+        example_input = make_input()
+
+        prepared = quantizer.prepare((example_input,))
+        with quantizer.calibration_mode():
+            prepared(example_input)
+        quantizer.finalize()
+
+        weight_fqs = _get_weight_fqs(prepared)
+        assert len(weight_fqs) == 1
+        assert weight_fqs[0].granularity.axis is not None
+
