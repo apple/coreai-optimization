@@ -31,6 +31,7 @@ from coreai_opt.palettization.spec import (
 from coreai_opt.palettization.spec.errors import _IncompatibleGranularityError
 from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
+from tests.utils import spy_cluster_weights
 
 
 @pytest.fixture
@@ -1695,3 +1696,65 @@ class TestKMeansPalettizerLoadFromStateDict:
         dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
         with pytest.raises(RuntimeError, match="does not match the palettizer config"):
             dst.prepare((simple_model_input,), state_dict=pruned)
+
+
+@pytest.mark.parametrize(
+    "cluster_dim, granularity",
+    [
+        pytest.param(1, PerTensorGranularity(), id="scalar-per_tensor"),
+        pytest.param(1, PerGroupedChannelGranularity(axis=0, group_size=8), id="scalar-grouped"),
+        pytest.param(2, PerTensorGranularity(), id="vector-per_tensor"),
+        pytest.param(2, PerGroupedChannelGranularity(axis=0, group_size=8), id="vector-grouped"),
+    ],
+)
+def test_prepare_on_fake_palettized_model_skips_kmeans(cluster_dim, granularity):
+    """End to end: palettize a model, bake its weights into a fresh copy (a fake-palettized
+    checkpoint), and ``prepare()`` that copy with the same config. Every weight must reuse
+    its existing palette (no k-means call) and come out bit-identical.
+    """
+    torch.manual_seed(0)
+    config = KMeansPalettizerConfig(
+        global_config=ModuleKMeansPalettizerConfig(
+            op_state_spec={
+                "weight": PalettizationSpec(
+                    n_bits=3, granularity=granularity, cluster_dim=cluster_dim
+                )
+            },
+            enable_fast_kmeans_mode=cluster_dim == 1,
+        )
+    )
+    example_inputs = (torch.randn(2, 32),)
+
+    def make_model():
+        return nn.Sequential(nn.Linear(32, 32), nn.ReLU(), nn.Linear(32, 16))
+
+    # The first prepare() palettizes ordinary weights, so it must run k-means.
+    with spy_cluster_weights(cluster_dim) as kmeans:
+        model = KMeansPalettizer(make_model(), config).prepare(example_inputs)
+    # assert that "_cluster_weights_1d" / "_cluster_weights_2d" methods are invoked
+    kmeans.assert_called()
+
+    for module in (model[0], model[2]):
+        P.remove_parametrizations(module, "weight", leave_parametrized=True)
+    fake_palettized_model = make_model()
+    fake_palettized_model.load_state_dict(model.state_dict())
+    expected = {name: p.detach().clone() for name, p in fake_palettized_model.named_parameters()}
+
+    # The 2nd prepare() palettizes already palettized weights, so it must not run k-means.
+    with spy_cluster_weights(cluster_dim) as kmeans:
+        repalettized_model = KMeansPalettizer(fake_palettized_model, config).prepare(example_inputs)
+    # assert that "_cluster_weights_1d" / "_cluster_weights_2d" methods are not invoked
+    kmeans.assert_not_called()
+
+    # named_parameters() names a parametrized weight "<module>.parametrizations.weight.original"
+    # and holds the stored input there, not the palettized output, so collect
+    # "<module>.weight" -> module.weight from the parametrized modules instead.
+    palettized_weights = {
+        f"{module_name}.weight": module.weight
+        for module_name, module in repalettized_model.named_modules()
+        if is_parametrized(module, "weight")
+    }
+    # Every weight must be palettized, and must match its fake-palettized value exactly.
+    assert palettized_weights.keys() == {key for key in expected if key.endswith(".weight")}
+    for key, weight in palettized_weights.items():
+        assert torch.equal(weight, expected[key])
