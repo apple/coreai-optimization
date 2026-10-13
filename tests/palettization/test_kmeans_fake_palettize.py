@@ -1432,7 +1432,7 @@ class TestVectorPalettization:
         weight = torch.randn(6, 8, dtype=torch.float32)
 
         spec = PalettizationSpec(
-            n_bits=2,
+            n_bits=3,
             granularity=PerTensorGranularity(),
             cluster_dim=cluster_dim,
         )
