@@ -6,10 +6,10 @@
 indent = 4
 keep_full_version = true
 
-# Cap auto-generated Python version classifiers at 3.13 to match
-# `requires-python`. Without this, pyproject-fmt's default (3.14) would add
+# Cap auto-generated Python version classifiers at 3.14 to match
+# `requires-python`. Without this, pyproject-fmt's default could add
 # classifiers for Python versions the project doesn't support.
-max_supported_python = "3.13"
+max_supported_python = "3.14"
 
 # Expand sub-tables into `[table.subtable]` headers rather than dotted keys,
 # matching the existing convention (`[tool.oss-export]`, `[project.urls]`).
