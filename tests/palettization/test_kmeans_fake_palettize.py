@@ -2414,7 +2414,7 @@ class TestDetectPrePalettizedWeights:
         assert torch.equal(palettizer._palettize(lut, indices, weight), weight)
 
     def test_row_keys(self):
-        """Rows of 2, 4 or 8 bytes are packed into one integer each; larger rows are not."""
+        """Rows of 4 or 8 bytes are packed into one integer each; larger rows are not."""
         keys = _KMeansFakePalettize._row_keys(torch.randn(10, 2))  # fp32: 8-byte rows
         assert keys.shape == (10,)
         assert keys.dtype == torch.int64

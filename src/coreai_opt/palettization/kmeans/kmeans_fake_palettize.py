@@ -771,11 +771,9 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
     def _row_keys(points: torch.Tensor) -> torch.Tensor | None:
         """Reinterpret each row of an ``(N, d)`` tensor as one integer, giving an ``(N,)`` tensor.
         For example, a row of 4 fp16 values occupies 8 bytes and becomes one int64.
-        Return ``None`` if a row does not occupy 2, 4 or 8 bytes.
+        Return ``None`` if a row does not occupy 4 or 8 bytes.
         """
-        key_dtype = {2: torch.int16, 4: torch.int32, 8: torch.int64}.get(
-            points.element_size() * points.shape[1]
-        )
+        key_dtype = {4: torch.int32, 8: torch.int64}.get(points.element_size() * points.shape[1])
         if key_dtype is None:
             return None
         return points.contiguous().view(key_dtype).reshape(-1)
