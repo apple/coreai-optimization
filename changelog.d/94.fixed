@@ -1,1 +1,0 @@
-Ensure `KMeansPalettizer.calibration_mode` cleans up temporary model checkpoints on failure and preserves caller exceptions without masking. Prevent fake palettization from remaining disabled after calibration abort, and fix sensitivity parameter name resolution for root modules.

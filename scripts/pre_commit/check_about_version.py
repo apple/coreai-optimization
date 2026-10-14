@@ -5,30 +5,7 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-"""Verify ``_about.py``'s ``latest_released_version`` and ``__version__``.
-
-Two checks:
-
-1. ``latest_released_version`` names a release that has either been tagged or
-   been branched. The tag is fetched fresh from ``origin`` so an out-of-date
-   local tag can't hide a mismatch. The branch alternative covers the
-   stabilization window: a release branch is cut before its tag exists, and
-   ``main`` moves to the next candidate at the cut, so between those two points
-   ``latest_released_version`` legitimately names an untagged release. Skipped
-   if there's no release tag yet (e.g. before the first release).
-2. ``__version__`` names a release that may directly follow
-   ``latest_released_version`` — exactly one number up by one, everything
-   after it reset to zero — plus a ``.dev0`` suffix. From ``"1.0.1"`` that
-   admits ``"2.0.0.dev0"``, ``"1.1.0.dev0"``, and ``"1.0.2.dev0"``, so a
-   minor or major is chosen by editing ``__version__``, while a skipped
-   number or a move backwards is rejected. This also stops a release
-   candidate from looking like it already shipped; see
-   ``scripts/release/release_utils.valid_next_versions``.
-
-   A release branch is the exception: it sets ``latest_released_version`` to
-   the version it produces, so ``__version__`` is that same version plus
-   ``.dev0``. See ``release_utils.release_branch_version``.
-"""
+"""Verify ``_about.py``'s ``latest_released_version`` and ``__version__``."""
 
 from __future__ import annotations
 
@@ -52,10 +29,10 @@ sys.path.insert(0, str(_repo_root))
 
 from scripts.release.release_utils import (  # noqa: E402
     RELEASE_BRANCH_PREFIX,
+    current_branch,
     latest_release_tag,
     read_about,
     release_branch_exists,
-    release_branch_version,
     valid_next_versions,
 )
 
@@ -81,18 +58,27 @@ def main() -> int:
             f"to {latest_tag!r}, or cut the release branch before bumping it."
         )
 
-    # On `main`, `__version__` names a release after `latest_released_version`.
-    # On a release branch it names that same release, because the branch sets
-    # `latest_released_version` to the version it produces.
+    # On `release/<version>`, both fields must name that release. Anywhere else — `main`,
+    # a fix branch off a release branch, a detached HEAD — accept either shape: a next
+    # release plus `.dev0`, or `latest_released_version` itself.
+    branch = current_branch(repo_root) or ""
     allowed = [f"{candidate}.dev0" for candidate in valid_next_versions(latest_released)]
-    allowed.append(release_branch_version(latest_released))
-    if about.version not in allowed:
+    allowed.append(latest_released)
+    if branch.startswith(RELEASE_BRANCH_PREFIX):
+        branch_version = branch.removeprefix(RELEASE_BRANCH_PREFIX)
+        if not latest_released == about.version == branch_version:
+            errors.append(
+                f"{branch} must name its own release: set both latest_released_version and "
+                f"__version__ to {branch_version!r} in {about.path} (they are "
+                f"{latest_released!r} and {about.version!r})."
+            )
+    elif about.version not in allowed:
         errors.append(
             f"__version__ is {about.version!r} in {about.path}, but latest_released_version "
             f"{latest_released!r} allows only {', '.join(repr(a) for a in allowed)}. "
             "__version__ must take latest_released_version, add one to exactly one of its "
             "numbers, reset every number after it to zero, and end in '.dev0' — or, on a "
-            "release branch, be latest_released_version itself plus '.dev0'."
+            "release branch, be latest_released_version itself with no '.dev0'.",
         )
 
     if errors:

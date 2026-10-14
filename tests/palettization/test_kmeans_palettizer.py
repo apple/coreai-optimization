@@ -6,6 +6,8 @@
 import copy
 import logging
 import os
+from typing import Any, ClassVar
+from unittest.mock import patch
 
 import pytest
 import torch
@@ -31,6 +33,7 @@ from coreai_opt.palettization.spec import (
 from coreai_opt.palettization.spec.errors import _IncompatibleGranularityError
 from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
+from tests.utils import spy_cluster_weights
 
 
 @pytest.fixture
@@ -1646,3 +1649,222 @@ def test_palettize_multihead_attention(
 
     output = prepared_model(simple_mha_model_input)
     assert output.shape == (1, 10, 64)
+
+
+class TestKMeansPalettizerLoadFromStateDict:
+    """prepare(state_dict=...) loads a prepared model's buffers instead of clustering."""
+
+    def test_reproduces_prepared_model(
+        self, simple_conv_linear_model, simple_model_input, basic_config, temp_dir
+    ):
+        """A skip-loaded model reproduces the source model's forward output exactly."""
+        src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        prepared = src.prepare((simple_model_input,))
+        state_dict_path = os.path.join(temp_dir, "palettizer_state_dict.pt")
+        torch.save(prepared.state_dict(), state_dict_path)
+        with torch.no_grad():
+            expected = prepared(simple_model_input)
+
+        dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        state_dict = torch.load(state_dict_path)
+        loaded = dst.prepare((simple_model_input,), state_dict=state_dict)
+        with torch.no_grad():
+            got = loaded(simple_model_input)
+
+        assert torch.equal(expected, got)
+
+    def test_skips_clustering(
+        self, monkeypatch, simple_conv_linear_model, simple_model_input, basic_config
+    ):
+        """Loading from a state dict must not run k-means clustering."""
+        src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        state_dict = src.prepare((simple_model_input,)).state_dict()
+
+        def _raise_assert(self, *args, **kwargs):
+            raise AssertionError("clustering must not run when loading from a state dict")
+
+        monkeypatch.setattr(_KMeansFakePalettize, "_cluster_to_centroids", _raise_assert)
+        dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        dst.prepare((simple_model_input,), state_dict=state_dict)
+
+    def test_missing_centroids_raises(
+        self, simple_conv_linear_model, simple_model_input, basic_config
+    ):
+        """Test that a state dict with missing centroids raises an error."""
+        src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        state_dict = src.prepare((simple_model_input,)).state_dict()
+        pruned = {k: v for k, v in state_dict.items() if not k.endswith(".centroids")}
+
+        dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
+        with pytest.raises(RuntimeError, match="does not match the palettizer config"):
+            dst.prepare((simple_model_input,), state_dict=pruned)
+
+
+class TestDetectPrePalettizedWeights:
+    """Already palettized weights: k-means is skipped, and their palettized values are kept."""
+
+    _PER_CHANNEL_SCALE: ClassVar[dict[str, Any]] = {"enable_per_channel_scale": True}
+    _LUT_FP8: ClassVar[dict[str, Any]] = {
+        "lut_qspec": QuantizationSpec(
+            dtype=torch.float8_e4m3fn, qscheme=QuantizationScheme.SYMMETRIC
+        )
+    }
+    _LUT_INT8: ClassVar[dict[str, Any]] = {
+        "lut_qspec": QuantizationSpec(
+            dtype=torch.int8, qscheme=QuantizationScheme.SYMMETRIC_WITH_CLIPPING
+        )
+    }
+
+    @staticmethod
+    def _mlp():
+        return nn.Sequential(nn.Linear(32, 32), nn.ReLU(), nn.Linear(32, 16))
+
+    @staticmethod
+    def _prepare_mlp(model, spec_kwargs, detection=True):
+        """Palettize every weight of ``model`` with an 8-entry, grouped scalar spec plus
+        ``spec_kwargs``; ``detection=False`` disables the already-palettized weight detection.
+        """
+        config = KMeansPalettizerConfig(
+            global_config=ModuleKMeansPalettizerConfig(
+                op_state_spec={
+                    "weight": PalettizationSpec(
+                        n_bits=3,
+                        granularity=PerGroupedChannelGranularity(axis=0, group_size=8),
+                        **spec_kwargs,
+                    )
+                }
+            )
+        )
+        torch.manual_seed(1)
+        example_inputs = (torch.ones(2, 32),)
+        if detection:
+            return KMeansPalettizer(model, config).prepare(example_inputs)
+        with patch.object(
+            _KMeansFakePalettize, "_existing_palette", return_value=None
+        ) as existing_palette:
+            prepared = KMeansPalettizer(model, config).prepare(example_inputs)
+        # Fails if detection no longer goes through _existing_palette, which would make this
+        # patch a no-op.
+        existing_palette.assert_called()
+        return prepared
+
+    @classmethod
+    def _fake_palettized_mlp(cls, prepared_model):
+        """A fresh model holding ``prepared_model``'s palettized weights."""
+        for module in prepared_model.modules():
+            if is_parametrized(module, "weight"):
+                P.remove_parametrizations(module, "weight", leave_parametrized=True)
+        model = cls._mlp()
+        model.load_state_dict(prepared_model.state_dict())
+        return model
+
+    @pytest.mark.parametrize(
+        "cluster_dim, granularity",
+        [
+            pytest.param(1, PerTensorGranularity(), id="scalar-per_tensor"),
+            pytest.param(
+                1, PerGroupedChannelGranularity(axis=0, group_size=8), id="scalar-grouped"
+            ),
+            pytest.param(2, PerTensorGranularity(), id="vector-per_tensor"),
+            pytest.param(
+                2, PerGroupedChannelGranularity(axis=0, group_size=8), id="vector-grouped"
+            ),
+        ],
+    )
+    def test_prepare_on_fake_palettized_model_skips_kmeans(self, cluster_dim, granularity):
+        """End to end: palettize a model, bake its weights into a fresh copy (a fake-palettized
+        checkpoint), and ``prepare()`` that copy with the same config. Every weight must reuse
+        its existing palette (no k-means call) and come out bit-identical.
+        """
+        torch.manual_seed(0)
+        config = KMeansPalettizerConfig(
+            global_config=ModuleKMeansPalettizerConfig(
+                op_state_spec={
+                    "weight": PalettizationSpec(
+                        n_bits=3, granularity=granularity, cluster_dim=cluster_dim
+                    )
+                },
+                enable_fast_kmeans_mode=cluster_dim == 1,
+            )
+        )
+        example_inputs = (torch.randn(2, 32),)
+
+        # The first prepare() palettizes ordinary weights, so it must run k-means.
+        with spy_cluster_weights(cluster_dim) as kmeans:
+            model = KMeansPalettizer(self._mlp(), config).prepare(example_inputs)
+        # assert that "_cluster_weights_1d" / "_cluster_weights_2d" methods are invoked
+        kmeans.assert_called()
+
+        for module in (model[0], model[2]):
+            P.remove_parametrizations(module, "weight", leave_parametrized=True)
+        fake_palettized_model = self._mlp()
+        fake_palettized_model.load_state_dict(model.state_dict())
+        expected = {
+            name: p.detach().clone() for name, p in fake_palettized_model.named_parameters()
+        }
+
+        # The 2nd prepare() palettizes already palettized weights, so it must not run k-means.
+        with spy_cluster_weights(cluster_dim) as kmeans:
+            repalettized_model = KMeansPalettizer(fake_palettized_model, config).prepare(
+                example_inputs
+            )
+        # assert that "_cluster_weights_1d" / "_cluster_weights_2d" methods are not invoked
+        kmeans.assert_not_called()
+
+        # named_parameters() names a parametrized weight "<module>.parametrizations.weight.original"
+        # and holds the stored input there, not the palettized output, so collect
+        # "<module>.weight" -> module.weight from the parametrized modules instead.
+        palettized_weights = {
+            f"{module_name}.weight": module.weight
+            for module_name, module in repalettized_model.named_modules()
+            if is_parametrized(module, "weight")
+        }
+        # Every weight must be palettized, and must match its fake-palettized value exactly.
+        assert palettized_weights.keys() == {key for key in expected if key.endswith(".weight")}
+        for key, weight in palettized_weights.items():
+            assert torch.equal(weight, expected[key])
+
+    @pytest.mark.parametrize(
+        "spec_kwargs, fake_palettized",
+        [
+            pytest.param(_PER_CHANNEL_SCALE, False, id="per_channel_scale"),
+            pytest.param(_LUT_FP8, False, id="lut_fp8"),
+            pytest.param(_LUT_INT8, False, id="lut_int8"),
+            # Baking per-channel-scaled weights loses the scales, so detection cannot apply.
+            pytest.param(_PER_CHANNEL_SCALE, True, id="per_channel_scale-fake_palettized"),
+        ],
+    )
+    def test_detection_does_not_change_prepare(self, spec_kwargs, fake_palettized):
+        """Where weights are not detected as already palettized, prepare() gives the same
+        state dict with detection on and off.
+        """
+        torch.manual_seed(0)
+        model = self._mlp()
+        if fake_palettized:
+            model = self._fake_palettized_mlp(self._prepare_mlp(model, spec_kwargs))
+
+        with_detection = self._prepare_mlp(copy.deepcopy(model), spec_kwargs).state_dict()
+        without_detection = self._prepare_mlp(model, spec_kwargs, detection=False).state_dict()
+
+        assert with_detection.keys() == without_detection.keys()
+        for key, value in with_detection.items():
+            assert torch.equal(value, without_detection[key]), key
+
+    @pytest.mark.parametrize(
+        "spec_kwargs", [pytest.param(_LUT_FP8, id="fp8"), pytest.param(_LUT_INT8, id="int8")]
+    )
+    def test_repalettize_with_quantized_lut_is_exact(self, spec_kwargs):
+        """For LUT schemes whose quantization round-trips a dequantized LUT exactly,
+        re-palettizing fake-palettized weights skips k-means and reproduces the palettized
+        weights.
+        """
+        torch.manual_seed(0)
+        prepared = self._prepare_mlp(self._mlp(), spec_kwargs)
+        expected = {name: prepared[int(name)].weight.detach().clone() for name in ("0", "2")}
+
+        with spy_cluster_weights(cluster_dim=1) as kmeans:
+            repalettized = self._prepare_mlp(self._fake_palettized_mlp(prepared), spec_kwargs)
+
+        kmeans.assert_not_called()
+        for name, weight in expected.items():
+            assert torch.equal(repalettized[int(name)].weight, weight)

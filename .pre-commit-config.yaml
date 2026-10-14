@@ -327,8 +327,8 @@ repos:
           Check that _about.py's latest_released_version matches the repo's
           latest release tag (or has a release/<version> branch), and that
           __version__ raises exactly one of its numbers by one, zeroes the
-          rest, and ends in .dev0. Catches a release candidate that looks
-          like a release has already shipped when it hasn't.
+          rest, and ends in .dev0 — or, on release/<version>, that both
+          fields equal <version>.
         entry: python scripts/pre_commit/check_about_version.py
         language: system
         files: (^|/)_about\.py$

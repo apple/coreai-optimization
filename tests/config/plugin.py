@@ -113,3 +113,12 @@ def accelerator_device() -> str:
     if torch.backends.mps.is_available():
         return "mps"
     pytest.skip("requires a CUDA or MPS accelerator")
+
+
+@pytest.fixture(autouse=True)
+def _require_cuda_device(request: pytest.FixtureRequest) -> None:
+    """Skip cuda-marked tests when no CUDA device is available."""
+    if request.node.get_closest_marker("cuda") is None:
+        return
+    if not torch.cuda.is_available():
+        pytest.skip("requires a CUDA device")

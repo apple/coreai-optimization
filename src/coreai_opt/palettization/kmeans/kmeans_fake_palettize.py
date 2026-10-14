@@ -199,6 +199,24 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             )
             self._disabled = True
 
+    def check_compatible(self, weight: torch.Tensor) -> bool:
+        """Return whether ``weight``'s shape is compatible with this module's spec.
+
+        Runs the reshape/block prefix on a meta (zero-storage) copy of ``weight``:
+        no data is read, no scaling is applied, and nothing is allocated.
+
+        Args:
+            weight (torch.Tensor): Weight tensor in its original shape.
+
+        Returns:
+            bool: True if the shape is compatible with the configured spec.
+        """
+        try:
+            self._reshape_and_block(weight.to("meta"))
+        except (_IncompatibleClusterDimError, _IncompatibleGranularityError):
+            return False
+        return True
+
     def forward_enabled(self, tensor: torch.Tensor) -> torch.Tensor:
         if self.training:
             return self._training_strategy.train_forward(self, tensor)
@@ -235,17 +253,25 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             self.indices = self._assign_indices(weight, self.centroids).detach()
             self._indices_stale = False
 
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        """Omit stale indices so they are recomputed from centroids on load."""
+        super()._save_to_state_dict(destination, prefix, keep_vars)
+        if self._indices_stale:
+            destination.pop(prefix + "indices", None)
+
     def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
         """Load centroids from a checkpoint, reconstructing them from a legacy
         ``lut`` buffer when present.
         """
-        lut_key, centroids_key = prefix + "lut", prefix + "centroids"
+        lut_key, centroids_key, index_key = prefix + "lut", prefix + "centroids", prefix + "indices"
         if centroids_key not in state_dict and lut_key in state_dict:
             state_dict[centroids_key] = self._centroids_from_lut(state_dict[lut_key])
+        had_indices = index_key in state_dict
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
         if self.centroids is not None:
             self._centroids_initialized = True
-            self._indices_stale = True
+            scale_ok = not self.enable_per_channel_scale or self.per_channel_scale is not None
+            self._indices_stale = not (had_indices and scale_ok)
 
     def _centroids_from_lut(self, lut: torch.Tensor) -> torch.Tensor:
         """Invert ``_reshape_lut_tensor`` to recover ``(num_blocks, num_clusters,
@@ -391,6 +417,24 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         """
         if self.enable_per_channel_scale:
             weight = self._scale_by_per_channel_scale(weight)
+        return self._reshape_and_block(weight)
+
+    def _reshape_and_block(self, weight: torch.Tensor) -> tuple[list[torch.Tensor], int]:
+        """Reshape to 2D and split into per-block tensors (no scaling).
+
+        Shared by the clustering path and the compatibility probe.
+
+        Args:
+            weight (torch.Tensor): Weight tensor in its original shape.
+
+        Returns:
+            tuple[list[torch.Tensor], int]: The per-block 2D tensors and the
+            resolved palettization axis.
+
+        Raises:
+            _IncompatibleGranularityError: If the shape is incompatible with the granularity.
+            _IncompatibleClusterDimError: If the shape is incompatible with cluster_dim.
+        """
         axis = self._resolved_axis
 
         # Produce a 2d tensor with output channel axis remaining as is, and all other axes flattened
@@ -434,10 +478,23 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         num_clusters = 2**self.n_bits
         centroids_per_block = []
         block_indices = []
+        detect_existing_palette = True
+        n_kmeans_skipped = 0
         for block_weight, block_sensitivity, block_mask in zip(
             block_weights_to_cluster, block_sensitivities, block_masks, strict=True
         ):
-            if self.cluster_dim == 1 and block_mask is not None:
+            existing_palette = None
+            if detect_existing_palette:
+                # check if the weights are already clustered
+                existing_palette = self._existing_palette(
+                    self._vectorize_block(block_weight), num_clusters
+                )
+                # Detection stops at the first block that is not already clustered.
+                detect_existing_palette = existing_palette is not None
+            if existing_palette is not None:
+                centroids, clusters = existing_palette
+                n_kmeans_skipped += 1
+            elif self.cluster_dim == 1 and block_mask is not None:
                 centroids, clusters = self._cluster_weights_1d_with_zero(
                     block_weight, block_mask, block_sensitivity
                 )
@@ -448,6 +505,16 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             centroids = self._pad_lut_to_num_clusters(centroids, num_clusters)
             centroids_per_block.append(centroids.to(weight.dtype))
             block_indices.append(self._build_block_indices(clusters, block_weight).to(torch.uint8))
+
+        if n_kmeans_skipped:
+            logger.info(
+                "'%s': %d/%d blocks already hold at most %d distinct entries; reused their "
+                "centroids instead of running k-means",
+                self.tensor_fqn,
+                n_kmeans_skipped,
+                len(block_weights_to_cluster),
+                num_clusters,
+            )
 
         stacked = torch.stack(centroids_per_block)
         # Keep a trailing vector dimension so shape is (num_blocks,
@@ -653,6 +720,75 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             lut.to(torch.float32), scale, zero_point, minval
         ).to(orig_dtype)
         return lut
+
+    @staticmethod
+    def _existing_palette(
+        points: torch.Tensor, num_clusters: int
+    ) -> tuple[torch.Tensor, torch.Tensor] | None:
+        """Return the centroids and labels of ``points`` if already clustered, else ``None``.
+
+        ``points`` are already clustered if they hold at most ``num_clusters`` distinct points.
+
+        Args:
+            points (torch.Tensor): Data points of shape ``(N, cluster_dim)``.
+            num_clusters (int): Palette size, ``2 ** n_bits``.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor] | None: ``(centroids, labels)``, or ``None`` if
+            ``points`` hold more than ``num_clusters`` distinct points. ``centroids`` has shape
+            ``(k,)`` if ``cluster_dim`` is 1, else ``(k, cluster_dim)``, where
+            ``k <= num_clusters`` is the number of distinct points. ``labels`` has shape
+            ``(N,)``.
+        """
+        _SUBSET_SCAN_FACTOR = 8
+
+        def _unique_values_and_labels(
+            values: torch.Tensor, num_clusters: int, dim: int | None = None
+        ) -> tuple[torch.Tensor, torch.Tensor] | None:
+            # First scan only the first _SUBSET_SCAN_FACTOR * num_clusters rows of values, to
+            # make a quick exit if values are not clustered.
+            probe = values[: _SUBSET_SCAN_FACTOR * num_clusters]
+            if torch.unique(probe, dim=dim).shape[0] > num_clusters:
+                return None
+            # Scan the full tensor now.
+            unique_values, labels = torch.unique(values, dim=dim, return_inverse=True)
+            # unique_values: (k,) or (k, d); labels: (N,)
+            if unique_values.shape[0] > num_clusters:
+                return None
+            return unique_values, labels
+
+        # N = number of points, d = cluster_dim, k = number of distinct points (<= num_clusters)
+        cluster_dim = points.shape[1]
+        if cluster_dim == 1:
+            values = points.flatten()  # (N,)
+            # Returns unique values (k,), labels (N,); or None.
+            return _unique_values_and_labels(values, num_clusters)
+        else:
+            keys = _KMeansFakePalettize._row_keys(points)  # (N,) ints, or None
+            if keys is None:
+                # Rows can't be packed into one integer: compare whole rows (slower).
+                # Returns centroids (k, d), labels (N,); or None.
+                return _unique_values_and_labels(points, num_clusters, dim=0)
+            # Fast path: each row is packed into one integer, so a flat unique compares rows.
+            # Returns unique keys (k,) ints, labels (N,); or None.
+            unique_keys = _unique_values_and_labels(keys, num_clusters)
+            if unique_keys is None:
+                return None
+            centroids, labels = unique_keys  # (k,) ints, (N,)
+            centroids = centroids.view(points.dtype)  # (k * d,), unpack each key into d elements
+            centroids = centroids.reshape(-1, cluster_dim)  # (k, d)
+            return centroids, labels
+
+    @staticmethod
+    def _row_keys(points: torch.Tensor) -> torch.Tensor | None:
+        """Reinterpret each row of an ``(N, d)`` tensor as one integer, giving an ``(N,)`` tensor.
+        For example, a row of 4 fp16 values occupies 8 bytes and becomes one int64.
+        Return ``None`` if a row does not occupy 4 or 8 bytes.
+        """
+        key_dtype = {4: torch.int32, 8: torch.int64}.get(points.element_size() * points.shape[1])
+        if key_dtype is None:
+            return None
+        return points.contiguous().view(key_dtype).reshape(-1)
 
     def _cluster_weights_1d(
         self,
@@ -979,6 +1115,8 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         per channel scales.
         """
         flattened_scaled_weight = scaled_weight.flatten(1)
-        flattened_unscaled_weight = flattened_scaled_weight * self.per_channel_scale
+        flattened_unscaled_weight = flattened_scaled_weight * self.per_channel_scale.to(
+            flattened_scaled_weight.device
+        )
         unscaled_weight = flattened_unscaled_weight.reshape(scaled_weight.shape)
         return unscaled_weight

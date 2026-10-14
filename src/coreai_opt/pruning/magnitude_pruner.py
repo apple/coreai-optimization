@@ -6,7 +6,7 @@
 """Magnitude pruner implementation."""
 
 import logging
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import torch
 
@@ -94,11 +94,11 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
         self._step_count = 0
         self._scheduled_modules = []
 
-    def prepare(self, example_inputs: tuple[torch.Tensor]) -> torch.nn.Module:
+    def prepare(self, example_inputs: tuple[Any, ...]) -> torch.nn.Module:
         """Prepare the model for pruning.
 
         Args:
-            example_inputs (tuple[torch.Tensor]): Sample inputs to trace the
+            example_inputs (tuple[Any, ...]): Sample inputs to trace the
                 model and configure pruning parametrizations.
 
         Returns:

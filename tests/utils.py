@@ -3,13 +3,26 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
+from contextlib import AbstractContextManager
 from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import yaml
 from torch.nn.utils.parametrize import is_parametrized
+
+from coreai_opt.palettization.kmeans.kmeans_fake_palettize import _KMeansFakePalettize
+
+
+def spy_cluster_weights(cluster_dim: int) -> AbstractContextManager[Any]:
+    """Patch the k-means method for ``cluster_dim`` with a call-recording mock that runs it."""
+    name = "_cluster_weights_1d" if cluster_dim == 1 else "_cluster_weights_2d"
+    return patch.object(
+        _KMeansFakePalettize, name, autospec=True, side_effect=getattr(_KMeansFakePalettize, name)
+    )
 
 
 def count_weight_parametrizations(model: nn.Module, parametrization_cls: type) -> int:

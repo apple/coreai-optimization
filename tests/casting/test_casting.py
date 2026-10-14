@@ -425,7 +425,7 @@ class TestCastFullModels:
 
 
 # =============================================================================
-# Selective Op Skipping tests (Issue #7)
+# Selective Op Skipping tests
 # =============================================================================
 class _ActivationOverflowModel(nn.Module):
     """Model that triggers FP16 activation overflow in intermediate ops.
@@ -457,7 +457,7 @@ class _CreationModel(nn.Module):
 
 
 class TestSelectiveOpSkipping:
-    """Tests for selective op skipping in FP16 casting (Issue #7)."""
+    """Tests for selective op skipping in FP16 casting."""
 
     def test_ignored_op_prevents_activation_overflow(self):
         """Ignoring exp and log1p keeps intermediate ops in FP32, preventing inf."""
@@ -574,3 +574,241 @@ class TestSelectiveOpSkipping:
         out = _run_ep(ep, x.half())
         assert not torch.isinf(out).any()
         assert torch.allclose(out.float(), x, atol=1e-3)
+
+
+# =============================================================================
+# Dynamic Activation Range Calibration tests
+# =============================================================================
+class TestDynamicActivationCalibration:
+    """End-to-end tests for dynamic activation range calibration in FP16 casting."""
+
+    def test_dynamic_calibration_prevents_activation_overflow(self):
+        """Supplying calibration data automatically prevents FP16 overflow."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ref = model(x)
+
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=[x])
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any(), "Expected finite output with calibration_data"
+        assert torch.allclose(out.float(), ref, atol=1e-3)
+
+        # Inspect graph: overflowing ops remain in FP32 with boundary casts
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        log1p_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.log1p.default
+        )
+        assert exp_node.meta["val"].dtype == torch.float32
+        assert log1p_node.meta["val"].dtype == torch.float32
+
+        # Check cast to FP32 before exp
+        cast_to_fp32 = exp_node.args[0]
+        assert cast_to_fp32.target == torch.ops.aten._to_copy.default
+        assert cast_to_fp32.kwargs.get("dtype") == torch.float32
+
+        # Check cast back to FP16 after log1p before graph output
+        output_node = next(n for n in ep.graph.nodes if n.op == "output")
+        cast_to_fp16 = output_node.args[0][0]
+        assert cast_to_fp16.target == torch.ops.aten._to_copy.default
+        assert cast_to_fp16.kwargs.get("dtype") == torch.float16
+
+    def test_dynamic_calibration_dataloader(self):
+        """PyTorch DataLoader yielding sample tuples works seamlessly."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ref = model(x)
+
+        dataset = [(x,), (x,)]
+        loader = torch.utils.data.DataLoader(dataset, batch_size=1)
+
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=loader)
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-3)
+
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        assert exp_node.meta["val"].dtype == torch.float32
+
+    def test_dynamic_calibration_no_overflow_model(self):
+        """Model without overflow retains >= 95% FP16 ops and expected weight reduction."""
+        model = SimpleModel().eval()
+        x = torch.randn(1, 1, 28, 28)
+        ep = _export(model, x)
+        before_bytes = _total_param_bytes(ep)
+
+        cast_fp32_to_fp16(ep, calibration_data=[x])
+        out = _run_ep(ep, x.half())
+        ref = _run_ep(_export(model, x), x)
+
+        snr = _snr_db(ref, out)
+        assert snr > 30, f"SNR too low: {snr:.1f} dB"
+
+        ratio = _fp16_ratio(_count_op_dtypes(ep))
+        assert ratio >= 0.95, f"Expected >= 95% FP16 ops, got {ratio:.0%}"
+
+        reduction = 1 - _total_param_bytes(ep) / before_bytes
+        assert reduction >= 0.45, f"Weight reduction only {reduction:.0%}"
+
+    def test_dynamic_calibration_with_ignored_ops(self):
+        """Passing both calibration_data and ignored_ops respects both exclusions."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[1.0]])  # x=1 does not overflow exp
+        ep = _export(model, x)
+
+        # Explicitly ignore exp via ignored_ops even though calibration doesn't overflow
+        cast_fp32_to_fp16(ep, ignored_ops={torch.ops.aten.exp}, calibration_data=[x])
+
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        assert exp_node.meta["val"].dtype == torch.float32
+        assert exp_node.args[0].target == torch.ops.aten._to_copy.default
+        assert exp_node.args[0].kwargs.get("dtype") == torch.float32
+
+    def test_cast_to_16_bit_precision_forwards_calibration_data(self):
+        """cast_to_16_bit_precision forwards calibration_data to FP16 casting."""
+        model = _ActivationOverflowModel().eval()
+        x = torch.tensor([[15.0]])
+        ref = model(x)
+
+        ep = _export(model, x)
+        cast_to_16_bit_precision(ep, calibration_data=[x])
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-3)
+
+        exp_node = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        )
+        assert exp_node.meta["val"].dtype == torch.float32
+
+    def test_attention_logit_overflow_preserved_in_fp32(self):
+        """Attention dot-product logits exceeding 65504 are preserved in FP32."""
+
+        class _AttentionBlock(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.q = nn.Linear(32, 32)
+                self.k = nn.Linear(32, 32)
+                self.v = nn.Linear(32, 32)
+
+            def forward(self, x):
+                q = self.q(x)
+                k = self.k(x)
+                v = self.v(x)
+                scores = torch.matmul(q, k.transpose(-2, -1))
+                attn = torch.softmax(scores, dim=-1)
+                return torch.matmul(attn, v)
+
+        torch.manual_seed(42)
+        model = _AttentionBlock().eval()
+        with torch.no_grad():
+            model.q.weight.mul_(150.0)
+            model.k.weight.mul_(150.0)
+
+        x = torch.randn(2, 4, 32)
+        ref = model(x)
+        assert not torch.isinf(ref).any()
+
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=[x])
+        out = _run_ep(ep, x.half())
+
+        assert not torch.isinf(out).any()
+        assert torch.allclose(out.float(), ref, atol=1e-2, rtol=1e-2)
+
+        # The overflowing matmul and softmax should remain in FP32
+        softmax_node = next(
+            n for n in ep.graph.nodes if n.op == "call_function" and "_softmax" in str(n.target)
+        )
+        assert softmax_node.meta["val"].dtype == torch.float32
+
+        # Check cast-back to FP16 exists after softmax
+        softmax_cast = next(
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function"
+            and n.target == torch.ops.aten._to_copy.default
+            and n.args[0] is softmax_node
+        )
+        assert softmax_cast.kwargs.get("dtype") == torch.float16
+
+    def test_dynamic_calibration_union_of_overflowing_nodes_across_samples(self):
+        """Union of overflowing nodes across distinct calibration samples stays in FP32."""
+
+        class _TwoBranchModel(nn.Module):
+            def forward(self, x):
+                # Branch A
+                branch_a = torch.log1p(torch.exp(x[:, 0]))
+                # Branch B
+                branch_b = torch.log1p(torch.exp(x[:, 1]))
+                return branch_a + branch_b
+
+        model = _TwoBranchModel().eval()
+        # Sample A overflows branch A (exp(15) > 65504), but not branch B (exp(1) ~ 2.7)
+        sample_a = torch.tensor([[15.0, 1.0]])
+        # Sample B overflows branch B (exp(15) > 65504), but not branch A (exp(1) ~ 2.7)
+        sample_b = torch.tensor([[1.0, 15.0]])
+
+        # Baseline: calibrating with only sample A keeps branch A in FP32 and casts branch B to FP16
+        ep_single = _export(model, sample_a)
+        cast_fp32_to_fp16(ep_single, calibration_data=[sample_a])
+        exp_single = [
+            n
+            for n in ep_single.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        ]
+        assert [n.meta["val"].dtype for n in exp_single] == [torch.float32, torch.float16]
+
+        # Calibrating with both samples preserves the union (both branches) in FP32
+        ep = _export(model, sample_a)
+        cast_fp32_to_fp16(ep, calibration_data=[sample_a, sample_b])
+
+        # Verify both exp nodes remain in FP32
+        exp_nodes = [
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.exp.default
+        ]
+        assert len(exp_nodes) == 2
+        for node in exp_nodes:
+            assert node.meta["val"].dtype == torch.float32
+            # Boundary cast to FP32 before exp
+            assert node.args[0].target == torch.ops.aten._to_copy.default
+            assert node.args[0].kwargs.get("dtype") == torch.float32
+
+        # Verify both log1p nodes remain in FP32
+        log1p_nodes = [
+            n
+            for n in ep.graph.nodes
+            if n.op == "call_function" and n.target == torch.ops.aten.log1p.default
+        ]
+        assert len(log1p_nodes) == 2
+        for node in log1p_nodes:
+            assert node.meta["val"].dtype == torch.float32
+
+        # Verify numerical correctness for both samples
+        for sample in [sample_a, sample_b]:
+            ref = model(sample)
+            out = _run_ep(ep, sample.half())
+            assert not torch.isinf(out).any()
+            assert torch.allclose(out.float(), ref, atol=1e-3)

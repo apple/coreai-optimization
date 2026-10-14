@@ -16,6 +16,7 @@ from pathlib import Path
 
 from nox import Session, options
 from nox_uv import session
+from packaging.version import Version
 
 from coreai_opt._utils.repo_utils import find_repo_root
 
@@ -37,6 +38,17 @@ options.error_on_missing_interpreters = True
 
 TORCH_GROUP = os.environ.get("TORCH_GROUP")
 
+# torch < 2.11 cannot run on 3.14+: torch 2.8 ships no cp314 wheels, and torch 2.9/2.10
+# fail on torchao import.
+# Remove a group from this set when that group is dropped.
+PYTHON_VERSIONS = [
+    v
+    for v in get_supported_python_versions()
+    if not (
+        TORCH_GROUP in {"torch_2_8", "torch_2_9", "torch_2_10"} and Version(v) >= Version("3.14")
+    )
+]
+
 # Optional path to a pre-built distribution (wheel or sdist) to smoke test
 # instead of building one from source. Set by the release workflow so the exact
 # artifact that will be uploaded to PyPI is what gets tested. Relative paths are
@@ -51,7 +63,7 @@ POST_INSTALL_PIP_ARGS = os.environ.get("POST_INSTALL_PIP_ARGS")
 
 
 @session(
-    python=get_supported_python_versions(),
+    python=PYTHON_VERSIONS,
     uv_extras=["coreai"],
     uv_groups=["test", TORCH_GROUP],
     # When testing a pre-built distribution, install only the project's
