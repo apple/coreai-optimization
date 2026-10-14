@@ -108,6 +108,17 @@ class PalettizationSpec(CompressionSpec):
     # Private attribute for compression type
     _compression_type: CompressionType = PrivateAttr(default=CompressionType.PALETTIZATION)
 
+    # Sparsity level, in [0, 1]. Set via the `_sparsity` constructor/dict key.
+    _sparsity: float | None = PrivateAttr(default=None)
+
+    def __init__(self, **data: Any) -> None:
+        sparsity = data.pop("_sparsity", None)
+        super().__init__(**data)
+        if sparsity is not None:
+            if not (0.0 <= sparsity <= 1.0):
+                raise ValueError(f"_sparsity must be in [0, 1], got {sparsity}")
+            self._sparsity = sparsity
+
     @model_validator(mode="after")
     def validate_lut_qspec(self) -> "PalettizationSpec":
         """Validate that lut_qspec only uses supported configurations."""
