@@ -100,6 +100,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         rounding_precision: int = 4,
         op_to_optimize: Callable | None = None,
         training_strategy_spec: TrainingStrategySpec | None = None,
+        sparsity_detection_threshold: float | None = None,
     ):
         super().__init__(
             n_bits=n_bits,
@@ -107,6 +108,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             granularity=granularity,
             cluster_dim=cluster_dim,
             enable_per_channel_scale=enable_per_channel_scale,
+            sparsity_detection_threshold=sparsity_detection_threshold,
         )
 
         self.enable_fast_kmeans_mode = enable_fast_kmeans_mode
@@ -467,13 +469,19 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         else:
             block_sensitivities = [None] * len(block_weights_to_cluster)
 
+        if self._sparsity_mask is not None:
+            mask = self.reshape_strategy.reshape_for_kmeans(self._sparsity_mask.cpu(), axis)
+            block_masks = self.granularity.get_blocks_to_cluster(mask)
+        else:
+            block_masks = [None] * len(block_weights_to_cluster)
+
         num_clusters = 2**self.n_bits
         centroids_per_block = []
         block_indices = []
         detect_existing_palette = True
         n_kmeans_skipped = 0
-        for block_weight, block_sensitivity in zip(
-            block_weights_to_cluster, block_sensitivities, strict=True
+        for block_weight, block_sensitivity, block_mask in zip(
+            block_weights_to_cluster, block_sensitivities, block_masks, strict=True
         ):
             existing_palette = None
             if detect_existing_palette:
@@ -486,6 +494,10 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             if existing_palette is not None:
                 centroids, clusters = existing_palette
                 n_kmeans_skipped += 1
+            elif self.cluster_dim == 1 and block_mask is not None:
+                centroids, clusters = self._cluster_weights_1d_with_zero(
+                    block_weight, block_mask, block_sensitivity
+                )
             elif self.cluster_dim == 1:
                 centroids, clusters = self._cluster_weights_1d(block_weight, block_sensitivity)
             else:
@@ -782,11 +794,12 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         self,
         block_weight: torch.Tensor,
         block_sensitivity: torch.Tensor | None,
+        num_clusters: int | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Cluster weights such that each centroid is a 1d scalar, i.e., cluster_dim == 1.
         """
-        num_clusters = 2**self.n_bits
+        num_clusters = num_clusters or 2**self.n_bits
 
         # numpy has no bfloat16 dtype, so cluster bf16 weights as float32. The
         # centroids are cast back to the weight dtype by the caller.
@@ -836,6 +849,27 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         clusters = torch.from_numpy(np.array(kmeans_results.clusters))
 
         return centroids, clusters
+
+    def _cluster_weights_1d_with_zero(
+        self,
+        block_weight: torch.Tensor,
+        block_mask: torch.Tensor,
+        block_sensitivity: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Reserve centroid 0 for exactly 0 and fit the other ``2**n_bits - 1`` centroids on
+        the unpruned elements only. Unpruned elements index centroids 1.., pruned ones index 0.
+        """
+        flat_weight = block_weight.flatten()
+        keep = block_mask.flatten().bool()
+        clusters = torch.zeros(flat_weight.numel(), dtype=torch.long)
+        if not keep.any():
+            return torch.zeros(1, dtype=torch.float64), clusters
+        kept_sensitivity = None if block_sensitivity is None else block_sensitivity.flatten()[keep]
+        centroids, kept_clusters = self._cluster_weights_1d(
+            flat_weight[keep], kept_sensitivity, num_clusters=2**self.n_bits - 1
+        )
+        clusters[keep] = kept_clusters.long() + 1
+        return torch.cat([torch.zeros(1, dtype=centroids.dtype), centroids]), clusters
 
     def _cluster_weights_2d(
         self,
