@@ -95,10 +95,10 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         """Return the nonzero mask of ``tensor`` if at least ``sparsity_detection_threshold``
         of its elements are exactly zero, else ``None``.
         """
-        mask = tensor != 0
-        if 1 - mask.float().mean().item() < self.sparsity_detection_threshold:
+        num_zeros = tensor.numel() - torch.count_nonzero(tensor).item()
+        if num_zeros < self.sparsity_detection_threshold * tensor.numel():
             return None
-        return mask
+        return tensor != 0
 
     @abstractmethod
     def ensure_initialized(self, tensor: torch.Tensor) -> None:
