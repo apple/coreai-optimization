@@ -262,10 +262,11 @@ class TestJointPalettizationCompression:
     """PTP + PTS (post-training palettization + sparsity) across the n_bits/
     cluster_dim/granularity matrix.
 
-    Masking flattens indices to rank 1 before the LUT lookup. CoreAI's op chain
-    needs a single, position-independent codebook for that to stay meaningful
-    -- per-tensor granularity and scalar (cluster_dim=1) -- and has no other
-    combination to build, so it rejects unsupported configs outright.
+    Masking flattens indices to rank 1 before the LUT lookup. CoreAI supports
+    scalar (cluster_dim=1) palettization with per-tensor or axis-0 grouped LUTs:
+    the mask is balanced per group, so each group's nonzero indices form one
+    contiguous, equal-length block that ``lut_to_dense`` maps to that group's LUT.
+    It rejects other configs outright.
 
     CoreML is more permissive: per-tensor and per-grouped-channel granularity
     both keep one index per weight element, so coremltools' own sparse LUT op
@@ -280,39 +281,32 @@ class TestJointPalettizationCompression:
     scale/data rank mismatch, respectively), confirmed directly.
     """
 
-    # Per-tensor, scalar (cluster_dim=1) palettization: the only combination
-    # that gets the joint sparse op chain, at a few n_bits.
+    # Scalar (cluster_dim=1) palettization gets the joint sparse op chain on both backends.
     PALETT_VALID_CONFIGS: list[tuple[str, dict]] = [
         ("4bit", {"n_bits": 4}),
         ("6bit", {"n_bits": 6}),
         ("8bit", {"n_bits": 8}),
-    ]
-    # CoreAI rejects both outright. CoreML rejects only vector_ndim (see class
-    # docstring) -- grouped_channel gets the joint chain there.
-    PALETT_INVALID_CONFIGS: list[tuple[str, dict]] = [
-        ("vector_ndim", {"n_bits": 4, "cluster_dim": 2}),
         (
             "grouped_channel",
             {"n_bits": 4, "granularity": PerGroupedChannelGranularity(axis=0, group_size=2)},
         ),
+    ]
+    # CoreAI rejects vector palettization outright; CoreML rejects it too (see class docstring).
+    PALETT_INVALID_CONFIGS: list[tuple[str, dict]] = [
+        ("vector_ndim", {"n_bits": 4, "cluster_dim": 2}),
     ]
     PALETT_COREML_REJECTS_CONFIGS: list[tuple[str, dict]] = [
         ("vector_ndim", {"n_bits": 4, "cluster_dim": 2}),
         ("per_channel_scale", {"n_bits": 4, "enable_per_channel_scale": True}),
     ]
-    PALETT_COREML_ACCEPTS_CONFIGS: list[tuple[str, dict]] = [
-        (
-            "grouped_channel",
-            {"n_bits": 4, "granularity": PerGroupedChannelGranularity(axis=0, group_size=2)},
-        ),
-    ]
 
     @staticmethod
     def _build_palettizer(model: nn.Module, **spec_kwargs) -> KMeansPalettizer:
         spec_kwargs.setdefault("granularity", PalettPerTensorGranularity())
+        spec_kwargs.setdefault("_sparsity", _SPARSITY)
         config = KMeansPalettizerConfig(
             global_config=ModuleKMeansPalettizerConfig(
-                op_state_spec={"weight": PalettizationSpec(_sparsity=_SPARSITY, **spec_kwargs)},
+                op_state_spec={"weight": PalettizationSpec(**spec_kwargs)},
                 # cluster_dim > 1 requires fast mode off; scalar palettization keeps it on,
                 # since non-fast 1-D k-means allocates O(2**n_bits * weight.numel()) memory.
                 enable_fast_kmeans_mode=spec_kwargs.get("cluster_dim", 1) == 1,
@@ -370,7 +364,7 @@ class TestJointPalettizationCompression:
         [c[1] for c in PALETT_VALID_CONFIGS],
         ids=[c[0] for c in PALETT_VALID_CONFIGS],
     )
-    def test_accepts_scalar_per_tensor_mnist(
+    def test_accepts_scalar_mnist(
         self, backend, spec_kwargs, custom_test_mnist_model, mnist_example_input
     ):
         self._run(
@@ -388,7 +382,7 @@ class TestJointPalettizationCompression:
         [c[1] for c in PALETT_VALID_CONFIGS],
         ids=[c[0] for c in PALETT_VALID_CONFIGS],
     )
-    def test_accepts_scalar_per_tensor_resnet(
+    def test_accepts_scalar_resnet(
         self, backend, spec_kwargs, resnet50_model, resnet_example_input
     ):
         self._run(
@@ -400,11 +394,35 @@ class TestJointPalettizationCompression:
         )
 
     @pytest.mark.parametrize(
+        "granularity",
+        [PalettPerTensorGranularity(), PerGroupedChannelGranularity(axis=0, group_size=2)],
+        ids=["per_tensor", "grouped_channel"],
+    )
+    def test_pruned_weights_stay_zero_with_balanced_groups(
+        self, granularity, custom_test_mnist_model, mnist_example_input
+    ):
+        # At 2 bits and 25% sparsity, a zero centroid fit on pruned and unpruned weights
+        # alike drifts off 0.
+        sparsity = 0.25
+        palettizer = self._build_palettizer(
+            custom_test_mnist_model.eval(), n_bits=2, granularity=granularity, _sparsity=sparsity
+        )
+        prepared_model = palettizer.prepare((mnist_example_input,))
+        group_size = getattr(granularity, "group_size", None)
+        for name in ["conv1", "conv2", "conv_transpose1", "conv_transpose2", "dense1", "dense2"]:
+            with torch.no_grad():
+                weight = getattr(prepared_model, name).weight
+            groups = weight.split(group_size or weight.shape[0], dim=0)
+            num_zeros = {int((group == 0).sum()) for group in groups}
+            assert num_zeros == {int(groups[0].numel() * sparsity)}, name
+            assert weight.unique().numel() <= 2**2 * len(groups), name
+
+    @pytest.mark.parametrize(
         "spec_kwargs",
         [c[1] for c in PALETT_INVALID_CONFIGS],
         ids=[c[0] for c in PALETT_INVALID_CONFIGS],
     )
-    def test_coreai_rejects_non_scalar_or_non_per_tensor_mnist(
+    def test_coreai_rejects_vector_mnist(
         self, spec_kwargs, custom_test_mnist_model, mnist_example_input
     ):
         self._run_rejects(
@@ -417,9 +435,7 @@ class TestJointPalettizationCompression:
         [c[1] for c in PALETT_INVALID_CONFIGS],
         ids=[c[0] for c in PALETT_INVALID_CONFIGS],
     )
-    def test_coreai_rejects_non_scalar_or_non_per_tensor_resnet(
-        self, spec_kwargs, resnet50_model, resnet_example_input
-    ):
+    def test_coreai_rejects_vector_resnet(self, spec_kwargs, resnet50_model, resnet_example_input):
         self._run_rejects(ExportBackend.CoreAI, resnet50_model, resnet_example_input, spec_kwargs)
 
     @pytest.mark.parametrize(
@@ -444,36 +460,3 @@ class TestJointPalettizationCompression:
         self, spec_kwargs, resnet50_model, resnet_example_input
     ):
         self._run_rejects(ExportBackend.CoreML, resnet50_model, resnet_example_input, spec_kwargs)
-
-    @pytest.mark.parametrize(
-        "spec_kwargs",
-        [c[1] for c in PALETT_COREML_ACCEPTS_CONFIGS],
-        ids=[c[0] for c in PALETT_COREML_ACCEPTS_CONFIGS],
-    )
-    def test_coreml_accepts_grouped_channel_mnist(
-        self, spec_kwargs, custom_test_mnist_model, mnist_example_input
-    ):
-        self._run(
-            ExportBackend.CoreML,
-            custom_test_mnist_model,
-            mnist_example_input,
-            spec_kwargs,
-            _PALETT_EXPECTED_OPS[ExportBackend.CoreML](_MNIST_LAYER_COUNT),
-        )
-
-    @pytest.mark.slow
-    @pytest.mark.parametrize(
-        "spec_kwargs",
-        [c[1] for c in PALETT_COREML_ACCEPTS_CONFIGS],
-        ids=[c[0] for c in PALETT_COREML_ACCEPTS_CONFIGS],
-    )
-    def test_coreml_accepts_grouped_channel_resnet(
-        self, spec_kwargs, resnet50_model, resnet_example_input
-    ):
-        self._run(
-            ExportBackend.CoreML,
-            resnet50_model,
-            resnet_example_input,
-            spec_kwargs,
-            _PALETT_EXPECTED_OPS[ExportBackend.CoreML](_RESNET_LAYER_COUNT),
-        )

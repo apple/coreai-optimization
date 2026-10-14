@@ -24,7 +24,10 @@ from coreai_opt.common import ExportBackend
 from coreai_opt.palettization.spec.fake_palettize import (
     _FakePalettizeImplBase,
 )
-from coreai_opt.palettization.spec.granularity import PerTensorGranularity
+from coreai_opt.palettization.spec.granularity import (
+    PerGroupedChannelGranularity,
+    PerTensorGranularity,
+)
 
 _DEFAULT_VECTOR_AXIS = 0
 
@@ -49,7 +52,10 @@ class PalettizationInfo:
 class _SparsePalettizeReconstruction(nn.Module):
     """Parametrization module inserted to reconstruct a sparse-palettized weight.
 
-    Traces ``coreai.lut_to_dense`` and ``coreai.sparse_to_dense`` in that order.
+    Traces ``coreai.lut_to_dense`` and ``coreai.sparse_to_dense`` in that order. With
+    grouped granularity along axis 0, each group's nonzero indices form one contiguous
+    block of equal length (the mask is balanced per group), so ``lut_to_dense`` maps
+    block ``g`` to the ``g``-th LUT.
     """
 
     def __init__(
@@ -63,7 +69,7 @@ class _SparsePalettizeReconstruction(nn.Module):
         self.register_buffer("nonzero_indices", nonzero_indices)
         # nonzero_indices is rank 1 (flattened by masking), so lut must be
         # reshaped to rank 3 (lut_to_dense requires lut.rank == indices.rank + 2).
-        self.register_buffer("lut", lut.reshape(1, lut.shape[-2], lut.shape[-1]))
+        self.register_buffer("lut", lut.reshape(-1, lut.shape[-2], lut.shape[-1]))
         self.register_buffer("mask", mask)
         self.vector_axis = 0 if vector_axis is None else vector_axis
 
@@ -243,11 +249,13 @@ def _resolve_mlir_lut_and_scale(
 
 
 def _validate_sparsity_for_export(fake_palett_mod: _FakePalettizeImplBase) -> None:
-    """Reject sparsity combined with anything that isn't a single, position-independent LUT."""
-    if not isinstance(fake_palett_mod.granularity, PerTensorGranularity):
-        raise ValueError(
-            f"granularity={fake_palett_mod.granularity} not supported for joint sparsity."
-        )
+    """Reject sparsity combined with anything other than per-tensor or axis-0 grouped LUTs."""
+    granularity = fake_palett_mod.granularity
+    is_axis0_grouped = (
+        isinstance(granularity, PerGroupedChannelGranularity) and granularity.axis == 0
+    )
+    if not (isinstance(granularity, PerTensorGranularity) or is_axis0_grouped):
+        raise ValueError(f"granularity={granularity} not supported for joint sparsity.")
     if fake_palett_mod.cluster_dim != 1:
         raise ValueError(
             f"cluster_dim={fake_palett_mod.cluster_dim} (vector palettization) "

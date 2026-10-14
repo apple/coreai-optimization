@@ -17,6 +17,7 @@ from coreai_opt._utils.spec_utils import (
 from coreai_opt.config.spec import CompressionSimulatorBase
 from coreai_opt.palettization.spec import (
     PalettizationGranularity,
+    PerGroupedChannelGranularity,
 )
 from coreai_opt.pruning.spec import PruneImplBase, Unstructured
 from coreai_opt.quantization.spec import QuantizationSpec
@@ -76,9 +77,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             return tensor
 
         if self.sparsity is not None:
-            self._sparsity_mask = PruneImplBase.resolve("default").compute_mask(
-                tensor, self.sparsity, Unstructured()
-            )
+            self._sparsity_mask = self._compute_sparsity_mask(tensor)
             tensor = tensor * self._sparsity_mask
 
         self.ensure_initialized(tensor)
@@ -89,6 +88,20 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         if self.fake_palett_enabled[0] == 0:
             return tensor
         return self.forward_enabled(tensor)
+
+    def _compute_sparsity_mask(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Magnitude-prune ``tensor``, separately within each channel group for grouped
+        granularity, so that every group keeps the same number of elements.
+        """
+        prune_impl = PruneImplBase.resolve("default")
+        if not isinstance(self.granularity, PerGroupedChannelGranularity):
+            return prune_impl.compute_mask(tensor, self.sparsity, Unstructured())
+        axis = self.granularity.axis
+        groups = tensor.split(self.granularity.group_size, dim=axis)
+        return torch.cat(
+            [prune_impl.compute_mask(group, self.sparsity, Unstructured()) for group in groups],
+            dim=axis,
+        )
 
     @abstractmethod
     def ensure_initialized(self, tensor: torch.Tensor) -> None:
