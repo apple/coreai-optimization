@@ -38,7 +38,9 @@ from coreai_opt.quantization._export_utils import (
     create_mil_act_quant_seq,
     extract_export_qparams,
     extract_quantization_params,
+    fold_int8_lut_palettization_into_quantization,
     get_activation_export_handler,
+    is_int_8bit_activation_fake_quant,
     pack_fp4_to_float4tensor,
     select_export_qparams_by_formulation,
     validate_activation_export_supported,
@@ -561,12 +563,40 @@ def _process_mil_activation_quantization(
     remove_fake_quant_module(model, fake_quant_node)
 
 
+def _fold_int8_lut_palettization_for_int_8bit_activations(
+    model: torch.fx.GraphModule,
+    modules: dict[str, torch.nn.Module],
+) -> None:
+    """Rewrite 8-bit, int8-LUT palettized weights consumed with int8/uint8 input activations.
+
+    A weight qualifies when every op that consumes it takes its activation input
+    (first argument) directly from an int8 or uint8 activation fake quantizer.
+    """
+    for node in model.graph.nodes:
+        if node.op != "get_attr" or not node.users:
+            continue
+        if all(
+            isinstance(user.args[0], Node)
+            and _is_int8_or_uint8_activation_node(user.args[0], modules)
+            for user in node.users
+        ):
+            module_name, _, param_name = str(node.target).rpartition(".")
+            fold_int8_lut_palettization_into_quantization(modules[module_name], param_name)
+
+
+def _is_int8_or_uint8_activation_node(node: Node, modules: dict[str, torch.nn.Module]) -> bool:
+    """Return whether ``node`` calls an int8 or uint8 activation fake quantizer."""
+    return is_int_8bit_activation_fake_quant(_get_module_from_node(node, modules))
+
+
 def prepare_for_mil_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule:
     """Register compression metadata as buffers for CoreML export.
 
     This function processes all fake quantization nodes in the model:
     - Weight quantization: Registers metadata as _COREML_/* buffers and removes nodes
     - Activation quantization: Replaces with Sequential(quantize, dequantize) modules
+    - 8-bit, int8-LUT palettized weights whose input activations are int8/uint8-quantized:
+      Rewrites their palettization metadata as int8 weight quantization metadata
 
     Weight quantization metadata is registered in the module._COREML_/* format that
     CoreMLTools converter expects. The fake quantization nodes are removed since
@@ -625,6 +655,9 @@ def prepare_for_mil_export(model: torch.fx.GraphModule) -> torch.fx.GraphModule:
                 f"activation quantizer '{node_id}'",
                 fake_quant_mod.granularity,
             )
+
+    # Must run before activation fake quantizers are replaced below.
+    _fold_int8_lut_palettization_for_int_8bit_activations(model, modules)
 
     # Process all fake quantization nodes
     for fake_quant_node, fake_quant_mod in fake_quant_nodes:

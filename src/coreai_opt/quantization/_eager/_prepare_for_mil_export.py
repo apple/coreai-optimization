@@ -25,6 +25,8 @@ from coreai_opt.quantization._export_utils import (
     convert_dtype_for_torch_quantize,
     create_mil_act_quant_seq,
     extract_quantization_params,
+    fold_int8_lut_palettization_into_quantization,
+    is_int_8bit_activation_fake_quant,
     is_module_fake_quant_target,
     validate_qformulation_for_mil_export,
 )
@@ -119,14 +121,28 @@ def _process_activation_quantization(
     setattr(parent_module, attr_name, replacement_module)
 
 
+def _has_int8_or_uint8_input_activation(module: nn.Module) -> bool:
+    """Return whether the module's input activation is quantized to int8 or uint8.
+
+    Eager mode registers the input activation quantizer of a module's op as a child
+    module named ``<op>_quantize_input`` (e.g. ``linear_quantize_input``).
+    """
+    return any(
+        name.endswith("_quantize_input") and is_int_8bit_activation_fake_quant(child)
+        for name, child in module.named_children()
+    )
+
+
 def prepare_for_mil_export(model: nn.Module) -> nn.Module:
     """Register compression metadata as buffers for CoreML export.
 
     This function processes eager mode quantized models by:
-    1. Processing weight quantization: extracting metadata, removing parametrizations.
-    2. Processing activation quantization: replacing fake quantizers with
+    1. Rewriting 8-bit, int8-LUT palettization metadata as int8 weight quantization
+       for modules whose input activation is int8/uint8-quantized.
+    2. Processing weight quantization: extracting metadata, removing parametrizations.
+    3. Processing activation quantization: replacing fake quantizers with
        Sequential(quantize, dequantize).
-    3. Registering metadata version buffer.
+    4. Registering metadata version buffer.
 
     Args:
         model: The quantized model containing fake quantization components
@@ -156,6 +172,12 @@ def prepare_for_mil_export(model: nn.Module) -> nn.Module:
                 f"activation quantizer of module '{module_name}'",
                 module.granularity,
             )
+
+    # Must run before activation fake quantizers are replaced below.
+    for module in model.modules():
+        if _has_int8_or_uint8_input_activation(module):
+            for param_name, _ in module.named_parameters(recurse=False):
+                fold_int8_lut_palettization_into_quantization(module, param_name)
 
     for name, module in list(model.named_modules()):
         # Handle weight quantization parametrizations
