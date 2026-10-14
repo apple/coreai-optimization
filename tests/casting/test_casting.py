@@ -10,6 +10,7 @@ on exported programs, verifying output fidelity, dtype distribution changes,
 and weight size reduction.
 """
 
+import operator
 from collections import Counter
 
 import pytest
@@ -18,6 +19,7 @@ import torch.nn as nn
 
 from coreai_opt import ExportBackend
 from coreai_opt.casting import (
+    ANE_UNSAFE_FP16_OPS,
     cast_fp32_to_fp16,
     cast_int32_to_int16,
     cast_to_16_bit_precision,
@@ -848,3 +850,153 @@ class TestDynamicActivationCalibration:
             out = _run_ep(ep, sample.half())
             assert not torch.isinf(out).any()
             assert torch.allclose(out.float(), ref, atol=1e-3)
+
+
+# =============================================================================
+# ANE TopK Guard and Multi-Output Container Tests
+# =============================================================================
+class TestANETopKGuard:
+    """Tests for guarding torch.topk on ANE and downcasting multi-output containers."""
+
+    class _TopKModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(3, 5)
+
+        def forward(self, x):
+            val, idx = torch.topk(x, k=3, dim=-1)
+            return self.linear(val), idx
+
+    class _SplitModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = nn.Linear(5, 5)
+
+        def forward(self, x):
+            a, b = torch.split(x, 5, dim=-1)
+            return self.linear(a) + b
+
+    class _OverflowSplitModel(nn.Module):
+        def forward(self, x):
+            exp_out = torch.exp(x)
+            a, b = torch.split(exp_out, 1, dim=-1)
+            return a, b
+
+    def test_ane_unsafe_fp16_ops_constant(self):
+        """ANE_UNSAFE_FP16_OPS includes aten.topk."""
+        assert torch.ops.aten.topk in ANE_UNSAFE_FP16_OPS
+        assert torch.ops.aten.topk.default in ANE_UNSAFE_FP16_OPS
+
+    def test_topk_guarded_by_default(self):
+        """By default, topk runs in FP32 with boundary casts and int64 indices."""
+        model = self._TopKModel().eval()
+        ep = _export(model, torch.randn(2, 10))
+        cast_fp32_to_fp16(ep)
+
+        topk = next(n for n in ep.graph.nodes if n.target == torch.ops.aten.topk.default)
+        assert topk.meta["val"][0].dtype == torch.float32
+        assert topk.args[0].target == torch.ops.aten._to_copy.default
+        assert topk.args[0].kwargs.get("dtype") == torch.float32
+
+        # Values getitem is cast to FP16 before linear; indices getitem stays int64
+        val_getitem = next(
+            n for n in ep.graph.nodes if n.target == operator.getitem and n.args == (topk, 0)
+        )
+        cast_back = next(
+            n
+            for n in ep.graph.nodes
+            if n.target == torch.ops.aten._to_copy.default and n.args == (val_getitem,)
+        )
+        assert cast_back.kwargs.get("dtype") == torch.float16
+
+        idx_getitem = next(
+            n for n in ep.graph.nodes if n.target == operator.getitem and n.args == (topk, 1)
+        )
+        assert idx_getitem.meta["val"].dtype == torch.int64
+
+        linear_op = next(
+            n
+            for n in ep.graph.nodes
+            if n.target in {torch.ops.aten.addmm.default, torch.ops.aten.linear.default}
+        )
+        assert linear_op.meta["val"].dtype == torch.float16
+
+    def test_topk_guard_opt_out(self):
+        """When guard_ane_topk=False, topk runs in FP16 without boundary casts."""
+        model = self._TopKModel().eval()
+        ep = _export(model, torch.randn(2, 10))
+        cast_fp32_to_fp16(ep, guard_ane_topk=False)
+
+        topk = next(n for n in ep.graph.nodes if n.target == torch.ops.aten.topk.default)
+        assert topk.meta["val"][0].dtype == torch.float16
+        assert topk.args[0].meta["val"].dtype == torch.float16
+
+    def test_cast_to_16_bit_precision_forwarding(self):
+        """cast_to_16_bit_precision forwards guard_ane_topk."""
+        model = self._TopKModel().eval()
+        x = torch.randn(2, 10)
+
+        ep_default = _export(model, x)
+        cast_to_16_bit_precision(ep_default)
+        topk = next(n for n in ep_default.graph.nodes if n.target == torch.ops.aten.topk.default)
+        assert topk.meta["val"][0].dtype == torch.float32
+
+        ep_opt_out = _export(model, x)
+        cast_to_16_bit_precision(ep_opt_out, guard_ane_topk=False)
+        topk = next(n for n in ep_opt_out.graph.nodes if n.target == torch.ops.aten.topk.default)
+        assert topk.meta["val"][0].dtype == torch.float16
+
+    def test_multi_output_ignored_op_downcast(self):
+        """Multi-output ops in ignored_ops downcast getitem outputs for downstream consumers."""
+        model = self._SplitModel().eval()
+        ep = _export(model, torch.randn(2, 10))
+        cast_fp32_to_fp16(ep, ignored_ops={torch.ops.aten.split_with_sizes.default})
+
+        split = next(
+            n for n in ep.graph.nodes if n.target == torch.ops.aten.split_with_sizes.default
+        )
+        assert split.meta["val"][0].dtype == torch.float32
+
+        linear_op = next(
+            n
+            for n in ep.graph.nodes
+            if n.target in {torch.ops.aten.addmm.default, torch.ops.aten.linear.default}
+        )
+        assert linear_op.meta["val"].dtype == torch.float16
+
+    def test_multi_output_overflow_calibration_preserves_fp32(self):
+        """Container outputs overflowing FP16 during calibration remain in FP32."""
+        model = self._OverflowSplitModel().eval()
+        x = torch.tensor([[15.0, 15.0]])
+        ep = _export(model, x)
+        cast_fp32_to_fp16(ep, calibration_data=[x])
+
+        casts = [n for n in ep.graph.nodes if n.target == torch.ops.aten._to_copy.default]
+        assert len(casts) == 1
+        assert casts[0].kwargs.get("dtype") == torch.float32
+
+        out_a, out_b = ep.module()(x.half())
+        assert out_a.dtype == torch.float32
+        assert out_b.dtype == torch.float32
+        assert not torch.isinf(out_a).any()
+
+    def test_multi_output_ignored_getitem_preserves_fp32(self):
+        """Explicitly ignoring operator.getitem keeps its output in FP32 without downcast."""
+        model = self._SplitModel().eval()
+        ep = _export(model, torch.randn(2, 10))
+        cast_fp32_to_fp16(
+            ep,
+            ignored_ops={torch.ops.aten.split_with_sizes.default, operator.getitem},
+        )
+
+        split = next(
+            n for n in ep.graph.nodes if n.target == torch.ops.aten.split_with_sizes.default
+        )
+        assert split.meta["val"][0].dtype == torch.float32
+
+        getitem_nodes = [n for n in ep.graph.nodes if n.target == operator.getitem]
+        assert len(getitem_nodes) == 2
+        for g in getitem_nodes:
+            assert g.meta["val"].dtype == torch.float32
+            for user in g.users:
+                assert user.target != torch.ops.aten._to_copy.default
