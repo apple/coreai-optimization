@@ -88,15 +88,17 @@ def test_palettization_then_act_quant_mil_export(
 
     The palettization compression metadata registered by the first finalize must
     survive the activation quantization pass so the exported model still contains
-    the compressed weight. 8-bit palettization with an int8 LUT and int8 activations
-    is exported as int8 weight quantization instead of a LUT.
+    the compressed weight. In graph mode, 8-bit palettization with an int8 LUT and int8
+    activations is exported as int8 weight quantization instead of a LUT.
     """
     config = ParametrizedP4A8CompressionConfigs.from_params(lut_qspec=lut_qspec, n_bits=n_bits)
     joint_model, input_data, prepared_model_output = _palettize_then_quantize(
         make_layer, input_shape, config, execution_mode
     )
 
-    folds_to_weight_quantization = n_bits == 8 and lut_qspec is not None
+    folds_to_weight_quantization = (
+        execution_mode == ExecutionMode.GRAPH and n_bits == 8 and lut_qspec is not None
+    )
     export_utils.convert_and_verify(
         finalized_model=joint_model,
         input_data=input_data,
@@ -111,7 +113,6 @@ def test_palettization_then_act_quant_mil_export(
     )
 
 
-@_EXECUTION_MODES
 @pytest.mark.parametrize("act_dtype", [torch.int8, torch.uint8], ids=["A8int", "A8uint"])
 @pytest.mark.parametrize(
     "lut_qscheme",
@@ -124,10 +125,9 @@ def test_p8_int8_lut_with_8bit_act_exports_as_int8_weight_quantization_exactly(
     input_shape: tuple[int, ...],
     lut_qscheme: QuantizationScheme,
     act_dtype: torch.dtype,
-    execution_mode: ExecutionMode,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The int8 weight quantization export must match the LUT export bit for bit.
+    """In graph mode, the int8 weight quantization export must match the LUT export bit for bit.
 
     The reference is the same model exported with the rewrite disabled, i.e. as
     ``int8 LUT -> constexpr_blockwise_shift_scale -> constexpr_lut_to_dense``.
@@ -142,17 +142,19 @@ def test_p8_int8_lut_with_8bit_act_exports_as_int8_weight_quantization_exactly(
     def convert(model: nn.Module, input_data: torch.Tensor):
         return converter.convert(converter.trace(model, input_data, {}), input_data)
 
-    model, input_data, _ = _palettize_then_quantize(make_layer, input_shape, config, execution_mode)
+    model, input_data, _ = _palettize_then_quantize(
+        make_layer, input_shape, config, ExecutionMode.GRAPH
+    )
     folded = convert(model, input_data)
 
     with monkeypatch.context() as m:
-        for module in (
-            "coreai_opt.quantization._eager._prepare_for_mil_export",
-            "coreai_opt.quantization._graph._prepare_for_export",
-        ):
-            m.setattr(f"{module}.fold_int8_lut_palettization_into_quantization", lambda *_: None)
+        m.setattr(
+            "coreai_opt.quantization._graph._prepare_for_export."
+            "fold_int8_lut_palettization_into_quantization",
+            lambda *_: None,
+        )
         model, input_data, _ = _palettize_then_quantize(
-            make_layer, input_shape, config, execution_mode
+            make_layer, input_shape, config, ExecutionMode.GRAPH
         )
         reference = convert(model, input_data)
 
@@ -171,20 +173,18 @@ def test_p8_int8_lut_with_8bit_act_exports_as_int8_weight_quantization_exactly(
     )
 
 
-@_EXECUTION_MODES
 @_LAYERS
 def test_p8_int8_lut_with_uint8_act_exports_as_int8_weight_quantization(
     make_layer: Callable[[], nn.Module],
     input_shape: tuple[int, ...],
-    execution_mode: ExecutionMode,
 ) -> None:
-    """With uint8 input activations, the int8-LUT palettized weight is exported as int8
-    weight quantization, the same as with int8 input activations.
+    """In graph mode, with uint8 input activations, the int8-LUT palettized weight is
+    exported as int8 weight quantization, the same as with int8 input activations.
     """
     config = ParametrizedP4A8CompressionConfigs.from_params(lut_qspec=_INT8_LUT_QSPEC, n_bits=8)
     config.quant_config = _uint8_act_quant_config()
     joint_model, input_data, prepared_model_output = _palettize_then_quantize(
-        make_layer, input_shape, config, execution_mode
+        make_layer, input_shape, config, ExecutionMode.GRAPH
     )
 
     export_utils.convert_and_verify(
@@ -195,6 +195,43 @@ def test_p8_int8_lut_with_uint8_act_exports_as_int8_weight_quantization(
             "constexpr_blockwise_shift_scale": 1,
             "quantize": 2,
             "dequantize": 2,
+        },
+        export_backend=ExportBackend.CoreML,
+        prepared_model_output=prepared_model_output,
+    )
+
+
+@_LAYERS
+def test_p8_int8_lut_without_input_act_quant_keeps_lut(
+    make_layer: Callable[[], nn.Module],
+    input_shape: tuple[int, ...],
+) -> None:
+    """In graph mode, without input activation quantization, the int8-LUT weight stays a LUT.
+
+    Only the output activation is quantized, so the layer's input activation is not
+    8-bit and the int8 weight quantization rewrite must not apply.
+    """
+    config = ParametrizedP4A8CompressionConfigs.from_params(lut_qspec=_INT8_LUT_QSPEC, n_bits=8)
+    act_spec = QuantizationSpec(dtype=torch.int8, qscheme=QuantizationScheme.SYMMETRIC)
+    config.quant_config = QuantizerConfig(
+        global_config=ModuleQuantizerConfig(
+            op_state_spec=None,
+            op_input_spec=None,
+            op_output_spec={"*": act_spec},
+        ),
+    )
+    joint_model, input_data, prepared_model_output = _palettize_then_quantize(
+        make_layer, input_shape, config, ExecutionMode.GRAPH
+    )
+
+    export_utils.convert_and_verify(
+        finalized_model=joint_model,
+        input_data=input_data,
+        expected_ops={
+            "constexpr_lut_to_dense": 1,
+            "constexpr_blockwise_shift_scale": 1,
+            "quantize": 1,
+            "dequantize": 1,
         },
         export_backend=ExportBackend.CoreML,
         prepared_model_output=prepared_model_output,
