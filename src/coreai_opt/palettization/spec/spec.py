@@ -108,6 +108,21 @@ class PalettizationSpec(CompressionSpec):
     # Private attribute for compression type
     _compression_type: CompressionType = PrivateAttr(default=CompressionType.PALETTIZATION)
 
+    # Minimum fraction of exact zeros, in [0, 1], at which an already-sparse weight is
+    # palettized jointly with its sparsity; None disables detection. Set via the
+    # `_sparsity_detection_threshold` constructor/dict key.
+    _sparsity_detection_threshold: float | None = PrivateAttr(default=None)
+
+    def __init__(self, **data: Any) -> None:
+        threshold = data.pop("_sparsity_detection_threshold", None)
+        super().__init__(**data)
+        if threshold is not None:
+            if not (0.0 <= threshold <= 1.0):
+                raise ValueError(
+                    f"_sparsity_detection_threshold must be in [0, 1], got {threshold}"
+                )
+            self._sparsity_detection_threshold = threshold
+
     @model_validator(mode="after")
     def validate_lut_qspec(self) -> "PalettizationSpec":
         """Validate that lut_qspec only uses supported configurations."""

@@ -38,6 +38,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         granularity: PalettizationGranularity,
         cluster_dim: int,
         enable_per_channel_scale: bool,
+        sparsity_detection_threshold: float | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -46,6 +47,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         self.granularity = granularity
         self.cluster_dim = cluster_dim
         self.enable_per_channel_scale = enable_per_channel_scale
+        self.sparsity_detection_threshold = sparsity_detection_threshold
 
         self.register_buffer("fake_palett_enabled", torch.tensor([1], dtype=torch.uint8))
         # Non-persistent (kept out of new checkpoints); when set to 1 (at runtime or
@@ -54,6 +56,8 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             "observer_enabled", torch.tensor([0], dtype=torch.uint8), persistent=False
         )
         self._disabled = False
+        self.register_buffer("_sparsity_mask", None, persistent=False)
+        self._sparsity_detected = False
 
         self.register_buffer("indices", None)
         self.register_buffer("per_channel_scale", None)
@@ -71,6 +75,13 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         if self._disabled:
             return tensor
 
+        if self.sparsity_detection_threshold is not None and not self._sparsity_detected:
+            self._sparsity_mask = self._detect_sparsity_mask(tensor)
+            self._sparsity_detected = True
+        if self._sparsity_mask is not None:
+            # Keep the detected zeros fixed, even if training moves those weights.
+            tensor = tensor * self._sparsity_mask
+
         self.ensure_initialized(tensor)
 
         # Check for self._disabled again in case ensure_initialized disabled the palettizer.
@@ -79,6 +90,15 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         if self.fake_palett_enabled[0] == 0:
             return tensor
         return self.forward_enabled(tensor)
+
+    def _detect_sparsity_mask(self, tensor: torch.Tensor) -> torch.Tensor | None:
+        """Return the nonzero mask of ``tensor`` if at least ``sparsity_detection_threshold``
+        of its elements are exactly zero, else ``None``.
+        """
+        num_zeros = tensor.numel() - torch.count_nonzero(tensor).item()
+        if num_zeros < self.sparsity_detection_threshold * tensor.numel():
+            return None
+        return tensor != 0
 
     @abstractmethod
     def ensure_initialized(self, tensor: torch.Tensor) -> None:
