@@ -55,7 +55,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     MovingAverageQParamsCalculator,
     StaticQParamsCalculator,
 )
-from tests.fixtures.quantization import make_quant_config
+from tests.fixtures.quantization import make_graph_mode_module_boundary_config, make_quant_config
 from tests.models.simple import SimpleModel
 from tests.test_utils.general import get_fake_quant_nodes
 
@@ -1207,6 +1207,95 @@ class TestIntegerActivations:
             dynamic_shapes=dynamic_shapes,
         )
         _ = prepared_model(example_input_ids, 2)
+
+
+class TestSingleElementActivations:
+    """
+    Graph mode skips activations with at most one element, matching eager mode
+    """
+
+    @staticmethod
+    def _assert_no_single_element_tensor_observed(prepared_model):
+        fq_nodes = get_fake_quant_nodes(prepared_model)
+        assert fq_nodes, "Expected the larger tensors to still be observed"
+        for fq_node in fq_nodes:
+            observed = fq_node.args[0]
+            assert observed.meta["val"].numel() > 1, (
+                f"{fq_node.name} observes {observed.name} with shape "
+                f"{tuple(observed.meta['val'].shape)}"
+            )
+
+    @pytest.mark.parametrize(
+        "reduce",
+        [
+            torch.sum,
+            torch.mean,  # shares its observer with its input
+            torch.amax,
+            torch.amin,
+            torch.max,
+            torch.min,
+            torch.prod,
+            torch.var,
+            torch.std,
+            torch.norm,
+            pytest.param(lambda y: torch.logsumexp(y, dim=(0, 1)), id="logsumexp"),
+            torch.linalg.vector_norm,
+            pytest.param(
+                lambda y: torch.sum(y, dim=(0, 1), keepdim=True), id="sum_keepdim"
+            ),  # shape (1, 1)
+        ],
+    )
+    def test_reduction_output_not_observed(self, reduce, weight_input_act_output_act_config):
+        class ReductionModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+
+            def forward(self, x):
+                y = self.linear(x)
+                return y * reduce(y)
+
+        quantizer = Quantizer(ReductionModel(), weight_input_act_output_act_config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8),))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
+
+    def test_single_element_model_input_not_observed(self, weight_input_act_output_act_config):
+        class ScaleModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+
+            def forward(self, x, scale):
+                return self.linear(x) * scale
+
+        quantizer = Quantizer(ScaleModel(), weight_input_act_output_act_config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8), torch.tensor(2.0)))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
+
+    def test_single_element_module_boundary_not_observed(self):
+        class Block(nn.Module):
+            def forward(self, y, scale):
+                return y * scale, y.sum()
+
+        class BlockModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+                self.block = Block()
+
+            def forward(self, x):
+                y = self.linear(x)
+                return self.block(y, y.mean())
+
+        config = make_graph_mode_module_boundary_config(
+            module_boundary_dtype=torch.int8, module_name="block"
+        )
+        quantizer = Quantizer(BlockModel(), config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8),))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
 
 
 @pytest.mark.parametrize("model_dtype", [torch.float32, torch.float16, torch.bfloat16])
