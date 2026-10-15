@@ -280,10 +280,11 @@ def _apply_op_intrinsic_override(
 
     Nothing else: the op has no opinion on the other fields.
 
-    The ``QSCHEME`` half is skipped for a floating-point dtype, which admits only
-    the symmetric scheme — see ``QuantizationSpec.validate_qscheme_for_fp_quant``.
+    The ``QSCHEME`` half is skipped for a floating-point dtype or an e8m0 scale,
+    which admit only the symmetric scheme — see
+    ``QuantizationSpec.validate_qscheme_for_fp_quant``.
     An op like ``relu`` proposes an asymmetric scheme to exploit its one-sided
-    range, but that is a representational choice the dtype forbids, so proposing it
+    range, but that is a representational choice the spec forbids, so proposing it
     would make the group unbuildable rather than merely lower quality. The
     ``FLOAT_RANGE`` half still applies: the bound is a fact about the data and
     holds whatever the dtype.
@@ -292,7 +293,7 @@ def _apply_op_intrinsic_override(
     assert intrinsic is not None, "caller must gate on _get_op_intrinsic"
     scheme, float_range = intrinsic
 
-    if not user_spec.dtype.is_floating_point:
+    if not user_spec.dtype.is_floating_point and user_spec.scale_dtype is None:
         _override_field(
             qspecs,
             output_slot,

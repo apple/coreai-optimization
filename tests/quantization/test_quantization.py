@@ -634,6 +634,99 @@ class TestPerBlockActivationQuantization:
             quantizer.finalize(prepared_model, backend=backend)
 
 
+class TestIntegerE8M0Quantization:
+    """int8 with e8m0 scales runs in torch at any granularity, but the
+    built-in export paths reject it."""
+
+    @staticmethod
+    def _int8_e8m0_spec(granularity) -> QuantizationSpec:
+        return QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=granularity,
+            scale_dtype=torch.float8_e8m0fnu,
+        )
+
+    @staticmethod
+    def _e8m0_fake_quants(model: nn.Module) -> list[FakeQuantizeImplBase]:
+        return [
+            m
+            for m in model.modules()
+            if isinstance(m, FakeQuantizeImplBase)
+            and m.qparams_calculator.scale_dtype == torch.float8_e8m0fnu
+        ]
+
+    @classmethod
+    def _make_config(cls, execution_mode: str, target: str) -> QuantizerConfig:
+        """int8 with e8m0 scales on per-block weights or on per-tensor activations."""
+        is_weight = target == "weight"
+        return QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={
+                    "weight": cls._int8_e8m0_spec(PerBlockGranularity(axis=1, block_size=32))
+                    if is_weight
+                    else default_weight_quantization_spec()
+                },
+                op_input_spec=None
+                if is_weight
+                else {"*": cls._int8_e8m0_spec(PerTensorGranularity())},
+                op_output_spec=None,
+            )
+        ).set_execution_mode(execution_mode)
+
+    @pytest.mark.parametrize("target", ["weight", "activation"])
+    def test_scales_are_powers_of_two(self, execution_mode, target):
+        quantizer = Quantizer(SimpleLinearModel(), self._make_config(execution_mode, target))
+        prepared_model = quantizer.prepare((torch.randn(4, 64),))
+        with quantizer.calibration_mode():
+            prepared_model(torch.randn(4, 64))
+        prepared_model(torch.randn(4, 64))
+
+        scales = [m.calculate_qparams()[0] for m in self._e8m0_fake_quants(prepared_model)]
+        assert scales, f"No e8m0 FakeQuantize modules for target={target}"
+        for scale in scales:
+            assert torch.equal(scale.log2(), scale.log2().round())
+
+    @pytest.mark.parametrize("target", ["weight", "activation"])
+    @pytest.mark.parametrize(
+        "backend,is_supported",
+        [
+            (ExportBackend.CoreAI, False),
+            (ExportBackend.CoreML, False),
+            (ExportBackend._TORCH, True),
+        ],
+    )
+    def test_finalize_rejects_non_torch_backends(
+        self, execution_mode, target, backend, is_supported
+    ):
+        quantizer = Quantizer(SimpleLinearModel(), self._make_config(execution_mode, target))
+        prepared_model = quantizer.prepare((torch.randn(4, 64),))
+        prepared_model(torch.randn(4, 64))
+
+        if is_supported:
+            assert quantizer.finalize(prepared_model, backend=backend) is not None
+        else:
+            with pytest.raises(NotImplementedError, match="float8_e8m0fnu"):
+                quantizer.finalize(prepared_model, backend=backend)
+
+    def test_graph_relu_output_keeps_symmetric_scheme(self):
+        """relu proposes an asymmetric scheme for its output, which an e8m0 spec
+        does not admit, so graph mode must keep the user's symmetric scheme."""
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={"weight": default_weight_quantization_spec()},
+                op_input_spec=None,
+                op_output_spec={"*": self._int8_e8m0_spec(PerTensorGranularity())},
+            )
+        ).set_execution_mode("graph")
+        model = nn.Sequential(nn.Linear(64, 64), nn.ReLU())
+
+        prepared_model = Quantizer(model, config).prepare((torch.randn(4, 64),))
+
+        e8m0_qschemes = {m.qscheme for m in self._e8m0_fake_quants(prepared_model)}
+        assert e8m0_qschemes == {QuantizationScheme.SYMMETRIC}
+
+
 class TestSharedWeightQuantization:
     class _LeafA(nn.Module):
         def __init__(self):

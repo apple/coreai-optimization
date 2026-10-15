@@ -221,12 +221,16 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             scale = 2^(floor(log2(max_abs)) - target_max_pow2)
             where ``target_max_pow2`` comes from ``E8M0_TARGET_MAX_POW2``, which
             is the single source of truth for which dtypes support an e8m0 scale.
+            The spec pins this mode to symmetric ZP, so the zero point is zero.
         """
 
         # e8m0 path: power-of-2 scales
         if self.scale_dtype == torch.float8_e8m0fnu:
             max_abs = torch.maximum(torch.abs(min_val), torch.abs(max_val))
-            return self._compute_e8m0_scale(max_abs), None, None
+            scale = self._compute_e8m0_scale(max_abs)
+            if self.dtype.is_floating_point:
+                return scale, None, None
+            return scale, torch.zeros_like(scale, dtype=torch.int32), -max_abs
 
         # Default path: torchao handles integer and FP8 dtypes
         scale, zero_point = choose_qparams_affine_with_min_max(

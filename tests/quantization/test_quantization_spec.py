@@ -876,6 +876,7 @@ def test_partial_defaults():
         ),
         (torch.float4_e2m1fn_x2, None, torch.float8_e8m0fnu),
         (torch.float4_e2m1fn_x2, torch.float8_e8m0fnu, torch.float8_e8m0fnu),
+        (torch.int8, torch.float8_e8m0fnu, torch.float8_e8m0fnu),
     ],
 )
 def test_valid_scale_dtype(dtype, scale_dtype, expected_scale_dtype):
@@ -899,6 +900,7 @@ def test_valid_scale_dtype(dtype, scale_dtype, expected_scale_dtype):
             torch.int4,
             torch.float8_e8m0fnu,
         ),
+        (torch.uint8, torch.float8_e8m0fnu),
     ],
 )
 def test_invalid_scale_dtype(dtype, scale_dtype):
@@ -908,6 +910,25 @@ def test_invalid_scale_dtype(dtype, scale_dtype):
             qscheme="symmetric",
             granularity=PerChannelGranularity(axis=0),
             scale_dtype=scale_dtype,
+        )
+
+
+@pytest.mark.parametrize(
+    "qscheme,qformulation",
+    [
+        (QuantizationScheme.ASYMMETRIC, QuantizationFormulation.ZP),
+        (QuantizationScheme.SYMMETRIC_WITH_CLIPPING, QuantizationFormulation.ZP),
+        (QuantizationScheme.SYMMETRIC, QuantizationFormulation.MINVAL),
+    ],
+)
+def test_e8m0_scale_requires_symmetric_zp(qscheme, qformulation):
+    with pytest.raises(ValueError, match="FP quantization or an e8m0 scale"):
+        QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=qscheme,
+            qformulation=qformulation,
+            granularity=PerBlockGranularity(axis=1, block_size=32),
+            scale_dtype=torch.float8_e8m0fnu,
         )
 
 
