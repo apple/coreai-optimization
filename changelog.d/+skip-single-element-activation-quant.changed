@@ -1,0 +1,1 @@
+Graph-mode `Quantizer` now skips activations with at most one element, such as the 0-d output of a full reduction like `x.sum()` or `x.mean()`, since quantizing them gives no speedup on device. This matches eager mode and applies to op-level, KV-cache, and module-level input/output specs. State tensors are not affected.
