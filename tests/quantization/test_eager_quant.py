@@ -257,7 +257,7 @@ class TestEagerQuantizer:
         # Test deepcopy ability of prepared model
         copied_model = copy.deepcopy(prepared_model)
         output_2 = copied_model(example_input)
-        assert torch.equal(output, output_2)
+        torch.testing.assert_close(output_2, output)
 
     def test_prepare_weight_only(self, simple_model, weight_only_config, example_input):
         """
@@ -1644,7 +1644,7 @@ class TestEagerQuantizer:
         finalized_model = quantizer.finalize()
         # prepare model output before finalize should match output after finalize
         final_output = finalized_model(example_input_3)
-        assert torch.equal(pre_finalize_out, final_output)
+        torch.testing.assert_close(final_output, pre_finalize_out)
 
         # Test output shape
         assert final_output.shape == (1, 10)

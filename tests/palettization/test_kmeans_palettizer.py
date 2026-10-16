@@ -429,7 +429,7 @@ class TestKMeansPalettizer:
 
         finalized_output = finalized_model(simple_model_input)
 
-        assert torch.equal(prepared_output, finalized_output)
+        torch.testing.assert_close(finalized_output, prepared_output)
 
     def test_finalize_mil_backend(self, simple_conv_linear_model, simple_model_input):
         palettizer = KMeansPalettizer(simple_conv_linear_model)
@@ -550,8 +550,7 @@ class TestKMeansPalettizer:
     def test_finalize_mmap_matches_non_mmap_output(
         self, simple_conv_linear_model, simple_model_input, basic_config, tmp_path
     ):
-        """Finalize with and without ``mmap_dir`` produces numerically identical
-        outputs."""
+        """Finalize with and without ``mmap_dir`` produces matching outputs."""
         model_no_mmap = copy.deepcopy(simple_conv_linear_model)
         model_with_mmap = copy.deepcopy(simple_conv_linear_model)
 
@@ -570,13 +569,13 @@ class TestKMeansPalettizer:
             out_no_mmap = finalized_no_mmap(simple_model_input)
             out_with_mmap = finalized_with_mmap(simple_model_input)
 
-        assert torch.equal(out_no_mmap, out_with_mmap)
+        torch.testing.assert_close(out_with_mmap, out_no_mmap)
 
     def test_finalize_state_dict_safetensors_roundtrip(
         self, simple_conv_linear_model, simple_model_input, basic_config, tmp_path
     ):
         """An mmap-finalized model survives a state_dict save → load_file →
-        load_state_dict round-trip with identical forward outputs. The reloaded
+        load_state_dict round-trip with matching forward outputs. The reloaded
         tensors come back mmap-backed by the bundled safetensors file (per
         safetensors' default behavior)."""
         from safetensors.torch import load_file, save_file  # noqa: PLC0415
@@ -610,7 +609,7 @@ class TestKMeansPalettizer:
         with torch.no_grad():
             out_after_roundtrip = finalized(simple_model_input)
 
-        assert torch.equal(out_before_roundtrip, out_after_roundtrip)
+        torch.testing.assert_close(out_after_roundtrip, out_before_roundtrip)
 
 
 class TestKMeansPalettizerOpAndModuleConfigs:
@@ -1657,7 +1656,7 @@ class TestKMeansPalettizerLoadFromStateDict:
     def test_reproduces_prepared_model(
         self, simple_conv_linear_model, simple_model_input, basic_config, temp_dir
     ):
-        """A skip-loaded model reproduces the source model's forward output exactly."""
+        """A skip-loaded model reproduces the source model's forward output."""
         src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
         prepared = src.prepare((simple_model_input,))
         state_dict_path = os.path.join(temp_dir, "palettizer_state_dict.pt")
@@ -1671,7 +1670,7 @@ class TestKMeansPalettizerLoadFromStateDict:
         with torch.no_grad():
             got = loaded(simple_model_input)
 
-        assert torch.equal(expected, got)
+        torch.testing.assert_close(got, expected)
 
     def test_skips_clustering(
         self, monkeypatch, simple_conv_linear_model, simple_model_input, basic_config

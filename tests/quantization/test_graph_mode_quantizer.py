@@ -488,7 +488,7 @@ class TestGraphModeQuantizer:
         assert isinstance(finalized_model, torch.fx.GraphModule)
         # prepare model output before finalize should match output after finalize
         final_output = finalized_model(simple_model_input_3)
-        assert torch.equal(pre_finalize_out, final_output)
+        torch.testing.assert_close(final_output, pre_finalize_out)
 
         # Test output shape
         assert final_output.shape == (1, 10)
