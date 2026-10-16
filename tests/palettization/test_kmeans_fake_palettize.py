@@ -32,7 +32,7 @@ from coreai_opt.palettization.spec.errors import (
 from coreai_opt.palettization.spec.spec import _SUPPORTED_LUT_DTYPES
 from coreai_opt.palettization.spec.training_strategy import _DefaultTrainingStrategy
 from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
-from tests.utils import spy_cluster_weights
+from tests.utils import clustered_block_count, spy_cluster_weights
 
 _ACCELERATOR = (
     "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else None
@@ -2359,7 +2359,7 @@ class TestDetectPrePalettizedWeights:
             _initialize_and_get_lut_indices(palettizer, torch.randn(self._WEIGHT_SHAPE))
 
         assert detect.call_count == 1
-        assert kmeans.call_count == self._num_blocks(self._GROUPED)
+        assert clustered_block_count(kmeans, cluster_dim) == self._num_blocks(self._GROUPED)
 
     @pytest.mark.parametrize(
         "cluster_dim, source_n_bits, n_bits, granularity",
@@ -2380,7 +2380,7 @@ class TestDetectPrePalettizedWeights:
         with spy_cluster_weights(cluster_dim) as kmeans:
             _initialize_and_get_lut_indices(palettizer, weight)
 
-        assert kmeans.call_count == self._num_blocks(granularity)
+        assert clustered_block_count(kmeans, cluster_dim) == self._num_blocks(granularity)
 
     @pytest.mark.parametrize("cluster_dim", [1, 2])
     def test_fewer_distinct_values_than_palette_entries_are_padded(self, cluster_dim):

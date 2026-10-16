@@ -152,7 +152,7 @@ class TestCrossLayerParallel:
     def test_parallel_with_no_palettize_modules_is_noop(
         self, simple_conv_linear_model, simple_model_input
     ):
-        """``_calculate_centroids_parallel`` returns cleanly when nothing to palettize."""
+        """``_calculate_centroids`` returns cleanly when nothing to palettize."""
         # global_config=None disables palettization for all modules.
         config = KMeansPalettizerConfig(global_config=None)
         palettizer = KMeansPalettizer(simple_conv_linear_model, config)
@@ -162,13 +162,12 @@ class TestCrossLayerParallel:
     def test_parallel_vector_palettization_matches_sequential(self):
         """Vector palettization (``cluster_dim > 1``) matches sequential when clusters are obvious.
 
-        ``_cluster_weights_2d`` runs ``_EfficientKMeans._kmeans_pp``, which uses
-        unseeded ``torch.randint`` / ``np.random.choice`` — so spawned workers
-        and the main process see different RNG states. To make the comparison
-        deterministic anyway, the linear weight is hand-built so that, after
-        ``_vectorize_block`` (transpose + reshape into 2D pairs), the vectors form 4
-        well-separated clusters. K-means converges to those 4 centers from any
-        reasonable initialization, so both paths produce the same reconstructed
+        Vector k-means seeds each tensor from its own contents, so workers and the main
+        process cluster identically; the hand-built clusters additionally keep the
+        comparison independent of the backend the machine selects. The linear weight is
+        built so that, after ``_vectorize_block`` (transpose + reshape into 2D pairs), the
+        vectors form 4 well-separated clusters. K-means converges to those 4 centers from
+        any reasonable initialization, so both paths produce the same reconstructed
         weights (up to a cluster-ID permutation), and the model output matches.
         """
         # 4 well-separated centers in 2D, 4 vectors per center -> 16 (N, 2) vectors.
