@@ -1,0 +1,1 @@
+Fix eager Quantizer fake-quantize module mapping for root modules so weight fake-quantizers receive configured QAT schedules
