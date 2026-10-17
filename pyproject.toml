@@ -263,6 +263,7 @@ select = [
     "RUF100", # remove unused noqa pragmas
     "TC004",  # catch runtime imports in TYPE_CHECKING blocks
     "UP",     # apply pyupgrade modernization rules
+    "W605",   # invalid escape sequences (SyntaxWarning since Python 3.12)
 ]
 ignore = [
     "ANN401", # allow type `Any`.

@@ -3414,7 +3414,7 @@ class TestAnnotationPatternRegistry:
                 QuantizerConfig(
                     global_config=None,
                     module_name_configs={
-                        "inner_module\.linear_out.*": ModuleQuantizerConfig(
+                        r"inner_module\.linear_out.*": ModuleQuantizerConfig(
                             op_state_spec=None,
                             module_state_spec={"weight": default_weight_quantization_spec()},
                         )
@@ -3508,7 +3508,7 @@ class TestAnnotationPatternRegistry:
                 )
             },
             module_name_configs={
-                "inner_module\.linear_out1": ModuleQuantizerConfig(
+                r"inner_module\.linear_out1": ModuleQuantizerConfig(
                     op_input_spec=None,
                     op_output_spec=None,
                     op_state_spec=None,
@@ -4156,7 +4156,7 @@ class TestAnnotationPatternRegistry:
                         )
                     },
                 ),
-                "Only integer indices or '\*' are supported",
+                r"Only integer indices or '\*' are supported",
             ),
             (
                 QuantizerConfig(
@@ -4167,7 +4167,7 @@ class TestAnnotationPatternRegistry:
                         )
                     },
                 ),
-                "Only integer indices or '\*' are supported",
+                r"Only integer indices or '\*' are supported",
             ),
             (
                 QuantizerConfig(
