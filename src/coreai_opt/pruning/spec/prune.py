@@ -139,14 +139,15 @@ class _MagnitudePruneImpl(PruneImplBase):
         Returns:
             torch.Tensor: Binary mask (1 = keep, 0 = prune).
         """
+        # TODO: Replace this with generic abstractions
+        if isinstance(pruning_scheme, ChannelStructured):
+            return _MagnitudePruneImpl._compute_channel_mask(weight, sparsity, pruning_scheme.axis)
+
         if sparsity == 0.0:
             return torch.ones_like(weight)
         if sparsity >= 1.0:
             return torch.zeros_like(weight)
 
-        # TODO: Replace this with generic abstractions
-        if isinstance(pruning_scheme, ChannelStructured):
-            return _MagnitudePruneImpl._compute_channel_mask(weight, sparsity, pruning_scheme.axis)
         return _MagnitudePruneImpl._compute_unstructured_mask(weight, sparsity)
 
     @staticmethod
@@ -171,6 +172,13 @@ class _MagnitudePruneImpl(PruneImplBase):
         Channel importance is measured by L1 norm. The least-important
         channels are pruned entirely.
         """
+        if weight.ndim < 2:
+            raise ValueError(
+                f"Channel-structured pruning requires a tensor with at least 2 dimensions, "
+                f"got shape {tuple(weight.shape)} with {weight.ndim} dims. "
+                f"For 1D tensors, use Unstructured pruning instead."
+            )
+
         if not (-weight.ndim <= axis < weight.ndim):
             raise ValueError(
                 f"Invalid axis. Should be in range [{-weight.ndim}, {weight.ndim}), but got {axis}"
