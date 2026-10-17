@@ -76,11 +76,11 @@ def per_tensor_int8_qspec():
 class SimpleConvModel(nn.Module):
     """Simple model with conv operation."""
 
-    def __init__(self, use_bn=False, use_act=False):
+    def __init__(self, use_bn=False, use_act=False, act_inplace=False, kernel_size=3, padding=1):
         super().__init__()
-        self.conv = nn.Conv2d(3, 16, 3, padding=1)
+        self.conv = nn.Conv2d(3, 16, kernel_size, padding=padding)
         self.bn = nn.BatchNorm2d(16)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=act_inplace)
         self.use_bn = use_bn
         self.use_act = use_act
 
@@ -96,11 +96,11 @@ class SimpleConvModel(nn.Module):
 class SimpleLinearModel(nn.Module):
     """Simple model with linear operation."""
 
-    def __init__(self, use_bn=False, use_act=False):
+    def __init__(self, use_bn=False, use_act=False, act_inplace=False):
         super().__init__()
         self.linear = nn.Linear(10, 20)
         self.bn = nn.BatchNorm1d(20)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=act_inplace)
         self.use_bn = use_bn
         self.use_act = use_act
 
@@ -868,6 +868,66 @@ class TestAnnotationPatternRegistry:
                 },
                 False,
             ),
+            # Conv with string padding, which exports as aten.conv2d.padding
+            # rather than aten.conv2d.default. An even kernel size needs
+            # asymmetric "same" padding.
+            *[
+                pytest.param(
+                    SimpleConvModel(kernel_size=kernel_size, padding=padding),
+                    (torch.randn(1, 3, 32, 32),),
+                    "weight_and_activation",
+                    "conv",
+                    {
+                        "conv2d": {
+                            "weight_fq": {"conv.weight": True, "conv.bias": False},
+                            "input_fq": True,
+                            "output_fq": True,
+                        }
+                    },
+                    False,
+                    id=f"conv_k{kernel_size}_padding_{padding}",
+                )
+                for kernel_size, padding in [(3, "same"), (4, "same"), (3, "valid")]
+            ],
+            # String-padding conv followed by BN and/or an activation, matched as one
+            # pattern with no quantizer inside it.
+            pytest.param(
+                SimpleConvModel(kernel_size=4, padding="same", use_bn=True),
+                (torch.randn(1, 3, 32, 32),),
+                "weight_and_activation",
+                "conv",
+                {
+                    "conv2d": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "batch_norm_1": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="conv_bn_k4_padding_same",
+            ),
+            pytest.param(
+                SimpleConvModel(kernel_size=4, padding="same", use_act=True),
+                (torch.randn(1, 3, 32, 32),),
+                "weight_and_activation",
+                "conv",
+                {
+                    "conv2d": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "relu": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="conv_relu_k4_padding_same",
+            ),
+            pytest.param(
+                SimpleConvModel(kernel_size=4, padding="same", use_bn=True, use_act=True),
+                (torch.randn(1, 3, 32, 32),),
+                "weight_and_activation",
+                "conv",
+                {
+                    "conv2d": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "batch_norm_1": {"input_fq": False, "output_fq": False},
+                    "relu": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="conv_bn_relu_k4_padding_same",
+            ),
             # Conv+BN pattern tests
             (
                 SimpleConvModel(use_bn=True),
@@ -918,6 +978,19 @@ class TestAnnotationPatternRegistry:
                     "relu": {"input_fq": False, "output_fq": True},
                 },
                 False,
+            ),
+            # Conv+ReLU(inplace=True) pattern tests
+            pytest.param(
+                SimpleConvModel(use_act=True, act_inplace=True),
+                (torch.randn(1, 3, 32, 32),),
+                "weight_and_activation",
+                "conv",
+                {
+                    "conv2d": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "relu_": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="conv_relu_inplace",
             ),
             # Conv+BN+ReLU pattern tests
             (
@@ -1050,6 +1123,19 @@ class TestAnnotationPatternRegistry:
                     "relu": {"input_fq": False, "output_fq": True},
                 },
                 False,
+            ),
+            # Linear+ReLU(inplace=True) pattern tests
+            pytest.param(
+                SimpleLinearModel(use_act=True, act_inplace=True),
+                (torch.randn(1, 10),),
+                "weight_and_activation",
+                "linear",
+                {
+                    "linear": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "relu_": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="linear_relu_inplace",
             ),
             # Linear+BN+ReLU pattern tests
             (

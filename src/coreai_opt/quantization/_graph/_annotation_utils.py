@@ -6,6 +6,7 @@
 import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Literal
 
 import torch
@@ -181,7 +182,7 @@ def _get_weighted_mod_pattern(
     example_inputs: tuple[torch.Tensor, ...],
     act_fn: Callable | None = None,
     act_in_place: bool = False,
-) -> torch.nn.Module:
+) -> torch.fx.GraphModule:
     """
     Returns an aten graph corresponding to a sequence of these ops:
     input -> weighted_mod -> activation -> output
@@ -199,7 +200,6 @@ def _get_weighted_mod_pattern(
         output = mod_out
         node_dict = {
             "input": input,
-            "mod": mod_out,
             "weight": weight,
             "bias": bias,
         }
@@ -217,7 +217,7 @@ def _get_weighted_mod_bn_pattern(
     example_inputs: tuple[torch.Tensor, ...],
     act_fn: Callable | None = None,
     act_in_place: bool = False,
-) -> torch.nn.Module:
+) -> torch.fx.GraphModule:
     """
     Returns an aten graph corresponding to a sequence of these ops:
     input -> weighted_mod -> batch_norm -> activation -> output
@@ -240,7 +240,6 @@ def _get_weighted_mod_bn_pattern(
 
         node_dict = {
             "input": input,
-            "mod": mod_out,
             "bn": bn_out,
             "weight": weight,
             "bias": bias,
@@ -342,61 +341,66 @@ def _create_module_graph_pattern(
     )
 
 
+def _get_conv_fns(conv_dim: int, is_transpose: bool) -> list[Callable]:
+    """Return the conv functions to trace patterns from, one per aten overload of the conv.
+
+    A conv with integer padding exports as ``aten.convNd.default``, while one with string
+    padding ("same" / "valid") exports as ``aten.convNd.padding``.
+    Transposed convs only accept integer padding.
+    """
+    if is_transpose:
+        assert conv_dim in _conv_transpose_fn_map, (
+            f"Dimension {conv_dim} is not supported for ConvTranspose layers."
+        )
+        conv_fns = [_conv_transpose_fn_map[conv_dim]]
+    else:
+        assert conv_dim in _conv_fn_map, (
+            f"Dimension {conv_dim} is not supported for Convolution layers."
+        )
+        conv_fn = _conv_fn_map[conv_dim]
+        conv_fns = [conv_fn, partial(conv_fn, padding="valid")]
+    return conv_fns
+
+
 def get_conv_pattern(
     conv_dim: int,
     is_transpose: bool = False,
     act_fn: Callable | None = None,
     act_in_place: bool = False,
-) -> torch.nn.Module:
+) -> list[torch.fx.GraphModule]:
     """
-    Returns an aten graph corresponding to a sequence of these ops:
+    Returns aten graphs corresponding to a sequence of these ops:
     input -> conv/conv_transpose -> activation -> output
 
+    One graph is returned per conv aten overload (see ``_get_conv_fns``).
     No activation is used if ``act_fn`` is ``None``.
     ``act_fn`` is an activation function from _supported_activations or
     _supported_activations_no_inplace
     """
-    if is_transpose:
-        assert conv_dim in _conv_transpose_fn_map, (
-            f"Dimension {conv_dim} is not supported for ConvTranspose layers."
-        )
-    else:
-        assert conv_dim in _conv_fn_map, (
-            f"Dimension {conv_dim} is not supported for Convolution layers."
-        )
-
-    conv_func = _conv_transpose_fn_map[conv_dim] if is_transpose else _conv_fn_map[conv_dim]
-
     example_inputs = (
         torch.randn(1, 1, *[3] * conv_dim),  # input
         torch.randn(1, 1, *[1] * conv_dim),  # conv weight
         torch.randn(1),  # conv bias
     )
-    return _get_weighted_mod_pattern(conv_func, example_inputs, act_fn, act_in_place)
+    patterns = []
+    for conv_fn in _get_conv_fns(conv_dim, is_transpose):
+        pattern_gm = _get_weighted_mod_pattern(conv_fn, example_inputs, act_fn, act_in_place)
+        patterns.append(pattern_gm)
+    return patterns
 
 
 def get_conv_bn_pattern(
     conv_dim: int, is_transpose: bool, act_fn: Callable | None = None, act_in_place: bool = False
-) -> torch.nn.Module:
+) -> list[torch.fx.GraphModule]:
     """
-    Returns an aten graph corresponding to a sequence of these ops:
+    Returns aten graphs corresponding to a sequence of these ops:
     input -> conv -> batch_norm -> activation -> output
 
+    One graph is returned per conv aten overload (see ``_get_conv_fns``).
     No activation is used if ``act_fn`` is ``None``.
     ``act_fn`` is an activation function from _supported_activations or
     _supported_activations_no_inplace
     """
-    if is_transpose:
-        assert conv_dim in _conv_transpose_fn_map, (
-            f"Dimension {conv_dim} is not supported for ConvTranspose layers."
-        )
-    else:
-        assert conv_dim in _conv_fn_map, (
-            f"Dimension {conv_dim} is not supported for Convolution layers."
-        )
-
-    conv_func = _conv_transpose_fn_map[conv_dim] if is_transpose else _conv_fn_map[conv_dim]
-
     example_inputs = (
         torch.randn(1, 1, *[3] * conv_dim),  # input
         torch.randn(1, 1, *[1] * conv_dim),  # conv weight
@@ -406,7 +410,11 @@ def get_conv_bn_pattern(
         torch.randn(1),  # bn_run_mean
         torch.randn(1),  # bn_run_var
     )
-    return _get_weighted_mod_bn_pattern(conv_func, example_inputs, act_fn, act_in_place)
+    patterns = []
+    for conv_fn in _get_conv_fns(conv_dim, is_transpose):
+        pattern_gm = _get_weighted_mod_bn_pattern(conv_fn, example_inputs, act_fn, act_in_place)
+        patterns.append(pattern_gm)
+    return patterns
 
 
 def get_linear_pattern(
@@ -466,7 +474,6 @@ def get_embedding_pattern() -> torch.nn.Module:
         output = mod_out
         node_dict = {
             "input": input,
-            "mod": mod_out,
             "weight": weight,
         }
         return output, node_dict
@@ -751,19 +758,33 @@ def match_pattern_with_subgraph_matcher(
     Helper function for matching model nodes with pattern using
     SubgraphMatcherWithNameNodeMap.
 
-    Returns a dictionary mapping nodes to matches.
+    Used for ``WeightedModulePattern`` patterns, whose name node map must have a
+    "weight" entry. The primary node of each match is the op in the match that
+    consumes the weight (the weight may also feed ops outside the match).
+
+    Returns a dictionary mapping each match's primary node to the match.
+
+    Raises:
+        RuntimeError: If the pattern's name node map has no "weight" entry.
     """
     node_to_match_dict: dict[torch.fx.Node, InternalMatch] = {}
     matcher = SubgraphMatcherWithNameNodeMap(pattern_gm, ignore_literals=True)
+    if "weight" not in matcher.name_node_map:
+        raise RuntimeError(
+            'Expected the pattern\'s name node map to have a "weight" entry, got keys '
+            f"{list(matcher.name_node_map)}."
+        )
     matches = matcher.match(model.graph)
 
     for subgraph_match in matches:
-        name_node_map = subgraph_match.name_node_map
-        mod_node = name_node_map["mod"]
-        assert mod_node not in node_to_match_dict
-
-        # Use the node marked with "mod" as the key
-        node_to_match_dict[mod_node] = subgraph_match
+        matched_nodes = set(subgraph_match.nodes_map.values())
+        weight_users = [
+            user for user in subgraph_match.name_node_map["weight"].users if user in matched_nodes
+        ]
+        assert len(weight_users) == 1, f"Expected one weighted op in the match, got {weight_users}"
+        primary_node = weight_users[0]
+        assert primary_node not in node_to_match_dict
+        node_to_match_dict[primary_node] = subgraph_match
     return node_to_match_dict
 
 

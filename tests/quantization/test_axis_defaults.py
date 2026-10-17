@@ -94,6 +94,22 @@ _SINGLE_OP_PARAMS = [
         lambda: torch.randn(1, 4, 4, 4, 4),
         id="conv3d",
     ),
+    # String padding exports as aten.convNd.padding instead of aten.convNd.default.
+    pytest.param(
+        lambda: nn.Conv1d(4, 16, 3, padding="same"),
+        lambda: torch.randn(1, 4, 16),
+        id="conv1d_padding_same",
+    ),
+    pytest.param(
+        lambda: nn.Conv2d(4, 16, 3, padding="same"),
+        lambda: torch.randn(1, 4, 8, 8),
+        id="conv2d_padding_same",
+    ),
+    pytest.param(
+        lambda: nn.Conv3d(4, 16, 3, padding="same"),
+        lambda: torch.randn(1, 4, 4, 4, 4),
+        id="conv3d_padding_same",
+    ),
     pytest.param(
         lambda: nn.ConvTranspose1d(16, 8, 3, padding=1),
         lambda: torch.randn(1, 16, 16),
