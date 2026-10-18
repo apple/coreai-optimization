@@ -777,9 +777,18 @@ def match_pattern_with_subgraph_matcher(
     matches = matcher.match(model.graph)
 
     for subgraph_match in matches:
-        matched_nodes = set(subgraph_match.nodes_map.values())
+        # "subgraph_match.nodes_map" maps each node in "pattern_gm" to its node in "model".
+        # To find "weight_users", keep only the model nodes whose pattern node is a
+        # call_function (not a placeholder).
+        # When weights are shared there maybe multiple users within the model, but only
+        # one should be present in the subgraph corresponding to the pattern.
+        matched_ops = {
+            model_node
+            for pattern_node, model_node in subgraph_match.nodes_map.items()
+            if pattern_node.op == "call_function"
+        }
         weight_users = [
-            user for user in subgraph_match.name_node_map["weight"].users if user in matched_nodes
+            user for user in subgraph_match.name_node_map["weight"].users if user in matched_ops
         ]
         assert len(weight_users) == 1, f"Expected one weighted op in the match, got {weight_users}"
         primary_node = weight_users[0]
