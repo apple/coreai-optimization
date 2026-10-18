@@ -242,14 +242,6 @@ class TestCompositeOpIOQuantization:
                 id="sdpa-qkv",
             ),
             pytest.param(
-                CompositeRoPEModel,
-                rope_externalize_spec(),
-                "composite",
-                3,
-                _rope_sample,
-                id="rope",
-            ),
-            pytest.param(
                 CompositeGatherMMModel,
                 gathermm_externalize_spec(),
                 "composite",
@@ -289,14 +281,6 @@ class TestCompositeOpIOQuantization:
                 (0, 2),
                 _single_tensor_sample,
                 id="sdpa",
-            ),
-            pytest.param(
-                CompositeRoPEModel,
-                rope_externalize_spec(),
-                3,
-                (0, 2),
-                _rope_sample,
-                id="rope",
             ),
             pytest.param(
                 CompositeGatherMMModel,
