@@ -23,6 +23,7 @@ from tests.utils import test_artifact_path
 
 pytest_plugins = [
     "tests.config.plugin",
+    "tests.config.stack_dumps",
     "tests.fixtures.quantization",
     "tests.fixtures.palettization",
     "tests.fixtures.fp8",
