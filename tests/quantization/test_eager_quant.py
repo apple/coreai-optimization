@@ -1956,6 +1956,62 @@ def test_preserved_attributes_warning_in_eager_mode(simple_model, example_input)
         assert prepared_model is not None
 
 
+def test_optimizer_free_op_count_may_differ_from_calibration():
+    """
+    An unquantized functional op called a different number of times after calibration than
+    during it must not fail.
+    """
+
+    class ConditionalAddModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = torch.nn.Linear(2, 2, bias=False)
+
+        def forward(self, inp, extra_add=False):
+            x = self.linear(inp)
+            x = torch.add(x, 1.0)
+            if extra_add:
+                x = torch.add(x, 1.0)
+            return x
+
+    model = ConditionalAddModel()
+    example_input = torch.randn(1, 2)
+    config = QuantizerConfig(
+        global_config=None,
+        module_type_configs={
+            torch.nn.Linear: ModuleQuantizerConfig(
+                op_input_spec={"*": default_activation_quantization_spec()},
+                op_state_spec=None,
+                op_output_spec=None,
+            ),
+        },
+        execution_mode="eager",
+    )
+    prepared_model = Quantizer(model, config).prepare((example_input,))
+
+    # ``add`` carries no optimizer, so the extra call is benign.
+    out = prepared_model(example_input, extra_add=True)
+    assert out.shape == (1, 2)
+
+
+def test_quantized_op_count_must_match_calibration():
+    """A quantized op called a different number of times than during calibration still fails."""
+
+    class ConditionalAddModel(torch.nn.Module):
+        def forward(self, inp, extra_add=False):
+            x = torch.add(inp, inp)
+            if extra_add:
+                x = torch.add(x, x)
+            return x
+
+    example_input = torch.randn(1, 2)
+    config = QuantizerConfig(execution_mode="eager")
+    prepared_model = Quantizer(ConditionalAddModel(), config).prepare((example_input,))
+
+    with pytest.raises(RuntimeError, match="different number of times"):
+        prepared_model(example_input, extra_add=True)
+
+
 def test_interleaved_modules_and_functions():
     """
     Test that a module calling into a nested module with functional calls before and

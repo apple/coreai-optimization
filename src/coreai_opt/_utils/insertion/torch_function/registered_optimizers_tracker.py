@@ -17,6 +17,11 @@ RegisteredOptimizersDict: TypeAlias = dict[
 ]
 
 
+def _carries_optimizer(records: list[FunctionRegisteredOptimizers]) -> bool:
+    """Return True if any record attaches an input or output optimizer (the op is quantized)."""
+    return any(r.input_optimizer_names or r.output_optimizer_names for r in records)
+
+
 class RegisteredOptimizersTracker:
     """
     Tracks which optimizers were actually registered for each function call.
@@ -184,7 +189,7 @@ class RegisteredOptimizersTracker:
 
         This is used during optimization to ensure the same functions are called
         the same number of times with the same input/output optimizers as during
-        registration.
+        registration. Functions without optimizers are exempt from this check.
 
         Args:
             reference_tracker: The reference tracker to validate against
@@ -210,6 +215,14 @@ class RegisteredOptimizersTracker:
         for func_name in current_registrations:
             current_records = current_registrations[func_name]
             reference_records = reference_registrations[func_name]
+
+            # The count of ops without optimizers may differ between calibration and later
+            # forward passes. Optimizer dispatch is per function name, so this never shifts a
+            # quantized op's index.
+            if not _carries_optimizer(current_records) and not _carries_optimizer(
+                reference_records
+            ):
+                continue
 
             if len(current_records) != len(reference_records):
                 error_msg = (
