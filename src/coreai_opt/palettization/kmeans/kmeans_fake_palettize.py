@@ -257,15 +257,22 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         if self._indices_stale:
             destination.pop(prefix + "indices", None)
 
-    def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, *args, **kwargs
+    ):
         """Load centroids from a checkpoint, reconstructing them from a legacy
-        ``lut`` buffer when present.
+        ``lut`` buffer when present. Absent ``indices`` are not reported as missing;
+        they are recomputed from centroids on next use.
         """
         lut_key, centroids_key, index_key = prefix + "lut", prefix + "centroids", prefix + "indices"
         if centroids_key not in state_dict and lut_key in state_dict:
             state_dict[centroids_key] = self._centroids_from_lut(state_dict[lut_key])
         had_indices = index_key in state_dict
-        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, *args, **kwargs
+        )
+        if not had_indices and index_key in missing_keys:
+            missing_keys.remove(index_key)
         if self.centroids is not None:
             self._centroids_initialized = True
             scale_ok = not self.enable_per_channel_scale or self.per_channel_scale is not None
