@@ -1209,9 +1209,9 @@ class TestIntegerActivations:
         _ = prepared_model(example_input_ids, 2)
 
 
-class TestSingleElementActivations:
+class TestSingleElementTensors:
     """
-    Graph mode skips activations with at most one element, matching eager mode
+    Graph mode skips activations and states with at most one element, matching eager mode
     """
 
     @staticmethod
@@ -1274,6 +1274,40 @@ class TestSingleElementActivations:
 
         self._assert_no_single_element_tensor_observed(prepared_model)
 
+    @pytest.mark.parametrize(
+        "batch_dim", [Dim.AUTO, Dim("batch", min=1, max=64)], ids=["auto", "min_1"]
+    )
+    def test_dynamic_batch_activation_observed(self, batch_dim, weight_input_act_output_act_config):
+        """A (B, 1) activation is observed, since B is not provably at most one."""
+
+        class KeepdimModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+
+            def forward(self, x):
+                y = self.linear(x)
+                return y * y.sum(dim=1, keepdim=True) + y * y.sum()
+
+        quantizer = Quantizer(KeepdimModel(), weight_input_act_output_act_config)
+        prepared_model = quantizer.prepare(
+            (torch.randn(4, 8),), dynamic_shapes={"x": (batch_dim, Dim.STATIC)}
+        )
+
+        observed_shapes = [
+            tuple(fq_node.args[0].meta["val"].shape)
+            for fq_node in get_fake_quant_nodes(prepared_model)
+        ]
+        dynamic_keepdim_shapes = [
+            shape
+            for shape in observed_shapes
+            if len(shape) == 2 and isinstance(shape[0], torch.SymInt) and shape[1] == 1
+        ]
+        assert dynamic_keepdim_shapes, f"Expected (B, 1) sum to be observed: {observed_shapes}"
+        assert () not in observed_shapes, f"Expected 0-d sum not to be observed: {observed_shapes}"
+        for batch_size in (1, 17):
+            prepared_model(torch.randn(batch_size, 8))
+
     def test_single_element_module_boundary_not_observed(self):
         class Block(nn.Module):
             def forward(self, y, scale):
@@ -1296,6 +1330,69 @@ class TestSingleElementActivations:
         prepared_model = quantizer.prepare((torch.randn(2, 8),))
 
         self._assert_no_single_element_tensor_observed(prepared_model)
+
+    @staticmethod
+    def _assert_state_observed(prepared_model, state_name):
+        observed_names = {fq_node.args[0].name for fq_node in get_fake_quant_nodes(prepared_model)}
+        assert state_name in observed_names, f"Expected {state_name} to be observed"
+
+    @pytest.mark.parametrize(
+        "scale", [torch.tensor(2.0), torch.tensor([2.0])], ids=["0d", "shape_1"]
+    )
+    def test_single_element_state_not_observed(self, scale):
+        class ScaleModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 1)  # bias has shape (1,)
+                self.scale = nn.Parameter(scale.clone())
+
+            def forward(self, x):
+                return self.linear(x) * self.scale
+
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={"*": default_weight_quantization_spec()},
+            )
+        )
+        quantizer = Quantizer(ScaleModel(), config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8),))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
+        self._assert_state_observed(prepared_model, "linear_weight")
+
+    @pytest.mark.parametrize(
+        "scale", [torch.tensor(2.0), torch.tensor([2.0])], ids=["0d", "shape_1"]
+    )
+    def test_single_element_module_state_spec_not_observed(self, scale):
+        class Scaler(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.scale = nn.Parameter(scale.clone())
+
+            def forward(self, y):
+                return y * self.scale
+
+        class ScalerModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+                self.scaler = Scaler()
+
+            def forward(self, x):
+                return self.scaler(self.linear(x))
+
+        config = QuantizerConfig(
+            module_name_configs={
+                "scaler": ModuleQuantizerConfig(
+                    module_state_spec={"scale": default_weight_quantization_spec()},
+                )
+            }
+        )
+        quantizer = Quantizer(ScalerModel(), config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8),))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
+        self._assert_state_observed(prepared_model, "linear_weight")
 
 
 @pytest.mark.parametrize("model_dtype", [torch.float32, torch.float16, torch.bfloat16])

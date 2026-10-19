@@ -36,7 +36,7 @@ from ._annotation_utils import (
     _get_state_aliases,
     _hardtanh_ops,
     _is_fx_node_floating_point,
-    _is_fx_node_single_element_activation,
+    _is_fx_node_single_element_tensor,
     _warn_non_quantizable_tensor_setting,
 )
 from ._qspec_constraints import _get_or_create
@@ -122,9 +122,7 @@ def _populate_input_slots(
     for arg_index, producer in enumerate(node.all_input_nodes):
         if producer in pattern:
             continue  # internal edge — skip
-        if not _is_fx_node_floating_point(producer) or _is_fx_node_single_element_activation(
-            producer
-        ):
+        if not _is_fx_node_floating_point(producer) or _is_fx_node_single_element_tensor(producer):
             # Unobservable, not declined: a fact about the graph rather than a
             # user decision, so it must not suppress a group it joins.
             _warn_if_non_quantizable_input_configured(producer, arg_index, cfg)
@@ -223,7 +221,7 @@ def _populate_output_slot(
     if not node.users:
         return
 
-    if not _is_fx_node_floating_point(node) or _is_fx_node_single_element_activation(node):
+    if not _is_fx_node_floating_point(node) or _is_fx_node_single_element_tensor(node):
         # Not a tensor — e.g. the SymInt shape-assertion `mul`s torch.export
         # synthesizes. A qspec here would send an int to the qparams calculator.
         # Or a tensor of at most one element, which eager mode doesn't quantize either.

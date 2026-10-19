@@ -494,21 +494,21 @@ def _is_fx_node_floating_point(node: torch.fx.Node) -> bool:
     return False
 
 
-def _is_fx_node_single_element_activation(node: torch.fx.Node) -> bool:
+def _is_fx_node_single_element_tensor(node: torch.fx.Node) -> bool:
     """
-    Check if a fx node is a floating-point activation with at most one element.
+    Check if a fx node is a floating-point tensor with at most one element.
 
-    Such activations are not quantized, matching eager mode, which skips any tensor with
-    ``numel() <= 1``. State tensors are not affected.
+    Such tensors, activations and states alike, are not quantized, matching eager mode,
+    which skips any tensor with ``numel() <= 1``.
 
     Args:
         node: The FX node to check
 
     Returns:
-        bool: True if node is a non-state floating-point tensor known to have at most one
-            element, False otherwise.
+        bool: True if node is a floating-point tensor known to have at most one element,
+            False otherwise.
     """
-    if not _is_fx_node_floating_point(node) or is_coreai_compressed_state_node(node):
+    if not _is_fx_node_floating_point(node):
         return False
     # A dynamic numel is a SymInt; only skip when it is provably at most one.
     return bool(statically_known_true(node.meta["val"].numel() <= 1))
@@ -597,7 +597,7 @@ def _get_input_qspec_map(
     op_state_spec = quantization_config.op_state_spec
 
     for idx, node in enumerate(input_and_state_nodes):
-        if not _is_fx_node_floating_point(node) or _is_fx_node_single_element_activation(node):
+        if not _is_fx_node_floating_point(node) or _is_fx_node_single_element_tensor(node):
             # If input/state was specifically configured to set some qspec, log a
             # warning (settings using "*" will not be flagged)
             if idx in op_input_spec:
@@ -870,7 +870,7 @@ def _annotate_nodes_for_module_level_state_spec(
           configured with outer_param's spec.
     """
     for node in model.graph.nodes:
-        if is_coreai_compressed_state_node(node):
+        if is_coreai_compressed_state_node(node) and not _is_fx_node_single_element_tensor(node):
             _match_and_annotate_state_node(node, module_configs, module_name_to_state_names_map)
 
 
@@ -1040,7 +1040,7 @@ def _find_and_apply_module_level_spec(
         is_input: True if the input of the node is to be annotated, False for output
     """
     tensor_node = input_node if is_input else node_to_annotate
-    if tensor_node is not None and _is_fx_node_single_element_activation(tensor_node):
+    if tensor_node is not None and _is_fx_node_single_element_tensor(tensor_node):
         return
     found, spec = _get_spec_from_spec_dict(spec_dict, identifier)
     # If spec is not found, do not do any more processing (as opposed to disabling
