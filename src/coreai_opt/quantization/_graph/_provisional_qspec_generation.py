@@ -224,7 +224,7 @@ def _populate_output_slot(
     if not _is_fx_node_floating_point(node) or _is_fx_node_single_element_tensor(node):
         # Not a tensor — e.g. the SymInt shape-assertion `mul`s torch.export
         # synthesizes. A qspec here would send an int to the qparams calculator.
-        # Or a tensor of at most one element, which eager mode doesn't quantize either.
+        # Or a tensor of at most one element.
         if 0 in cfg.op_output_spec:
             _warn_non_quantizable_tensor_setting(node, "output", 0, cfg.op_output_spec)
         return
