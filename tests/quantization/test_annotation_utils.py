@@ -10,7 +10,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch._ops import OpOverloadPacket
+from torchao.quantization.pt2e import WrapperModule
 
+from coreai_opt._utils.torch_utils import export_model
+from coreai_opt.quantization._graph._annotation_utils import (
+    _get_aten_graph_module_for_pattern,
+    match_pattern_with_subgraph_matcher,
+)
 from coreai_opt.quantization._graph._qspec_constraint_generation import (
     _PASSTHROUGH_OP_OVERLOADS,
 )
@@ -141,3 +147,16 @@ def test_passthrough_op_produces_expected_overloadpacket(overloadpacket, model_i
     """Each passthrough op must lower to its expected ATen OpOverloadPacket after export."""
     model, inputs = model_inputs
     assert overloadpacket in _overloadpackets_in_graph(model, inputs)
+
+
+def test_subgraph_matcher_requires_weight_in_pattern():
+    """A pattern matched with the subgraph matcher must name its weight."""
+
+    def _relu_pattern(input):
+        output = F.relu(input)
+        return output, {"input": input, "output": output}
+
+    pattern_gm = _get_aten_graph_module_for_pattern(WrapperModule(_relu_pattern), (torch.randn(2),))
+    model = export_model(nn.ReLU(), (torch.randn(2),), None, False)
+    with pytest.raises(RuntimeError, match='"weight" entry'):
+        match_pattern_with_subgraph_matcher(model, pattern_gm)

@@ -42,7 +42,13 @@ from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 
 from coreai_opt._utils.config_utils import ALL_TENSORS, ConfigLevel
 from coreai_opt._utils.fx_utils import get_node_type, normalize_module_fqn
-from coreai_opt._utils.torch_utils import export_model, move_model_to_eval, move_model_to_train
+from coreai_opt._utils.metadata_utils import STATE_DICT_METADATA_BUFFER_PREFIX
+from coreai_opt._utils.torch_utils import (
+    export_model,
+    get_parent_module_and_attr_name,
+    move_model_to_eval,
+    move_model_to_train,
+)
 from coreai_opt._utils.version_utils import version_ge
 from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleConfigDict, _build_module_alias_map
@@ -1145,6 +1151,14 @@ class GraphQuantizer(_BaseQuantizer):
 
         # Retrieve preserved attributes before conversion
         preserved_attrs = model.meta.get(_USER_PRESERVED_ATTRIBUTES_KEY, {})
+        # convert_pt2e rebuilds the GraphModule keeping only attributes referenced by the
+        # graph, which drops compression metadata buffers registered by a prior finalize
+        # (e.g. palettization for CoreML export), so save them to restore afterwards.
+        metadata_buffers = {
+            name: buffer
+            for name, buffer in model.named_buffers()
+            if STATE_DICT_METADATA_BUFFER_PREFIX in name
+        }
 
         # Always first call convert_pt2e API.
         # We disable fold_quantize purely to save memory: torchao's constant_fold
@@ -1159,6 +1173,9 @@ class GraphQuantizer(_BaseQuantizer):
 
         # Re-attach preserved attributes to finalized model
         self._attach_preserved_attrs_to_model(finalized_model, preserved_attrs)
+        for name, buffer in metadata_buffers.items():
+            module, buffer_name = get_parent_module_and_attr_name(finalized_model, name)
+            module.register_buffer(buffer_name, buffer)
         # Post-conversion processing (conv+bn folding, etc.)
         finalized_model = self._post_conversion_process(finalized_model)
 

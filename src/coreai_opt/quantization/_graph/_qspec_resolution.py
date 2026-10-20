@@ -29,6 +29,7 @@ from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 from coreai_opt.quantization.spec import QuantizationSpec
 
 from ._annotation_config import AnnotationConfig
+from ._annotation_utils import _is_fx_node_single_element_tensor
 from ._qspec_types import (
     FieldName,
     NodeSlot,
@@ -53,6 +54,7 @@ _SlotSpec = TorchAOQuantizationSpec | _SharedQuantizationSpec
 
 def resolve_qspecs(model: fx.GraphModule, qspecs: ProvisionalQSpecMap) -> None:
     """Project reconciled per-slot state onto ``model``'s annotations, in place."""
+    qspecs = _drop_single_element_tensor_slots(qspecs)
     groups = _group_slots_by_qspec_identity(qspecs)
     topo_index = _topo_index(model)
 
@@ -62,6 +64,26 @@ def resolve_qspecs(model: fx.GraphModule, qspecs: ProvisionalQSpecMap) -> None:
 
     per_node_inputs, per_node_outputs = _bucket_per_node(slot_assignments)
     _write_annotations(per_node_inputs, per_node_outputs)
+
+
+def _drop_single_element_tensor_slots(qspecs: ProvisionalQSpecMap) -> ProvisionalQSpecMap:
+    """Drop slots whose tensor has at most one element.
+
+    Population never seeds such slots, but a sharing constraint can still pull one
+    into a group, e.g. a ``mean`` output sharing its input's observer.
+    """
+    return {
+        slot: qspec
+        for slot, qspec in qspecs.items()
+        if not _is_fx_node_single_element_tensor(_slot_tensor_node(slot))
+    }
+
+
+def _slot_tensor_node(slot: NodeSlot) -> fx.Node:
+    """The node producing the tensor ``slot`` observes."""
+    if slot.kind is SlotKind.OUTPUT:
+        return slot.node
+    return slot.node.all_input_nodes[slot.arg_index]
 
 
 # ---------------------------------------------------------------------------

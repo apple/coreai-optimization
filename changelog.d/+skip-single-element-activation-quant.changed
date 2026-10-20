@@ -1,0 +1,1 @@
+Graph-mode `Quantizer` now skips activations and states with at most one element (e.g. the 0-d output of `x.sum()`), matching eager mode. This also fixes `prepare` failing on 0-d parameters under a per-channel weight spec.

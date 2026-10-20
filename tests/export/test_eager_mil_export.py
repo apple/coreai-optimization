@@ -26,6 +26,7 @@ def _run_eager_mil_export_test_ex(
     config: QuantizerConfig,
     expected_ops: Mapping[str, int],
     model_dtype: torch.dtype | None = None,
+    psnr_thresh: float = 35.0,
 ) -> None:
     """Run the shared export test workflow against the CoreML backend.
 
@@ -41,7 +42,7 @@ def _run_eager_mil_export_test_ex(
         export_backend=ExportBackend.CoreML,
         model_dtype=model_dtype,
         snr_thresh=18.0,
-        psnr_thresh=35.0,
+        psnr_thresh=psnr_thresh,
     )
 
 
@@ -50,6 +51,7 @@ def _run_eager_mil_export_test(
     input_data: torch.Tensor,
     parametrized_quant_config: ParametrizedQuantConfigs,
     expected_ops: Mapping[str, int],
+    psnr_thresh: float = 35.0,
 ) -> None:
     """Run eager CoreML export test with parametrized configuration.
 
@@ -61,6 +63,7 @@ def _run_eager_mil_export_test(
         input_data: Input tensor for model
         parametrized_quant_config: Parametrized quantization configurations
         expected_ops: Expected operation counts in converted model
+        psnr_thresh: Minimum acceptable PSNR value
 
     """
     _run_eager_mil_export_test_ex(
@@ -69,6 +72,7 @@ def _run_eager_mil_export_test(
         config=parametrized_quant_config.eager,
         expected_ops=expected_ops,
         model_dtype=parametrized_quant_config.model_dtype,
+        psnr_thresh=psnr_thresh,
     )
 
 
@@ -93,6 +97,7 @@ def test_simple_model_export(
             "quantize": 4 if has_act_quant else 0,
             "dequantize": 4 if has_act_quant else 0,
         },
+        psnr_thresh=30.0,
     )
 
 

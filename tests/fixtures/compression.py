@@ -38,23 +38,25 @@ class ParametrizedP4A8CompressionConfigs:
     def from_params(
         cls,
         lut_qspec: QuantizationSpec | None = None,
+        n_bits: int = 4,
     ) -> "ParametrizedP4A8CompressionConfigs":
         """Create config pair for P4-A8 joint compression.
 
-        Palettization: 4-bit, per-tensor granularity.
+        Palettization: ``n_bits``-bit (4 by default), per-tensor granularity.
         Activation quantization: int8 symmetric per-tensor (input + output).
         Weight quantization: disabled (weights are palettized).
 
         Args:
             lut_qspec (QuantizationSpec | None): LUT quantization spec.
                 None for unquantized LUT, or a QuantizationSpec for quantized LUT.
+            n_bits (int): Palettization bit width.
 
         Returns:
             ParametrizedP4A8CompressionConfigs: Config pair.
 
         """
         palett_spec = PalettizationSpec(
-            n_bits=4,
+            n_bits=n_bits,
             lut_qspec=lut_qspec,
         )
         palett_config = KMeansPalettizerConfig(

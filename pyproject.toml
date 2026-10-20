@@ -17,7 +17,7 @@ keywords = [
     "quantization",
 ]
 license = "BSD-3-Clause"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<3.15"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -27,6 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dynamic = [ "version" ]
@@ -61,8 +62,8 @@ coreai = [
     "scikit-learn>=1.7.2",
 ]
 coreml = [
-    "coremltools>=8.3",
-    "numpy>=2,<2.4",    # TODO: Remove once coremltools has released a version > 9.0
+    "coremltools>=8.3; python_version<'3.14'",
+    "numpy>=2,<2.4; python_version<'3.14'",    # TODO: Remove once coremltools has released a version > 9.0
 ]
 [project.urls]
 Changelog = "https://github.com/apple/coreai-optimization/blob/main/CHANGELOG.md"

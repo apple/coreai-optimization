@@ -405,20 +405,20 @@ class ConvBNActPattern(WeightedModulePattern):
         for conv_dim in [1, 2, 3]:
             for act_fn in _annotation_utils._supported_activations:
                 for act_in_place in [True, False]:
-                    pattern_gm = _annotation_utils.get_conv_bn_pattern(
+                    pattern_gms = _annotation_utils.get_conv_bn_pattern(
                         conv_dim=conv_dim,
                         is_transpose=False,
                         act_fn=act_fn,
                         act_in_place=act_in_place,
                     )
-                    patterns.append(pattern_gm)
+                    patterns.extend(pattern_gms)
 
             # Add patterns for activations without inplace support
             for act_fn in _annotation_utils._supported_activations_no_inplace:
-                pattern_gm = _annotation_utils.get_conv_bn_pattern(
+                pattern_gms = _annotation_utils.get_conv_bn_pattern(
                     conv_dim=conv_dim, is_transpose=False, act_fn=act_fn, act_in_place=False
                 )
-                patterns.append(pattern_gm)
+                patterns.extend(pattern_gms)
         return patterns
 
 
@@ -435,20 +435,20 @@ class ConvTransposeBNActPattern(WeightedModulePattern):
         for conv_dim in [1, 2, 3]:
             for act_fn in _annotation_utils._supported_activations:
                 for act_in_place in [True, False]:
-                    pattern_gm = _annotation_utils.get_conv_bn_pattern(
+                    pattern_gms = _annotation_utils.get_conv_bn_pattern(
                         conv_dim=conv_dim,
                         is_transpose=True,
                         act_fn=act_fn,
                         act_in_place=act_in_place,
                     )
-                    patterns.append(pattern_gm)
+                    patterns.extend(pattern_gms)
 
             # Add patterns for activations without inplace support
             for act_fn in _annotation_utils._supported_activations_no_inplace:
-                pattern_gm = _annotation_utils.get_conv_bn_pattern(
+                pattern_gms = _annotation_utils.get_conv_bn_pattern(
                     conv_dim=conv_dim, is_transpose=True, act_fn=act_fn, act_in_place=False
                 )
-                patterns.append(pattern_gm)
+                patterns.extend(pattern_gms)
 
         return patterns
 
@@ -466,17 +466,17 @@ class ConvActPattern(WeightedModulePattern):
         for conv_dim in [1, 2, 3]:
             for act_fn in _annotation_utils._supported_activations:
                 for act_in_place in [True, False]:
-                    pattern_gm = _annotation_utils.get_conv_pattern(
+                    pattern_gms = _annotation_utils.get_conv_pattern(
                         conv_dim=conv_dim, act_fn=act_fn, act_in_place=act_in_place
                     )
-                    patterns.append(pattern_gm)
+                    patterns.extend(pattern_gms)
 
             # Add patterns for activations without inplace support
             for act_fn in _annotation_utils._supported_activations_no_inplace:
-                pattern_gm = _annotation_utils.get_conv_pattern(
+                pattern_gms = _annotation_utils.get_conv_pattern(
                     conv_dim=conv_dim, act_fn=act_fn, act_in_place=False
                 )
-                patterns.append(pattern_gm)
+                patterns.extend(pattern_gms)
 
         return patterns
 
@@ -494,20 +494,20 @@ class ConvTransposeActPattern(WeightedModulePattern):
         for conv_dim in [1, 2, 3]:
             for act_fn in _annotation_utils._supported_activations:
                 for act_in_place in [True, False]:
-                    pattern_gm = _annotation_utils.get_conv_pattern(
+                    pattern_gms = _annotation_utils.get_conv_pattern(
                         conv_dim=conv_dim,
                         is_transpose=True,
                         act_fn=act_fn,
                         act_in_place=act_in_place,
                     )
-                    patterns.append(pattern_gm)
+                    patterns.extend(pattern_gms)
 
             # Add patterns for activations without inplace support
             for act_fn in _annotation_utils._supported_activations_no_inplace:
-                pattern_gm = _annotation_utils.get_conv_pattern(
+                pattern_gms = _annotation_utils.get_conv_pattern(
                     conv_dim=conv_dim, is_transpose=True, act_fn=act_fn, act_in_place=False
                 )
-                patterns.append(pattern_gm)
+                patterns.extend(pattern_gms)
 
         return patterns
 
@@ -523,10 +523,10 @@ class ConvBNPattern(WeightedModulePattern):
         """Returns all conv pattern variations."""
         patterns = []
         for conv_dim in [1, 2, 3]:
-            pattern_gm = _annotation_utils.get_conv_bn_pattern(
+            pattern_gms = _annotation_utils.get_conv_bn_pattern(
                 conv_dim=conv_dim, is_transpose=False, act_fn=None
             )
-            patterns.append(pattern_gm)
+            patterns.extend(pattern_gms)
         return patterns
 
 
@@ -541,10 +541,10 @@ class ConvTransposeBNPattern(WeightedModulePattern):
         """Returns all conv_transpose pattern variations."""
         patterns = []
         for conv_dim in [1, 2, 3]:
-            pattern_gm = _annotation_utils.get_conv_bn_pattern(
+            pattern_gms = _annotation_utils.get_conv_bn_pattern(
                 conv_dim=conv_dim, is_transpose=True, act_fn=None
             )
-            patterns.append(pattern_gm)
+            patterns.extend(pattern_gms)
         return patterns
 
 
@@ -559,8 +559,8 @@ class ConvPattern(WeightedModulePattern):
         """Returns all conv pattern variations."""
         patterns = []
         for conv_dim in [1, 2, 3]:
-            pattern_gm = _annotation_utils.get_conv_pattern(conv_dim=conv_dim, act_fn=None)
-            patterns.append(pattern_gm)
+            pattern_gms = _annotation_utils.get_conv_pattern(conv_dim=conv_dim, act_fn=None)
+            patterns.extend(pattern_gms)
         return patterns
 
 
@@ -575,10 +575,10 @@ class ConvTransposePattern(WeightedModulePattern):
         """Returns all conv_transpose pattern variations."""
         patterns = []
         for conv_dim in [1, 2, 3]:
-            pattern_gm = _annotation_utils.get_conv_pattern(
+            pattern_gms = _annotation_utils.get_conv_pattern(
                 conv_dim=conv_dim, is_transpose=True, act_fn=None
             )
-            patterns.append(pattern_gm)
+            patterns.extend(pattern_gms)
         return patterns
 
 
