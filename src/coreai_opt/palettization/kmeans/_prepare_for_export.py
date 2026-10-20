@@ -18,7 +18,7 @@ from coreai_opt._utils.export_utils import (
 )
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
-from coreai_opt._utils.torch_utils import mmap_module_state_dict
+from coreai_opt._utils.torch_utils import is_float8_dtype, mmap_module_state_dict
 from coreai_opt.common import ExportBackend
 from coreai_opt.palettization.spec.fake_palettize import (
     _FakePalettizeImplBase,
@@ -203,6 +203,18 @@ def _resolve_mlir_lut_and_scale(
     return lut, scale, offset
 
 
+def _is_8bit_scalar_fp8_lut_palettization(palett_info: PalettizationInfo) -> bool:
+    """Return whether the weight is 8-bit scalar palettized with a float8-quantized LUT."""
+    lut_quant = palett_info.lut_quantization
+    return (
+        lut_quant is not None
+        and lut_quant.n_bits == 8
+        and is_float8_dtype(lut_quant.quantized_lut.dtype)
+        # Scalar palettization: 256 LUT entries, each of size 1 (no vector palettization)
+        and lut_quant.quantized_lut.shape[-2:] == (2**8, 1)
+    )
+
+
 def _insert_mlir_custom_op(
     module: nn.Module,
     module_name: str,
@@ -221,6 +233,9 @@ def _insert_mlir_custom_op(
 
     1. Palettization only: lut_to_dense
     2. Quantized LUT: lut_to_dense(int LUT) + constexpr_blockwise_shift_scale(lut_scale)
+       (for 8-bit scalar palettization with a float8 LUT, the gathered float8 values already
+       form a dense float8 weight, so it is exported as a float8 weight quantization
+       instead: constexpr_blockwise_shift_scale(float8 weight, lut_scale), with no LUT)
     3. Per-channel scale: lut_to_dense + constexpr_blockwise_shift_scale(pcs)
     4. Both: lut_to_dense(int LUT) + constexpr_blockwise_shift_scale(fused_scale)
        where fused_scale = lut_scale * per_channel_scale
@@ -241,17 +256,27 @@ def _insert_mlir_custom_op(
         from coreai_torch._compression.custom_layers import (  # noqa: PLC0415
             PalettizeModule,
             ScaledPalettizeModule,
+            WeightDequantizeModule,
         )
         from coreai_torch._compression.utils import wrap_for_parametrization  # noqa: PLC0415
 
-        return PalettizeModule, ScaledPalettizeModule, wrap_for_parametrization
+        return (
+            PalettizeModule,
+            ScaledPalettizeModule,
+            WeightDequantizeModule,
+            wrap_for_parametrization,
+        )
 
-    PalettizeModule, ScaledPalettizeModule, wrap_for_parametrization = lazy_import_coreai_torch(
-        _import_coreai_torch_modules
-    )
+    (
+        PalettizeModule,
+        ScaledPalettizeModule,
+        WeightDequantizeModule,
+        wrap_for_parametrization,
+    ) = lazy_import_coreai_torch(_import_coreai_torch_modules)
 
     PalettizeParametrization = wrap_for_parametrization(PalettizeModule)
     ScaledPalettizeParametrization = wrap_for_parametrization(ScaledPalettizeModule)
+    WeightDequantizeParametrization = wrap_for_parametrization(WeightDequantizeModule)
 
     needs_scale = (
         palett_info.lut_quantization is not None or palett_info.per_channel_scale is not None
@@ -259,7 +284,15 @@ def _insert_mlir_custom_op(
 
     vector_axis = _DEFAULT_VECTOR_AXIS if palett_info.cluster_dim > 1 else None
 
-    if needs_scale:
+    if _is_8bit_scalar_fp8_lut_palettization(palett_info):
+        lut, scale, zero_point = _resolve_mlir_lut_and_scale(palett_info)
+        dense_fp8_weight = PalettizeModule(palett_info.indices, lut, vector_axis)()
+        mlir_palett_mod = WeightDequantizeParametrization(
+            quantized_data=dense_fp8_weight,
+            scale=scale,
+            zero_point=zero_point,
+        )
+    elif needs_scale:
         lut, scale, zero_point = _resolve_mlir_lut_and_scale(palett_info)
         mlir_palett_mod = ScaledPalettizeParametrization(
             indices=palett_info.indices,
