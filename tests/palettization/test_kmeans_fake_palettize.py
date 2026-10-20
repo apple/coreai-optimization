@@ -2052,6 +2052,17 @@ class TestClustering:
         reassigned = palettizer._assign_indices(weight, centroids)
         assert torch.equal(indices, reassigned)
 
+    def test_assign_indices_chunking_matches_unchunked(self):
+        weight = torch.randn(8, 32)
+        spec = PalettizationSpec(n_bits=3, granularity=PerTensorGranularity())
+        palettizer = _KMeansFakePalettize(**spec.__dict__)
+        centroids, _ = palettizer._cluster_to_centroids(weight)
+
+        expected = palettizer._assign_indices(weight, centroids)
+        with patch("coreai_opt.palettization.kmeans.kmeans_fake_palettize._CDIST_CHUNK_BYTES", 1):
+            chunked = palettizer._assign_indices(weight, centroids)
+        assert torch.equal(expected, chunked)
+
     def test_blocks_to_cluster_raises_on_indivisible_cluster_dim(self):
         spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity(), cluster_dim=3)
         palettizer = _KMeansFakePalettize(**spec.__dict__)
