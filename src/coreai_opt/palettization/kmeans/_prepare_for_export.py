@@ -121,7 +121,8 @@ def _register_mil_compression_metadata(
     Remove the fake palettization parametrization from the module
     and registers MIL-specific compression metadata as buffers. The metadata includes
     the lookup table (LUT), palettization scale, and other information needed for
-    Core ML conversion.
+    Core ML conversion. For 8-bit scalar palettization with an int8 or uint8 LUT, the
+    weight is registered as plain 8-bit weight quantization instead, without a LUT.
     """
     # We want to leave the weights parametrized (aka palettized). This is because in MIL
     # export, we do not register indices as a metadata, and that is inferred directly
@@ -134,6 +135,24 @@ def _register_mil_compression_metadata(
 
     # Determine compression type(s)
     lut_quant = palett_info.lut_quantization
+    if _is_8bit_scalar_quantized_lut_palettization(palett_info):
+        # The gathered 8-bit LUT values already form a dense 8-bit weight, so export it as
+        # weight quantization only (one op less, no LUT). Each element is dequantized with the
+        # same ``(q - zero_point) * scale``, so the decompressed weight is bit-identical.
+        # coremltools recovers the 8-bit data from the (palettized) float weight.
+        MILCompressionMetadata(
+            param_name=param_name,
+            compression_type=CompressionType.QUANTIZATION,
+            quantization_n_bits=lut_quant.n_bits,
+            quantization_scale=lut_quant.scale.squeeze(-1).squeeze(-1),
+            zero_point=(
+                lut_quant.zero_point.squeeze(-1).squeeze(-1)
+                if lut_quant.zero_point is not None
+                else None
+            ),
+        ).register(module)
+        return
+
     if lut_quant is not None:
         compression_type = [CompressionType.PALETTIZATION, CompressionType.QUANTIZATION]
     else:
@@ -203,13 +222,16 @@ def _resolve_mlir_lut_and_scale(
     return lut, scale, offset
 
 
-def _is_8bit_scalar_fp8_lut_palettization(palett_info: PalettizationInfo) -> bool:
-    """Return whether the weight is 8-bit scalar palettized with a float8-quantized LUT."""
+def _is_8bit_scalar_quantized_lut_palettization(palett_info: PalettizationInfo) -> bool:
+    """Return whether the weight is 8-bit scalar palettized with an int8, uint8 or float8 LUT."""
     lut_quant = palett_info.lut_quantization
     return (
         lut_quant is not None
         and lut_quant.n_bits == 8
-        and is_float8_dtype(lut_quant.quantized_lut.dtype)
+        and (
+            lut_quant.quantized_lut.dtype in (torch.int8, torch.uint8)
+            or is_float8_dtype(lut_quant.quantized_lut.dtype)
+        )
         # Scalar palettization: 256 LUT entries, each of size 1 (no vector palettization)
         and lut_quant.quantized_lut.shape[-2:] == (2**8, 1)
     )
@@ -233,9 +255,12 @@ def _insert_mlir_custom_op(
 
     1. Palettization only: lut_to_dense
     2. Quantized LUT: lut_to_dense(int LUT) + constexpr_blockwise_shift_scale(lut_scale)
-       (for 8-bit scalar palettization with a float8 LUT, the gathered float8 values already
-       form a dense float8 weight, so it is exported as a float8 weight quantization
-       instead: constexpr_blockwise_shift_scale(float8 weight, lut_scale), with no LUT)
+       (for 8-bit scalar palettization with an int8, uint8 or float8 LUT, the gathered values
+       already form a dense 8-bit weight, so it is exported as an 8-bit weight quantization
+       instead: constexpr_blockwise_shift_scale(8-bit weight, scale), with no LUT, where scale
+       is lut_scale, or lut_scale * per_channel_scale when both are present. Vector
+       palettization keeps the LUT: a dense weight would need 8 bits per weight instead of
+       8 / cluster_dim)
     3. Per-channel scale: lut_to_dense + constexpr_blockwise_shift_scale(pcs)
     4. Both: lut_to_dense(int LUT) + constexpr_blockwise_shift_scale(fused_scale)
        where fused_scale = lut_scale * per_channel_scale
@@ -284,11 +309,11 @@ def _insert_mlir_custom_op(
 
     vector_axis = _DEFAULT_VECTOR_AXIS if palett_info.cluster_dim > 1 else None
 
-    if _is_8bit_scalar_fp8_lut_palettization(palett_info):
+    if _is_8bit_scalar_quantized_lut_palettization(palett_info):
         lut, scale, zero_point = _resolve_mlir_lut_and_scale(palett_info)
-        dense_fp8_weight = PalettizeModule(palett_info.indices, lut, vector_axis)()
+        dense_8bit_weight = PalettizeModule(palett_info.indices, lut, vector_axis)()
         mlir_palett_mod = WeightDequantizeParametrization(
-            quantized_data=dense_fp8_weight,
+            quantized_data=dense_8bit_weight,
             scale=scale,
             zero_point=zero_point,
         )

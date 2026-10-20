@@ -17,12 +17,8 @@ from collections.abc import Callable
 import torch
 from torch import nn
 
-from coreai_opt._utils.metadata_utils import (
-    BUFFER_NAME_SEPARATOR,
-    STATE_DICT_METADATA_BUFFER_PREFIX,
-)
 from coreai_opt._utils.torch_utils import is_float4_dtype
-from coreai_opt.common import CompressionType, ExportBackend
+from coreai_opt.common import ExportBackend
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization.config.quantization_config import ExecutionMode
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
@@ -560,71 +556,3 @@ def validate_fp4_export(
             f"the last axis, no blocking elsewhere). Got resolved block sizes "
             f"{resolved_block_size} from granularity={granularity!r}."
         )
-
-
-def is_int_8bit_activation_fake_quant(module: nn.Module | None) -> bool:
-    """Return whether ``module`` is an activation fake quantizer with dtype int8 or uint8."""
-    return (
-        module is not None
-        and is_module_fake_quant_target(module, CompressionTargetTensor.ACTIVATION)
-        and module.dtype in (torch.int8, torch.uint8)
-    )
-
-
-def fold_int8_lut_palettization_into_quantization(module: nn.Module, param_name: str) -> None:
-    """Rewrite 8-bit, int8-LUT palettization MIL metadata as int8 weight quantization metadata.
-
-    With 8-bit palettization and an int8-quantized LUT, CoreML decompresses the weight as
-    ``uint8 indices + int8 LUT -> constexpr_blockwise_shift_scale -> constexpr_lut_to_dense``.
-    The gathered int8 values ``lut_int8[indices]`` already form a dense int8 weight, so the same
-    weight is expressed as ``int8 const -> constexpr_blockwise_shift_scale`` with one op less
-    and no LUT. Each element is dequantized with the same ``(q - zero_point) * scale``, so the
-    decompressed weight is bit-identical.
-
-    The rewrite only changes the ``_COREML_/<param_name>/*`` buffers: the compression type
-    becomes quantization only, the LUT is dropped, and the LUT-rank scale/zero point are
-    squeezed to weight rank. coremltools recovers the int8 data from the (palettized) float
-    weight as ``round(weight / scale) + zero_point``. Parameters without matching metadata are
-    left untouched.
-
-    Args:
-        module (nn.Module): Module owning the palettized parameter and its metadata buffers.
-        param_name (str): Name of the palettized parameter (e.g. ``"weight"``).
-    """
-
-    def buffer_name(key: str) -> str:
-        return BUFFER_NAME_SEPARATOR.join([STATE_DICT_METADATA_BUFFER_PREFIX, param_name, key])
-
-    buffers = dict(module.named_buffers(recurse=False))
-    compression_type = buffers.get(buffer_name("compression_type"))
-    palettization_with_lut_quantization = [
-        CompressionType.PALETTIZATION.to_coreml_code(),
-        CompressionType.QUANTIZATION.to_coreml_code(),
-    ]
-    if compression_type is None or compression_type.tolist() != palettization_with_lut_quantization:
-        return
-
-    # Always registered together with an integer-quantized LUT; the zero point is
-    # exported with the quantized LUT's dtype.
-    lut = buffers[buffer_name("lut")]
-    n_bits = buffers[buffer_name("quantization_n_bits")]
-    scale = buffers[buffer_name("quantization_scale")]
-    zero_point = buffers[buffer_name("zero_point")]
-    if (
-        # 8-bit scalar palettization: 256 LUT entries, each of size 1 (no vector palettization)
-        lut.shape[-2:] != (2**8, 1)
-        # int8 LUT
-        or n_bits.item() != 8
-        or zero_point.dtype != torch.int8
-        # One scale per LUT, so it can be squeezed to a per-weight-block scale
-        or scale.shape[-2:] != (1, 1)
-    ):
-        return
-
-    delattr(module, buffer_name("lut"))
-    module.register_buffer(
-        buffer_name("compression_type"),
-        torch.tensor([CompressionType.QUANTIZATION.to_coreml_code()]),
-    )
-    module.register_buffer(buffer_name("quantization_scale"), scale.squeeze(-1).squeeze(-1))
-    module.register_buffer(buffer_name("zero_point"), zero_point.squeeze(-1).squeeze(-1))
