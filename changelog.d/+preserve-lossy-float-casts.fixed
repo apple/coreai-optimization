@@ -1,0 +1,1 @@
+Preserve original floating-point casts that lose precision or range when cleaning up cast chains.
