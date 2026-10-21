@@ -12,6 +12,11 @@ import pytest
 import torch
 import torch.nn.functional as F
 
+from coreai_opt.palettization import (
+    KMeansPalettizer,
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+)
 from coreai_opt.palettization.kmeans.kmeans_fake_palettize import _KMeansFakePalettize
 from coreai_opt.palettization.kmeans.kmeans_support_mixins import _PalettizationSupportMixin
 from coreai_opt.palettization.kmeans.supported_ops_registry import (
@@ -2449,37 +2454,48 @@ class Test_KMeansFakePalettizeHardForwardMemory:
         [PerTensorGranularity(), PerGroupedChannelGranularity(group_size=32, axis=0)],
         ids=["per_tensor", "per_grouped_channel"],
     )
-    def test_hard_forward_extra_peak_memory_is_bounded(self, granularity):
-        """``_palettize`` ships the uint8 indices to the weight's device and gathers there. Besides
-        the returned weight, its temporaries are the uint8 indices (1 byte per weight) and their
-        int32 copy (4 bytes per weight): at most 1.25x the size of an fp32 weight.
+    def test_hard_forward_temporaries_do_not_accumulate_across_layers(self, granularity):
+        """``_palettize`` ships the uint8 indices to the weight's device and gathers there. For one
+        weight, besides the palettized weight it returns (1x), the temporaries are the uint8
+        indices (1 byte per weight) and their int32 copy (4 bytes per weight): 1.25x an fp32
+        weight. They must be freed before the next layer runs, so a forward over several equal
+        layers peaks at one layer's worth of extra memory, not one per layer.
         """
-        weight = torch.randn(2048, 2048, device="cuda", dtype=torch.float32)
-        weight_bytes = weight.numel() * weight.element_size()
-        spec = PalettizationSpec(n_bits=4, granularity=granularity, cluster_dim=1)
-        palettizer = _KMeansFakePalettize(
-            n_bits=spec.n_bits,
-            lut_qspec=spec.lut_qspec,
-            granularity=spec.granularity,
-            cluster_dim=spec.cluster_dim,
-            enable_per_channel_scale=spec.enable_per_channel_scale,
+        num_layers, size = 4, 2048
+        model = torch.nn.Sequential(
+            *[torch.nn.Linear(size, size, bias=False) for _ in range(num_layers)]
+        ).cuda()
+        config = KMeansPalettizerConfig(
+            global_config=ModuleKMeansPalettizerConfig(
+                op_state_spec={
+                    "weight": PalettizationSpec(n_bits=4, granularity=granularity, cluster_dim=1)
+                }
+            )
         )
-        palettizer._initialize(weight)
-        assert palettizer.indices.device.type == "cpu"
+        x = torch.randn(1, size, device="cuda")
+        prepared = KMeansPalettizer(model, config).prepare((x,)).eval()
+        assert all(
+            m.parametrizations["weight"][0].indices.device.type == "cpu"
+            for m in prepared
+            if isinstance(m, torch.nn.Linear)
+        )
+        weight_bytes = size * size * 4  # fp32
 
+        with torch.no_grad():
+            prepared(x)  # warm-up
         torch.cuda.synchronize()
-        baseline = torch.cuda.memory_allocated()
+        baseline = torch.cuda.memory_allocated()  # the 4 original weights + palettizer state
         torch.cuda.reset_peak_memory_stats()
         with torch.no_grad():
-            palettized = palettizer.hard_assign(weight)
+            prepared(x)
         torch.cuda.synchronize()
-        peak = torch.cuda.max_memory_allocated()
+        extra = torch.cuda.max_memory_allocated() - baseline
 
-        assert palettized.device.type == "cuda"
-        returned_bytes = palettized.numel() * palettized.element_size()
-        temporaries = peak - baseline - returned_bytes
-        slack = 1024**2  # allocator rounding, the LUT, and the per-block offsets
-        assert temporaries <= 1.25 * weight_bytes + slack, (
-            f"hard forward used {temporaries / weight_bytes:.2f}x the weight size in temporaries "
-            f"(limit 1.25x)"
+        # One layer at a time: its palettized weight (1x) + its temporaries (1.25x). If temporaries
+        # leaked across layers, the extra would grow by another 1.25x per layer (up to ~5x + 1x).
+        slack = 1024**2  # allocator rounding, the LUTs, the per-block offsets and the activations
+        limit = (1 + 1.25) * weight_bytes + slack
+        assert extra <= limit, (
+            f"forward over {num_layers} layers peaked {extra / weight_bytes:.2f}x a weight above "
+            f"the resident weights (limit {limit / weight_bytes:.2f}x)"
         )
