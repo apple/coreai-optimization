@@ -2438,3 +2438,48 @@ class TestDetectPrePalettizedWeights:
 
         unique.assert_called_once()
         assert unique.call_args.args[0].shape == (8 * 8,)  # only the subset was scanned
+
+
+class Test_KMeansFakePalettizeHardForwardMemory:
+    """GPU memory of the hard (eval-mode) forward, where the indices are CPU-resident."""
+
+    @pytest.mark.cuda
+    @pytest.mark.parametrize(
+        "granularity",
+        [PerTensorGranularity(), PerGroupedChannelGranularity(group_size=32, axis=0)],
+        ids=["per_tensor", "per_grouped_channel"],
+    )
+    def test_hard_forward_extra_peak_memory_is_bounded(self, granularity):
+        """``_palettize`` ships the uint8 indices to the weight's device and gathers there. Besides
+        the returned weight, its temporaries are the uint8 indices (1 byte per weight) and their
+        int32 copy (4 bytes per weight): at most 1.25x the size of an fp32 weight.
+        """
+        weight = torch.randn(2048, 2048, device="cuda", dtype=torch.float32)
+        weight_bytes = weight.numel() * weight.element_size()
+        spec = PalettizationSpec(n_bits=4, granularity=granularity, cluster_dim=1)
+        palettizer = _KMeansFakePalettize(
+            n_bits=spec.n_bits,
+            lut_qspec=spec.lut_qspec,
+            granularity=spec.granularity,
+            cluster_dim=spec.cluster_dim,
+            enable_per_channel_scale=spec.enable_per_channel_scale,
+        )
+        palettizer._initialize(weight)
+        assert palettizer.indices.device.type == "cpu"
+
+        torch.cuda.synchronize()
+        baseline = torch.cuda.memory_allocated()
+        torch.cuda.reset_peak_memory_stats()
+        with torch.no_grad():
+            palettized = palettizer.hard_assign(weight)
+        torch.cuda.synchronize()
+        peak = torch.cuda.max_memory_allocated()
+
+        assert palettized.device.type == "cuda"
+        returned_bytes = palettized.numel() * palettized.element_size()
+        temporaries = peak - baseline - returned_bytes
+        slack = 1024**2  # allocator rounding, the LUT, and the per-block offsets
+        assert temporaries <= 1.25 * weight_bytes + slack, (
+            f"hard forward used {temporaries / weight_bytes:.2f}x the weight size in temporaries "
+            f"(limit 1.25x)"
+        )
