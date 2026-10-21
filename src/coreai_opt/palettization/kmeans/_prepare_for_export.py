@@ -140,16 +140,13 @@ def _register_mil_compression_metadata(
         # weight quantization only (one op less, no LUT). Each element is dequantized with the
         # same ``(q - zero_point) * scale``, so the decompressed weight is bit-identical.
         # coremltools recovers the 8-bit data from the (palettized) float weight.
+        _, scale, zero_point = _resolve_mlir_lut_and_scale(palett_info)
         MILCompressionMetadata(
             param_name=param_name,
             compression_type=CompressionType.QUANTIZATION,
             quantization_n_bits=lut_quant.n_bits,
-            quantization_scale=lut_quant.scale.squeeze(-1).squeeze(-1),
-            zero_point=(
-                lut_quant.zero_point.squeeze(-1).squeeze(-1)
-                if lut_quant.zero_point is not None
-                else None
-            ),
+            quantization_scale=scale,
+            zero_point=zero_point,
         ).register(module)
         return
 

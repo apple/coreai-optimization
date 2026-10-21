@@ -38,8 +38,24 @@ _8BIT_LUT_DTYPES = pytest.mark.parametrize(
     [torch.int8, torch.uint8, torch.float8_e4m3fn, torch.float8_e5m2],
     ids=["int8", "uint8", "e4m3fn", "e5m2"],
 )
-_INT8_LUT_DTYPES = pytest.mark.parametrize(
-    "lut_dtype", [torch.int8, torch.uint8], ids=["int8", "uint8"]
+_SYM = QuantizationScheme.SYMMETRIC
+_ASYM = QuantizationScheme.ASYMMETRIC
+_8BIT_LUT_DTYPES_AND_QSCHEMES = pytest.mark.parametrize(
+    ("lut_dtype", "lut_qscheme"),
+    [
+        (torch.int8, _ASYM),
+        (torch.int8, _SYM),
+        (torch.uint8, _ASYM),
+        (torch.uint8, _SYM),
+        (torch.float8_e4m3fn, _SYM),
+        (torch.float8_e5m2, _SYM),
+    ],
+    ids=["int8-asym", "int8-sym", "uint8-asym", "uint8-sym", "e4m3fn", "e5m2"],
+)
+_INT8_LUT_DTYPES_AND_QSCHEMES = pytest.mark.parametrize(
+    ("lut_dtype", "lut_qscheme"),
+    [(torch.int8, _ASYM), (torch.int8, _SYM), (torch.uint8, _ASYM), (torch.uint8, _SYM)],
+    ids=["int8-asym", "int8-sym", "uint8-asym", "uint8-sym"],
 )
 _GRANULARITIES = pytest.mark.parametrize(
     "granularity",
@@ -60,6 +76,7 @@ def _palettize(
     backend: ExportBackend = ExportBackend.CoreAI,
     cluster_dim: int = 1,
     granularity: PerTensorGranularity | PerGroupedChannelGranularity = PerTensorGranularity(),  # noqa: B008
+    lut_qscheme: QuantizationScheme | None = None,
 ) -> tuple[nn.Module, torch.Tensor, torch.Tensor]:
     """Palettize a single layer and finalize it for ``backend``.
 
@@ -70,7 +87,7 @@ def _palettize(
     torch.manual_seed(0)
     model = nn.Sequential(make_layer()).eval()
     input_data = torch.randn(input_shape)
-    qscheme = (
+    qscheme = lut_qscheme or (
         QuantizationScheme.ASYMMETRIC
         if lut_dtype in (torch.int8, torch.uint8)
         else QuantizationScheme.SYMMETRIC
@@ -91,19 +108,26 @@ def _palettize(
 
 
 @_PER_CHANNEL_SCALE
-@_8BIT_LUT_DTYPES
+@_8BIT_LUT_DTYPES_AND_QSCHEMES
 @_GRANULARITIES
 @_LAYERS
 def test_p8_lut_exports_as_weight_quantization(
     make_layer: Callable[[], nn.Module],
     input_shape: tuple[int, ...],
     lut_dtype: torch.dtype,
+    lut_qscheme: QuantizationScheme,
     enable_per_channel_scale: bool,
     granularity: PerTensorGranularity | PerGroupedChannelGranularity,
 ) -> None:
     """8-bit scalar palettization with an int8, uint8 or float8 LUT is exported without a LUT op."""
     model, input_data, prepared_model_output = _palettize(
-        make_layer, input_shape, 8, lut_dtype, enable_per_channel_scale, granularity=granularity
+        make_layer,
+        input_shape,
+        8,
+        lut_dtype,
+        enable_per_channel_scale,
+        granularity=granularity,
+        lut_qscheme=lut_qscheme,
     )
 
     export_utils.convert_and_verify(
@@ -116,20 +140,27 @@ def test_p8_lut_exports_as_weight_quantization(
 
 
 @_PER_CHANNEL_SCALE
-@_8BIT_LUT_DTYPES
+@_8BIT_LUT_DTYPES_AND_QSCHEMES
 @_GRANULARITIES
 @_LAYERS
 def test_p8_weight_quantization_matches_lut_export_exactly(
     make_layer: Callable[[], nn.Module],
     input_shape: tuple[int, ...],
     lut_dtype: torch.dtype,
+    lut_qscheme: QuantizationScheme,
     enable_per_channel_scale: bool,
     monkeypatch: pytest.MonkeyPatch,
     granularity: PerTensorGranularity | PerGroupedChannelGranularity,
 ) -> None:
     """The decompressed weight must match bit for bit that of the LUT export it replaces."""
     model, input_data, _ = _palettize(
-        make_layer, input_shape, 8, lut_dtype, enable_per_channel_scale, granularity=granularity
+        make_layer,
+        input_shape,
+        8,
+        lut_dtype,
+        enable_per_channel_scale,
+        granularity=granularity,
+        lut_qscheme=lut_qscheme,
     )
     with monkeypatch.context() as m:
         m.setattr(
@@ -144,6 +175,7 @@ def test_p8_weight_quantization_matches_lut_export_exactly(
             lut_dtype,
             enable_per_channel_scale,
             granularity=granularity,
+            lut_qscheme=lut_qscheme,
         )
 
     with torch.no_grad():
@@ -170,18 +202,25 @@ def test_p4_fp8_lut_keeps_lut(
     )
 
 
-@_INT8_LUT_DTYPES
+@_INT8_LUT_DTYPES_AND_QSCHEMES
 @_GRANULARITIES
 @_LAYERS
 def test_p8_int8_lut_exports_as_weight_quantization_coreml(
     make_layer: Callable[[], nn.Module],
     input_shape: tuple[int, ...],
     lut_dtype: torch.dtype,
+    lut_qscheme: QuantizationScheme,
     granularity: PerTensorGranularity | PerGroupedChannelGranularity,
 ) -> None:
     """CoreML export of 8-bit scalar palettization with an int8 or uint8 LUT has no LUT op."""
     model, input_data, prepared_model_output = _palettize(
-        make_layer, input_shape, 8, lut_dtype, backend=ExportBackend.CoreML, granularity=granularity
+        make_layer,
+        input_shape,
+        8,
+        lut_dtype,
+        backend=ExportBackend.CoreML,
+        granularity=granularity,
+        lut_qscheme=lut_qscheme,
     )
 
     export_utils.convert_and_verify(
