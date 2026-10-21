@@ -51,6 +51,7 @@ from ._prepare_for_export import (
     prepare_for_mil_export as _prepare_for_mil_export,
     prepare_for_mlir_export as _prepare_for_mlir_export,
 )
+from ._vector_kmeans import vector_kmeans_backend as _vector_kmeans_backend
 from .kmeans_fake_palettize import _KMeansFakePalettize
 from .supported_ops_registry import _KMeansPalettizerSupportedOpsRegistry
 
@@ -69,6 +70,11 @@ class _FakePalettInfo:
     idx: int
     fp_module: _KMeansFakePalettize
     weight: torch.Tensor
+
+
+def _clusters_on_gpu(fp_module: _KMeansFakePalettize) -> bool:
+    """Whether this module's tensor clusters on the GPU: vector palettization with CUDA."""
+    return fp_module.cluster_dim > 1 and torch.cuda.is_available()
 
 
 def _calculate_centroids_for_module(
@@ -170,9 +176,10 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 vanilla (non-weighted) k-means clustering is used.
             num_workers: ``1`` runs clustering sequentially. Values greater than
                 ``1`` use ``torch.multiprocessing`` to parallelize clustering
-                across layers. It is recommended to use more than one worker
-                process to parallelize the clustering, especially when multiple
-                CPUs are available. Defaults to ``1``.
+                across layers. It is recommended to use more than one worker process to parallelize
+                the clustering, especially when multiple CPUs are available. Vector
+                palettization (``cluster_dim > 1``) that clusters on a GPU runs in the
+                main process instead, concurrently with the workers. Defaults to ``1``.
             state_dict: Optional state dict from a model previously prepared
                 with the same config. When provided, buffers are loaded from it
                 instead of running k-means clustering.
@@ -215,10 +222,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         if state_dict is None:
             self._model.apply(_disable_fake_palett)
 
-            if self._num_workers > 1:
-                self._calculate_centroids_parallel(num_workers)
-            else:
-                self._calculate_centroids_sequential()
+            self._calculate_centroids()
 
             # Remove FakePalettize modules that were disabled during the forward
             # pass due to incompatible granularity or cluster dimensions.
@@ -375,10 +379,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
             # Recompute centroids with sensitivities, matching the
             # parallelism the user opted into at prepare() time.
-            if self._num_workers > 1:
-                self._calculate_centroids_parallel(self._num_workers)
-            else:
-                self._calculate_centroids_sequential()
+            self._calculate_centroids()
 
         finally:
             self._model.zero_grad()
@@ -581,51 +582,79 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                         break
         return fp_info
 
-    def _calculate_centroids_sequential(self) -> None:
-        """Compute centroids for every ``_KMeansFakePalettize`` module in-process.
+    def _calculate_centroids(self) -> None:
+        """Compute centroids for every ``_KMeansFakePalettize`` module.
 
-        Mirrors the parallel path but runs in the current process (no worker
-        pool): each layer's centroids are computed by invoking
-        ``fp_module(weight)`` directly. Palettization centroids depend only on
-        the layer weight, so this needs no model forward — and therefore no
-        example inputs.
+        With a CUDA GPU, vector-palettized tensors (``cluster_dim > 1``) run on it in this
+        process, one after another, since a single GPU serializes them anyway, while scalar
+        tensors run across ``num_workers`` worker processes at the same time. Without a GPU,
+        all tensors run across the workers. Routing is per tensor, so the states of one
+        module can go different ways. Without a GPU, vector tensors use scikit-learn, or
+        the torch backend on CPU (with a warning) if scikit-learn is not installed.
         """
         fp_info = self._collect_fake_palett_info(to_cpu=False)
         if not fp_info:
             return
 
+        on_gpu = [_clusters_on_gpu(info.fp_module) for info in fp_info]
+        gpu_info = [info for info, gpu in zip(fp_info, on_gpu, strict=True) if gpu]
+        cpu_info = [info for info, gpu in zip(fp_info, on_gpu, strict=True) if not gpu]
+        if gpu_info:
+            logger.info(
+                "Clustering %d vector-palettized tensors on the GPU (unweighted Lloyd "
+                "iterations: %s) and %d tensors on CPU (num_workers=%d)",
+                len(gpu_info),
+                _vector_kmeans_backend(has_sensitivities=False),
+                len(cpu_info),
+                self._num_workers,
+            )
+        elif any(info.fp_module.cluster_dim > 1 for info in cpu_info):
+            # Warn once, before any workers start, if scikit-learn is missing.
+            _vector_kmeans_backend(has_sensitivities=False)
+
+        if self._num_workers <= 1 or not cpu_info:
+            self._calculate_centroids_sequential(fp_info)
+            return
+
+        # Cap worker count at the number of tensors to avoid idle processes.
+        effective_workers = min(self._num_workers, len(cpu_info))
+        logger.info(
+            f"Calculating centroids for {len(cpu_info)} layers "
+            f"in parallel with {effective_workers} workers"
+        )
+        # spawn (not fork) so workers don't inherit the parent's CUDA context or other
+        # process-global state.
+        pool_args = [(info.fp_module, info.weight.cpu()) for info in cpu_info]
+        ctx = mp.get_context("spawn")
+        with ctx.Pool(processes=effective_workers) as pool:
+            pending = pool.imap(_calculate_centroids_for_module, pool_args)
+            # The GPU tensors cluster here while the workers handle the CPU tensors.
+            self._calculate_centroids_sequential(gpu_info)
+            results = list(
+                tqdm(
+                    pending,
+                    total=len(cpu_info),
+                    desc=f"Palettizing layers (num_workers={effective_workers})",
+                )
+            )
+        self._apply_centroid_results(cpu_info, results)
+
+    def _calculate_centroids_sequential(self, fp_info: list[_FakePalettInfo]) -> None:
+        """Compute centroids for the given ``_KMeansFakePalettize`` modules in-process.
+
+        Each layer's centroids are computed by invoking ``fp_module(weight)`` directly.
+        Palettization centroids depend only on the layer weight, so this needs no model
+        forward -- and therefore no example inputs.
+
+        Args:
+            fp_info (list[_FakePalettInfo]): The modules to compute centroids for.
+        """
+        if not fp_info:
+            return
         results = [
             _calculate_centroids_for_module((info.fp_module, info.weight))
             for info in tqdm(fp_info, desc="Palettizing layers (num_workers=1)")
         ]
-        self._apply_centroid_results(fp_info, results)
-
-    def _calculate_centroids_parallel(self, num_workers: int) -> None:
-        """Compute centroids for all _KMeansFakePalettize modules in parallel."""
-        fp_info = self._collect_fake_palett_info(to_cpu=True)
-        if not fp_info:
-            return
-
-        # Cap worker count at the number of layers to avoid idle processes.
-        effective_workers = min(num_workers, len(fp_info))
-        logger.info(
-            f"Calculating centroids for {len(fp_info)} layers "
-            f"in parallel with {effective_workers} workers"
-        )
-
-        # spawn (not fork) so workers don't inherit the parent's CUDA context
-        # or other process-global state.
-        pool_args = [(info.fp_module, info.weight) for info in fp_info]
-        ctx = mp.get_context("spawn")
-        with ctx.Pool(processes=effective_workers) as pool:
-            results = list(
-                tqdm(
-                    pool.imap(_calculate_centroids_for_module, pool_args),
-                    total=len(fp_info),
-                    desc=f"Palettizing layers (num_workers={num_workers})",
-                )
-            )
-
         self._apply_centroid_results(fp_info, results)
 
     def _apply_centroid_results(

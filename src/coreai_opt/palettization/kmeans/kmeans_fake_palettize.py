@@ -12,6 +12,7 @@ import torch
 
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.deps import _kmeans1d
+from coreai_opt.palettization.config.palettization_config import VectorKMeansConfig
 from coreai_opt.palettization.spec import (
     PalettizationGranularity,
     PerGroupedChannelGranularity,
@@ -32,7 +33,7 @@ from coreai_opt.quantization.spec import (
     QuantizationSpec,
 )
 
-from ._efficient_kmeans import _EfficientKMeans
+from ._vector_kmeans import cluster_vectors as _cluster_vectors
 from .kmeans_support_mixins import _LinearPalettizationMixin
 from .supported_ops_registry import _KMeansPalettizerSupportedOpsRegistry
 
@@ -98,6 +99,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         sensitivities: torch.Tensor = None,
         enable_fast_kmeans_mode: bool = True,
         rounding_precision: int = 4,
+        vector_kmeans_config: VectorKMeansConfig | dict | None = None,
         op_to_optimize: Callable | None = None,
         training_strategy_spec: TrainingStrategySpec | None = None,
     ):
@@ -111,6 +113,8 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
 
         self.enable_fast_kmeans_mode = enable_fast_kmeans_mode
         self.rounding_precision = rounding_precision
+        # Arrives as a dict when forwarded from ModuleKMeansPalettizerConfig.model_dump().
+        self.vector_kmeans_config = VectorKMeansConfig.model_validate(vector_kmeans_config or {})
         self._sensitivities = sensitivities
 
         # Create LUT fake quantizer if LUT quantization is enabled.
@@ -468,28 +472,36 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             block_sensitivities = [None] * len(block_weights_to_cluster)
 
         num_clusters = 2**self.n_bits
+
+        # Reuse the palette of leading blocks that are already clustered; detection stops
+        # at the first block that is not.
+        block_results: list[tuple[torch.Tensor, torch.Tensor]] = []
+        for block_weight in block_weights_to_cluster:
+            existing_palette = self._existing_palette(
+                self._vectorize_block(block_weight), num_clusters
+            )
+            if existing_palette is None:
+                break
+            block_results.append(existing_palette)
+        n_kmeans_skipped = len(block_results)
+
+        remaining_weights = block_weights_to_cluster[n_kmeans_skipped:]
+        remaining_sensitivities = block_sensitivities[n_kmeans_skipped:]
+        if self.cluster_dim == 1:
+            block_results += [
+                self._cluster_weights_1d(block_weight, block_sensitivity)
+                for block_weight, block_sensitivity in zip(
+                    remaining_weights, remaining_sensitivities, strict=True
+                )
+            ]
+        elif remaining_weights:
+            block_results += self._cluster_weights_2d(remaining_weights, remaining_sensitivities)
+
         centroids_per_block = []
         block_indices = []
-        detect_existing_palette = True
-        n_kmeans_skipped = 0
-        for block_weight, block_sensitivity in zip(
-            block_weights_to_cluster, block_sensitivities, strict=True
+        for block_weight, (centroids, clusters) in zip(
+            block_weights_to_cluster, block_results, strict=True
         ):
-            existing_palette = None
-            if detect_existing_palette:
-                # check if the weights are already clustered
-                existing_palette = self._existing_palette(
-                    self._vectorize_block(block_weight), num_clusters
-                )
-                # Detection stops at the first block that is not already clustered.
-                detect_existing_palette = existing_palette is not None
-            if existing_palette is not None:
-                centroids, clusters = existing_palette
-                n_kmeans_skipped += 1
-            elif self.cluster_dim == 1:
-                centroids, clusters = self._cluster_weights_1d(block_weight, block_sensitivity)
-            else:
-                centroids, clusters = self._cluster_weights_2d(block_weight, block_sensitivity)
             centroids = self._pad_lut_to_num_clusters(centroids, num_clusters)
             centroids_per_block.append(centroids.to(weight.dtype))
             block_indices.append(self._build_block_indices(clusters, block_weight).to(torch.uint8))
@@ -839,45 +851,37 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
 
     def _cluster_weights_2d(
         self,
-        block_weight: torch.Tensor,
-        block_sensitivity: torch.Tensor | None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        block_weights: list[torch.Tensor],
+        block_sensitivities: list[torch.Tensor | None],
+    ) -> list[tuple[torch.Tensor, torch.Tensor]]:
         """
-        Cluster weights using vector k-means where each centroid is a vector
-        of length cluster_dim, i.e., cluster_dim > 1.
+        Cluster all blocks of a weight with vector k-means, where each centroid is a
+        vector of length cluster_dim, i.e., cluster_dim > 1.
 
-        Vectorization is always along axis 0 (output channel axis).
+        Vectorization is always along axis 0 (output channel axis). The blocks are
+        clustered together so the GPU backend can batch them; see ``cluster_vectors``.
         """
-        num_clusters = 2**self.n_bits
+        vectors = [self._vectorize_block(block_weight) for block_weight in block_weights]
+        num_clusters = min(len(vectors[0]), 2**self.n_bits)
 
-        # Vectorize: reshape block_weight to (N, cluster_dim) along axis 0
-        vectorized = self._vectorize_block(block_weight)
-        num_clusters = min(len(vectorized), num_clusters)
+        # Per-vector importance: sensitivities summed along cluster_dim.
+        vector_sensitivities = None
+        if block_sensitivities[0] is not None:
+            vector_sensitivities = [
+                self._vectorize_block(block_sensitivity).sum(dim=-1)
+                for block_sensitivity in block_sensitivities
+            ]
 
-        # Prepare sample weights from sensitivities
-        sample_weight = None
-        if block_sensitivity is not None:
-            sens_vectorized = self._vectorize_block(block_sensitivity)
-            # Sum sensitivities along cluster_dim for per-vector importance
-            sample_weight = sens_vectorized.sum(dim=-1, keepdim=True)
-
-        # Move to GPU if available
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        vectorized = vectorized.to(device)
-        if sample_weight is not None:
-            sample_weight = sample_weight.to(device)
-
-        kmeans = _EfficientKMeans(
-            n_clusters=num_clusters,
-            init="kmeans++",
-            n_init=5,
-            max_iter=300,
-        ).fit(vectorized.float(), sample_weight=sample_weight)
-
-        centroids = kmeans.cluster_centers_.cpu()
-        labels = kmeans.labels_.cpu()
-
-        return centroids, labels
+        settings = self.vector_kmeans_config
+        return _cluster_vectors(
+            vectors,
+            vector_sensitivities,
+            num_clusters,
+            n_local_trials=settings.n_local_trials,
+            n_init=settings.n_init,
+            max_iter=settings.max_iter,
+            tol=settings.tol,
+        )
 
     def _vectorize_block(self, tensor: torch.Tensor) -> torch.Tensor:
         """Reshape a 2D tensor into (N, cluster_dim) vectors for k-means.

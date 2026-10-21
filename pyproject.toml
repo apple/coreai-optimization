@@ -65,6 +65,10 @@ coreml = [
     "coremltools>=8.3; python_version<'3.14'",
     "numpy>=2,<2.4; python_version<'3.14'",    # TODO: Remove once coremltools has released a version > 9.0
 ]
+# Faster GPU clustering for vector palettization (cluster_dim > 1). Needs Triton, hence Linux only.
+flash-kmeans = [
+    "flash-kmeans>=0.3.1; sys_platform=='linux'",
+]
 [project.urls]
 Changelog = "https://github.com/apple/coreai-optimization/blob/main/CHANGELOG.md"
 Repository = "https://github.com/apple/coreai-optimization"
@@ -304,6 +308,9 @@ overrides = [
     { module = "torchvision.*", follow_imports = "skip" },
     { module = "torchao.*", ignore_missing_imports = true, follow_imports = "skip" },
     { module = "tests.*", ignore_errors = true },
+    # Optional vector k-means backends, imported lazily where used.
+    { module = "flash_kmeans.*", ignore_missing_imports = true },
+    { module = "sklearn.*", ignore_missing_imports = true },
 ]
 no_implicit_optional = true
 

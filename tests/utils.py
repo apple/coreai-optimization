@@ -25,6 +25,18 @@ def spy_cluster_weights(cluster_dim: int) -> AbstractContextManager[Any]:
     )
 
 
+def clustered_block_count(spy: Any, cluster_dim: int) -> int:
+    """Blocks a ``spy_cluster_weights`` mock clustered.
+
+    ``_cluster_weights_1d`` takes one block per call, while ``_cluster_weights_2d`` takes all
+    remaining blocks of a tensor in one batched call, so call counts are not comparable.
+    """
+    if cluster_dim == 1:
+        return spy.call_count
+    # autospec records ``self`` first, so the list of blocks is the second argument.
+    return sum(len(call.args[1]) for call in spy.call_args_list)
+
+
 def count_weight_parametrizations(model: nn.Module, parametrization_cls: type) -> int:
     """Count modules in ``model`` whose ``weight`` is parametrized with ``parametrization_cls``."""
     return sum(
