@@ -419,6 +419,25 @@ class SimpleCatModel(nn.Module):
         return x
 
 
+class CatOfParametersModel(nn.Module):
+    """Concat of two parameters with different sizes along the concat axis.
+
+    Similar to token concat done in models such as SAM 2's mask decoder:
+    ``torch.cat([iou_token.weight, mask_tokens.weight], dim=0)``.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.token1 = nn.Embedding(1, 4)
+        self.token2 = nn.Embedding(3, 4)
+        self.linear = nn.Linear(4, 4)
+
+    def forward(self, x):
+        tokens = torch.cat([self.token1.weight, self.token2.weight], dim=0)
+        out = self.linear(tokens + x)
+        return out
+
+
 class SimpleConcatModel(nn.Module):
     """Simple model with concat operation."""
 
@@ -2044,6 +2063,29 @@ class TestAnnotationPatternRegistry:
 
         # Final linear output quantizer is not associated with the others
         assert prepared_model.activation_post_process_0 != prepared_model.activation_post_process_3
+
+    def test_cat_inputs_per_channel_along_concat_axis(self):
+        """
+        Concat inputs that are per-channel along the concat axis keep separate quantizers.
+
+        The inputs are parameters named ``weight``, so the default config gives them the
+        per-channel (axis 0) weight spec, while the output is per-tensor. The inputs differ
+        in size along axis 0 ([1, 4] and [3, 4]), so one shared per-channel quantizer can't
+        observe both.
+        """
+        model = CatOfParametersModel().eval()
+        quantizer = Quantizer(model, QuantizerConfig())
+        prepared_model = quantizer.prepare(example_inputs=(torch.randn(4, 4),))
+
+        cat_nodes = [
+            node for node in prepared_model.graph.nodes if node.target == torch.ops.aten.cat.default
+        ]
+        assert len(cat_nodes) == 1
+        cat = cat_nodes[0]
+        token1_quantizer, token2_quantizer = (
+            getattr(prepared_model, input_node.target) for input_node in cat.args[0]
+        )
+        assert token1_quantizer is not token2_quantizer
 
     @pytest.mark.parametrize(
         "granularity",
