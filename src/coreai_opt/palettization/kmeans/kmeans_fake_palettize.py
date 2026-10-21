@@ -15,7 +15,6 @@ from coreai_opt.deps import _kmeans1d
 from coreai_opt.palettization.spec import (
     PalettizationGranularity,
     PerGroupedChannelGranularity,
-    PerTensorGranularity,
 )
 from coreai_opt.palettization.spec.errors import (
     _IncompatibleClusterDimError,
@@ -559,7 +558,12 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         self, lut: torch.Tensor, indices: torch.Tensor, original_weights: torch.Tensor
     ) -> torch.Tensor:
         """
-        Palettized weights from LUT and indices.
+        Palettized weights from LUT and indices, reconstructed on ``original_weights.device``.
+
+        ``self.indices`` is kept CPU-resident (uint8, 1 byte/weight) to save accelerator memory.
+        Only these indices are shipped to the weight's device; the gather and the dtype cast then
+        happen there (batched over palette blocks, no Python loop), so the dequantized weight is
+        never built on the CPU or copied back.
 
         Args:
             lut: Lookup table tensor from calculate_centroids
@@ -567,76 +571,61 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             original_weights: Original weight tensor
 
         Returns:
-            Palettized weight tensor with the original shape
-
-        Note:
-            This method assumes that group_size is divisible by the weight shape
-            along the grouped axis, so all blocks have the same size.
+            Palettized weight tensor with the original shape and dtype, on the weight's device
         """
-        clustered_weight = None
         axis = self._resolved_axis
+        device = original_weights.device
 
-        lut = lut.to(indices.device)
-
-        # Reshape indices back to 2D for block processing (reverse of
-        # reshape_to_original in _assign_indices)
+        # Move only the 1-byte indices to the weight's device.
+        indices = indices.to(device, non_blocking=True)
+        # Reshape to (rows // cluster_dim, cols)
         indices = self.reshape_strategy.reshape_for_kmeans(indices, axis)
-        # Cast to int for indexing since PyTorch treats uint8 as a boolean mask
-        indices = indices.int()
 
-        if isinstance(self.granularity, PerTensorGranularity):
-            # Per-tensor granularity: single LUT for entire tensor
-            # Scalar lut shape: (1, 1, num_clusters, 1) -> squeeze to (num_clusters,)
-            # Vector lut shape: (1, 1, num_clusters, cluster_dim) -> squeeze to
-            #   (num_clusters, cluster_dim)
-            flat_lut = lut.squeeze()
-            clustered_weight = flat_lut[indices]
-            if self.cluster_dim > 1:
-                clustered_weight = self._lookup_result_to_block(clustered_weight)
-        elif isinstance(self.granularity, PerGroupedChannelGranularity):
-            # Per-grouped-channel granularity: multiple LUTs for different blocks
-            depalett_block_weights = []
-
+        # Split into per-partition index groups (P, group_rows // cluster_dim, group_cols) and
+        # pick each partition's LUT (P, K, D). Mirrors _split_into_groups, on the reduced
+        # index shape.
+        # num_blocks_to_cluster() guarantees the grouped axis divides evenly into group_size.
+        if isinstance(self.granularity, PerGroupedChannelGranularity):
             group_size = self.granularity.group_size
             num_blocks = self.granularity.num_blocks_to_cluster(original_weights)
 
-            # Process each block with its corresponding LUT
-            for block_idx in range(num_blocks):
-                # Extract the LUT for this block
-                # Scalar: lut shape (num_blocks, 1, num_clusters, 1) or
-                #   (1, num_blocks, num_clusters, 1)
-                # Vector: lut shape (num_blocks, 1, num_clusters, cluster_dim) or
-                #   (1, num_blocks, num_clusters, cluster_dim)
-                if axis == 0:
-                    block_lut = lut[block_idx, 0]  # (num_clusters, cluster_dim)
-                    # For vector palettization, indices are reduced along axis 0
-                    # (output channel), so row slicing uses reduced group size.
-                    reduced_group = group_size // self.cluster_dim
-                    block_indices = indices[
-                        block_idx * reduced_group : (block_idx + 1) * reduced_group, :
-                    ]
-                else:
-                    block_lut = lut[0, block_idx]  # (num_clusters, cluster_dim)
-                    # Column slicing is unaffected since vectorization is along axis 0
-                    block_indices = indices[
-                        :, block_idx * group_size : (block_idx + 1) * group_size
-                    ]
+            if axis == 0:
+                # indices are reduced by cluster_dim along axis 0: a block spans group_size // cd
+                # rows
+                groups = indices.reshape(num_blocks, group_size // self.cluster_dim, -1)
+                lut_p = lut[:, 0]
+            else:
+                groups = indices.reshape(indices.shape[0], num_blocks, group_size).permute(1, 0, 2)
+                lut_p = lut[0]
+        else:  # per-tensor: a single partition
+            groups = indices.unsqueeze(0)
+            lut_p = lut.reshape(1, lut.shape[-2], lut.shape[-1])
 
-                if self.cluster_dim == 1:
-                    block_lut = block_lut.squeeze(-1)  # (num_clusters,)
+        # Swap rows and cols if cluster_dim > 1 to match _from_cluster_vectors' expectation.
+        # Flatten indices into a (P, R * C) 2d matrix for lookup into a stacked (P * K, D) LUT.
+        num_groups, group_rows_r, group_cols = groups.shape
+        flat = (groups.transpose(1, 2) if self.cluster_dim > 1 else groups).reshape(num_groups, -1)
 
-                depalett_block_weight = block_lut[block_indices]
-                if self.cluster_dim > 1:
-                    depalett_block_weight = self._lookup_result_to_block(depalett_block_weight)
+        # Gathering with index_select instead of advanced indexing (lut[part, idx]), since advanced
+        # indexing silently converts int32 indices to int64 (and materializes the broadcast
+        # partition index), costing more memory than int64 indices.
+        # uint8 can't be used directly: PyTorch would read it as a boolean mask.
+        num_clusters, vec_dim = lut_p.shape[1], lut_p.shape[2]
+        flat = flat.int()
 
-                depalett_block_weights.append(depalett_block_weight)
+        # Compute index offset and apply it to flat to shift indices into looking at the correct
+        # block.
+        partition_offset = torch.arange(num_groups, device=device, dtype=torch.int32) * num_clusters
+        flat += partition_offset.unsqueeze(1)
 
-            clustered_weight = torch.cat(depalett_block_weights, dim=axis)
-        else:
-            # Unknown granularity
-            raise ValueError(f"Unsupported granularity: {self.granularity}")
+        stacked_lut = lut_p.reshape(num_groups * num_clusters, vec_dim)
+        vectors = stacked_lut.index_select(0, flat.reshape(-1))
+        vectors = vectors.reshape(num_groups, -1, vec_dim)  # (P, vectors_per_group, cluster_dim)
 
-        # Reshape to original weight shape
+        # Same inverse path as devectorize().
+        block_rows = group_rows_r * self.cluster_dim
+        groups_w = self._from_cluster_vectors(vectors, block_rows, group_cols)
+        clustered_weight = self._merge_groups(groups_w, axis)
         clustered_weight = self.reshape_strategy.reshape_to_original(
             clustered_weight, axis, original_weights.shape
         )
@@ -644,7 +633,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         if self.enable_per_channel_scale:
             clustered_weight = self._unscale_by_per_channel_scale(clustered_weight)
 
-        return clustered_weight.to(original_weights.device, original_weights.dtype)
+        return clustered_weight.to(device, original_weights.dtype)
 
     def _pad_lut_to_num_clusters(
         self,
