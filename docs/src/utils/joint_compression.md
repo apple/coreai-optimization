@@ -10,7 +10,7 @@ A floating-point LUT causes operations to execute in floating-point regardless o
 
 For quantizing activations, `graph`-mode quantization is used (the default).
 
-**Note**: Models compressed via the joint compression flow can currently only be finalized to the `Core AI` backend.
+Models compressed via the joint compression flow can be finalized to both `Core AI` and `Core ML` backends.
 
 ```mermaid
 ---
@@ -111,5 +111,5 @@ final_model = quantizer.finalize(backend=opt.ExportBackend.CoreAI)
 ## Notes
 
 - For a working end-to-end example, see `test_p4a8_compression_mnist_accuracy` in `tests/test_joint_compression.py`.
-- For export-related tests, see `test_mnist_p4a8_compression_export` in `tests/export/test_pt2e_mlir_export.py`.
+- For export-related tests, see `test_mnist_p4a8_compression_export` in `tests/export/test_graph_mode_mlir_export.py`.
 - We explore applying joint compression to the EDSR model in [the EDSR model example](../examples/model_examples/edsr.md).
