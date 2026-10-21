@@ -234,6 +234,30 @@ def _is_8bit_scalar_quantized_lut_palettization(palett_info: PalettizationInfo) 
     )
 
 
+def _decompress_scalar_palettization(indices: torch.Tensor, lut: torch.Tensor) -> torch.Tensor:
+    """Return the dense weight ``lut[block, indices]`` without per-element LUT copies.
+
+    Args:
+        indices (torch.Tensor): Palette indices with the weight's shape.
+        lut (torch.Tensor): Scalar LUT of shape ``(*num_blocks, num_palettes, 1)``.
+
+    Returns:
+        torch.Tensor: Dense weight with the shape of ``indices`` and the dtype of ``lut``.
+    """
+    num_blocks = lut.shape[:-2]
+    # Split each weight axis into (block, position in block).
+    blocked_indices = indices.to(device=lut.device, dtype=torch.long).reshape(
+        [s for n, d in zip(num_blocks, indices.shape, strict=True) for s in (n, d // n)]
+    )
+    # gather has no float8 kernel; a uint8 view keeps the 1-byte values bit for bit.
+    # The size-1 dims broadcast each block's LUT over its elements without copying.
+    blocked_lut = lut.view(torch.uint8).reshape(
+        [s for n in num_blocks for s in (n, 1)] + [lut.shape[-2]]
+    )
+    dense = torch.take_along_dim(blocked_lut, blocked_indices.unsqueeze(-1), dim=-1)
+    return dense.reshape(indices.shape).view(lut.dtype)
+
+
 def _insert_mlir_custom_op(
     module: nn.Module,
     module_name: str,
@@ -308,7 +332,7 @@ def _insert_mlir_custom_op(
 
     if _is_8bit_scalar_quantized_lut_palettization(palett_info):
         lut, scale, zero_point = _resolve_mlir_lut_and_scale(palett_info)
-        dense_8bit_weight = PalettizeModule(palett_info.indices, lut, vector_axis)()
+        dense_8bit_weight = _decompress_scalar_palettization(palett_info.indices, lut)
         mlir_palett_mod = WeightDequantizeParametrization(
             quantized_data=dense_8bit_weight,
             scale=scale,
