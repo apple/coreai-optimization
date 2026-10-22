@@ -82,9 +82,9 @@ Cut the branch before moving `main` to the next dev release.
 
 ### Nightly builds
 
-`.github/workflows/nightly.yml` publishes a nightly wheel of `coreai-opt` to PyPI from `main` every day at 08:23 UTC (00:23 PST, 01:23 PDT). It runs `make build-nightly`, smoke-tests the wheel against every supported torch version, and publishes it via Trusted Publishing. A scheduled run builds only when `main` has moved since the last successful nightly. The commit a nightly was built from is the head SHA of its workflow run.
+`.github/workflows/nightly.yml` publishes a nightly wheel of `coreai-opt` to PyPI from `main` every day at 08:23 UTC (00:23 PST, 01:23 PDT). It runs `make build-nightly` and publishes the wheel via Trusted Publishing. A nightly is a snapshot of `main`, published every night; the smoke tests run on releases (`release.yml`). A scheduled run builds only when `main` has moved since the last successful nightly. The commit a nightly was built from is the head SHA of its workflow run.
 
-A manual run (Actions → Nightly → Run workflow, or `gh workflow run nightly.yml --ref <branch>`) always builds and smoke-tests, and publishes only when started on `main`. On any other branch it is a dry run.
+A manual run (Actions → Nightly → Run workflow, or `gh workflow run nightly.yml --ref <branch>`) always builds, and publishes only when started on `main`. On any other branch it is a dry run.
 
 Publishing relies on two settings outside the repo, each set up once:
 

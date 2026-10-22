@@ -285,12 +285,13 @@ def next_candidate_version(
     return f"{next_release_base(latest_released_version, version, extension)}.dev0"
 
 
-def public_dev_version(release_base: str, *, now: datetime | None = None) -> str:
+def pep440_dev_version(release_base: str, *, now: datetime | None = None) -> str:
     """Append a unique, PEP 440-sortable dev suffix to a clean release base.
 
     The suffix encodes the build's UTC timestamp down to the minute, so each
-    build gets a distinct PEP 440 public version that sorts above the one
-    before it and below the eventual release (``0.2.2.dev202607231430 < 0.2.2``).
+    build gets a distinct version, in the form PyPI accepts, that sorts above
+    the one before it and below the eventual release
+    (``0.2.2.dev202607231430 < 0.2.2``).
     This is the version ``build.py --nightly`` publishes to PyPI. The release
     base is used verbatim, as in ``timestamped_dev_version``.
 
@@ -315,7 +316,7 @@ def timestamped_dev_version(
     """Append a unique, PEP 440-sortable dev suffix to a clean release base.
 
     The suffix encodes the build's UTC timestamp down to the minute plus the
-    short commit SHA — ``public_dev_version`` with ``+<short-sha>`` appended —
+    short commit SHA — ``pep440_dev_version`` with ``+<short-sha>`` appended —
     so repeated builds get distinct versions that all sort below the eventual
     release (``0.2.2.dev202607231430+abc1234 < 0.2.2``). The release base is
     used verbatim — no segment is bumped — so ``main`` must already carry the
@@ -334,7 +335,7 @@ def timestamped_dev_version(
         str: PEP 440 dev version, e.g. ``"0.2.2.dev202607231430+abc1234"``.
     """
     short_sha = sha if sha is not None else get_short_sha()
-    return f"{public_dev_version(release_base, now=now)}+{short_sha}"
+    return f"{pep440_dev_version(release_base, now=now)}+{short_sha}"
 
 
 def resolve_build_version(
@@ -348,7 +349,7 @@ def resolve_build_version(
 
     By build mode:
 
-    * ``nightly`` (``build.py --nightly``) — a generated ``public_dev_version``.
+    * ``nightly`` (``build.py --nightly``) — a generated ``pep440_dev_version``.
     * ``dev`` (``build.py --dev``) — ``dev_version_override`` (the
       ``DEV_VERSION`` env var) exactly as given, else a generated
       ``timestamped_dev_version``.
@@ -369,7 +370,7 @@ def resolve_build_version(
         str: The version string to write into ``_about.py`` before building.
     """
     if nightly:
-        return public_dev_version(release_base)
+        return pep440_dev_version(release_base)
     if dev:
         return dev_version_override or timestamped_dev_version(release_base)
     return release_base

@@ -23,7 +23,7 @@ from scripts.release.release_utils import (
     latest_release_tag,
     next_candidate_version,
     next_release_base,
-    public_dev_version,
+    pep440_dev_version,
     read_about,
     read_latest_released_version,
     read_version,
@@ -151,10 +151,10 @@ class TestResolveBuildVersion:
     """Tests for resolve_build_version and the dev and nightly versions it generates."""
 
     @pytest.mark.parametrize("release_base", ["0.2.2", "0.2.2.1"])
-    def test_public_dev_version_is_timestamped(self, release_base: str) -> None:
-        result = public_dev_version(release_base, now=_FIXED_NOW)
+    def test_pep440_dev_version_is_timestamped(self, release_base: str) -> None:
+        result = pep440_dev_version(release_base, now=_FIXED_NOW)
         assert result == f"{release_base}.dev{_FIXED_TS}"
-        # PyPI accepts public versions, i.e. ones whose local label is empty.
+        # PyPI accepts PEP 440 versions whose local label is empty.
         assert Version(result).local is None
         assert strip_dev_suffix(result) == release_base
 
@@ -183,7 +183,7 @@ class TestResolveBuildVersion:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "scripts.release.release_utils.public_dev_version",
+            "scripts.release.release_utils.pep440_dev_version",
             lambda base: f"{base}.dev{_FIXED_TS}",
         )
         version = resolve_build_version(
