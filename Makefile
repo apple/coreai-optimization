@@ -255,10 +255,10 @@ build:
 build-dev:
 	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/build.py --dev
 
-# Build the nightly distribution published to PyPI with build.py: the release
-# base with a unique, timestamped PEP 440 dev suffix (e.g. 0.2.2.dev202607231430),
-# via `uv build --no-sources` like `build`. This is what the nightly workflow
-# (.github/workflows/nightly.yml) runs.
+# Build the nightly distribution published to PyPI as coreai-opt-nightly with
+# build.py: the release base with a unique, timestamped PEP 440 dev suffix (e.g.
+# 0.2.2.dev202607231430), via `uv build --no-sources` like `build`. This is what
+# the nightly workflow (.github/workflows/nightly.yml) runs.
 build-nightly:
 	@$(call use_env,VENV) && uv run --no-sync --active python $(SCRIPTS)/make/build.py --nightly
 

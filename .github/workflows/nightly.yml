@@ -2,10 +2,10 @@ name: Nightly
 
 run-name: 'Nightly ${{ github.ref_name }} · @${{ github.actor }}'
 
-# Builds a nightly wheel of `coreai-opt` from `main` and publishes it to PyPI
-# via Trusted Publishing (OIDC). The schedule, the skip rule, manual dry runs,
-# and the one-time PyPI / `pypi-nightly` environment setup are described in
-# RELEASE.md ("Nightly builds").
+# Builds a nightly wheel from `main` and publishes it to PyPI as
+# `coreai-opt-nightly` via Trusted Publishing (OIDC). The schedule, the skip
+# rule, manual dry runs, and the one-time PyPI / `pypi-nightly` environment
+# setup are described in RELEASE.md ("Nightly builds").
 on:
   schedule:
     # 08:23 UTC = 00:23 PST / 01:23 PDT. Off the top of the hour, when GitHub
@@ -91,7 +91,7 @@ jobs:
     timeout-minutes: 15
     environment:
       name: pypi-nightly
-      url: https://pypi.org/p/coreai-opt
+      url: https://pypi.org/p/coreai-opt-nightly
     permissions:
       id-token: write # mint the OIDC token PyPI validates for Trusted Publishing
       contents: read

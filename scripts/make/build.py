@@ -12,7 +12,8 @@ Usage:
                               artifact). Called by `make build`.
     build.py --dev            Build a dev wheel with a timestamped PEP 440 .dev
                               version. Called by `make build-dev`.
-    build.py --nightly        Build the nightly wheel published to PyPI, with a
+    build.py --nightly        Build the nightly wheel published to PyPI as
+                              `<name>-nightly` (e.g. coreai-opt-nightly), with a
                               timestamped PEP 440 .dev version (e.g.
                               0.2.2.dev202607231430), via `uv build --no-sources`.
                               Called by `make build-nightly`.
@@ -31,12 +32,16 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import tomllib
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # build.py ships to OSS, where `external/` is the repo root, so it imports the
 # helpers via the plain `scripts.*` namespace — that resolves to `external/scripts/*`
 # internally (PEP 420 merging) and to the OSS-root `scripts/*` post-export. The
 # internal-only scripts use the explicit `external.scripts.*` form instead.
+from scripts._pyproject_utils import rename_package as _rename_package
 from scripts._utils import find_repo_root as _find_repo_root
 from scripts.release.release_utils import (
     get_dev_version_override,
@@ -47,6 +52,9 @@ from scripts.release.release_utils import (
     restore_about,
     write_version,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 def run_build(*, no_sources: bool) -> None:
@@ -70,6 +78,26 @@ def run_build(*, no_sources: bool) -> None:
     sys.stdout.write("Build complete! Check dist/ directory\n")
 
 
+@contextmanager
+def _nightly_package_name(repo_root: Path) -> Iterator[None]:
+    """Build under ``<name>-nightly`` while the context is open.
+
+    Nightlies go to their own PyPI project, so the main project's release
+    history lists only releases. Renames ``[project] name`` in
+    ``pyproject.toml`` and writes the original file back on exit.
+    """
+    pyproject = repo_root / "pyproject.toml"
+    original = pyproject.read_text(encoding="utf-8")
+    name = tomllib.loads(original)["project"]["name"]
+    nightly_name = f"{name}-nightly"
+    _rename_package(repo_root, name, nightly_name)
+    sys.stdout.write(f"Package: {nightly_name}\n")
+    try:
+        yield
+    finally:
+        pyproject.write_text(original, encoding="utf-8", newline="\n")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build the coreai-opt package.")
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -81,7 +109,10 @@ def _build_parser() -> argparse.ArgumentParser:
     mode.add_argument(
         "--nightly",
         action="store_true",
-        help="Build the nightly wheel published to PyPI, with a timestamped PEP 440 .dev version",
+        help=(
+            "Build the nightly wheel published to PyPI as `<name>-nightly`, with a "
+            "timestamped PEP 440 .dev version"
+        ),
     )
     mode.add_argument(
         "--no-sources",
@@ -110,7 +141,8 @@ def main() -> None:
         sys.stdout.write(f"Version: {build_version}\n")
         # Only the local dev build resolves [tool.uv.sources]; the published
         # builds (release and nightly) use `uv build --no-sources`.
-        run_build(no_sources=not args.dev)
+        with _nightly_package_name(repo_root) if args.nightly else nullcontext():
+            run_build(no_sources=not args.dev)
     finally:
         # Restore the exact bytes read before the build rewrote the version.
         restore_about(about)
