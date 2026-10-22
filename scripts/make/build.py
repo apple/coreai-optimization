@@ -12,6 +12,10 @@ Usage:
                               artifact). Called by `make build`.
     build.py --dev            Build a dev wheel with a timestamped PEP 440 .dev
                               version. Called by `make build-dev`.
+    build.py --nightly        Build the nightly wheel published to PyPI, with a
+                              timestamped PEP 440 .dev version (e.g.
+                              0.2.2.dev202607231430), via `uv build --no-sources`.
+                              Called by `make build-nightly`.
 
 ``_about.py`` stores ``latest_released_version`` (the last tagged release) by
 hand; ``__version__`` names the release the tree is working toward. This
@@ -75,6 +79,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Build a dev wheel with a timestamped PEP 440 .dev version",
     )
     mode.add_argument(
+        "--nightly",
+        action="store_true",
+        help="Build the nightly wheel published to PyPI, with a timestamped PEP 440 .dev version",
+    )
+    mode.add_argument(
         "--no-sources",
         action="store_true",
         help="Build a release via `uv build --no-sources`",
@@ -93,12 +102,15 @@ def main() -> None:
     build_version = resolve_build_version(
         release_base,
         dev=args.dev,
+        nightly=args.nightly,
         dev_version_override=get_dev_version_override(),
     )
     try:
         write_version(about, build_version)
         sys.stdout.write(f"Version: {build_version}\n")
-        run_build(no_sources=args.no_sources)
+        # Only the local dev build resolves [tool.uv.sources]; the published
+        # builds (release and nightly) use `uv build --no-sources`.
+        run_build(no_sources=not args.dev)
     finally:
         # Restore the exact bytes read before the build rewrote the version.
         restore_about(about)
