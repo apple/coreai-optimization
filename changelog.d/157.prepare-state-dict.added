@@ -1,0 +1,1 @@
+Added a `state_dict` argument to `prepare()` for `Quantizer` (eager and graph mode) and `MagnitudePruner`, matching `KMeansPalettizer`. It reloads a previously prepared model's compression state (calibrated qparams, pruning masks and step count, centroids), validates it against the config, and leaves the model in the same state as a regular `prepare()` call.

@@ -16,6 +16,7 @@ from coreai_opt.palettization.kmeans import KMeansPalettizer
 from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 from coreai_opt.quantization import Quantizer
 from tests.fixtures.compression import ParametrizedP4A8CompressionConfigs
+from tests.models.simple import SimpleModel
 from tests.test_utils.general import COREAI_AVAILABLE
 
 batch_size = 128
@@ -85,3 +86,34 @@ def test_p4a8_compression_mnist_accuracy(
         f"Post-calibration accuracy ({post_calib_acc:.2f}%) != "
         f"post-finalize accuracy ({finalized_acc:.2f}%)"
     )
+
+
+@pytest.mark.skipif(not COREAI_AVAILABLE, reason="Requires coreai")
+def test_p4a8_reload_each_stage_from_state_dict(
+    parametrized_p4a8_compression_config: ParametrizedP4A8CompressionConfigs,
+) -> None:
+    """Palettize, finalize to CoreAI, quantize activations and calibrate; then rebuild the
+    same model by reloading each stage from its saved state dict, without re-clustering
+    or re-calibrating."""
+    config = parametrized_p4a8_compression_config
+    torch.manual_seed(0)
+    model = SimpleModel().eval()
+    example_input = torch.randn(4, 1, 28, 28)
+
+    def compress(palett_state=None, quant_state=None):
+        palettizer = KMeansPalettizer(deepcopy(model), config.palett_config)
+        palett_prepared = palettizer.prepare((example_input,), state_dict=palett_state)
+        # Saved before finalize, which replaces the palettization parametrizations.
+        palett_saved = deepcopy(palett_prepared.state_dict())
+        palettized = palettizer.finalize(backend=ExportBackend.CoreAI)
+        quantizer = Quantizer(palettized, config.quant_config)
+        prepared = quantizer.prepare((example_input,), state_dict=quant_state)
+        if quant_state is None:
+            with quantizer.calibration_mode():
+                prepared(example_input * 3.0)
+        return prepared, palett_saved, deepcopy(prepared.state_dict())
+
+    original, palett_saved, quant_saved = compress()
+    reloaded, _, _ = compress(palett_saved, quant_saved)
+
+    torch.testing.assert_close(reloaded(example_input), original(example_input), rtol=0, atol=0)

@@ -5,8 +5,11 @@
 
 from abc import abstractmethod
 
+import torch
+
 from coreai_opt.base_model_compressor import _BaseModelCompressor
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
+from coreai_opt.quantization.spec.qparams_calculator import StatefulQParamsCalculatorBase
 
 
 class _BaseQuantizer(_BaseModelCompressor):
@@ -23,3 +26,13 @@ class _BaseQuantizer(_BaseModelCompressor):
             instances.
         """
         ...
+
+    def _uninitialized_compression_modules(self, model: torch.nn.Module) -> list[str]:
+        """Return the fake quantizers whose stored qparams are still empty."""
+        return [
+            name
+            for name, module in model.named_modules()
+            if isinstance(module, FakeQuantizeImplBase)
+            and isinstance(module.qparams_calculator, StatefulQParamsCalculatorBase)
+            and module.qparams_calculator.scale.numel() == 0
+        ]

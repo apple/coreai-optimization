@@ -10,6 +10,7 @@ techniques such as quantization.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from contextlib import contextmanager
 from enum import Enum
 from os import PathLike
@@ -105,10 +106,58 @@ class _BaseModelCompressor(ABC):
         accuracy may be lower than the baseline model's accuracy; otherwise, it should
         remain the same.
 
+        Every compressor accepts an optional ``state_dict`` keyword argument: the state
+        dict of a model previously prepared with the same config. When provided, the
+        compression state (e.g. calibrated qparams, centroids, pruning masks) is loaded
+        from it via ``_load_prepared_state_dict`` instead of being recomputed. The
+        resulting model is in the same state as after a regular ``prepare`` call (e.g.
+        observers disabled and fake quantization enabled).
+
         Returns:
             The prepared model, ready for evaluation or further compression steps
         """
         pass
+
+    def _load_prepared_state_dict(
+        self,
+        model: torch.nn.Module,
+        state_dict: Mapping[str, torch.Tensor],
+    ) -> None:
+        """Strict-load a previously prepared model's state into ``model`` and validate it.
+
+        The model's structure comes from the config, never from ``state_dict``. After
+        loading, every compression module must be initialized. Flags are buffers, so they
+        are loaded too; ``prepare`` sets them after calling this, as it does without a
+        state dict.
+
+        Args:
+            model (torch.nn.Module): The prepared model to load into.
+            state_dict (Mapping[str, torch.Tensor]): State dict of a model previously
+                prepared with the same config.
+
+        Raises:
+            RuntimeError: If ``state_dict`` does not match the prepared model's keys or
+                shapes, or leaves a compression module uninitialized.
+        """
+        try:
+            model.load_state_dict(state_dict)
+        except RuntimeError as e:
+            raise RuntimeError(
+                "State dict does not match the prepared model. It must come from a model "
+                "prepared with the same config and model code (and, in graph mode, the same "
+                f"example inputs, dynamic shapes and torch version): {e}"
+            ) from e
+
+        uninitialized = self._uninitialized_compression_modules(model)
+        if uninitialized:
+            raise RuntimeError(
+                "State dict does not match the compression config. These compression "
+                f"modules are uninitialized after loading: {uninitialized}"
+            )
+
+    @abstractmethod
+    def _uninitialized_compression_modules(self, model: torch.nn.Module) -> list[str]:
+        """Return names of compression modules in ``model`` whose state is uninitialized."""
 
     @abstractmethod
     def finalize(

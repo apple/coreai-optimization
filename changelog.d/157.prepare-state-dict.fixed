@@ -1,0 +1,1 @@
+Fixed `KMeansPalettizer.prepare(state_dict=...)` failing for configs with a quantized LUT, and `MagnitudePruner` restarting its sparsity schedule from step 0 after a model saved mid-schedule was reloaded.

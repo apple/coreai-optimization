@@ -962,6 +962,8 @@ class GraphQuantizer(_BaseQuantizer):
         example_inputs: tuple[Any, ...],
         dynamic_shapes: dict[str, Any] | tuple[Any] | list[Any] | None = None,
         export_with_no_grad: bool = True,
+        *,
+        state_dict: Mapping[str, torch.Tensor] | None = None,
     ) -> torch.fx.GraphModule:
         """
         Prepare the model for quantization.
@@ -987,6 +989,10 @@ class GraphQuantizer(_BaseQuantizer):
                           at runtime during model export.
             export_with_no_grad: Whether to call torch.export.export within a
                                torch.no_grad() context. Defaults to True.
+            state_dict: Optional state dict of a model previously prepared with the
+                same config, example inputs, dynamic shapes and torch version. When
+                provided, its quantization state (e.g. calibrated qparams) is loaded
+                after preparing.
 
         Returns:
             The prepared GraphModule with quantization annotations and fake quantization
@@ -1093,6 +1099,8 @@ class GraphQuantizer(_BaseQuantizer):
         self._remove_disabled_fake_quant_nodes(prepared_model)
 
         # Set up initial quantization state: fake quant enabled, observers disabled
+        if state_dict is not None:
+            self._load_prepared_state_dict(prepared_model, state_dict)
         prepared_model.apply(enable_fake_quant)
         prepared_model.apply(disable_observer)
 

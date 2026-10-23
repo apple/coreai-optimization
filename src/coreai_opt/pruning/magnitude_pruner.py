@@ -6,6 +6,7 @@
 """Magnitude pruner implementation."""
 
 import logging
+from collections.abc import Mapping
 from typing import Any, NamedTuple
 
 import torch
@@ -73,8 +74,8 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
         >>> pruner.finalize()
     """
 
-    _step_count: int
     _scheduled_modules: list[_ScheduledModule]
+    _prune_impls: list[PruneImplBase]
 
     def __init__(self, model: torch.nn.Module, config: MagnitudePrunerConfig | None = None):
         if config is None:
@@ -91,15 +92,32 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
             supported_ops_registry=_PrunerSupportedOpsRegistry,
             optimization_type_name="prune",
         )
-        self._step_count = 0
         self._scheduled_modules = []
+        self._prune_impls = []
 
-    def prepare(self, example_inputs: tuple[Any, ...]) -> torch.nn.Module:
+    @property
+    def _step_count(self) -> int:
+        """Number of ``step()`` calls, persisted in each pruning module's ``step_count`` buffer.
+
+        Every pruning module holds the same count; it is 0 when nothing is pruned.
+        """
+        return int(self._prune_impls[0].step_count) if self._prune_impls else 0
+
+    def prepare(
+        self,
+        example_inputs: tuple[Any, ...],
+        *,
+        state_dict: Mapping[str, torch.Tensor] | None = None,
+    ) -> torch.nn.Module:
         """Prepare the model for pruning.
 
         Args:
             example_inputs (tuple[Any, ...]): Sample inputs to trace the
                 model and configure pruning parametrizations.
+            state_dict (Mapping[str, torch.Tensor] | None): Optional state dict of a
+                model previously prepared with the same config. When provided, its
+                pruning masks and step count are loaded instead of computing the masks,
+                so a model saved mid-schedule resumes from the saved step.
 
         Returns:
             torch.nn.Module: The prepared model with pruning parametrizations.
@@ -117,11 +135,17 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
 
         self._mark_model_as_prepared(prepared_model)
         self._model = prepared_model
-        # Apply schedule before we run a forward pass to initialize the parameterizations
+        self._prune_impls = [m for m in prepared_model.modules() if isinstance(m, PruneImplBase)]
         self._build_scheduled_modules()
+        for entry in self._scheduled_modules:
+            entry.impl.update_sparsity(self._step_count)
 
-        with _move_model_to_eval(prepared_model), torch.no_grad():
-            prepared_model(*example_inputs)
+        if state_dict is None:
+            # Run a forward pass to compute the masks of every parametrization.
+            with _move_model_to_eval(prepared_model), torch.no_grad():
+                prepared_model(*example_inputs)
+        else:
+            self._load_prepared_state_dict(prepared_model, state_dict)
 
         return self._model
 
@@ -131,8 +155,14 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
         Increments the step count, then recomputes and applies the mask for
         every parametrization with a configured ``sparsity_schedule``. Safe to
         call when no schedule is configured (no-op).
+
+        Raises:
+            RuntimeError: If the model has not been prepared.
         """
-        self._step_count += 1
+        if not self._is_model_prepared(self._model):
+            raise RuntimeError("Model must be prepared before step(). Call prepare() first.")
+        for impl in self._prune_impls:
+            impl.step_count += 1
         self._apply_schedule()
 
     def finalize(
@@ -178,7 +208,7 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
         return model
 
     def _build_scheduled_modules(self) -> None:
-        """Attach schedules to each scheduled PruneImplBase and apply the step-0 state."""
+        """Attach schedules to each scheduled PruneImplBase."""
         config_dict = self._config.build_module_config_dict(self._model)
         for name, module in self._model.named_modules():
             if not hasattr(module, "parametrizations"):
@@ -198,7 +228,14 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
                 self._scheduled_modules.append(
                     _ScheduledModule(impl=impl, module=module, param_name=param_name)
                 )
-        self._apply_schedule()
+
+    def _uninitialized_compression_modules(self, model: torch.nn.Module) -> list[str]:
+        """Return the pruning modules whose mask is still empty."""
+        return [
+            name
+            for name, module in model.named_modules()
+            if isinstance(module, PruneImplBase) and module.mask.numel() == 0
+        ]
 
     def _apply_schedule(self) -> None:
         """For each scheduled impl, advance its sparsity and materialize the mask."""

@@ -24,6 +24,7 @@ from coreai_opt.pruning.config import (
     PolynomialDecaySchedule,
 )
 from coreai_opt.pruning.spec import ChannelStructured, PruneImplBase, Unstructured
+from coreai_opt.pruning.spec.prune import _MagnitudePruneImpl
 
 
 @pytest.fixture
@@ -92,12 +93,15 @@ class TestMagnitudePruner:
         assert sparsity == 0.5
 
     def test_invalid_state(self) -> None:
-        """Double prepare raises; finalize without prepare raises."""
+        """Double prepare raises; finalize or step without prepare raises."""
         model = nn.Linear(10, 10)
         pruner = MagnitudePruner(model)
 
         with pytest.raises(RuntimeError, match="must be prepared"):
             pruner.finalize()
+
+        with pytest.raises(RuntimeError, match="must be prepared before step"):
+            pruner.step()
 
         pruner.prepare((torch.randn(1, 10),))
 
@@ -709,37 +713,66 @@ class TestSparsitySchedule:
         assert self._impl(model[0]).sparsity == 0.5
         assert self._impl(model[1]).sparsity == 0.25
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="Pruner step count is not persisted in model.state_dict — resumes from 0.",
-    )
-    def test_save_resume_midschedule(self, linear_100x100_unique: nn.Linear) -> None:
-        """Saving the model mid-schedule and resuming should continue from the saved step."""
-        target = 0.5
-        total_iters = 10
 
-        def _build(model: nn.Linear) -> MagnitudePruner:
-            config = MagnitudePrunerConfig(
-                global_config=ModuleMagnitudePrunerConfig(
-                    op_state_spec={"weight": PruningSpec(target_sparsity=target)},
-                    sparsity_schedule=PolynomialDecaySchedule(
-                        begin_step=0, total_iters=total_iters, power=1.0
-                    ),
-                )
+class TestPrepareFromStateDict:
+    """Pruner-specific behavior of ``prepare(state_dict=...)``."""
+
+    def test_skips_mask_computation(self, monkeypatch, linear_100x100_unique: nn.Linear) -> None:
+        """Masks are loaded, not computed, including on the first forward after loading."""
+        example_input = torch.randn(1, 100)
+        source = copy.deepcopy(linear_100x100_unique)
+        MagnitudePruner(source).prepare((example_input,))
+        expected = source(example_input)
+
+        def _raise(*args, **kwargs):
+            raise AssertionError("masks must not be computed when loading from a state dict")
+
+        monkeypatch.setattr(_MagnitudePruneImpl, "compute_mask", staticmethod(_raise))
+        reloaded = MagnitudePruner(copy.deepcopy(linear_100x100_unique)).prepare(
+            (example_input,), state_dict=source.state_dict()
+        )
+
+        torch.testing.assert_close(reloaded(example_input), expected, rtol=0, atol=0)
+
+    def test_resumes_schedule_mid_way(self, monkeypatch, linear_100x100_unique: nn.Linear) -> None:
+        """A model reloaded mid-schedule uses its saved masks and continues exactly like an
+        uninterrupted run."""
+        config = MagnitudePrunerConfig(
+            global_config=ModuleMagnitudePrunerConfig(
+                op_state_spec={"weight": PruningSpec(target_sparsity=0.6)},
+                # Updating every other step makes off-boundary steps reuse the previous sparsity.
+                sparsity_schedule=PolynomialDecaySchedule(
+                    begin_step=0, total_iters=10, power=3.0, update_frequency=2
+                ),
             )
-            p = MagnitudePruner(model, config)
-            p.prepare((torch.randn(1, 100),))
-            return p
+        )
+        example_input = torch.randn(1, 100)
+        uninterrupted = copy.deepcopy(linear_100x100_unique)
+        pruner = MagnitudePruner(uninterrupted, config)
+        pruner.prepare((example_input,))
+        # Step 5 is off-boundary: its sparsity is the one from step 4, so restoring it
+        # requires replaying the schedule rather than evaluating step 5 alone.
+        for _ in range(5):
+            pruner.step()
+        saved = copy.deepcopy(uninterrupted.state_dict())
 
-        model_orig = copy.deepcopy(linear_100x100_unique)
-        pruner_orig = _build(model_orig)
-        halfway = total_iters // 2
-        for _ in range(halfway):
-            pruner_orig.step()
+        resumed = copy.deepcopy(linear_100x100_unique)
+        resumed_pruner = MagnitudePruner(resumed, config)
+        resumed_pruner.prepare((example_input,), state_dict=saved)
+        original_impl = uninterrupted.parametrizations["weight"][0]
+        resumed_impl = resumed.parametrizations["weight"][0]
+        assert resumed_pruner._step_count == 5
+        assert resumed_impl.sparsity == original_impl.sparsity
 
-        state = model_orig.state_dict()
-        model_resumed = copy.deepcopy(linear_100x100_unique)
-        pruner_resumed = _build(model_resumed)
-        model_resumed.load_state_dict(state)
+        def _raise(*args, **kwargs):
+            raise AssertionError("the loaded mask must be used, not recomputed")
 
-        assert pruner_resumed._step_count == halfway
+        with monkeypatch.context() as patch:
+            patch.setattr(_MagnitudePruneImpl, "compute_mask", staticmethod(_raise))
+            resumed(example_input)
+
+        for _ in range(4):
+            pruner.step()
+            resumed_pruner.step()
+            assert resumed_impl.sparsity == original_impl.sparsity
+            assert torch.equal(resumed_impl.mask, original_impl.mask)

@@ -1686,6 +1686,35 @@ class TestKMeansPalettizerLoadFromStateDict:
         dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
         dst.prepare((simple_model_input,), state_dict=state_dict)
 
+    def test_reproduces_prepared_model_with_quantized_lut(
+        self, simple_conv_linear_model, simple_model_input
+    ):
+        """A model with a quantized LUT reloads, though k-means (which initializes the LUT
+        quantizers) is skipped."""
+        config = KMeansPalettizerConfig(
+            global_config=ModuleKMeansPalettizerConfig(
+                op_state_spec={
+                    "weight": PalettizationSpec(
+                        n_bits=4,
+                        lut_qspec=QuantizationSpec(
+                            dtype=torch.int8, qscheme=QuantizationScheme.SYMMETRIC
+                        ),
+                    )
+                }
+            )
+        )
+        src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), config)
+        prepared = src.prepare((simple_model_input,))
+        with torch.no_grad():
+            expected = prepared(simple_model_input)
+
+        dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), config)
+        loaded = dst.prepare((simple_model_input,), state_dict=prepared.state_dict())
+        with torch.no_grad():
+            got = loaded(simple_model_input)
+
+        torch.testing.assert_close(got, expected, rtol=0, atol=0)
+
     def test_missing_centroids_raises(
         self, simple_conv_linear_model, simple_model_input, basic_config
     ):
@@ -1695,7 +1724,7 @@ class TestKMeansPalettizerLoadFromStateDict:
         pruned = {k: v for k, v in state_dict.items() if not k.endswith(".centroids")}
 
         dst = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
-        with pytest.raises(RuntimeError, match="does not match the palettizer config"):
+        with pytest.raises(RuntimeError, match="State dict does not match"):
             dst.prepare((simple_model_input,), state_dict=pruned)
 
 

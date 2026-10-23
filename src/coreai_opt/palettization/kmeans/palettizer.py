@@ -6,7 +6,7 @@
 import logging
 import os
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from os import PathLike
@@ -160,7 +160,7 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         example_inputs: tuple[Any, ...],
         sensitivity_path: str | None = None,
         num_workers: int = 1,
-        state_dict: dict[str, torch.Tensor] | None = None,
+        state_dict: Mapping[str, torch.Tensor] | None = None,
     ) -> torch.nn.Module:
         """
         Prepare the model for palettization.
@@ -227,10 +227,11 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
             # Remove FakePalettize modules that were disabled during the forward
             # pass due to incompatible granularity or cluster dimensions.
             self._remove_disabled_fake_palett_modules(self._model)
-
-            self._model.apply(_enable_fake_palett)
         else:
-            self._load_prepared_state_dict(state_dict)
+            self._remove_incompatible_fake_palett_modules()
+            self._load_prepared_state_dict(self._model, state_dict)
+
+        self._model.apply(_enable_fake_palett)
 
         # Mark the model as prepared to prevent re-preparation
         self._mark_model_as_prepared(prepared_model)
@@ -240,45 +241,24 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
         return self._model
 
-    def _load_prepared_state_dict(self, state_dict: dict[str, torch.Tensor]) -> None:
-        """Load a previously-prepared model's buffers instead of computing centroids.
+    def _remove_incompatible_fake_palett_modules(self) -> None:
+        """Remove the modules a normal ``prepare()`` would remove, without clustering.
 
-        Prunes the same incompatible modules a normal ``prepare()`` would (decided
-        from config and weight shapes, not from ``state_dict``), strict-loads, then
-        verifies every surviving module received its centroids.
-
-        Args:
-            state_dict (dict[str, torch.Tensor]): State dict from a model
-                previously prepared with the same config.
-
-        Raises:
-            RuntimeError: If a compatible module has no centroids after loading,
-                meaning the checkpoint does not match the palettizer config.
+        Uses a shape-only (meta) compatibility probe, so the structure comes from the
+        config and weight shapes, never from a state dict.
         """
-        # Disable exactly the modules a normal prepare() would remove, using a
-        # shape-only (meta) compatibility probe. Structure comes from the config,
-        # never from the state dict.
         for info in self._collect_fake_palett_info(to_cpu=False):
             compatible = info.fp_module.check_compatible(info.weight)
             info.fp_module._disabled = not compatible
         self._remove_disabled_fake_palett_modules(self._model)
 
-        self._model.load_state_dict(state_dict)
-
-        # Verify all surviving modules have centroids
-        missing_centroids = []
-        for info in self._collect_fake_palett_info(to_cpu=False):
-            fp = info.fp_module
-            if fp.centroids is None:
-                missing_centroids.append(fp)
-
-        if missing_centroids:
-            error_msg = (
-                "Error when loading state dict. The following palettized weights are missing "
-                "centroids/lut. State dict does not match the palettizer config: "
-                f"{[fp.tensor_fqn for fp in missing_centroids]}"
-            )
-            raise RuntimeError(error_msg)
+    def _uninitialized_compression_modules(self, model: torch.nn.Module) -> list[str]:
+        """Return the palettized weights that have no centroids."""
+        return [
+            info.fp_module.tensor_fqn
+            for info in self._collect_fake_palett_info(to_cpu=False)
+            if info.fp_module.centroids is None
+        ]
 
     @contextmanager
     def calibration_mode(
