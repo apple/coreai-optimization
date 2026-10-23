@@ -35,9 +35,8 @@ INT_DTYPES = frozenset({torch.int32, torch.int64})
 # Extended int dtype set used by INT16 meta updates
 INT_DTYPES_EXTENDED = frozenset(INT_DTYPES | {torch.int16})
 
-# Dtype categories and bit-widths for safe-collapse analysis.
-# A chain of casts is numerically safe to collapse when all dtypes share the
-# same category and every intermediate is at least as wide as both endpoints.
+# Dtype categories and bit-widths for safe-collapse analysis. Floating-point
+# widening also requires sufficient precision and exponent range.
 _DTYPE_CATEGORY: dict[torch.dtype, str] = {
     torch.bfloat16: "float",
     torch.bool: "bool",
@@ -383,11 +382,20 @@ def _bypass_branching_cast(graph: torch.fx.Graph, pass_inserted: set[torch.fx.No
 
 
 def _is_widening_cast(node: torch.fx.Node) -> bool:
-    """Return True if the cast widens (target bit-width ≥ input bit-width)."""
+    """Return True if the target can represent the input dtype without loss."""
     input_dtype = get_node_dtype(node.all_input_nodes[0])
     target_dtype = get_to_op_dtype(node)
     if input_dtype is None or target_dtype is None:
         return False
+
+    if input_dtype.is_floating_point and target_dtype.is_floating_point:
+        input_info = torch.finfo(input_dtype)
+        target_info = torch.finfo(target_dtype)
+        return (
+            target_info.eps <= input_info.eps
+            and target_info.max >= input_info.max
+            and target_info.tiny <= input_info.tiny
+        )
 
     # Use -1 and 0 as default return types for unrecognized dtypes to return False to be
     # conservative.
