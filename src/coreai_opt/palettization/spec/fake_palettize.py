@@ -17,6 +17,7 @@ from coreai_opt._utils.spec_utils import (
 from coreai_opt.config.spec import CompressionSimulatorBase
 from coreai_opt.palettization.spec import (
     PalettizationGranularity,
+    PerGroupedChannelGranularity,
 )
 from coreai_opt.quantization.spec import QuantizationSpec
 
@@ -89,14 +90,32 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             return tensor
         if self.fake_palett_enabled[0] == 0:
             return tensor
-        return self.forward_enabled(tensor)
+        palettized = self.forward_enabled(tensor)
+        if self._sparsity_mask is not None:
+            # The palette covers only the nonzero weights; the mask restores the zeros.
+            palettized = palettized * self._sparsity_mask
+        return palettized
+
+    def _axis0_group_size(self) -> int | None:
+        """Return the channel group size of axis-0 grouped granularity, else ``None``."""
+        granularity = self.granularity
+        if isinstance(granularity, PerGroupedChannelGranularity) and granularity.axis == 0:
+            return granularity.group_size
+        return None
+
+    def _has_uneven_groups(self) -> bool:
+        """Return True if the sparsity mask leaves axis-0 channel groups unevenly filled."""
+        group_size = self._axis0_group_size()
+        if self._sparsity_mask is None or group_size is None:
+            return False
+        # The granularity guarantees the channel count is divisible by the group size.
+        counts = self._sparsity_mask.reshape(self._sparsity_mask.shape[0] // group_size, -1)
+        return counts.sum(dim=1).unique().numel() > 1
 
     def _detect_sparsity_mask(self, tensor: torch.Tensor) -> torch.Tensor | None:
-        """Return the nonzero mask of ``tensor`` if at least ``sparsity_detection_threshold``
-        of its elements are exactly zero, else ``None``.
-        """
+        """Return the nonzero mask of ``tensor`` if it is sparse enough, else ``None``."""
         num_zeros = tensor.numel() - torch.count_nonzero(tensor).item()
-        if num_zeros < self.sparsity_detection_threshold * tensor.numel():
+        if num_zeros == 0 or num_zeros < self.sparsity_detection_threshold * tensor.numel():
             return None
         return tensor != 0
 

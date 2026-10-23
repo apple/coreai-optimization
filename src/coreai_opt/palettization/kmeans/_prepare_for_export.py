@@ -25,10 +25,7 @@ from coreai_opt.common import ExportBackend
 from coreai_opt.palettization.spec.fake_palettize import (
     _FakePalettizeImplBase,
 )
-from coreai_opt.palettization.spec.granularity import (
-    PerGroupedChannelGranularity,
-    PerTensorGranularity,
-)
+from coreai_opt.palettization.spec.granularity import PerTensorGranularity
 
 _DEFAULT_VECTOR_AXIS = 0
 
@@ -66,7 +63,6 @@ class _SparsePalettizeReconstruction(nn.Module):
         nonzero_indices: torch.Tensor,
         lut: torch.Tensor,
         mask: torch.Tensor,
-        vector_axis: int | None,
     ) -> None:
         super().__init__()
         self.register_buffer("nonzero_indices", nonzero_indices)
@@ -74,7 +70,8 @@ class _SparsePalettizeReconstruction(nn.Module):
         # reshaped to rank 3 (lut_to_dense requires lut.rank == indices.rank + 2).
         self.register_buffer("lut", lut.reshape(-1, lut.shape[-2], lut.shape[-1]))
         self.register_buffer("mask", mask)
-        self.vector_axis = 0 if vector_axis is None else vector_axis
+        # Scalar palettization only (cluster_dim == 1), so the vector axis is the default.
+        self.vector_axis = _DEFAULT_VECTOR_AXIS
 
     def forward(self, _: Any) -> torch.Tensor:
         nonzero_values = torch.ops.coreai.lut_to_dense(
@@ -163,6 +160,11 @@ def _register_mil_compression_metadata(
     the lookup table (LUT), palettization scale, and other information needed for
     Core ML conversion.
     """
+    has_sparsity = fake_palett_mod._sparsity_mask is not None
+    if has_sparsity:
+        # The CoreML path does not go through _resolve_export_sparsity_mask, so validate here.
+        _validate_sparsity_support(fake_palett_mod)
+
     # We want to leave the weights parametrized (aka palettized). This is because in MIL
     # export, we do not register indices as a metadata, and that is inferred directly
     # from the lut and weight values, which requires the weights to be palettized.
@@ -178,13 +180,7 @@ def _register_mil_compression_metadata(
         compression_type = [CompressionType.PALETTIZATION, CompressionType.QUANTIZATION]
     else:
         compression_type = [CompressionType.PALETTIZATION]
-    if fake_palett_mod._sparsity_mask is not None:
-        # Vector palettization & per-channel scales aren't supported jointly with sparsity.
-        if fake_palett_mod.cluster_dim != 1 or fake_palett_mod.enable_per_channel_scale:
-            raise ValueError(
-                "cluster_dim != 1 (vector palettization) and enable_per_channel_scale "
-                "are not supported for joint sparsity + palettization."
-            )
+    if has_sparsity:
         compression_type = [CompressionType.PRUNING, *compression_type]
 
     metadata = MILCompressionMetadata(
@@ -251,33 +247,159 @@ def _resolve_mlir_lut_and_scale(
     return lut, scale, offset
 
 
-def _validate_sparsity_for_export(fake_palett_mod: _FakePalettizeImplBase) -> None:
-    """Reject sparsity combined with anything other than per-tensor or axis-0 grouped LUTs."""
-    granularity = fake_palett_mod.granularity
-    is_axis0_grouped = (
-        isinstance(granularity, PerGroupedChannelGranularity) and granularity.axis == 0
-    )
-    if not (isinstance(granularity, PerTensorGranularity) or is_axis0_grouped):
-        raise ValueError(f"granularity={granularity} not supported for joint sparsity.")
+def _validate_sparsity_support(fake_palett_mod: _FakePalettizeImplBase) -> None:
+    """Reject joint sparsity combined with vector palettization or per-channel scales.
+
+    Raises:
+        ValueError: If ``cluster_dim != 1`` or ``enable_per_channel_scale`` is set.
+    """
     if fake_palett_mod.cluster_dim != 1:
         raise ValueError(
             f"cluster_dim={fake_palett_mod.cluster_dim} (vector palettization) "
             "not supported for joint sparsity."
         )
-    if fake_palett_mod.lut_qspec is not None:
-        raise ValueError("lut_qspec not supported for joint sparsity.")
     if fake_palett_mod.enable_per_channel_scale:
         raise ValueError("enable_per_channel_scale not supported for joint sparsity.")
 
 
-def _has_equal_nonzeros_per_group(
-    mask: torch.Tensor, granularity: PerTensorGranularity | PerGroupedChannelGranularity
-) -> bool:
-    """Return True if every axis-0 channel group of ``mask`` holds the same number of nonzeros."""
-    if isinstance(granularity, PerTensorGranularity):
-        return True
-    groups = mask.split(granularity.group_size, dim=0)
-    return len({int(group.sum()) for group in groups}) == 1
+def _validate_coreai_sparsity_support(
+    fake_palett_mod: _FakePalettizeImplBase, context: str
+) -> None:
+    """Reject joint sparsity configurations the CoreAI sparse op chain cannot represent.
+
+    The chain maps contiguous axis-0 blocks to LUTs and has no LUT-quantization support.
+
+    Args:
+        fake_palett_mod (_FakePalettizeImplBase): The fake palettization module.
+        context (str): Prefix identifying the parameter, prepended to error messages.
+
+    Raises:
+        ValueError: If the granularity is neither per-tensor nor axis-0 grouped, or ``lut_qspec``
+            is set.
+    """
+    granularity = fake_palett_mod.granularity
+    is_per_tensor = isinstance(granularity, PerTensorGranularity)
+    if not (is_per_tensor or fake_palett_mod._axis0_group_size() is not None):
+        raise ValueError(f"{context}granularity={granularity} not supported for joint sparsity.")
+    if fake_palett_mod.lut_qspec is not None:
+        raise ValueError(f"{context}lut_qspec not supported for joint sparsity.")
+
+
+def _pad_mask_to_equal_groups(
+    mask: torch.Tensor,
+    indices: torch.Tensor,
+    lut: torch.Tensor,
+    group_size: int,
+    context: str,
+) -> torch.Tensor:
+    """Pad the mask so every axis-0 channel group stores as many elements as the fullest one.
+
+    Groups with fewer nonzeros also store some of their zeros. The stored zeros index a LUT
+    entry that is exactly 0.0, so the weight is unchanged.
+
+    Args:
+        mask (torch.Tensor): Boolean nonzero mask of the weight.
+        indices (torch.Tensor): Per-element LUT indices, same shape as ``mask``.
+        lut (torch.Tensor): LUTs of shape ``(num_groups, num_clusters, 1)``.
+        group_size (int): Number of channels per group.
+        context (str): Prefix identifying the parameter, prepended to error messages.
+
+    Returns:
+        torch.Tensor: The padded boolean mask.
+
+    Raises:
+        ValueError: If a group has too few zeros to pad, or a padded zero does not look up 0.0.
+    """
+    groups = mask.split(group_size, dim=0)
+    target = max(int(group.sum()) for group in groups)
+    padded = []
+    for group_idx, group in enumerate(groups):
+        missing = target - int(group.sum())
+        flat = group.flatten().clone()
+        zero_positions = (~flat).nonzero().flatten()[:missing]
+        if zero_positions.numel() < missing:
+            raise ValueError(
+                f"{context}group {group_idx} of {group.numel()} elements cannot hold "
+                f"{target} nonzeros."
+            )
+        flat[zero_positions] = True
+        padded.append(flat.view_as(group))
+    padded_mask = torch.cat(padded, dim=0)
+
+    nonzero_indices = indices[padded_mask].long()
+    # Group index of each stored element.
+    block = torch.arange(nonzero_indices.numel()) // (nonzero_indices.numel() // lut.shape[0])
+    stored_values = lut[block, nonzero_indices, 0]
+    padded_only = (~mask)[padded_mask]
+    if (stored_values[padded_only] != 0).any():
+        raise ValueError(
+            f"{context}padded zeros must index a LUT entry that is exactly 0.0, but LUT entry 0 "
+            "is not 0.0 (e.g. it drifted during training). Keep the LUT frozen or use an even "
+            "sparsity pattern across channel groups."
+        )
+    return padded_mask
+
+
+def _resolve_export_sparsity_mask(
+    fake_palett_mod: _FakePalettizeImplBase,
+    palett_info: PalettizationInfo,
+    module_name: str,
+    param_name: str,
+) -> torch.Tensor | None:
+    """Return the CPU boolean mask of the elements to store jointly, or None to export densely.
+
+    The weight is exported densely when no sparsity was detected or the weight is entirely
+    zero (its palette is all zeros, so this is exact). Grouped LUTs need the same number of
+    stored elements in every axis-0 channel group, so the groups with fewer nonzeros also
+    store some of their zeros (see ``_pad_mask_to_equal_groups``).
+
+    Args:
+        fake_palett_mod (_FakePalettizeImplBase): The fake palettization module.
+        palett_info (PalettizationInfo): The palettization info holding the indices and LUT.
+        module_name (str): Fully-qualified module name, used in warnings and errors.
+        param_name (str): Name of the palettized parameter, used in warnings and errors.
+
+    Returns:
+        torch.Tensor | None: Boolean mask on CPU, or ``None`` for dense export.
+
+    Raises:
+        ValueError: If sparsity is combined with an unsupported configuration, or a group
+            cannot be padded to the fullest group's size.
+    """
+    if fake_palett_mod._sparsity_mask is None:
+        return None
+    context = f"'{module_name}.{param_name}': "
+    _validate_sparsity_support(fake_palett_mod)
+    _validate_coreai_sparsity_support(fake_palett_mod, context)
+
+    # indices live on CPU, so the mask used to index them must too.
+    mask = fake_palett_mod._sparsity_mask.cpu().to(torch.bool)
+    if not mask.any():
+        logger.warning(
+            "'%s.%s': all weights are zero; exporting without joint sparsity.",
+            module_name,
+            param_name,
+        )
+        return None
+    if fake_palett_mod._has_uneven_groups():
+        lut = palett_info.lut.reshape(-1, palett_info.lut.shape[-2], palett_info.lut.shape[-1])
+        padded_mask = _pad_mask_to_equal_groups(
+            mask,
+            palett_info.indices,
+            lut,
+            fake_palett_mod._axis0_group_size(),
+            context,
+        )
+        logger.info(
+            "'%s.%s': channel groups hold different numbers of nonzeros; storing %d extra zeros "
+            "so every group holds %d.",
+            module_name,
+            param_name,
+            int(padded_mask.sum() - mask.sum()),
+            int(padded_mask.sum()) // lut.shape[0],
+        )
+        return padded_mask
+    return mask
 
 
 def _insert_mlir_custom_op(
@@ -302,12 +424,9 @@ def _insert_mlir_custom_op(
     3. Per-channel scale: lut_to_dense + constexpr_blockwise_shift_scale(pcs)
     4. Both: lut_to_dense(int LUT) + constexpr_blockwise_shift_scale(fused_scale)
        where fused_scale = lut_scale * per_channel_scale
-
-    When ``fake_palett_mod`` detected the weight as sparse, the LUT lookup runs on the
-    nonzero-only indices and the result is packed via ``coreai::sparse_to_dense``
-    instead of installing a plain Palettize/ScaledPalettize parametrization. Grouped
-    LUTs need the same number of nonzeros in every group; otherwise the weight is
-    exported densely, which is exact since pruned elements index the zero LUT entry.
+    5. Detected sparsity: lut_to_dense on the nonzero-only indices + sparse_to_dense,
+       instead of a plain Palettize/ScaledPalettize parametrization. Weights that cannot
+       be exported jointly (see ``_resolve_export_sparsity_mask``) use cases 1-4.
 
     When ``mmap_dir`` is provided, the new MLIR module is serialized to a
     safetensors file under that directory and reloaded via mmap before being
@@ -318,6 +437,7 @@ def _insert_mlir_custom_op(
 
     Raises:
         ImportError: If coreai-torch package is not installed (required for MLIR export)
+        ValueError: If detected sparsity is combined with an unsupported configuration
     """
 
     # Lazy import: coreai_torch is required for MLIR export
@@ -341,29 +461,15 @@ def _insert_mlir_custom_op(
         palett_info.lut_quantization is not None or palett_info.per_channel_scale is not None
     )
 
+    # Reuses the mask detected in prepare()'s forward pass.
+    mask = _resolve_export_sparsity_mask(fake_palett_mod, palett_info, module_name, param_name)
     vector_axis = _DEFAULT_VECTOR_AXIS if palett_info.cluster_dim > 1 else None
 
-    # Reuses the mask detected in prepare()'s forward pass.
-    mask = fake_palett_mod._sparsity_mask
     if mask is not None:
-        _validate_sparsity_for_export(fake_palett_mod)
-        mask = mask.to(torch.bool)
-        if not _has_equal_nonzeros_per_group(mask, fake_palett_mod.granularity):
-            logger.warning(
-                "'%s.%s': channel groups hold different numbers of nonzeros; exporting "
-                "without joint sparsity.",
-                module_name,
-                param_name,
-            )
-            mask = None
-
-    if mask is not None:
-        nonzero_indices = palett_info.indices[mask]
         mlir_palett_mod = _SparsePalettizeReconstruction(
-            nonzero_indices=nonzero_indices,
+            nonzero_indices=palett_info.indices[mask],
             lut=palett_info.lut,
             mask=mask,
-            vector_axis=vector_axis,
         )
     elif needs_scale:
         lut, scale, zero_point = _resolve_mlir_lut_and_scale(palett_info)
