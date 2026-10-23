@@ -132,6 +132,13 @@ class PalettizationSpec(CompressionSpec):
                 "Use lut_qspec.qformulation=ZP instead."
             )
 
+        if not self.lut_qspec.dtype.is_floating_point and self.lut_qspec.scale_dtype is not None:
+            msg = (
+                "lut_qspec.scale_dtype must be None for integer lut_qspec.dtype, "
+                f"got scale_dtype={self.lut_qspec.scale_dtype}"
+            )
+            raise ValueError(msg)
+
         return self
 
     def model_dump_preserve_objects(self) -> dict[str, Any]:

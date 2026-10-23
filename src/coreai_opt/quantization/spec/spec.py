@@ -85,9 +85,9 @@ class QuantizationSpec(CompressionSpec):
             - ``x``: unquantized data.
             - ``q``: quantized data (dtype as specified by ``QuantizationSpec.dtype``).
             - ``x'``: dequantized data (same dtype as ``x``).
-            - ``scale``: for INT quantization, defaults to the same dtype as
-              ``x``. For FP quantization, see the ``scale_dtype`` description
-              below.
+            - ``scale``: for INT quantization without an e8m0 ``scale_dtype``,
+              defaults to the same dtype as ``x``. Otherwise, see the
+              ``scale_dtype`` description below.
 
             Formulae:
 
@@ -145,16 +145,19 @@ class QuantizationSpec(CompressionSpec):
             |       |            |             |                 | min_val_neg/scale), 0, 255)    |
             +-------+------------+-------------+-----------------+--------------------------------+
 
-            And for FP4/FP8 dtypes, zero-point is always set to 0 (FP supports only the
-            symmetric qscheme). The scale formula depends on ``scale_dtype``:
+            And for FP4/FP8 dtypes, and INT8 with an e8m0 ``scale_dtype``, zero-point is
+            always set to 0 (both support only the symmetric qscheme). The scale formula
+            depends on ``scale_dtype``:
 
             - ``scale_dtype=None`` (FP8 only): ``scale = max_abs / fp_max``, where
               ``fp_max`` is the largest representable value for the target FP dtype
               (448.0 for FP8 E4M3, 57344.0 for FP8 E5M2).
-            - ``scale_dtype=torch.float8_e8m0fnu`` (FP4 and FP8):
+            - ``scale_dtype=torch.float8_e8m0fnu`` (FP4, FP8 and INT8):
               power-of-2 scale per OCP MX spec —
               ``scale = 2^(floor(log2(max_abs)) - target_max_pow2)``, with
-              ``target_max_pow2`` of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2.
+              ``target_max_pow2`` of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2,
+              and 6 for INT8. OCP MXINT8 keeps a ``2^-6`` factor in each element and a
+              shared scale 64x larger; here that factor is folded into ``scale``.
 
             **MINVAL formulation**, e.g. with 8 bit signed and unsigned fixed point types:
 
@@ -310,15 +313,16 @@ class QuantizationSpec(CompressionSpec):
               choose_qparams_affine_with_min_max (integer and FP8 dtypes).
               For FP4, None is resolved to torch.float8_e8m0fnu automatically.
             - torch.float8_e8m0fnu: Power-of-2 scales following OCP Microscaling (MX)
-              spec. Required for FP4 quantization, optional for FP8.
+              spec. Required for FP4 quantization, optional for FP8 and int8.
 
             Constraints:
 
             - FP4 (float4_e2m1fn_x2): scale_dtype must be torch.float8_e8m0fnu or None
               (defaults to e8m0)
-            - FP8 (float8_e4m3fn, float8_e5m2): scale_dtype must be
+            - FP8 (float8_e4m3fn, float8_e5m2) and int8: scale_dtype must be
               torch.float8_e8m0fnu or None (defaults to None)
-            - Integer dtypes: scale_dtype must be None (defaults to None)
+            - Other integer dtypes: scale_dtype must be None (defaults to None)
+            - torch.float8_e8m0fnu requires qscheme="symmetric" and qformulation="zp"
 
             Default: None
 
@@ -502,15 +506,51 @@ class QuantizationSpec(CompressionSpec):
                 data["scale_dtype"] = torch.float8_e8m0fnu
         return data
 
+    # Defined before the qscheme and qformulation checks so it runs first: pydantic
+    # runs after-validators in definition order, and those checks would otherwise
+    # ask a user with an unsupported scale_dtype to fix a field that isn't the problem.
+    @model_validator(mode="after")
+    def validate_scale_dtype(self) -> QuantizationSpec:
+        """Validate scale_dtype based on element dtype.
+
+        Rules:
+            - Only None or torch.float8_e8m0fnu are supported.
+            - When scale_dtype is set, dtype must be a key of ``E8M0_TARGET_MAX_POW2``
+              (the dtypes with an e8m0 target exponent); for any other dtype,
+              scale_dtype must be None.
+            - FP4 dtypes: scale_dtype is resolved to torch.float8_e8m0fnu
+              by resolve_scale_dtype (before validator).
+        """
+        if self.scale_dtype is None:
+            return self
+
+        if self.scale_dtype != torch.float8_e8m0fnu:
+            msg = (
+                f"Unsupported scale_dtype: {self.scale_dtype}. "
+                f"Only None or torch.float8_e8m0fnu are supported."
+            )
+            raise ValueError(msg)
+
+        if self.dtype not in _E8M0_TARGET_MAX_POW2:
+            msg = (
+                f"scale_dtype must be None for dtype={self.dtype}, got "
+                f"scale_dtype={self.scale_dtype}. No e8m0 target exponent is defined "
+                f"for it; supported dtypes are {list(_E8M0_TARGET_MAX_POW2)}."
+            )
+            raise ValueError(msg)
+
+        return self
+
     @model_validator(mode="after")
     def validate_qscheme_for_fp_quant(self) -> QuantizationSpec:
         """
-        Validate that FP quantization uses symmetric quantization scheme.
+        Validate that FP quantization and e8m0 scales use symmetric quantization scheme.
         """
-        if self.dtype.is_floating_point:
+        if self.dtype.is_floating_point or self.scale_dtype is not None:
             if self.qscheme != QuantizationScheme.SYMMETRIC:
                 error_msg = (
-                    f"FP quantization (dtype={self.dtype}) requires "
+                    f"FP quantization or an e8m0 scale (dtype={self.dtype}, "
+                    f"scale_dtype={self.scale_dtype}) requires "
                     f"symmetric quantization scheme, got "
                     f"qscheme={self.qscheme}. Valid option: 'symmetric'"
                 )
@@ -520,47 +560,17 @@ class QuantizationSpec(CompressionSpec):
     @model_validator(mode="after")
     def validate_qformulation_for_fp_quant(self) -> QuantizationSpec:
         """
-        Validate that FP quantization uses zero-point quantization formulation.
+        Validate that FP quantization and e8m0 scales use zero-point quantization formulation.
         """
-        if self.dtype.is_floating_point:
+        if self.dtype.is_floating_point or self.scale_dtype is not None:
             if self.qformulation != QuantizationFormulation.ZP:
                 error_msg = (
-                    f"FP quantization (dtype={self.dtype}) requires "
+                    f"FP quantization or an e8m0 scale (dtype={self.dtype}, "
+                    f"scale_dtype={self.scale_dtype}) requires "
                     f"zero-point quantization formulation, got "
                     f"qformulation={self.qformulation}. Valid option: 'zp'"
                 )
                 raise ValueError(error_msg)
-        return self
-
-    @model_validator(mode="after")
-    def validate_scale_dtype(self) -> QuantizationSpec:
-        """
-        Validate scale_dtype based on element dtype.
-
-        Rules:
-            - Only None or torch.float8_e8m0fnu are supported.
-            - When scale_dtype is set, dtype must be a key of ``E8M0_TARGET_MAX_POW2``
-              (the dtypes with an e8m0 target exponent); for any other dtype, including
-              all integer dtypes, scale_dtype must be None.
-            - FP4 dtypes: scale_dtype is resolved to torch.float8_e8m0fnu
-              by resolve_scale_dtype (before validator).
-        """
-        if self.scale_dtype is None:
-            return self
-
-        if self.scale_dtype != torch.float8_e8m0fnu:
-            raise ValueError(
-                f"Unsupported scale_dtype: {self.scale_dtype}. "
-                f"Only None or torch.float8_e8m0fnu are supported."
-            )
-
-        if self.dtype not in _E8M0_TARGET_MAX_POW2:
-            raise ValueError(
-                f"scale_dtype must be None for dtype={self.dtype}, got "
-                f"scale_dtype={self.scale_dtype}. No e8m0 target exponent is defined "
-                f"for it; supported dtypes are {list(_E8M0_TARGET_MAX_POW2)}."
-            )
-
         return self
 
     @model_validator(mode="after")
