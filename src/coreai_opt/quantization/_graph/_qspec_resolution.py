@@ -26,10 +26,11 @@ from torchao.quantization.pt2e.quantizer import (
 )
 from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 
-from coreai_opt.quantization.spec import QuantizationSpec
+from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
 
 from ._annotation_config import AnnotationConfig
 from ._qspec_types import (
+    OP_INTRINSIC_PRIORITY,
     FieldName,
     NodeSlot,
     ProvisionalQSpec,
@@ -207,12 +208,15 @@ def _build_concrete_spec(qspec: ProvisionalQSpec) -> TorchAOQuantizationSpec | N
             f"{sorted(f.name for f in qspec.fields)}."
         )
 
-    spec = QuantizationSpec(
-        **{
-            kwarg: qspec.fields[field_name].value
-            for field_name, kwarg in _SPEC_KWARG_FROM_FIELD.items()
-        }
-    )
+    kwargs = {
+        kwarg: qspec.fields[field_name].value
+        for field_name, kwarg in _SPEC_KWARG_FROM_FIELD.items()
+    }
+    if qspec.fields[FieldName.QSCHEME].priority == OP_INTRINSIC_PRIORITY and (
+        kwargs["dtype"].is_floating_point or kwargs["scale_dtype"] is not None
+    ):
+        kwargs["qscheme"] = QuantizationScheme.SYMMETRIC
+    spec = QuantizationSpec(**kwargs)
     return _convert_to_pt2e_spec(spec, qspec.fields[FieldName.QUANTIZATION_TARGET].value)
 
 

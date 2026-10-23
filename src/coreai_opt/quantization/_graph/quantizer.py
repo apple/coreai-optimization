@@ -1055,7 +1055,10 @@ class GraphQuantizer(_BaseQuantizer):
         try:
             prepared_model = prepare_qat_pt2e(exported_model, quantizer)
         except Exception as e:
-            raise type(e)(f"prepare_qat_pt2e call failed, with error: {e}") from e
+            # Not type(e)(msg): exceptions such as pydantic's ValidationError take
+            # other constructor arguments, and rebuilding one raises a TypeError.
+            e.add_note("prepare_qat_pt2e call failed")
+            raise
         if torchao_requires_empty_kwargs:
             restore_kwargs(prepared_model.graph, saved_kwargs)
 

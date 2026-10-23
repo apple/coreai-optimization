@@ -133,10 +133,11 @@ class PalettizationSpec(CompressionSpec):
             )
 
         if not self.lut_qspec.dtype.is_floating_point and self.lut_qspec.scale_dtype is not None:
-            raise ValueError(
-                f"lut_qspec.scale_dtype must be None for integer lut_qspec.dtype, "
+            msg = (
+                "lut_qspec.scale_dtype must be None for integer lut_qspec.dtype, "
                 f"got scale_dtype={self.lut_qspec.scale_dtype}"
             )
+            raise ValueError(msg)
 
         return self
 

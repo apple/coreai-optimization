@@ -463,8 +463,9 @@ class Quantizer(_BaseQuantizer):
         backend: ExportBackend,
         predicate: Callable[[FakeQuantizeImplBase], bool],
     ) -> list[str]:
-        """Return the FakeQuantize modules matching ``predicate`` that no registered
-        activation export handler covers; none for ``ExportBackend._TORCH``.
+        """Return FakeQuantize modules matching ``predicate`` with no activation export handler.
+
+        Always empty for ``ExportBackend._TORCH``.
         """
         if backend == ExportBackend._TORCH:
             return []

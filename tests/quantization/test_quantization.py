@@ -28,6 +28,7 @@ from coreai_opt.quantization.config.quantization_config import QATSchedule
 from coreai_opt.quantization.spec import (
     PerBlockGranularity,
     PerTensorGranularity,
+    QuantizationGranularity,
     QuantizationScheme,
     default_activation_quantization_spec,
     default_weight_quantization_spec,
@@ -635,11 +636,10 @@ class TestPerBlockActivationQuantization:
 
 
 class TestIntegerE8M0Quantization:
-    """int8 with e8m0 scales runs in torch at any granularity, but the
-    built-in export paths reject it."""
+    """int8 with e8m0 scales runs in torch at any granularity; built-in export rejects it."""
 
     @staticmethod
-    def _int8_e8m0_spec(granularity) -> QuantizationSpec:
+    def _int8_e8m0_spec(granularity: QuantizationGranularity) -> QuantizationSpec:
         return QuantizationSpec(
             dtype=torch.int8,
             qscheme=QuantizationScheme.SYMMETRIC,
@@ -710,8 +710,7 @@ class TestIntegerE8M0Quantization:
                 quantizer.finalize(prepared_model, backend=backend)
 
     def test_graph_relu_output_keeps_symmetric_scheme(self):
-        """relu proposes an asymmetric scheme for its output, which an e8m0 spec
-        does not admit, so graph mode must keep the user's symmetric scheme."""
+        """relu's asymmetric proposal yields to the symmetric scheme an e8m0 spec requires."""
         config = QuantizerConfig(
             global_config=ModuleQuantizerConfig(
                 op_state_spec={"weight": default_weight_quantization_spec()},
@@ -720,6 +719,35 @@ class TestIntegerE8M0Quantization:
             )
         ).set_execution_mode("graph")
         model = nn.Sequential(nn.Linear(64, 64), nn.ReLU())
+
+        prepared_model = Quantizer(model, config).prepare((torch.randn(4, 64),))
+
+        e8m0_qschemes = {m.qscheme for m in self._e8m0_fake_quants(prepared_model)}
+        assert e8m0_qschemes == {QuantizationScheme.SYMMETRIC}
+
+    def test_graph_shared_observer_keeps_symmetric_scheme(self):
+        """sigmoid's asymmetric proposal yields to the e8m0 scale its consumer brings in."""
+        int8_spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerTensorGranularity(),
+        )
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={"weight": default_weight_quantization_spec()},
+                op_input_spec=None,
+                op_output_spec={"*": int8_spec},
+            ),
+            module_name_configs={
+                "2": ModuleQuantizerConfig(
+                    op_state_spec={"weight": default_weight_quantization_spec()},
+                    op_input_spec={"*": self._int8_e8m0_spec(PerTensorGranularity())},
+                    op_output_spec=None,
+                )
+            },
+        ).set_execution_mode("graph")
+        # sigmoid's output and the second Linear's input share one observer.
+        model = nn.Sequential(nn.Linear(64, 64), nn.Sigmoid(), nn.Linear(64, 64))
 
         prepared_model = Quantizer(model, config).prepare((torch.randn(4, 64),))
 
