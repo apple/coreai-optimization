@@ -305,6 +305,11 @@ def is_tensor_positive(tensor: torch.Tensor) -> bool:
     return bool(tensor.gt(0).all())
 
 
+def nonzero_scale(scale: torch.Tensor) -> torch.Tensor:
+    """Return ``scale`` with zeros replaced by 1, as a safe divisor."""
+    return torch.where(scale == 0, 1.0, scale)
+
+
 def is_float_quant_dtype(dtype: torch.dtype) -> bool:
     """Check if dtype is a floating-point (FP4/FP8) quantization dtype.
 

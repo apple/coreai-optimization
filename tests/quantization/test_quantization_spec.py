@@ -31,6 +31,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     _DefaultQParamsCalculator,
 )
 from coreai_opt.quantization.spec.range_calculator import MinMaxRangeCalculator
+from tests.test_utils.general import minval_qparam_qspec, minval_spec, nvfp4_spec
 
 
 @pytest.fixture
@@ -911,6 +912,112 @@ def test_invalid_scale_dtype(dtype, scale_dtype):
         )
 
 
+def test_qparam_qspec_keeps_fp4_scale_dtype_unset():
+    """FP4 defaults to e8m0 scales only when qparam_qspec does not quantize them."""
+    spec = nvfp4_spec()
+    assert spec.scale_dtype is None
+    unnested = QuantizationSpec(dtype=torch.float4_e2m1fn_x2, granularity=spec.granularity)
+    assert unnested.scale_dtype == torch.float8_e8m0fnu
+
+
+def test_qparam_qspec_from_dict_with_string_dtypes():
+    """A nested spec loads from the dict form that YAML configs produce."""
+    spec = QuantizationSpec(
+        **{
+            "dtype": "uint4",
+            "qscheme": "asymmetric",
+            "qformulation": "minval",
+            "granularity": {"type": "per_block", "axis": 1, "block_size": 32},
+            "qparam_qspec": {
+                "dtype": "uint8",
+                "qscheme": "asymmetric",
+                "granularity": {"type": "per_block", "block_size": 8},
+            },
+        }
+    )
+    assert spec == minval_spec()
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        pytest.param({"qparam_qspec": QuantizationSpec(dtype=torch.int8)}, id="signed_codes"),
+        pytest.param({"qparam_qspec": QuantizationSpec(dtype=torch.float8_e5m2)}, id="e5m2_codes"),
+        pytest.param(
+            {"qparam_qspec": minval_qparam_qspec(qscheme=QuantizationScheme.SYMMETRIC)},
+            id="symmetric_unsigned_codes",
+        ),
+        pytest.param(
+            {"qparam_qspec": minval_qparam_qspec(qparam_calculator_cls="moving_average")},
+            id="running_calculator",
+        ),
+        pytest.param(
+            {"qparam_qspec": minval_qparam_qspec(float_range=[None, 1.0])},
+            id="pinned_float_range",
+        ),
+        pytest.param(
+            {"qparam_qspec": minval_qparam_qspec(granularity=PerChannelGranularity(axis=0))},
+            id="per_channel_nested",
+        ),
+        pytest.param(
+            {
+                "qparam_qspec": minval_qparam_qspec(
+                    granularity=PerBlockGranularity(block_size=(2, 8))
+                )
+            },
+            id="multi_axis_nested",
+        ),
+        pytest.param(
+            {
+                "granularity": PerChannelGranularity(axis=0),
+                "qparam_qspec": minval_qparam_qspec(granularity=PerTensorGranularity()),
+            },
+            id="per_channel_parent",
+        ),
+        pytest.param(
+            {
+                "qparam_qspec": minval_qparam_qspec(
+                    qformulation=QuantizationFormulation.MINVAL,
+                    qparam_qspec=minval_qparam_qspec(),
+                )
+            },
+            id="nested_twice",
+        ),
+        pytest.param({"qformulation": QuantizationFormulation.ZP}, id="asymmetric_zp_parent"),
+    ],
+)
+def test_general_qparam_qspec(overrides):
+    """Any quantization spec can quantize the qparams; NVFP4 is a special case."""
+    spec = minval_spec(**overrides)
+    assert spec.qparam_qspec is not None
+
+
+@pytest.mark.parametrize(
+    "overrides, match",
+    [
+        pytest.param(
+            {"granularity": PerChannelGranularity(axis=0)},
+            "follows this spec's block axis",
+            id="unresolvable_nested_block_axis",
+        ),
+        pytest.param(
+            {"qparam_qspec": minval_qparam_qspec(granularity=PerChannelGranularity())},
+            "needs an explicit axis",
+            id="nested_per_channel_without_axis",
+        ),
+    ],
+)
+def test_invalid_qparam_qspec(overrides, match):
+    with pytest.raises(ValidationError, match=match):
+        minval_spec(**overrides)
+
+
+def test_qparam_qspec_rejects_a_scale_dtype():
+    """qparam_qspec defines how the scale is stored, so an explicit scale_dtype conflicts."""
+    with pytest.raises(ValidationError, match="scale_dtype must be None when qparam_qspec is set"):
+        nvfp4_spec(scale_dtype=torch.float8_e8m0fnu)
+
+
 @pytest.mark.parametrize(
     "spec",
     [
@@ -947,6 +1054,8 @@ def test_invalid_scale_dtype(dtype, scale_dtype):
             qformulation=QuantizationFormulation.ZP,
             granularity=PerChannelGranularity(axis=0),
         ),
+        pytest.param(nvfp4_spec(), id="nvfp4"),
+        pytest.param(minval_spec(), id="minval_qparam_qspec"),
     ],
 )
 def test_model_dump_round_trip(spec):

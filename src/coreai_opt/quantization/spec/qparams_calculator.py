@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import warnings
 from abc import abstractmethod
+from typing import TYPE_CHECKING
 
 import torch
 import torch.nn as nn
@@ -21,11 +22,16 @@ from coreai_opt._utils.torch_utils import (
     E8M0_EXPONENT_BIAS as _E8M0_EXPONENT_BIAS,
     E8M0_TARGET_MAX_POW2 as _E8M0_TARGET_MAX_POW2,
     F32_MIN_NORMAL as _F32_MIN_NORMAL,
+    nonzero_scale as _nonzero_scale,
 )
+from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 
-from .granularity import QuantizationGranularity
+from .granularity import PerBlockGranularity, PerTensorGranularity, QuantizationGranularity
 from .qscheme import QuantizationScheme
 from .range_calculator import RangeCalculatorBase
+
+if TYPE_CHECKING:
+    from .fake_quantize import FakeQuantizeImplBase
 
 
 class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
@@ -54,10 +60,17 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         range_calculator: RangeCalculatorBase,
         float_range: tuple[float | None, float | None],
         scale_dtype: torch.dtype | None = None,  # primarily for FP4
+        scale_fake_quantize: FakeQuantizeImplBase | None = None,
+        minval_fake_quantize: FakeQuantizeImplBase | None = None,
         **kwargs,
     ):
         super().__init__()
         self.scale_dtype = scale_dtype
+        # Quantize the scale and minval as the spec's ``qparam_qspec`` describes. The
+        # factory sets them only when ``qparam_qspec`` is set, the minval one only under
+        # the MINVAL formulation.
+        self.scale_fake_quantize = scale_fake_quantize
+        self.minval_fake_quantize = minval_fake_quantize
         self.dtype = dtype
         self.qscheme = qscheme
         self._granularity = granularity
@@ -76,6 +89,8 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         # Resolved non-negative axis for per-channel export paths.
         # Ellipsis sentinel means unresolved; resolved on first forward() call.
         self._resolved_axis: int | None = ...  # type: ignore[assignment]
+
+        self._resolve_nested_granularity()
 
     @property
     def granularity(self) -> QuantizationGranularity:
@@ -100,6 +115,31 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             )
         self._granularity = granularity
         self.range_calculator.granularity = granularity
+        self._resolve_nested_granularity()
+
+    def _resolve_nested_granularity(self) -> None:
+        """Give ``qparam_qspec`` per-block granularities left at ``axis=None`` the block axis.
+
+        Weight axis defaults only reach the fake quantizers inserted in the model, so the
+        nested ones follow this calculator's single-axis block axis whenever it is set. A
+        per-tensor calculator, such as a shared observer that graph mode forces to per-tensor,
+        has a single qparam, so the nested fake quantizers quantize it per tensor.
+        """
+        granularity = self.granularity
+        for fake_quantize in (self.scale_fake_quantize, self.minval_fake_quantize):
+            if fake_quantize is None:
+                continue
+            nested = fake_quantize.granularity
+            if isinstance(granularity, PerTensorGranularity):
+                fake_quantize.granularity = PerTensorGranularity()
+            elif (
+                isinstance(granularity, PerBlockGranularity)
+                and granularity.axis is not None
+                and isinstance(nested, PerBlockGranularity)
+                and isinstance(nested.block_size, int)
+                and nested.axis is None
+            ):
+                fake_quantize.granularity = nested.model_copy(update={"axis": granularity.axis})
 
     def _resolve_axis(self, tensor_ndim: int) -> None:
         """Resolve axis to non-negative on first call, delegating to granularity.
@@ -221,12 +261,23 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             scale = 2^(floor(log2(max_abs)) - target_max_pow2)
             where ``target_max_pow2`` comes from ``E8M0_TARGET_MAX_POW2``, which
             is the single source of truth for which dtypes support an e8m0 scale.
+
+        With ``scale_fake_quantize`` / ``minval_fake_quantize`` set (the spec's
+        ``qparam_qspec``), the default-path scale and minval are then quantized, and
+        the decoded values are returned, so elements are quantized against the qparams
+        a low-precision qparam format reconstructs. An asymmetric zero point is derived
+        from the decoded scale.
         """
 
         # e8m0 path: power-of-2 scales
         if self.scale_dtype == torch.float8_e8m0fnu:
             max_abs = torch.maximum(torch.abs(min_val), torch.abs(max_val))
             return self._compute_e8m0_scale(max_abs), None, None
+
+        if self.scale_fake_quantize is not None:
+            # Start from an fp32 scale, so a half-precision input is not rounded twice.
+            min_val = min_val.to(torch.float32)
+            max_val = max_val.to(torch.float32)
 
         # Default path: torchao handles integer and FP8 dtypes
         scale, zero_point = choose_qparams_affine_with_min_max(
@@ -240,6 +291,18 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             eps=torch.finfo(torch.float32).eps,
             zero_point_dtype=torch.int32,
         )
+
+        if self.scale_fake_quantize is not None:
+            scale = self._quantize_qparam(scale, self.scale_fake_quantize, "scale")
+            if self.qscheme == QuantizationScheme.ASYMMETRIC:
+                # The zero point above came from the unquantized scale; recompute it from the
+                # decoded scale so the two match. Where the decoded scale is 0, every element
+                # dequantizes to 0 whatever the zero point, so divide by 1 only to keep it finite.
+                zero_point = torch.clamp(
+                    self.quant_min - torch.round(min_val / _nonzero_scale(scale)),
+                    self.quant_min,
+                    self.quant_max,
+                ).to(torch.int32)
 
         # ``minval`` is the minimum representable float value for the
         # observed range. The fake-quantize / export layer decides whether
@@ -260,6 +323,10 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             #     ``_get_min_and_max_val``.
             minval = torch.min(min_val, torch.zeros_like(min_val))
 
+        if self.minval_fake_quantize is not None:
+            # The nested spec sees non-negative values, since minval is never positive.
+            minval = -self._quantize_qparam(-minval, self.minval_fake_quantize, "minval")
+
         # For FP dtypes, neither zero_point nor minval is used (symmetric
         # quantization with no offset).
         if self.dtype.is_floating_point:
@@ -279,6 +346,42 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         Tensor shape and device are not known at construction time, so stateful
         subclasses override this to resize their buffers (e.g.
         ``running_min``/``running_max``) to match the observed input."""
+
+    @staticmethod
+    def _quantize_qparam(
+        values: torch.Tensor, fake_quantize: FakeQuantizeImplBase, qparam_name: str
+    ) -> torch.Tensor:
+        """Return per-block qparams after quantization by ``fake_quantize``, decoded.
+
+        The nested qparams follow ``fake_quantize``'s observer state, like
+        ``FakeQuantizeImplBase.forward``: recomputed while it observes, frozen otherwise.
+        Its fake-quant toggle is ignored, since the qparams must always be quantized.
+
+        Args:
+            values (torch.Tensor): Non-negative qparams in fp32, one entry per block.
+            fake_quantize (FakeQuantizeImplBase): Fake quantizer built from
+                ``qparam_qspec``.
+            qparam_name (str): Name of the qparam, for error messages.
+
+        Returns:
+            torch.Tensor: The decoded qparams, in fp32 and with the shape of ``values``.
+
+        Raises:
+            _BlockSizeMismatchError: If the blocks do not divide into the groups of
+                ``qparam_qspec``.
+        """
+        if fake_quantize.observer_enabled[0] == 1:
+            try:
+                scale, zero_point, minval = fake_quantize.qparams_calculator(values)
+            except _BlockSizeMismatchError as e:
+                msg = (
+                    f"qparam_qspec cannot group the per-block {qparam_name} grid of shape "
+                    f"{tuple(values.shape)}: {e}"
+                )
+                raise _BlockSizeMismatchError(msg) from e
+        else:
+            scale, zero_point, minval = fake_quantize.qparams_calculator.get_qparams()
+        return fake_quantize._fused_fake_quant_dequant(values, scale, zero_point, minval)
 
     def compute_qparams(
         self,

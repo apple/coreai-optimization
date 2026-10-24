@@ -164,6 +164,8 @@ Broadly speaking, the following dtypes can be used for quantization:
 
 A few other dtypes (e.g. FP8_E5M2) may also be available to experiment with; however, they may have limited support on the Core AI runtime.
 
+The quantization parameters can themselves be quantized with a nested spec (`qparam_qspec`), for weights and activations. Double-scale formats such as NVFP4 are special cases. These are available for simulation in PyTorch; Core AI and Core ML export is not supported yet. See [Quantizing the quantization parameters](config.md#example-quantizing-the-quantization-parameters-qparam_qspec).
+
 ## Two Execution Modes: graph and eager
 
 The {class}`~coreai_opt.quantization.Quantizer` has two internal implementations:
