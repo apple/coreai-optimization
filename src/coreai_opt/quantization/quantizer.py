@@ -38,6 +38,7 @@ from coreai_opt.quantization.config.quantization_config import (
     QuantizerConfig,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
+from coreai_opt.quantization.spec.qparams_calculator import QParamsCalculatorBase
 
 
 class Quantizer(_BaseQuantizer):
@@ -221,8 +222,12 @@ class Quantizer(_BaseQuantizer):
         """Apply observer/fake-quant state for the current step count."""
         for fq_module, schedule in self._fq_to_schedule.items():
             state = schedule._compute_state(self._step_count)
-            fq_module.enable_observer(state.obs_on)
-            fq_module.enable_fake_quant(state.fq_on)
+            # ``apply`` also reaches the fake quantizers a ``qparam_qspec`` nests in the qparams
+            # calculator, so a nested scale that a dynamic calculator keeps using freezes too.
+            fq_module.apply(_torchao_enable_observer if state.obs_on else _torchao_disable_observer)
+            fq_module.apply(
+                _torchao_enable_fake_quant if state.fq_on else _torchao_disable_fake_quant
+            )
 
     def _validate_no_schedule_configured(self) -> None:
         """Raise RuntimeError if any FQ modules have a qat_schedule."""
@@ -435,6 +440,33 @@ class Quantizer(_BaseQuantizer):
                 f"backend=ExportBackend._TORCH for torch-only inference."
             )
 
+    def _validate_export_supported_qparams(
+        self,
+        model: nn.Module | fx.GraphModule | None,
+        backend: ExportBackend,
+    ) -> None:
+        """Reject CoreAI/CoreML export when a ``qparam_qspec`` quantizes any qparams."""
+        if backend == ExportBackend._TORCH:
+            return
+        model_to_check = model if model is not None else self._model
+        unsupported_fq_names = [
+            name
+            for name, mod in model_to_check.named_modules()
+            if isinstance(mod, FakeQuantizeImplBase)
+            and mod.qparams_calculator.scale_fake_quantize is not None
+            and not isinstance(
+                model_to_check.get_submodule(name.rpartition(".")[0]),
+                QParamsCalculatorBase,
+            )
+        ]
+        if unsupported_fq_names:
+            msg = (
+                f"backend={backend} does not yet support quantized qparams (qparam_qspec). "
+                f"Affected FakeQuantize modules: {unsupported_fq_names}. Use "
+                f"backend=ExportBackend._TORCH for torch-only inference."
+            )
+            raise NotImplementedError(msg)
+
     def finalize(
         self,
         model: nn.Module | fx.GraphModule | None = None,
@@ -471,6 +503,12 @@ class Quantizer(_BaseQuantizer):
         Returns:
             The finalized quantized model ready for deployment on the target backend.
 
+        Raises:
+            NotImplementedError: If ``backend`` is CoreAI or CoreML and the model holds qparams
+                that backend cannot export yet: qparams calculators that recompute every
+                forward (e.g. dynamic quantization), or qparams quantized by a
+                ``qparam_qspec``.
+
         Note:
             In graph mode, the returned ``fx.GraphModule`` supports calling
             ``.train()`` and ``.eval()``, but with limited effect: only dropout
@@ -484,6 +522,7 @@ class Quantizer(_BaseQuantizer):
         """
         self._validate_mmap_dir_constraints(model, backend, mmap_dir)
         self._validate_no_persistent_observer_calculators(model, backend)
+        self._validate_export_supported_qparams(model, backend)
         return self._quantizer.finalize(model, backend, mmap_dir=mmap_dir)
 
     @contextmanager

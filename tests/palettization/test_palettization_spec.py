@@ -267,6 +267,15 @@ def test_lut_qspec_validation():
             )
         )
 
+    # Invalid: quantized LUT qparams
+    with pytest.raises(ValidationError, match="lut_qspec.qparam_qspec is not supported"):
+        PalettizationSpec(
+            lut_qspec=QuantizationSpec(
+                dtype=torch.int8,
+                qparam_qspec=QuantizationSpec(dtype=torch.float8_e4m3fn),
+            )
+        )
+
 
 @pytest.mark.parametrize(
     "granularity", [PerTensorGranularity(), PerGroupedChannelGranularity(axis=1, group_size=8)]

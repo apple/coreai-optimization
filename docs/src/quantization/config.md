@@ -28,6 +28,7 @@ We will first take a look at the {class}`~coreai_opt.quantization.spec.Quantizat
 - `granularity`: granularity for quantization scales/zp, per-block, per-channel, per-tensor (default: {class}`~coreai_opt.quantization.spec.PerTensorGranularity()`)
 - `qparam_calculator_cls`: algorithm used for calculating scales/zp, e.g. static, global min/max, moving average min/max etc. (defaults: {class}`~coreai_opt.quantization.spec.MovingAverageQParamsCalculator` for activations)
 - `scale_dtype`: dtype for the quantization scale to be used. (Default: None, picked automatically based on quantization `dtype`)
+- `qparam_qspec`: a nested `QuantizationSpec` that quantizes the per-block scales themselves (and the per-block minvals, with `qformulation="minval"`). Formats such as NVFP4 are special cases. See [Quantizing the quantization parameters](#example-quantizing-the-quantization-parameters-qparam_qspec). (Default: None)
   Example:
 
 ```python
@@ -266,6 +267,110 @@ flowchart LR
     style weight fill:#d4edda,stroke:#28a745
     style output fill:#d4edda,stroke:#28a745
 ```
+
+### Example: Quantizing the quantization parameters (`qparam_qspec`)
+
+`qparam_qspec` quantizes a spec's own quantization parameters. The per-block qparams form a grid with one entry per block, and the nested `QuantizationSpec` quantizes that grid like any other tensor: the scale always, and with `qformulation="minval"` the minval too, each with its own nested qparams. Elements are then quantized against the decoded qparams, matching how a format that stores its qparams at low precision reconstructs them.
+
+Every `QuantizationSpec` field works in the nested spec, with the qparam grid as the quantized tensor:
+
+- `granularity` counts qparam entries, not elements: `PerBlockGranularity(block_size=8)` shares one set of nested qparams across 8 consecutive blocks, and `PerTensorGranularity()` shares one across the tensor. A single-axis `PerBlockGranularity` left at `axis=None` follows the block axis of the outer spec; `PerChannelGranularity` needs an explicit axis.
+- `scale_dtype` is the dtype of the nested scales, and the nested spec's own `qparam_qspec` quantizes those in turn.
+- `qparam_calculator_cls` and the observer state decide when the nested qparams update. They are recomputed while observers are enabled, and frozen otherwise, like any other qparams.
+- An asymmetric integer outer spec with `qformulation="zp"` derives its zero point from the decoded scale.
+
+For example, int4 blocks whose scales are int8 codes under one scale per output channel:
+
+```python
+from coreai_opt.quantization import QuantizationSpec
+from coreai_opt.quantization.spec import PerBlockGranularity, PerChannelGranularity
+
+int4_weight = QuantizationSpec(
+    dtype=torch.int4,
+    granularity=PerBlockGranularity(block_size=32),
+    qparam_qspec=QuantizationSpec(
+        dtype=torch.int8,
+        granularity=PerChannelGranularity(axis=0),
+    ),
+)
+```
+
+NVFP4 is a special case: FP4 E2M1 weights in blocks of 16, an FP8 E4M3 scale per block, and one FP32 scale per tensor for the block scales (4.5 bits per weight, plus 32 bits per tensor).
+
+```python
+# programmatic
+
+from coreai_opt.quantization.config import QuantizerConfig, ModuleQuantizerConfig
+from coreai_opt.quantization import QuantizationSpec
+from coreai_opt.quantization.spec import PerBlockGranularity, PerTensorGranularity
+
+nvfp4_weight = QuantizationSpec(
+    dtype=torch.float4_e2m1fn_x2,
+    granularity=PerBlockGranularity(block_size=16),
+    # FP8 E4M3 block scales, under one FP32 scale per tensor
+    qparam_qspec=QuantizationSpec(
+        dtype=torch.float8_e4m3fn,
+        granularity=PerTensorGranularity(),
+    ),
+)
+
+# uint4 weights with a scale and a minval per block of 32; both are uint8 codes under
+# separate parent scales shared by 8 blocks
+minval_weight = QuantizationSpec(
+    dtype=torch.uint4,
+    qscheme="asymmetric",
+    qformulation="minval",
+    granularity=PerBlockGranularity(block_size=32),
+    qparam_qspec=QuantizationSpec(
+        dtype=torch.uint8,
+        qscheme="asymmetric",
+        granularity=PerBlockGranularity(block_size=8),
+    ),
+)
+
+# NVFP4 activations: block scales recomputed every forward, under a tensor scale
+# that is calibrated and then frozen
+nvfp4_activation = QuantizationSpec(
+    dtype=torch.float4_e2m1fn_x2,
+    granularity=PerBlockGranularity(axis=-1, block_size=16),
+    qparam_calculator_cls="dynamic",
+    qparam_qspec=QuantizationSpec(
+        dtype=torch.float8_e4m3fn,
+        granularity=PerTensorGranularity(),
+    ),
+)
+
+config = QuantizerConfig(
+    global_config=ModuleQuantizerConfig(
+        op_input_spec={"*": nvfp4_activation},
+        op_output_spec=None,
+        op_state_spec={"weight": nvfp4_weight},
+    )
+)
+```
+
+```yaml
+# yaml config
+quantization_spec:
+  spec1: &minval_weight
+    dtype: uint4
+    qscheme: asymmetric
+    qformulation: minval
+    granularity: { type: per_block, block_size: 32 }
+    qparam_qspec:
+      dtype: uint8
+      qscheme: asymmetric
+      granularity: { type: per_block, block_size: 8 }
+
+quantization_config:
+  global_config:
+    op_input_spec: null
+    op_output_spec: null
+    op_state_spec:
+      weight: *minval_weight
+```
+
+Layers whose blocks do not divide into the nested groups (for the minval example, input channels that are not a multiple of 256) are left unquantized, with a warning. Core AI and Core ML export of a spec with `qparam_qspec` is not supported yet: `finalize()` raises `NotImplementedError`. Use the prepared model for torch inference.
 
 ### Example: Skip quantization for a specific layer type
 

@@ -36,6 +36,7 @@ from coreai_opt.quantization.spec import (
 )
 from coreai_opt.quantization.spec.qformulation import QuantizationFormulation
 from tests.models.simple import LinearBatchNormModel, SharedParamsModel, SimpleLinearModel
+from tests.test_utils.general import minval_spec, nvfp4_spec, twice_quantized_spec
 
 # SimpleLinearModel and LinearBatchNormModel are both Linear(64, 128) -> Linear(128, 64),
 # so their weights are 128 x 64 and 64 x 128.
@@ -461,6 +462,58 @@ def test_e8m0_scale_width():
     assert result.total_weights == expected_elems
     assert result.bpw == expected_bits / expected_elems
     _assert_bpw_is_plausible(result.bpw, 8)
+
+
+def _prepare_eager_weights(model: nn.Module, weight_spec: QuantizationSpec) -> nn.Module:
+    """Prepare ``model`` in eager mode with only its weights quantized, per ``weight_spec``."""
+    config = QuantizerConfig(
+        global_config=ModuleQuantizerConfig(
+            op_state_spec={"weight": weight_spec}, op_input_spec=None
+        ),
+        execution_mode="eager",
+    )
+    return Quantizer(model, config).prepare(example_inputs=(torch.rand(4, 256),))
+
+
+@pytest.mark.parametrize(
+    "spec, expected_bpw, tensor_overhead_bits",
+    [
+        # One fp32 tensor scale per weight on top of 4 + 8/16 bits per weight.
+        pytest.param(nvfp4_spec(axis=None), 4.5, 2 * _FP32_BITS, id="nvfp4"),
+        # 4 + (8 + 8) / 32 + (32 + 32) / 256 = 4.75 bits per weight: uint8 scale and minval
+        # codes per block, under fp32 parents per 8 blocks, with no tensor overhead.
+        pytest.param(minval_spec(axis=None), 4.75, 0, id="minval"),
+    ],
+)
+def test_quantized_qparams_cost(
+    spec: QuantizationSpec, expected_bpw: float, tensor_overhead_bits: int
+):
+    """Quantized qparams cost their codes plus one parent scale per group of blocks."""
+    model = nn.Sequential(nn.Linear(256, 512, bias=False), nn.Linear(512, 16, bias=False))
+    prepared = _prepare_eager_weights(model, spec)
+
+    result = bits_per_weight(prepared)
+
+    num_weights = 256 * 512 + 512 * 16
+    assert result.total_weights == num_weights
+    assert result.total_bits == int(expected_bpw * num_weights) + tensor_overhead_bits
+
+
+@pytest.mark.parametrize(
+    "nested_float_range",
+    [pytest.param([None, None], id="unpinned"), pytest.param([0.0, None], id="min_pinned_at_0")],
+)
+def test_nested_qparam_qspec_cost(nested_float_range: list[float | None]):
+    """Quantized qparams whose own scales are quantized in turn cost each level's codes."""
+    model = nn.Sequential(nn.Linear(256, 32, bias=False))
+    prepared = _prepare_eager_weights(model, twice_quantized_spec(float_range=nested_float_range))
+
+    result = bits_per_weight(prepared)
+
+    num_weights = 256 * 32
+    num_blocks = num_weights // 32  # one uint8 scale code each
+    num_nested_scales = num_blocks // 4  # one fp8 code each; the uint8 zero point is implied
+    assert result.total_bits == num_weights * 4 + num_blocks * 8 + num_nested_scales * 8 + 32
 
 
 def test_supported_quantization_settings_cover_the_library():

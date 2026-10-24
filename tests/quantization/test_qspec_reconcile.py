@@ -22,13 +22,17 @@ from coreai_opt.quantization._graph._annotation_pattern_registry import (
     ConcatPattern,
     _same_axis,
 )
+from coreai_opt.quantization._graph._provisional_qspec_generation import _FIELD_FROM_SPEC_ATTR
 from coreai_opt.quantization._graph._qspec_constraints import (
     InheritFields,
     ShareFields,
     ShareObserverInstance,
     _reconcile_field,
 )
-from coreai_opt.quantization._graph._qspec_resolution import _build_concrete_spec
+from coreai_opt.quantization._graph._qspec_resolution import (
+    _SPEC_KWARG_FROM_FIELD,
+    _build_concrete_spec,
+)
 from coreai_opt.quantization._graph._qspec_types import (
     OP_INTRINSIC_PRIORITY,
     FieldName,
@@ -40,10 +44,12 @@ from coreai_opt.quantization._graph._qspec_types import (
     SlotKind,
 )
 from coreai_opt.quantization.spec import (
+    PerBlockGranularity,
     PerChannelGranularity,
     PerTensorGranularity,
     QuantizationFormulation,
     QuantizationScheme,
+    QuantizationSpec,
 )
 from coreai_opt.quantization.spec.fake_quantize import _DefaultFakeQuantizeImpl
 from coreai_opt.quantization.spec.qparams_calculator import (
@@ -52,6 +58,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     _DefaultQParamsCalculator,
 )
 from coreai_opt.quantization.spec.range_calculator import MinMaxRangeCalculator
+from tests.test_utils.general import minval_qparam_qspec
 
 # ---------------------------------------------------------------------------
 # Test helpers.
@@ -652,6 +659,7 @@ class TestBuildConcreteSpec:
             FieldName.QPARAM_CALCULATOR_CLS: _fv(MovingAverageQParamsCalculator),
             FieldName.RANGE_CALCULATOR_CLS: _fv(MinMaxRangeCalculator),
             FieldName.SCALE_DTYPE: _fv(None),
+            FieldName.QPARAM_QSPEC: _fv(None),
             FieldName.QUANTIZATION_TARGET: _fv(CompressionTargetTensor.ACTIVATION),
         }
         # Keyword keys arrive as strings; map them onto FieldName so they
@@ -699,6 +707,27 @@ class TestBuildConcreteSpec:
         assert isinstance(self._calculator(weight), StaticQParamsCalculator)
         assert isinstance(self._calculator(activation), MovingAverageQParamsCalculator)
 
+    def test_reconciled_qparam_qspec_reaches_the_calculator(self) -> None:
+        """A reconciled ``qparam_qspec`` builds the nested scale and minval fake quantizers."""
+        qparam_qspec = minval_qparam_qspec()
+        spec = _build_concrete_spec(
+            self._fields(
+                DTYPE=_fv(torch.uint4),
+                QSCHEME=_fv(QuantizationScheme.ASYMMETRIC),
+                QFORMULATION=_fv(QuantizationFormulation.MINVAL),
+                GRANULARITY=_fv(PerBlockGranularity(axis=1, block_size=32)),
+                QPARAM_CALCULATOR_CLS=_fv(StaticQParamsCalculator),
+                QPARAM_QSPEC=_fv(qparam_qspec),
+                QUANTIZATION_TARGET=_fv(CompressionTargetTensor.WEIGHT),
+            )
+        )
+        calculator = self._calculator(spec)
+        for qparam_fq in (calculator.scale_fake_quantize, calculator.minval_fake_quantize):
+            assert qparam_fq.dtype == torch.uint8
+            # The nested block axis follows the weight's from construction on.
+            assert qparam_fq.granularity == PerBlockGranularity(axis=1, block_size=8)
+        assert calculator.scale_fake_quantize is not calculator.minval_fake_quantize
+
     def test_empty_field_map_is_not_observed(self) -> None:
         assert _build_concrete_spec(ProvisionalQSpec(fields={})) is None
 
@@ -708,6 +737,16 @@ class TestBuildConcreteSpec:
         filling in defaults."""
         with pytest.raises(ReconciliationError, match="Cannot rebuild"):
             _build_concrete_spec(ProvisionalQSpec(fields={FieldName.DTYPE: _fv(torch.int8)}))
+
+
+def test_field_maps_cover_every_quantization_spec_field() -> None:
+    """Every QuantizationSpec field appears in the graph-mode field maps.
+
+    Graph mode rebuilds op-level specs from these maps, so a missing field is silently dropped.
+    """
+    spec_fields = set(QuantizationSpec.model_fields)
+    assert set(_FIELD_FROM_SPEC_ATTR.values()) == spec_fields
+    assert set(_SPEC_KWARG_FROM_FIELD.values()) == spec_fields
 
 
 # ---------------------------------------------------------------------------

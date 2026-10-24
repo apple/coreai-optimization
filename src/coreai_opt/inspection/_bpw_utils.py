@@ -186,7 +186,7 @@ def tensor_storage_bits(weight: torch.Tensor, compressor: WeightCompressor | Non
         return full_precision_bits(weight)
     if isinstance(compressor, _FakePalettizeImplBase):
         return _palettized_bits(weight, compressor)
-    return _quantized_bits(weight, compressor)
+    return _quantized_tensor_bits(weight.shape, compressor)
 
 
 def full_precision_bits(tensor: torch.Tensor) -> int:
@@ -194,37 +194,44 @@ def full_precision_bits(tensor: torch.Tensor) -> int:
     return int(tensor.numel() * tensor.element_size() * _BITS_PER_BYTE)
 
 
-def _quantized_bits(weight: torch.Tensor, quantization_fq: _FakeQuantizeImplBase) -> int:
-    """Return the storage cost of a quantized weight including scale / offset overhead.
+def _quantized_tensor_bits(
+    shape: torch.Size, fq: _FakeQuantizeImplBase, qparams_nonnegative: bool = False
+) -> int:
+    """Return the storage cost of a tensor quantized by ``fq``, including its qparams.
+
+    Qparams quantized per ``qparam_qspec`` cost their own quantized storage, recursively.
 
     Args:
-        weight (torch.Tensor): The dense original weight tensor.
-        quantization_fq (FakeQuantizeImplBase): The weight fake-quantize parametrization.
+        shape (torch.Size): Shape of the quantized tensor.
+        fq (FakeQuantizeImplBase): The fake quantizer of the tensor.
+        qparams_nonnegative (bool): Whether the tensor holds non-negative qparams
+            quantized per ``qparam_qspec``, for :func:`_offset_bits`.
 
     Returns:
-        int: ``payload_bits + scale_bits + offset_bits`` in bits, where the payload
-        is ``numel * n_bits`` and the per-block scale and offset overhead is
-        amortized across the weight.
+        int: ``payload_bits + scale_bits + offset_bits`` in bits.
 
     Note:
-        ``num_blocks`` is read directly from the materialized
-        ``qparams_calculator.scale`` buffer. When that buffer
-        is not yet materialized,``num_blocks`` is
-        derived analytically from ``granularity.get_block_size``.
+        The per-block qparam grid shape is read directly from the materialized
+        ``qparams_calculator.scale`` buffer. When that buffer is not yet materialized,
+        it is derived analytically from ``granularity.get_block_size``.
     """
-    num_elements = weight.numel()
-
-    scale = quantization_fq.qparams_calculator.scale
+    scale = fq.qparams_calculator.scale
     if scale is not None and scale.numel() > 0:
-        num_blocks = scale.numel()
+        qparam_shape = scale.shape
     else:
-        block_size = quantization_fq.granularity.get_block_size(weight.shape)
-        num_blocks = num_elements // math.prod(block_size)
+        block_size = fq.granularity.get_block_size(shape, fq.quantization_target)
+        qparam_shape = torch.Size(
+            dim // block for dim, block in zip(shape, block_size, strict=True)
+        )
 
-    payload_bits = num_elements * quantization_fq.n_bits
-    scale_bits = num_blocks * _scale_storage_bits(quantization_fq)
+    payload_bits = math.prod(shape) * fq.n_bits
+    scale_fq = fq.qparams_calculator.scale_fake_quantize
+    if scale_fq is not None:
+        scale_bits = _quantized_tensor_bits(qparam_shape, scale_fq, qparams_nonnegative=True)
+    else:
+        scale_bits = math.prod(qparam_shape) * _scale_storage_bits(fq)
 
-    return int(payload_bits + scale_bits + _offset_bits(quantization_fq, num_blocks))
+    return int(payload_bits + scale_bits + _offset_bits(fq, qparam_shape, qparams_nonnegative))
 
 
 def _scale_storage_bits(fq: _FakeQuantizeImplBase) -> int:
@@ -240,14 +247,31 @@ def _float_qparam_bits(fq: _FakeQuantizeImplBase) -> int:
     return int(dtype.itemsize * _BITS_PER_BYTE)
 
 
-def _offset_bits(fq: _FakeQuantizeImplBase, num_blocks: int) -> int:
-    """Return the per-block dequantization offset cost of a quantized weight, in bits.
+def _offset_bits(
+    fq: _FakeQuantizeImplBase, qparam_shape: torch.Size, qparams_nonnegative: bool
+) -> int:
+    """Return the per-block dequantization offset cost of a quantized tensor, in bits.
 
-    - ``ZP``: an asymmetric weight stores a per-block ``zero_point``, packed at ``n_bits``.
+    - ``ZP``: an asymmetric tensor stores a per-block ``zero_point``, packed at ``n_bits``.
     - ``MINVAL``: the formulation stores a per-block ``minval`` float instead of a
-      zero-point, so it costs a full float per block.
+      zero-point, so it costs a full float per block, unless ``qparam_qspec`` quantizes
+      it.
+
+    Qparams quantized per ``qparam_qspec`` are non-negative, so an asymmetric nested spec
+    whose range minimum is not pinned below 0 by ``float_range`` always gets the offset
+    ``quant_min`` (ZP) or 0 (MINVAL), which needs no storage.
     """
+    if (
+        qparams_nonnegative
+        and fq.qscheme == _QuantizationScheme.ASYMMETRIC
+        and fq.qparams_calculator.float_range[0] in (None, 0)
+    ):
+        return 0
+    num_blocks = int(math.prod(qparam_shape))
     if fq.qformulation == _QuantizationFormulation.MINVAL:
+        minval_fq = fq.qparams_calculator.minval_fake_quantize
+        if minval_fq is not None:
+            return _quantized_tensor_bits(qparam_shape, minval_fq, qparams_nonnegative=True)
         return num_blocks * _float_qparam_bits(fq)
     if fq.qscheme == _QuantizationScheme.ASYMMETRIC:
         return num_blocks * fq.n_bits

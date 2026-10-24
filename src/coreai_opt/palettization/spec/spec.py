@@ -48,8 +48,8 @@ class PalettizationSpec(CompressionSpec):
             If None, no quantization is applied to the LUT. When specified,
             only ``torch.int8``, ``torch.uint8``, ``torch.float8_e4m3fn``, and
             ``torch.float8_e5m2`` dtypes are supported, and granularity must be
-            ``PerTensorGranularity``. FP8 dtypes require symmetric quantization.
-            Default: None.
+            ``PerTensorGranularity``. FP8 dtypes require symmetric quantization, and
+            ``qparam_qspec`` is not supported. Default: None.
         granularity: Defines how palettization is applied - per-tensor applies a
             single palette to the entire tensor, per-channel applies separate
             palettes to each channel. Default: PerTensorGranularity().
@@ -131,6 +131,10 @@ class PalettizationSpec(CompressionSpec):
                 "lut_qspec.qformulation=MINVAL is not supported for palettization. "
                 "Use lut_qspec.qformulation=ZP instead."
             )
+
+        if self.lut_qspec.qparam_qspec is not None:
+            msg = "lut_qspec.qparam_qspec is not supported for palettization."
+            raise ValueError(msg)
 
         return self
 

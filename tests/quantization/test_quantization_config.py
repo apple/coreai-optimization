@@ -29,6 +29,7 @@ from coreai_opt.quantization.spec.spec import (
 from tests.quantization.test_quantization_spec import (
     expanded_dtype_allowlist,  # noqa: F401
 )
+from tests.test_utils.general import minval_spec
 
 GLOBAL_CONFIG = "global_config"
 MODULE_TYPE_CONFIGS = "module_type_configs"
@@ -355,6 +356,38 @@ quantization_config:
     finalized = quantizer.finalize()
     output = finalized(simple_linear_model_input)
     assert output.shape == simple_linear_model_input.shape
+
+
+def test_from_yaml_qparam_qspec():
+    """A nested qparam_qspec written in YAML builds the same config as in Python."""
+    config_content = """\
+quantization_config:
+    global_config:
+        op_state_spec:
+            weight:
+                dtype: uint4
+                qscheme: asymmetric
+                qformulation: minval
+                granularity:
+                    type: per_block
+                    block_size: 32
+                qparam_qspec:
+                    dtype: uint8
+                    qscheme: asymmetric
+                    granularity:
+                        type: per_block
+                        block_size: 8
+        op_input_spec: null
+        op_output_spec: null
+"""
+    config = QuantizerConfig.from_yaml(io.StringIO(config_content))
+
+    weight_spec = minval_spec(axis=None)
+    assert config == QuantizerConfig(
+        global_config=ModuleQuantizerConfig(
+            op_input_spec=None, op_output_spec=None, op_state_spec={"weight": weight_spec}
+        )
+    )
 
 
 def test_from_yaml_null_config(tmp_path):
