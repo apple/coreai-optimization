@@ -104,4 +104,4 @@ jobs:
       - name: Publish to PyPI
         # Uploads via Trusted Publishing and signs a PEP 740 attestation for each
         # file with this workflow's OIDC identity, so PyPI shows its provenance.
-        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        uses: pypa/gh-action-pypi-publish@release/v1
