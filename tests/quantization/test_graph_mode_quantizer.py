@@ -555,9 +555,9 @@ class TestGraphModeQuantizer:
 
         torch.export's ``insert_deferred_runtime_asserts`` synthesizes one SymInt
         ``mul`` per shape-runtime assertion, all sharing one ``torch_fn`` tag, so
-        they collapse into a single ``SourcePartition``. The annotator picks the
-        first node and the downstream ``_is_fx_node_floating_point`` filter no-ops
-        on SymInt inputs.
+        they collapse into a single ``SourcePartition``. The annotator splits it
+        into one partition per node, and the downstream ``_is_fx_node_floating_point``
+        filter no-ops on the SymInt inputs.
         """
 
         H, W, B, embed_dim = 4, 4, 1, 8

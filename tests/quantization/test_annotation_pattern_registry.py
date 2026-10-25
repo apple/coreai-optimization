@@ -2088,6 +2088,30 @@ class TestAnnotationPatternRegistry:
         )
         assert token1_quantizer is token2_quantizer
 
+    def test_add_operator_and_add_function(self):
+        """
+        Test that both adds are quantized
+        """
+
+        class AddOperatorAndFunctionModel(nn.Module):
+            def forward(self, x1, x2):
+                out = x1 + x2
+                out = torch.add(out, x2)
+                return out
+
+        model = AddOperatorAndFunctionModel().eval()
+        quantizer = Quantizer(model, QuantizerConfig())
+        prepared_model = quantizer.prepare(example_inputs=(torch.randn(2, 4), torch.randn(2, 4)))
+
+        patterns = analyze_graph_structure(prepared_model)
+        check_fake_quantize_placement(
+            patterns,
+            {
+                "add": {"input_fq": [True, True], "output_fq": True},
+                "add_1": {"input_fq": [True, True], "output_fq": True},
+            },
+        )
+
     @pytest.mark.parametrize(
         "granularity",
         [
