@@ -589,7 +589,7 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         device = original_weights.device
 
         # Move only the 1-byte indices to the weight's device.
-        indices = indices.to(device, non_blocking=True)
+        indices = indices.to(device)
         # Reshape to (rows // cluster_dim, cols)
         indices = self.reshape_strategy.reshape_for_kmeans(indices, axis)
 
@@ -604,48 +604,44 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             if axis == 0:
                 # indices are reduced by cluster_dim along axis 0: a block spans group_size // cd
                 # rows
-                groups = indices.reshape(num_blocks, group_size // self.cluster_dim, -1)
+                index_groups = indices.reshape(num_blocks, group_size // self.cluster_dim, -1)
                 lut_p = lut[:, 0]
             else:
-                groups = indices.reshape(indices.shape[0], num_blocks, group_size).permute(1, 0, 2)
+                index_groups = indices.reshape(indices.shape[0], num_blocks, group_size).permute(
+                    1, 0, 2
+                )
                 lut_p = lut[0]
         else:  # per-tensor: a single partition
-            groups = indices.unsqueeze(0)
+            index_groups = indices.unsqueeze(0)
             lut_p = lut.reshape(1, lut.shape[-2], lut.shape[-1])
 
         # Swap rows and cols if cluster_dim > 1 to match _from_cluster_vectors' expectation.
         # Flatten indices into a (P, R * C) 2d matrix for lookup into a stacked (P * K, D) LUT.
-        num_groups, group_rows_r, group_cols = groups.shape
-        flat = (groups.transpose(1, 2) if self.cluster_dim > 1 else groups).reshape(num_groups, -1)
+        num_groups, group_rows_r, group_cols = index_groups.shape
+        flat_indices = (
+            index_groups.transpose(1, 2) if self.cluster_dim > 1 else index_groups
+        ).reshape(num_groups, -1)
 
-        # Gathering with index_select instead of advanced indexing (lut[part, idx]), since advanced
-        # indexing silently converts int32 indices to int64 (and materializes the broadcast
-        # partition index), costing more memory than int64 indices.
-        # uint8 can't be used directly: PyTorch would read it as a boolean mask.
         num_clusters, vec_dim = lut_p.shape[1], lut_p.shape[2]
-        flat = flat.int()
+        flat_indices = flat_indices.int()
 
-        # Compute index offset and apply it to flat to shift indices into looking at the correct
-        # block.
+        # Compute index offset and apply it to flat_indices to shift indices into looking at the
+        # correct block.
         partition_offset = torch.arange(num_groups, device=device, dtype=torch.int32) * num_clusters
-        flat += partition_offset.unsqueeze(1)
+        flat_indices += partition_offset.unsqueeze(1)
 
         stacked_lut = lut_p.reshape(num_groups * num_clusters, vec_dim)
-        vectors = stacked_lut.index_select(0, flat.reshape(-1))
+        # Gather with index_select instead of advanced indexing (lut[part, idx]): advanced indexing
+        # silently converts int32 indices to int64 (and materializes the broadcast partition
+        # index), costing more memory than int32 indices.
+        vectors = stacked_lut.index_select(0, flat_indices.reshape(-1))
         vectors = vectors.reshape(num_groups, -1, vec_dim)  # (P, vectors_per_group, cluster_dim)
 
-        # Same inverse path as devectorize().
-        block_rows = group_rows_r * self.cluster_dim
-        groups_w = self._from_cluster_vectors(vectors, block_rows, group_cols)
-        clustered_weight = self._merge_groups(groups_w, axis)
-        clustered_weight = self.reshape_strategy.reshape_to_original(
-            clustered_weight, axis, original_weights.shape
+        block_shape = torch.Size((group_rows_r * self.cluster_dim, group_cols))
+        context = _WeightVectorization(
+            axis, block_shape, original_weights.shape, original_weights.dtype
         )
-
-        if self.enable_per_channel_scale:
-            clustered_weight = self._unscale_by_per_channel_scale(clustered_weight)
-
-        return clustered_weight.to(device, original_weights.dtype)
+        return self.devectorize(vectors, context)
 
     def _pad_lut_to_num_clusters(
         self,
@@ -975,19 +971,6 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         if self.enable_per_channel_scale:
             clustered = self._unscale_by_per_channel_scale(clustered)
         return clustered.to(context.weight_dtype)
-
-    def _lookup_result_to_block(self, looked_up: torch.Tensor) -> torch.Tensor:
-        """Reshape a vector LUT lookup result back to 2D weight shape.
-
-        Args:
-            looked_up: Result of LUT[indices] of shape
-                (rows // cluster_dim, cols, cluster_dim)
-
-        Returns:
-            Tensor of shape (rows, cols)
-        """
-        # (rows//cd, cols, cd) → (rows//cd, cd, cols) → (rows, cols)
-        return looked_up.transpose(-2, -1).flatten(0, 1)
 
     def _build_block_indices(
         self, clusters: torch.Tensor, block_weight: torch.Tensor

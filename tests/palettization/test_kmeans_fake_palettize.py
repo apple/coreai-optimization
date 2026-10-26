@@ -2454,17 +2454,19 @@ class Test_KMeansFakePalettizeHardForwardMemory:
         [PerTensorGranularity(), PerGroupedChannelGranularity(group_size=32, axis=0)],
         ids=["per_tensor", "per_grouped_channel"],
     )
-    def test_hard_forward_temporaries_do_not_accumulate_across_layers(self, granularity):
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=["fp32", "bf16"])
+    def test_hard_forward_temporaries_do_not_accumulate_across_layers(self, granularity, dtype):
         """``_palettize`` ships the uint8 indices to the weight's device and gathers there. For one
         weight, besides the palettized weight it returns (1x), the temporaries are the uint8
-        indices (1 byte per weight) and their int32 copy (4 bytes per weight): 1.25x an fp32
-        weight. They must be freed before the next layer runs, so a forward over several equal
-        layers peaks at one layer's worth of extra memory, not one per layer.
+        indices (1 byte per weight) and their int32 copy (4 bytes per weight): 5 bytes per weight,
+        i.e. 1.25x an fp32 weight and 2.5x a bf16/fp16 weight. They must be freed before the next
+        layer runs, so a forward over several equal layers peaks at one layer's worth of extra
+        memory, not one per layer.
         """
         num_layers, size = 4, 2048
         model = torch.nn.Sequential(
             *[torch.nn.Linear(size, size, bias=False) for _ in range(num_layers)]
-        ).cuda()
+        ).to("cuda", dtype)
         config = KMeansPalettizerConfig(
             global_config=ModuleKMeansPalettizerConfig(
                 op_state_spec={
@@ -2472,14 +2474,15 @@ class Test_KMeansFakePalettizeHardForwardMemory:
                 }
             )
         )
-        x = torch.randn(1, size, device="cuda")
+        x = torch.randn(1, size, device="cuda", dtype=dtype)
         prepared = KMeansPalettizer(model, config).prepare((x,)).eval()
         assert all(
             m.parametrizations["weight"][0].indices.device.type == "cpu"
             for m in prepared
             if isinstance(m, torch.nn.Linear)
         )
-        weight_bytes = size * size * 4  # fp32
+        weight_bytes = size * size * dtype.itemsize
+        temporaries_ratio = 5 / dtype.itemsize  # uint8 (1 byte) + int32 (4 bytes) per weight
 
         with torch.no_grad():
             prepared(x)  # warm-up
@@ -2491,10 +2494,10 @@ class Test_KMeansFakePalettizeHardForwardMemory:
         torch.cuda.synchronize()
         extra = torch.cuda.max_memory_allocated() - baseline
 
-        # One layer at a time: its palettized weight (1x) + its temporaries (1.25x). If temporaries
-        # leaked across layers, the extra would grow by another 1.25x per layer (up to ~5x + 1x).
+        # One layer at a time: its palettized weight (1x) + its temporaries. If temporaries leaked
+        # across layers, the extra would grow by another temporaries_ratio per layer.
         slack = 1024**2  # allocator rounding, the LUTs, the per-block offsets and the activations
-        limit = (1 + 1.25) * weight_bytes + slack
+        limit = (1 + temporaries_ratio) * weight_bytes + slack
         assert extra <= limit, (
             f"forward over {num_layers} layers peaked {extra / weight_bytes:.2f}x a weight above "
             f"the resident weights (limit {limit / weight_bytes:.2f}x)"
