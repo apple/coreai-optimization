@@ -17,3 +17,17 @@ Import `coreai-opt` with:
 ```python
 import coreai_opt as opt
 ```
+
+## Nightly builds
+
+A wheel built from the latest `main` is published to PyPI every night as [`coreai-opt-nightly`](https://pypi.org/project/coreai-opt-nightly/). It provides the same `coreai_opt` package, so install it in place of `coreai-opt`:
+
+```bash
+# pip
+pip install --upgrade coreai-opt-nightly
+
+# uv
+uv pip install --upgrade coreai-opt-nightly
+```
+
+Nightlies are snapshots of `main`; use a release for stable work.
