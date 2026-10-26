@@ -37,6 +37,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     DynamicQParamsCalculator,
     MovingAverageQParamsCalculator,
 )
+from tests.fixtures.quantization import make_quant_config
 from tests.models.simple import SimpleLinearModel
 
 # ---------------------------------------------------------------------------
@@ -633,6 +634,36 @@ class TestPerBlockActivationQuantization:
 
         with pytest.raises(Exception, match="does not support PerBlockGranularity on activation"):
             quantizer.finalize(prepared_model, backend=backend)
+
+
+class TestUint6Quantization:
+    """``torch.uint6`` is only supported for the Torch backend for now."""
+
+    @pytest.mark.parametrize(
+        "weight_dtype,act_dtype",
+        [(torch.uint6, None), (torch.int8, torch.uint6)],
+        ids=["weight", "activation"],
+    )
+    def test_finalize_supports_uint6_only_for_torch_backend(
+        self, execution_mode, weight_dtype, act_dtype
+    ):
+        config = make_quant_config(
+            weight_dtype=weight_dtype, act_dtype=act_dtype, execution_mode=execution_mode
+        )
+        quantizer = Quantizer(SimpleLinearModel(), config)
+        example_input = torch.randn(4, 64)
+        prepared_model = quantizer.prepare((example_input,))
+        prepared_output = prepared_model(example_input)
+
+        for backend in (ExportBackend.CoreAI, ExportBackend.CoreML):
+            with pytest.raises(NotImplementedError, match="torch.uint6"):
+                quantizer.finalize(prepared_model, backend=backend)
+        # No explicit model: the check falls back to the quantizer's own prepared model.
+        with pytest.raises(NotImplementedError, match="torch.uint6"):
+            quantizer.finalize(backend=ExportBackend.CoreAI)
+
+        finalized = quantizer.finalize(prepared_model, backend=ExportBackend.Torch)
+        torch.testing.assert_close(finalized(example_input), prepared_output)
 
 
 class TestSharedWeightQuantization:

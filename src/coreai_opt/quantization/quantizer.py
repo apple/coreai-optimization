@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from os import PathLike
 from typing import Any
 
+import torch
 import torch.nn as nn
 from torch import fx
 from torchao.quantization.pt2e import (
@@ -435,6 +436,29 @@ class Quantizer(_BaseQuantizer):
                 f"backend=ExportBackend.Torch for torch-only inference."
             )
 
+    def _validate_export_supported_dtypes(
+        self,
+        model: nn.Module | fx.GraphModule | None,
+        backend: ExportBackend,
+    ) -> None:
+        """Reject CoreAI/CoreML export of ``torch.uint6``, which only the Torch backend supports."""
+        if backend == ExportBackend.Torch:
+            return
+        model_to_check = model if model is not None else self._model
+        # Deny-list of one dtype; switch to an allow-list of storable dtypes if more are added.
+        uint6_fq_names = [
+            name
+            for name, mod in model_to_check.named_modules()
+            if isinstance(mod, FakeQuantizeImplBase) and mod.dtype == torch.uint6
+        ]
+        if uint6_fq_names:
+            msg = (
+                f"backend={backend} does not yet support export of torch.uint6. Affected "
+                f"FakeQuantize modules: {uint6_fq_names}. Use backend=ExportBackend.Torch for "
+                f"torch-only inference."
+            )
+            raise NotImplementedError(msg)
+
     def finalize(
         self,
         model: nn.Module | fx.GraphModule | None = None,
@@ -472,6 +496,10 @@ class Quantizer(_BaseQuantizer):
         Returns:
             The finalized quantized model ready for deployment on the target backend.
 
+        Raises:
+            NotImplementedError: If ``backend`` is CoreAI or CoreML and a quantization
+                spec uses ``torch.uint6``, which is only supported for ``ExportBackend.Torch``.
+
         Note:
             In graph mode, the returned ``fx.GraphModule`` supports calling
             ``.train()`` and ``.eval()``, but with limited effect: only dropout
@@ -485,6 +513,7 @@ class Quantizer(_BaseQuantizer):
         """
         self._validate_mmap_dir_constraints(model, backend, mmap_dir)
         self._validate_no_persistent_observer_calculators(model, backend)
+        self._validate_export_supported_dtypes(model, backend)
         return self._quantizer.finalize(model, backend, mmap_dir=mmap_dir)
 
     @contextmanager

@@ -528,7 +528,7 @@ class TestFusedFakeQuantizeIntSTEMatchesTorchBuiltin:
         torch.testing.assert_close(tensor_coreai_opt.grad, tensor_torch.grad)
 
 
-@pytest.mark.parametrize("dtype", [torch.int8, torch.uint8, torch.int4, torch.uint4])
+@pytest.mark.parametrize("dtype", [torch.int8, torch.uint8, torch.int4, torch.uint4, torch.uint6])
 @pytest.mark.parametrize(
     "granularity",
     [
