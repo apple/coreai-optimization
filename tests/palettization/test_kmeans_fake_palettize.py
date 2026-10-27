@@ -2052,8 +2052,9 @@ class TestClustering:
         reassigned = palettizer._assign_indices(weight, centroids)
         assert torch.equal(indices, reassigned)
 
-    def test_assign_indices_chunking_matches_unchunked(self):
-        weight = torch.randn(8, 32)
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+    def test_assign_indices_chunking_matches_unchunked(self, dtype):
+        weight = torch.randn(8, 32).to(dtype)
         spec = PalettizationSpec(n_bits=3, granularity=PerTensorGranularity())
         palettizer = _KMeansFakePalettize(**spec.__dict__)
         centroids, _ = palettizer._cluster_to_centroids(weight)

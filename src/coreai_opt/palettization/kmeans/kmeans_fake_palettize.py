@@ -539,12 +539,12 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
 
         block_indices = []
         for block_idx, block_weight in enumerate(blocks):
-            vec = self._vectorize_block(block_weight).float()
+            vec = self._vectorize_block(block_weight)
             centroid = centroids[block_idx]
             chunk_rows = max(1, _CDIST_CHUNK_BYTES // (centroid.shape[0] * 4))
             clusters = torch.cat(
                 [
-                    torch.cdist(v, centroid).argmin(dim=-1).to(torch.uint8)
+                    torch.cdist(v.float(), centroid).argmin(dim=-1).to(torch.uint8)
                     for v in vec.split(chunk_rows)
                 ]
             )
