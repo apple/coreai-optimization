@@ -5,7 +5,7 @@
 
 """Pytest plugin that reports stuck tests without failing them.
 
-``--dump-stacks-after=SECONDS`` (default 600, 0 disables) makes faulthandler dump the thread
+``--dump-stacks-after=SECONDS`` (default 900, 0 disables) makes faulthandler dump the thread
 stacks of a test's process for every SECONDS the test keeps running. Under pytest-xdist, the
 controller prints each dump whole, after a line naming the worker and the test.
 """
@@ -33,10 +33,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--dump-stacks-after",
         type=float,
-        default=600.0,
+        # Above the slowest healthy tests, which take about 10.5 minutes on a loaded CI machine,
+        # so passing runs print no dumps.
+        default=900.0,
         metavar="SECONDS",
         help="every SECONDS a test keeps running, dump all thread stacks and name the test "
-        "without failing it (default: 600; 0 disables)",
+        "without failing it (default: 900; 0 disables)",
     )
 
 
@@ -126,8 +128,10 @@ def _print_stack_dumps(dump_dir: Path, poll: float) -> None:
                 dump = dump_file.read(size - done)
             printed[path] = size
             started, pid, nodeid = path.with_suffix(".test").read_text().split(" ", 2)
+            # Start on a fresh line: pytest's progress dots on stdout can leave a log that merges
+            # stdout and stderr mid-line.
             report = (
-                f"[stuck-test] worker {path.stem} (pid {pid}) has been running {nodeid} "
+                f"\n[stuck-test] worker {path.stem} (pid {pid}) has been running {nodeid} "
                 f"for {(time.time() - float(started)) / 60:.1f} min\n"
             )
             os.write(stderr_fd, report.encode() + dump)
