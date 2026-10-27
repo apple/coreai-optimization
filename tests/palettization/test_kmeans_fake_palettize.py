@@ -2115,10 +2115,10 @@ class TestClustering:
             torch.cuda.synchronize()
         extra = torch.cuda.max_memory_allocated() - baseline
 
-        # One chunk's distance matrix plus cdist's temporaries (~2.5x budget), and the uint8
-        # indices (1 byte per weight) held twice while concatenating.
+        # One chunk's distance matrix plus cdist's temporaries (1.5x budget), and the uint8
+        # indices (1 byte per weight).
         slack = 2 * 1024**2
-        limit = 2.5 * budget + 2 * num_weights + slack
+        limit = 1.5 * budget + num_weights + slack
         unchunked = num_weights * num_clusters * 4
         assert extra <= limit, (
             f"peak {extra / 1024**2:.1f} MiB above resident exceeds {limit / 1024**2:.1f} MiB "
