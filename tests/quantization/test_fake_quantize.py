@@ -575,3 +575,55 @@ def test_zp_minval_round_trip_delta_upper_bound(dtype, granularity, qscheme):
 
     assert torch.equal(scale_zp, scale_minval)
     assert torch.all(torch.abs(y_minval - y_zp) <= scale_zp + 1e-5)
+
+
+def _dynamic_activation_fake_quantizer():
+    spec = QuantizationSpec(
+        dtype=torch.int8,
+        qscheme=QuantizationScheme.SYMMETRIC,
+        granularity=PerTensorGranularity(),
+        qparam_calculator_cls="dynamic",
+    )
+    return QuantizationComponentFactory.create_fake_quantizer(
+        spec, CompressionTargetTensor.ACTIVATION
+    )
+
+
+def test_forward_compiles_without_graph_break():
+    fq = _dynamic_activation_fake_quantizer()
+    x = torch.randn(4, 16)
+    compiled = torch.compile(fq, fullgraph=True, backend="eager")
+    torch.testing.assert_close(compiled(x), fq(x), atol=0, rtol=0)
+
+
+def test_flag_writers_reach_forward():
+    torch.manual_seed(0)
+    x = torch.randn(4, 16)
+    fq = _dynamic_activation_fake_quantizer()
+    quantized = fq(x)
+    assert not torch.equal(quantized, x)
+
+    fq.disable_fake_quant()
+    assert torch.equal(fq(x), x)
+    fq.enable_fake_quant()
+    assert torch.equal(fq(x), quantized)
+
+    disabled = _dynamic_activation_fake_quantizer()
+    disabled._disabled.fill_(True)
+    fq.load_state_dict(disabled.state_dict())
+    assert fq.is_disabled()
+    assert torch.equal(fq(x), x)
+
+
+def test_unpickling_module_without_flag_mirrors():
+    """A module pickled before the flag mirrors existed restores them from its buffers."""
+    fq = _dynamic_activation_fake_quantizer()
+    fq.disable_fake_quant()
+    x = torch.randn(4, 16)
+    state = fq.__getstate__().copy()
+    for name in ("_disabled_flag", "_observer_on", "_fake_quant_on"):
+        del state[name]
+
+    restored = _dynamic_activation_fake_quantizer()
+    restored.__setstate__(state)
+    assert torch.equal(restored(x), x)
