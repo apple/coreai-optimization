@@ -1,0 +1,1 @@
+Added the `torch.int6` and `torch.uint6` quantization dtypes. They are only supported for `ExportBackend.Torch` for now: `finalize` raises `NotImplementedError` for the Core AI and Core ML backends.

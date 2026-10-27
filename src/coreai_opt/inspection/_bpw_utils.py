@@ -31,6 +31,8 @@ _SUPPORTED_QUANT_DTYPES = frozenset(
     {
         torch.int8,
         torch.uint8,
+        torch.int6,
+        torch.uint6,
         torch.int4,
         torch.uint4,
         torch.int2,
