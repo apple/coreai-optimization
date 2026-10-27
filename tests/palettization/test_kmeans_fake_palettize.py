@@ -2064,6 +2064,67 @@ class TestClustering:
             chunked = palettizer._assign_indices(weight, centroids)
         assert torch.equal(expected, chunked)
 
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+    def test_assign_indices_bounds_cdist_size(self, dtype):
+        weight = torch.randn(64, 32).to(dtype)
+        spec = PalettizationSpec(n_bits=3, granularity=PerTensorGranularity())
+        palettizer = _KMeansFakePalettize(**spec.__dict__)
+        centroids, _ = palettizer._cluster_to_centroids(weight)
+        chunk_rows = 100
+        budget = chunk_rows * centroids.shape[1] * 4
+        cdist_calls = []
+        real_cdist = torch.cdist
+
+        def spy_cdist(x, y):
+            dist = real_cdist(x, y)
+            cdist_calls.append((x.dtype, dist.numel() * 4))
+            return dist
+
+        with (
+            patch(
+                "coreai_opt.palettization.kmeans.kmeans_fake_palettize._CDIST_CHUNK_BYTES", budget
+            ),
+            patch("torch.cdist", spy_cdist),
+        ):
+            palettizer._assign_indices(weight, centroids)
+
+        assert len(cdist_calls) == -(-weight.numel() // chunk_rows)
+        assert all(dt == torch.float32 and size <= budget for dt, size in cdist_calls)
+
+    @pytest.mark.cuda
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=["fp32", "bf16"])
+    def test_assign_indices_peak_memory_bounded_by_chunk_budget(self, dtype):
+        """Peak GPU memory above the resident tensors stays within a few chunk budgets,
+        far below the unchunked ``(N, K)`` distance matrix.
+        """
+        side, num_clusters, budget = 2048, 16, 4 * 1024**2
+        num_weights = side * side
+        spec = PalettizationSpec(n_bits=4, granularity=PerTensorGranularity())
+        palettizer = _KMeansFakePalettize(**spec.__dict__)
+        weight = torch.randn(side, side, device="cuda", dtype=dtype)
+        centroids = torch.randn(1, num_clusters, 1, device="cuda")
+
+        with patch(
+            "coreai_opt.palettization.kmeans.kmeans_fake_palettize._CDIST_CHUNK_BYTES", budget
+        ):
+            palettizer._assign_indices(weight, centroids)  # warm-up
+            torch.cuda.synchronize()
+            baseline = torch.cuda.memory_allocated()
+            torch.cuda.reset_peak_memory_stats()
+            palettizer._assign_indices(weight, centroids)
+            torch.cuda.synchronize()
+        extra = torch.cuda.max_memory_allocated() - baseline
+
+        # One chunk's distance matrix plus cdist's temporaries (~2.5x budget), and the uint8
+        # indices (1 byte per weight) held twice while concatenating.
+        slack = 2 * 1024**2
+        limit = 2.5 * budget + 2 * num_weights + slack
+        unchunked = num_weights * num_clusters * 4
+        assert extra <= limit, (
+            f"peak {extra / 1024**2:.1f} MiB above resident exceeds {limit / 1024**2:.1f} MiB "
+            f"(unchunked distance matrix would be {unchunked / 1024**2:.0f} MiB)"
+        )
+
     def test_blocks_to_cluster_raises_on_indivisible_cluster_dim(self):
         spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity(), cluster_dim=3)
         palettizer = _KMeansFakePalettize(**spec.__dict__)
