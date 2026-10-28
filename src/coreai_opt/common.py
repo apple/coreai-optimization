@@ -153,16 +153,12 @@ class ExportBackend(_StrEnum, metaclass=_DeprecatedMemberEnumMeta):
     CoreAI = auto()
 
     __deprecated_aliases__: ClassVar[dict[str, str]] = {
-        "_TORCH": "Torch",
         "MIL": "CoreML",
         "MLIR": "CoreAI",
     }
 
     if TYPE_CHECKING:
         # Surface the deprecated aliases above for static type checkers.
-        _TORCH: ExportBackend
-        """Deprecated. Use `ExportBackend.Torch` instead."""
-
         MIL: ExportBackend
         """Deprecated. Use `ExportBackend.CoreML` instead."""
 
