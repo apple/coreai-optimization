@@ -150,9 +150,6 @@ def _import_coreai() -> tuple:
     # isort: on
 
     from coreai._compiler.dialects import coreai as coreai_dialect  # noqa: PLC0415
-
-    # Raw dialect functions: unlike the coreai.authoring wrappers of the same name, they take and
-    # return raw MLIR values.
     from coreai._compiler.dialects.coreai import (  # noqa: PLC0415
         build_sparse_with_bitmask,
         sparse_with_bitmask_to_dense,
