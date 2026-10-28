@@ -9,10 +9,12 @@ from pathlib import Path
 
 import pytest
 
+from scripts._utils import find_repo_root
+
 pytest_plugins = ["pytester"]
 
 # The directory holding tests/, put on the child's PYTHONPATH so that it can import the plugin.
-_ROOT = Path(__file__).parents[1]
+_ROOT = find_repo_root(Path(__file__))
 
 # Every line the child writes to stderr: a [stuck-test] report or a line of a faulthandler dump.
 # Two writers interleaving on stderr break at least one line out of these shapes.

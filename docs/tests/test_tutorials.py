@@ -11,9 +11,9 @@ from pathlib import Path
 import pytest
 from _tutorial_execution import collect_notebooks, run_tutorial_notebook
 
-from coreai_opt._utils.repo_utils import find_repo_root
+from scripts._utils import find_repo_root
 
-_repo_root = find_repo_root(__file__)
+_repo_root = find_repo_root(Path(__file__))
 _notebooks = collect_notebooks([_repo_root / "docs" / "src" / "tutorials"])
 
 

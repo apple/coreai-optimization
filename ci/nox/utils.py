@@ -12,10 +12,10 @@ from pathlib import Path
 from nox import Session
 from packaging.specifiers import SpecifierSet
 
-from coreai_opt._utils.repo_utils import find_repo_root
+from scripts._utils import find_repo_root as _find_repo_root
 
 # Find repository root (where pyproject.toml is located)
-REPO_ROOT = find_repo_root(__file__)
+REPO_ROOT = _find_repo_root(Path(__file__))
 
 
 def change_dir_to_project_root(session: Session) -> None:

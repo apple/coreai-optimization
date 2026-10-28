@@ -14,7 +14,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCRIPT = Path(__file__).parent.parent.parent / "scripts" / "pre_commit" / "check_makefile.py"
+from scripts._utils import find_repo_root
+
+SCRIPT = find_repo_root(Path(__file__)) / "scripts" / "pre_commit" / "check_makefile.py"
 
 
 def _run_checker(cwd: Path) -> subprocess.CompletedProcess[str]:

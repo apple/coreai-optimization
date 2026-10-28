@@ -23,11 +23,10 @@ from pathlib import Path
 import pytest
 from _test_helpers import load_script
 
+from scripts._utils import find_repo_root
+
 _SCRIPT = (
-    Path(__file__).parent.parent.parent
-    / "scripts"
-    / "pre_commit"
-    / "check_internal_import_aliases.py"
+    find_repo_root(Path(__file__)) / "scripts" / "pre_commit" / "check_internal_import_aliases.py"
 )
 _hook = load_script(_SCRIPT)
 

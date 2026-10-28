@@ -4,16 +4,17 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 import tomllib
+from pathlib import Path
 
 import pytest
 from packaging import version
 
-from coreai_opt._utils.repo_utils import find_repo_root
 from coreai_opt._utils.version_utils import (
     _MAX_TESTED_TORCH,
     torchao_torch_incompatibility,
     untested_torch_version,
 )
+from scripts._utils import find_repo_root
 
 INCOMPATIBLE = [
     ("0.18.0", "2.8.0"),
@@ -93,7 +94,7 @@ def test_max_tested_torch_matches_pyproject():
     Repo-only: pyproject.toml is not shipped in the wheel, so this must never
     move into tests/test_smoke.py (which runs against an installed wheel).
     """
-    pyproject_path = find_repo_root(__file__) / "pyproject.toml"
+    pyproject_path = find_repo_root(Path(__file__)) / "pyproject.toml"
     with open(pyproject_path, "rb") as f:
         pyproject = tomllib.load(f)
 

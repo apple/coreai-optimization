@@ -16,41 +16,39 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-def find_repo_root(start: Path | None = None) -> Path:
-    """Walk up from start until a directory containing ``.git/`` is found.
+def find_repo_root(start: Path, *, marker: str = "pyproject.toml") -> Path:
+    """Return the closest directory at or above ``start`` that contains ``marker``.
 
-    Note: this duplicates ``coreai_opt._utils.repo_utils.find_repo_root``
-    intentionally — scripts under ``scripts/`` must work *before*
-    ``coreai_opt`` is installed (e.g., during ``make env`` itself), so
-    importing the canonical helper isn't possible. The marker differs
-    (``.git/`` here vs. ``pyproject.toml`` there) because this lookup runs
-    in scratch trees where ``pyproject.toml`` may exist outside the repo
-    root (e.g., in nested test fixtures).
+    The default marker, ``pyproject.toml``, needs no git metadata, so the lookup
+    also works in an unpacked source archive. Files that run before this module
+    is importable inline the same walk.
 
     Args:
-        start (Path | None): Path to start searching from. Defaults to the
-            directory containing this module.
+        start (Path): File or directory to search from. A file is searched
+            from its parent directory.
+        marker (str): Name of the file that marks the root.
 
     Returns:
-        Path: Absolute path to the discovered repo root.
+        Path: Absolute path to the closest directory that contains ``marker``.
 
     Raises:
-        RuntimeError: If no ``.git/`` directory is found in the ancestor chain.
+        RuntimeError: If neither ``start`` nor any of its ancestors contains
+            ``marker``.
     """
-    base = (start or Path(__file__)).resolve()
+    base = start.resolve()
     if base.is_file():
         base = base.parent
     for candidate in [base, *base.parents]:
-        if (candidate / ".git").exists():
+        if (candidate / marker).is_file():
             return candidate
-    msg = f"No .git/ directory found above {base}"
+    msg = f"No {marker} found in {base} or any of its parents"
     raise RuntimeError(msg)
 
 
 @functools.cache
 def _default_scratch_dir() -> Path:
     """Return ``<repo_root>/.local/``."""
-    return find_repo_root() / ".local"
+    return find_repo_root(Path(__file__)) / ".local"
 
 
 @contextmanager

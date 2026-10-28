@@ -317,6 +317,9 @@ no_implicit_optional = true
 [tool.pytest]
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
+# The repo root on sys.path lets tests outside the `tests` package (docs/tests/)
+# import `scripts.*` without make's PYTHONPATH.
+pythonpath = [ "." ]
 norecursedirs = [ ".oss-export" ]
 markers = [
     "cuda: marks tests that require an NVIDIA GPU",

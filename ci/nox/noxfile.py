@@ -18,10 +18,8 @@ from nox import Session, options
 from nox_uv import session
 from packaging.version import Version
 
-from coreai_opt._utils.repo_utils import find_repo_root
-
 # Find repository root (where pyproject.toml is located)
-REPO_ROOT = find_repo_root(__file__)
+REPO_ROOT = next(p for p in Path(__file__).resolve().parents if (p / "pyproject.toml").is_file())
 
 # Add repository root to sys.path so we can import ci package
 sys.path.insert(0, str(REPO_ROOT))

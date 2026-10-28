@@ -13,7 +13,9 @@ from pathlib import Path
 import pytest
 from _test_helpers import load_script
 
-_EXTERNAL_ROOT = Path(__file__).resolve().parents[2]
+from scripts._utils import find_repo_root
+
+_EXTERNAL_ROOT = find_repo_root(Path(__file__))
 _SCRIPT = _EXTERNAL_ROOT / "scripts" / "pre_commit" / "add_license_header.py"
 _TEMPLATE = _EXTERNAL_ROOT / "configs" / "BSD-3-LICENSE-HEADER-TEMPLATE"
 

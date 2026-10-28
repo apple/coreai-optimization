@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from scripts._utils import find_repo_root
+
 
 @pytest.fixture
 def tmp_changelog(tmp_path):
@@ -45,7 +47,7 @@ All notable changes to this project will be documented in this file.
 @pytest.fixture
 def script_path():
     """Path to the extract_changelog.py script."""
-    return Path(__file__).parent.parent.parent / "scripts" / "pre_commit" / "extract_changelog.py"
+    return find_repo_root(Path(__file__)) / "scripts" / "pre_commit" / "extract_changelog.py"
 
 
 """Test running extract_changelog.py."""

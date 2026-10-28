@@ -38,7 +38,6 @@ from coreai_opt._utils.api_visibility_utils import (
     find_public_modules,
     find_public_packages,
 )
-from coreai_opt._utils.repo_utils import find_repo_root
 
 _ROOT_PACKAGE = "coreai_opt"
 
@@ -228,7 +227,7 @@ def main(
         exclude (Sequence[str]): Dotted package paths to leave undocumented.
     """
     # Anchor on the cwd so `make` writes the invoking repo's index.
-    output = find_repo_root() / _OUTPUT_PATH
+    output = Path.cwd() / _OUTPUT_PATH
 
     content = generate_api_index(root_packages, exclude)
     if output.exists() and output.read_text() == content:
