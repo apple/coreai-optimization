@@ -119,7 +119,14 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         return self._disabled_flag
 
     def _sync_flags_from_buffers(self) -> None:
-        """Refresh the Python flag mirrors from the flag buffers."""
+        """Refresh the Python flag mirrors from the flag buffers.
+
+        ``_disabled``, ``observer_enabled`` and ``fake_quant_enabled`` are tensor buffers, so
+        they are saved in ``state_dict``. Branching on a buffer in ``forward`` needs ``.item()``,
+        which costs a host-device sync on every call and is a ``torch.compile`` graph break.
+        ``forward`` therefore reads these Python mirrors instead, and every method that writes
+        a flag buffer also updates its mirror.
+        """
         self._disabled_flag = bool(self._disabled.item())
         self._observer_on = bool(self.observer_enabled[0] == 1)
         self._fake_quant_on = bool(self.fake_quant_enabled[0] == 1)
@@ -173,7 +180,7 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
             error,
         )
         self._disabled.fill_(True)
-        self._disabled_flag = True
+        self._disabled_flag = True  # the mirror ``forward`` reads; see _sync_flags_from_buffers
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         """
