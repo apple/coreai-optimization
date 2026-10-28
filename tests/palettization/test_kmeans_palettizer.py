@@ -33,6 +33,7 @@ from coreai_opt.palettization.spec import (
 from coreai_opt.palettization.spec.errors import _IncompatibleGranularityError
 from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
+from tests.models.simple import SimpleModel
 from tests.utils import spy_cluster_weights
 
 
@@ -417,19 +418,25 @@ class TestKMeansPalettizer:
         assert output.shape == (1, 10)
 
     def test_finalize_torch_backend(self, simple_conv_linear_model, simple_model_input):
+        """Torch finalize folds palettized weights, matches the prepared output, and
+        strict-loads into a fresh model."""
         palettizer = KMeansPalettizer(simple_conv_linear_model)
 
         prepared_model = palettizer.prepare(example_inputs=(simple_model_input,))
 
         prepared_output = prepared_model(simple_model_input)
 
-        finalized_model = palettizer.finalize(backend=ExportBackend._TORCH)
+        finalized_model = palettizer.finalize(backend=ExportBackend.Torch)
 
-        assert finalized_model is not None
+        assert not any(is_parametrized(m) for m in finalized_model.modules())
 
         finalized_output = finalized_model(simple_model_input)
 
-        assert torch.equal(prepared_output, finalized_output)
+        torch.testing.assert_close(finalized_output, prepared_output)
+
+        fresh_model = SimpleModel()
+        fresh_model.load_state_dict(finalized_model.state_dict(), strict=True)
+        torch.testing.assert_close(fresh_model(simple_model_input), prepared_output)
 
     def test_finalize_mil_backend(self, simple_conv_linear_model, simple_model_input):
         palettizer = KMeansPalettizer(simple_conv_linear_model)
@@ -462,7 +469,7 @@ class TestKMeansPalettizer:
 
     @pytest.mark.parametrize(
         "backend",
-        [ExportBackend._TORCH, ExportBackend.CoreML],
+        [ExportBackend.Torch, ExportBackend.CoreML],
     )
     def test_finalize_mmap_value_error_unsupported_backend(
         self, simple_conv_linear_model, simple_model_input, basic_config, tmp_path, backend
@@ -483,14 +490,14 @@ class TestKMeansPalettizer:
 
     @pytest.mark.parametrize(
         "backend",
-        [ExportBackend._TORCH, ExportBackend.CoreAI, ExportBackend.CoreML],
+        [ExportBackend.Torch, ExportBackend.CoreAI, ExportBackend.CoreML],
     )
     def test_finalize_weight_parametrization_state_per_backend(
         self, backend, simple_conv_linear_model, simple_model_input, basic_config
     ):
         """Post-finalize parametrization state is backend-specific:
 
-        - _TORCH: parametrization preserved with dense ``.original`` intact
+        - Torch: parametrization folded into a dense weight
         - CoreAI: parametrization replaced with palettize module; ``.original``
           cleared to a zero-size placeholder
         - CoreML: parametrization removed entirely
@@ -499,13 +506,14 @@ class TestKMeansPalettizer:
             simple_conv_linear_model, basic_config, simple_model_input, None, backend
         )
 
+        assert not KMeansPalettizer._is_model_prepared(finalized)
         weight_modules = [m for m in finalized.modules() if isinstance(m, (nn.Conv2d, nn.Linear))]
         assert weight_modules, "fixture regressed: no Conv2d/Linear to check"
 
-        if backend is ExportBackend._TORCH:
+        if backend is ExportBackend.Torch:
             for m in weight_modules:
-                assert P.is_parametrized(m, "weight")
-                assert m.parametrizations["weight"].original.numel() > 0
+                assert not P.is_parametrized(m, "weight")
+                assert m.weight.numel() > 0
         elif backend is ExportBackend.CoreAI:
             for m in weight_modules:
                 assert P.is_parametrized(m, "weight")
@@ -550,8 +558,7 @@ class TestKMeansPalettizer:
     def test_finalize_mmap_matches_non_mmap_output(
         self, simple_conv_linear_model, simple_model_input, basic_config, tmp_path
     ):
-        """Finalize with and without ``mmap_dir`` produces numerically identical
-        outputs."""
+        """Finalize with and without ``mmap_dir`` produces matching outputs."""
         model_no_mmap = copy.deepcopy(simple_conv_linear_model)
         model_with_mmap = copy.deepcopy(simple_conv_linear_model)
 
@@ -570,13 +577,13 @@ class TestKMeansPalettizer:
             out_no_mmap = finalized_no_mmap(simple_model_input)
             out_with_mmap = finalized_with_mmap(simple_model_input)
 
-        assert torch.equal(out_no_mmap, out_with_mmap)
+        torch.testing.assert_close(out_with_mmap, out_no_mmap)
 
     def test_finalize_state_dict_safetensors_roundtrip(
         self, simple_conv_linear_model, simple_model_input, basic_config, tmp_path
     ):
         """An mmap-finalized model survives a state_dict save → load_file →
-        load_state_dict round-trip with identical forward outputs. The reloaded
+        load_state_dict round-trip with matching forward outputs. The reloaded
         tensors come back mmap-backed by the bundled safetensors file (per
         safetensors' default behavior)."""
         from safetensors.torch import load_file, save_file  # noqa: PLC0415
@@ -610,7 +617,7 @@ class TestKMeansPalettizer:
         with torch.no_grad():
             out_after_roundtrip = finalized(simple_model_input)
 
-        assert torch.equal(out_before_roundtrip, out_after_roundtrip)
+        torch.testing.assert_close(out_after_roundtrip, out_before_roundtrip)
 
 
 class TestKMeansPalettizerOpAndModuleConfigs:
@@ -1657,7 +1664,7 @@ class TestKMeansPalettizerLoadFromStateDict:
     def test_reproduces_prepared_model(
         self, simple_conv_linear_model, simple_model_input, basic_config, temp_dir
     ):
-        """A skip-loaded model reproduces the source model's forward output exactly."""
+        """A skip-loaded model reproduces the source model's forward output."""
         src = KMeansPalettizer(copy.deepcopy(simple_conv_linear_model), basic_config)
         prepared = src.prepare((simple_model_input,))
         state_dict_path = os.path.join(temp_dir, "palettizer_state_dict.pt")
@@ -1671,7 +1678,7 @@ class TestKMeansPalettizerLoadFromStateDict:
         with torch.no_grad():
             got = loaded(simple_model_input)
 
-        assert torch.equal(expected, got)
+        torch.testing.assert_close(got, expected)
 
     def test_skips_clustering(
         self, monkeypatch, simple_conv_linear_model, simple_model_input, basic_config

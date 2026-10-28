@@ -12,6 +12,11 @@ import pytest
 import torch
 import torch.nn.functional as F
 
+from coreai_opt.palettization import (
+    KMeansPalettizer,
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+)
 from coreai_opt.palettization.kmeans.kmeans_fake_palettize import _KMeansFakePalettize
 from coreai_opt.palettization.kmeans.kmeans_support_mixins import _PalettizationSupportMixin
 from coreai_opt.palettization.kmeans.supported_ops_registry import (
@@ -32,7 +37,7 @@ from coreai_opt.palettization.spec.errors import (
 from coreai_opt.palettization.spec.spec import _SUPPORTED_LUT_DTYPES
 from coreai_opt.palettization.spec.training_strategy import _DefaultTrainingStrategy
 from coreai_opt.quantization.spec import QuantizationScheme, QuantizationSpec
-from tests.utils import spy_cluster_weights
+from tests.utils import clustered_block_count, spy_cluster_weights
 
 _ACCELERATOR = (
     "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else None
@@ -1884,6 +1889,23 @@ class TestLazyInitAndStaleness:
         assert target._centroids_initialized is True
         assert target._indices_stale is True
 
+    def test_strict_load_without_indices_into_initialized_module(self):
+        """A prepared target loads an indices-less state dict under strict and recomputes
+        indices.
+        """
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
+        weight = torch.randn(8, 8)
+        source = _KMeansFakePalettize(**spec.__dict__)
+        source._initialize(weight)
+        state_dict = source.state_dict()
+        del state_dict["indices"]
+
+        target = _KMeansFakePalettize(**spec.__dict__)
+        target._initialize(torch.randn(8, 8))
+        target.load_state_dict(state_dict)  # strict=True: must not raise
+        assert target._indices_stale is True
+        assert torch.equal(target.hard_assign(weight), source.hard_assign(weight))
+
     def test_load_from_state_dict_missing_scale_is_stale(self):
         """With per-channel scale enabled, loading indices but no scale marks stale
         so both are recomputed together on next use.
@@ -2359,7 +2381,7 @@ class TestDetectPrePalettizedWeights:
             _initialize_and_get_lut_indices(palettizer, torch.randn(self._WEIGHT_SHAPE))
 
         assert detect.call_count == 1
-        assert kmeans.call_count == self._num_blocks(self._GROUPED)
+        assert clustered_block_count(kmeans, cluster_dim) == self._num_blocks(self._GROUPED)
 
     @pytest.mark.parametrize(
         "cluster_dim, source_n_bits, n_bits, granularity",
@@ -2380,7 +2402,7 @@ class TestDetectPrePalettizedWeights:
         with spy_cluster_weights(cluster_dim) as kmeans:
             _initialize_and_get_lut_indices(palettizer, weight)
 
-        assert kmeans.call_count == self._num_blocks(granularity)
+        assert clustered_block_count(kmeans, cluster_dim) == self._num_blocks(granularity)
 
     @pytest.mark.parametrize("cluster_dim", [1, 2])
     def test_fewer_distinct_values_than_palette_entries_are_padded(self, cluster_dim):
@@ -2438,3 +2460,62 @@ class TestDetectPrePalettizedWeights:
 
         unique.assert_called_once()
         assert unique.call_args.args[0].shape == (8 * 8,)  # only the subset was scanned
+
+
+class Test_KMeansFakePalettizeHardForwardMemory:
+    """GPU memory of the hard (eval-mode) forward, where the indices are CPU-resident."""
+
+    @pytest.mark.cuda
+    @pytest.mark.parametrize(
+        "granularity",
+        [PerTensorGranularity(), PerGroupedChannelGranularity(group_size=32, axis=0)],
+        ids=["per_tensor", "per_grouped_channel"],
+    )
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=["fp32", "bf16"])
+    def test_hard_forward_temporaries_do_not_accumulate_across_layers(self, granularity, dtype):
+        """``_palettize`` ships the uint8 indices to the weight's device and gathers there. For one
+        weight, besides the palettized weight it returns (1x), the temporaries are the uint8
+        indices (1 byte per weight) and their int32 copy (4 bytes per weight): 5 bytes per weight,
+        i.e. 1.25x an fp32 weight and 2.5x a bf16/fp16 weight. They must be freed before the next
+        layer runs, so a forward over several equal layers peaks at one layer's worth of extra
+        memory, not one per layer.
+        """
+        num_layers, size = 4, 2048
+        model = torch.nn.Sequential(
+            *[torch.nn.Linear(size, size, bias=False) for _ in range(num_layers)]
+        ).to("cuda", dtype)
+        config = KMeansPalettizerConfig(
+            global_config=ModuleKMeansPalettizerConfig(
+                op_state_spec={
+                    "weight": PalettizationSpec(n_bits=4, granularity=granularity, cluster_dim=1)
+                }
+            )
+        )
+        x = torch.randn(1, size, device="cuda", dtype=dtype)
+        prepared = KMeansPalettizer(model, config).prepare((x,)).eval()
+        assert all(
+            m.parametrizations["weight"][0].indices.device.type == "cpu"
+            for m in prepared
+            if isinstance(m, torch.nn.Linear)
+        )
+        weight_bytes = size * size * dtype.itemsize
+        temporaries_ratio = 5 / dtype.itemsize  # uint8 (1 byte) + int32 (4 bytes) per weight
+
+        with torch.no_grad():
+            prepared(x)  # warm-up
+        torch.cuda.synchronize()
+        baseline = torch.cuda.memory_allocated()  # the 4 original weights + palettizer state
+        torch.cuda.reset_peak_memory_stats()
+        with torch.no_grad():
+            prepared(x)
+        torch.cuda.synchronize()
+        extra = torch.cuda.max_memory_allocated() - baseline
+
+        # One layer at a time: its palettized weight (1x) + its temporaries. If temporaries leaked
+        # across layers, the extra would grow by another temporaries_ratio per layer.
+        slack = 1024**2  # allocator rounding, the LUTs, the per-block offsets and the activations
+        limit = (1 + temporaries_ratio) * weight_bytes + slack
+        assert extra <= limit, (
+            f"forward over {num_layers} layers peaked {extra / weight_bytes:.2f}x a weight above "
+            f"the resident weights (limit {limit / weight_bytes:.2f}x)"
+        )

@@ -1,0 +1,1 @@
+Added the public `ExportBackend.Torch` backend for fast torch inference, e.g. running evals. `finalize(backend=ExportBackend.Torch)` folds weight compression (palettization, weight quantization, pruning) into dense weights and keeps activation fake quantization. The private `ExportBackend._TORCH` name is deprecated in favor of `ExportBackend.Torch`.

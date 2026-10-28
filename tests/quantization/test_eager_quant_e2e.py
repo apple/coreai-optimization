@@ -147,7 +147,7 @@ def test_weight_ptq_mnist(
         f"Accuracy drop too high: before={accuracy:.4f}, after={post_prepare_accuracy:.4f}"
     )
 
-    finalized_model = quantizer.finalize(backend=ExportBackend._TORCH)
+    finalized_model = quantizer.finalize(backend=ExportBackend.Torch)
     finalized_accuracy = utils.eval_model(finalized_model, test_loader)
 
     # Accuracy before and after finalize should match
@@ -296,7 +296,7 @@ def test_weight_and_activation_ptq_mnist(
     post_calibrate_accuracy = utils.eval_model(prepared_model, test_loader)
     assert post_calibrate_accuracy > 90.0, "Expect accuracy to climb above 90% after calibration"
 
-    finalized_model = quantizer.finalize(backend=ExportBackend._TORCH)
+    finalized_model = quantizer.finalize(backend=ExportBackend.Torch)
     finalized_accuracy = utils.eval_model(finalized_model, test_loader)
 
     # Accuracy before and after finalize should match
@@ -366,7 +366,7 @@ def test_weight_and_activation_qat_mnist(mnist_pretrained_model, mnist_dataset, 
     print("\n accuracy of post qat model: ", post_qat_accuracy)
     assert post_qat_accuracy > 96.0, "Expect accuracy to climb above 96% after QAT"
 
-    finalized_model = quantizer.finalize(backend=ExportBackend._TORCH)
+    finalized_model = quantizer.finalize(backend=ExportBackend.Torch)
     finalized_accuracy = utils.eval_model(finalized_model, test_loader)
 
     # Accuracy before and after finalize should match

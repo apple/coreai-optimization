@@ -20,6 +20,7 @@ from coreai_opt._utils.insertion.torch_function import (
 from coreai_opt._utils.spec_utils import PartialConstructor as _PartialConstructor
 from coreai_opt._utils.torch_utils import (
     find_parametrization_matching_cls as _find_parametrization_matching_cls,
+    fold_compression_parametrizations as _fold_compression_parametrizations,
     move_model_to_eval as _move_model_to_eval,
 )
 from coreai_opt.common import ExportBackend
@@ -142,10 +143,14 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
     ) -> torch.nn.Module:
         """Finalize the model to be lowered to the target backend.
 
+        Use ``backend=ExportBackend.Torch`` for fast torch inference (e.g. running
+        evals): pruned weights are folded into dense weights.
+
         Args:
             model (torch.nn.Module | None): Model to finalize. Uses the model
                 passed at construction time when ``None``.
-            backend (ExportBackend): Target export backend.
+            backend (ExportBackend): Target backend. Supports CoreAI (default),
+                CoreML and Torch backends.
 
         Returns:
             torch.nn.Module: The finalized model ready for the target backend.
@@ -161,8 +166,8 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
             raise RuntimeError("Model must be prepared before finalization. Call prepare() first.")
 
         match backend:
-            case ExportBackend._TORCH:
-                pass
+            case ExportBackend.Torch:
+                _fold_compression_parametrizations(model, PruneImplBase)
 
             case ExportBackend.CoreAI:
                 model = _prepare_for_mlir_export(model)
@@ -173,6 +178,7 @@ class MagnitudePruner(_BasePruner, _EagerCompressionComponentBuilderMixin):
             case _:
                 raise ValueError(f"Unsupported backend: {backend}")
 
+        self._unmark_model_as_prepared(model)
         if update_internal:
             self._model = model
         return model

@@ -10,6 +10,7 @@ from .palettization_config import (
     ModuleKMeansPalettizerConfig,
     OpKMeansPalettizerConfig,
     PATSchedule,
+    VectorKMeansConfig,
 )
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "ModuleKMeansPalettizerConfig",
     "OpKMeansPalettizerConfig",
     "PATSchedule",
+    "VectorKMeansConfig",
 ]

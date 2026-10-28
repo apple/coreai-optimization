@@ -140,16 +140,22 @@ class ExportBackend(_StrEnum, metaclass=_DeprecatedMemberEnumMeta):
     Each member is a string value representing the backend format.
 
     Attributes:
+        Torch: Plain PyTorch model for fast inference (e.g. running evals). Weight
+            compression is folded into dense weights; activation fake quantization
+            is kept.
         CoreML: Core ML format with compression metadata buffers.
         CoreAI: Core AI format with custom ops.
 
     """
 
-    _TORCH = auto()
+    Torch = auto()
     CoreML = auto()
     CoreAI = auto()
 
-    __deprecated_aliases__: ClassVar[dict[str, str]] = {"MIL": "CoreML", "MLIR": "CoreAI"}
+    __deprecated_aliases__: ClassVar[dict[str, str]] = {
+        "MIL": "CoreML",
+        "MLIR": "CoreAI",
+    }
 
     if TYPE_CHECKING:
         # Surface the deprecated aliases above for static type checkers.

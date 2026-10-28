@@ -405,20 +405,20 @@ class ConvBNActPattern(WeightedModulePattern):
         for conv_dim in [1, 2, 3]:
             for act_fn in _annotation_utils._supported_activations:
                 for act_in_place in [True, False]:
-                    pattern_gm = _annotation_utils.get_conv_bn_pattern(
+                    pattern_gms = _annotation_utils.get_conv_bn_pattern(
                         conv_dim=conv_dim,
                         is_transpose=False,
                         act_fn=act_fn,
                         act_in_place=act_in_place,
                     )
-                    patterns.append(pattern_gm)
+                    patterns.extend(pattern_gms)
 
             # Add patterns for activations without inplace support
             for act_fn in _annotation_utils._supported_activations_no_inplace:
-                pattern_gm = _annotation_utils.get_conv_bn_pattern(
+                pattern_gms = _annotation_utils.get_conv_bn_pattern(
                     conv_dim=conv_dim, is_transpose=False, act_fn=act_fn, act_in_place=False
                 )
-                patterns.append(pattern_gm)
+                patterns.extend(pattern_gms)
         return patterns
 
 
@@ -435,20 +435,20 @@ class ConvTransposeBNActPattern(WeightedModulePattern):
         for conv_dim in [1, 2, 3]:
             for act_fn in _annotation_utils._supported_activations:
                 for act_in_place in [True, False]:
-                    pattern_gm = _annotation_utils.get_conv_bn_pattern(
+                    pattern_gms = _annotation_utils.get_conv_bn_pattern(
                         conv_dim=conv_dim,
                         is_transpose=True,
                         act_fn=act_fn,
                         act_in_place=act_in_place,
                     )
-                    patterns.append(pattern_gm)
+                    patterns.extend(pattern_gms)
 
             # Add patterns for activations without inplace support
             for act_fn in _annotation_utils._supported_activations_no_inplace:
-                pattern_gm = _annotation_utils.get_conv_bn_pattern(
+                pattern_gms = _annotation_utils.get_conv_bn_pattern(
                     conv_dim=conv_dim, is_transpose=True, act_fn=act_fn, act_in_place=False
                 )
-                patterns.append(pattern_gm)
+                patterns.extend(pattern_gms)
 
         return patterns
 
@@ -466,17 +466,17 @@ class ConvActPattern(WeightedModulePattern):
         for conv_dim in [1, 2, 3]:
             for act_fn in _annotation_utils._supported_activations:
                 for act_in_place in [True, False]:
-                    pattern_gm = _annotation_utils.get_conv_pattern(
+                    pattern_gms = _annotation_utils.get_conv_pattern(
                         conv_dim=conv_dim, act_fn=act_fn, act_in_place=act_in_place
                     )
-                    patterns.append(pattern_gm)
+                    patterns.extend(pattern_gms)
 
             # Add patterns for activations without inplace support
             for act_fn in _annotation_utils._supported_activations_no_inplace:
-                pattern_gm = _annotation_utils.get_conv_pattern(
+                pattern_gms = _annotation_utils.get_conv_pattern(
                     conv_dim=conv_dim, act_fn=act_fn, act_in_place=False
                 )
-                patterns.append(pattern_gm)
+                patterns.extend(pattern_gms)
 
         return patterns
 
@@ -494,20 +494,20 @@ class ConvTransposeActPattern(WeightedModulePattern):
         for conv_dim in [1, 2, 3]:
             for act_fn in _annotation_utils._supported_activations:
                 for act_in_place in [True, False]:
-                    pattern_gm = _annotation_utils.get_conv_pattern(
+                    pattern_gms = _annotation_utils.get_conv_pattern(
                         conv_dim=conv_dim,
                         is_transpose=True,
                         act_fn=act_fn,
                         act_in_place=act_in_place,
                     )
-                    patterns.append(pattern_gm)
+                    patterns.extend(pattern_gms)
 
             # Add patterns for activations without inplace support
             for act_fn in _annotation_utils._supported_activations_no_inplace:
-                pattern_gm = _annotation_utils.get_conv_pattern(
+                pattern_gms = _annotation_utils.get_conv_pattern(
                     conv_dim=conv_dim, is_transpose=True, act_fn=act_fn, act_in_place=False
                 )
-                patterns.append(pattern_gm)
+                patterns.extend(pattern_gms)
 
         return patterns
 
@@ -523,10 +523,10 @@ class ConvBNPattern(WeightedModulePattern):
         """Returns all conv pattern variations."""
         patterns = []
         for conv_dim in [1, 2, 3]:
-            pattern_gm = _annotation_utils.get_conv_bn_pattern(
+            pattern_gms = _annotation_utils.get_conv_bn_pattern(
                 conv_dim=conv_dim, is_transpose=False, act_fn=None
             )
-            patterns.append(pattern_gm)
+            patterns.extend(pattern_gms)
         return patterns
 
 
@@ -541,10 +541,10 @@ class ConvTransposeBNPattern(WeightedModulePattern):
         """Returns all conv_transpose pattern variations."""
         patterns = []
         for conv_dim in [1, 2, 3]:
-            pattern_gm = _annotation_utils.get_conv_bn_pattern(
+            pattern_gms = _annotation_utils.get_conv_bn_pattern(
                 conv_dim=conv_dim, is_transpose=True, act_fn=None
             )
-            patterns.append(pattern_gm)
+            patterns.extend(pattern_gms)
         return patterns
 
 
@@ -559,8 +559,8 @@ class ConvPattern(WeightedModulePattern):
         """Returns all conv pattern variations."""
         patterns = []
         for conv_dim in [1, 2, 3]:
-            pattern_gm = _annotation_utils.get_conv_pattern(conv_dim=conv_dim, act_fn=None)
-            patterns.append(pattern_gm)
+            pattern_gms = _annotation_utils.get_conv_pattern(conv_dim=conv_dim, act_fn=None)
+            patterns.extend(pattern_gms)
         return patterns
 
 
@@ -575,10 +575,10 @@ class ConvTransposePattern(WeightedModulePattern):
         """Returns all conv_transpose pattern variations."""
         patterns = []
         for conv_dim in [1, 2, 3]:
-            pattern_gm = _annotation_utils.get_conv_pattern(
+            pattern_gms = _annotation_utils.get_conv_pattern(
                 conv_dim=conv_dim, is_transpose=True, act_fn=None
             )
-            patterns.append(pattern_gm)
+            patterns.extend(pattern_gms)
         return patterns
 
 
@@ -886,9 +886,12 @@ class ConcatPattern(SharedObserverModulePattern):
     def generate_qspec_sharing_constraints(
         cls, node: torch.fx.Node, qspecs: ProvisionalQSpecMap
     ) -> list[Constraint]:
-        """Inputs must observe together unless the output is per-channel along the
-        concat axis, in which case each keeps its own scale and they need only
-        agree on ``DTYPE``.
+        """Return the constraints tying the cat's input and output quantizers together.
+
+        They share one quantizer only if every slot (inputs and output) is per-tensor, or
+        per-channel along a non-concat axis. Otherwise each input keeps its own quantizer,
+        since the inputs can differ in size along the concat axis, and they only agree on
+        ``DTYPE``.
         """
         output_slot, input_slots = _shared_op_boundary_slots(node)
         if not _any_input_slot_populated(input_slots, qspecs):
@@ -897,14 +900,15 @@ class ConcatPattern(SharedObserverModulePattern):
         all_slots = frozenset([output_slot, *input_slots])
 
         concat_dim = _concat_dim(node)
-        output_fields = qspecs.get(output_slot, ProvisionalQSpec()).fields
-        output_granularity = output_fields.get(FieldName.GRANULARITY)
-
-        # A per-tensor granularity has ``axis is None``.
-        granularity_axis = output_granularity.value.axis if output_granularity is not None else None
-        per_channel_along_concat_axis = granularity_axis is not None and _same_axis(
-            granularity_axis, concat_dim, node
-        )
+        per_channel_along_concat_axis = False
+        for slot in all_slots:
+            granularity = qspecs.get(slot, ProvisionalQSpec()).fields.get(FieldName.GRANULARITY)
+            if granularity is None or granularity.value is None:
+                continue
+            # A per-tensor granularity has ``axis is None``.
+            granularity_axis = granularity.value.axis
+            if granularity_axis is not None and _same_axis(granularity_axis, concat_dim, node):
+                per_channel_along_concat_axis = True
         if not per_channel_along_concat_axis:
             # Sharing an instance subsumes sharing fields, since the merged group
             # reconciles all of them.

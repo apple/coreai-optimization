@@ -76,11 +76,11 @@ def per_tensor_int8_qspec():
 class SimpleConvModel(nn.Module):
     """Simple model with conv operation."""
 
-    def __init__(self, use_bn=False, use_act=False):
+    def __init__(self, use_bn=False, use_act=False, act_inplace=False, kernel_size=3, padding=1):
         super().__init__()
-        self.conv = nn.Conv2d(3, 16, 3, padding=1)
+        self.conv = nn.Conv2d(3, 16, kernel_size, padding=padding)
         self.bn = nn.BatchNorm2d(16)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=act_inplace)
         self.use_bn = use_bn
         self.use_act = use_act
 
@@ -96,11 +96,11 @@ class SimpleConvModel(nn.Module):
 class SimpleLinearModel(nn.Module):
     """Simple model with linear operation."""
 
-    def __init__(self, use_bn=False, use_act=False):
+    def __init__(self, use_bn=False, use_act=False, act_inplace=False):
         super().__init__()
         self.linear = nn.Linear(10, 20)
         self.bn = nn.BatchNorm1d(20)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=act_inplace)
         self.use_bn = use_bn
         self.use_act = use_act
 
@@ -402,38 +402,23 @@ class SimpleConcatPermuteModel(nn.Module):
         return torch.cat([x, xt], dim=0)  # concat along batch, not channel/spatial
 
 
-class SimpleCatModel(nn.Module):
-    """Simple model with concat operation."""
+class CatOfParametersModel(nn.Module):
+    """Concat of two parameters with different sizes along the concat axis.
+
+    Similar to token concat done in models such as SAM 2's mask decoder:
+    ``torch.cat([iou_token.weight, mask_tokens.weight], dim=0)``.
+    """
 
     def __init__(self):
         super().__init__()
-        self.linear1 = torch.nn.Linear(2, 2, bias=False)
-        self.linear2 = torch.nn.Linear(2, 2, bias=False)
-        self.linear3 = torch.nn.Linear(2, 2, bias=False)
+        self.token1 = nn.Embedding(1, 4)
+        self.token2 = nn.Embedding(3, 4)
+        self.linear = nn.Linear(4, 4)
 
-    def forward(self, x1, x2):
-        x1 = self.linear1(x1)
-        x2 = self.linear2(x2)
-        x = torch.cat([x1, x2])
-        x = self.linear3(x)
-        return x
-
-
-class SimpleConcatModel(nn.Module):
-    """Simple model with concat operation."""
-
-    def __init__(self):
-        super().__init__()
-        self.linear1 = torch.nn.Linear(2, 2, bias=False)
-        self.linear2 = torch.nn.Linear(2, 2, bias=False)
-        self.linear3 = torch.nn.Linear(2, 2, bias=False)
-
-    def forward(self, x1, x2):
-        x1 = self.linear1(x1)
-        x2 = self.linear2(x2)
-        x = torch.concat([x1, x2])
-        x = self.linear3(x)
-        return x
+    def forward(self, x):
+        tokens = torch.cat([self.token1.weight, self.token2.weight], dim=0)
+        out = self.linear(tokens + x)
+        return out
 
 
 class AddLinearMulModel(nn.Module):
@@ -868,6 +853,66 @@ class TestAnnotationPatternRegistry:
                 },
                 False,
             ),
+            # Conv with string padding, which exports as aten.conv2d.padding
+            # rather than aten.conv2d.default. An even kernel size needs
+            # asymmetric "same" padding.
+            *[
+                pytest.param(
+                    SimpleConvModel(kernel_size=kernel_size, padding=padding),
+                    (torch.randn(1, 3, 32, 32),),
+                    "weight_and_activation",
+                    "conv",
+                    {
+                        "conv2d": {
+                            "weight_fq": {"conv.weight": True, "conv.bias": False},
+                            "input_fq": True,
+                            "output_fq": True,
+                        }
+                    },
+                    False,
+                    id=f"conv_k{kernel_size}_padding_{padding}",
+                )
+                for kernel_size, padding in [(3, "same"), (4, "same"), (3, "valid")]
+            ],
+            # String-padding conv followed by BN and/or an activation, matched as one
+            # pattern with no quantizer inside it.
+            pytest.param(
+                SimpleConvModel(kernel_size=4, padding="same", use_bn=True),
+                (torch.randn(1, 3, 32, 32),),
+                "weight_and_activation",
+                "conv",
+                {
+                    "conv2d": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "batch_norm_1": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="conv_bn_k4_padding_same",
+            ),
+            pytest.param(
+                SimpleConvModel(kernel_size=4, padding="same", use_act=True),
+                (torch.randn(1, 3, 32, 32),),
+                "weight_and_activation",
+                "conv",
+                {
+                    "conv2d": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "relu": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="conv_relu_k4_padding_same",
+            ),
+            pytest.param(
+                SimpleConvModel(kernel_size=4, padding="same", use_bn=True, use_act=True),
+                (torch.randn(1, 3, 32, 32),),
+                "weight_and_activation",
+                "conv",
+                {
+                    "conv2d": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "batch_norm_1": {"input_fq": False, "output_fq": False},
+                    "relu": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="conv_bn_relu_k4_padding_same",
+            ),
             # Conv+BN pattern tests
             (
                 SimpleConvModel(use_bn=True),
@@ -918,6 +963,19 @@ class TestAnnotationPatternRegistry:
                     "relu": {"input_fq": False, "output_fq": True},
                 },
                 False,
+            ),
+            # Conv+ReLU(inplace=True) pattern tests
+            pytest.param(
+                SimpleConvModel(use_act=True, act_inplace=True),
+                (torch.randn(1, 3, 32, 32),),
+                "weight_and_activation",
+                "conv",
+                {
+                    "conv2d": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "relu_": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="conv_relu_inplace",
             ),
             # Conv+BN+ReLU pattern tests
             (
@@ -1050,6 +1108,19 @@ class TestAnnotationPatternRegistry:
                     "relu": {"input_fq": False, "output_fq": True},
                 },
                 False,
+            ),
+            # Linear+ReLU(inplace=True) pattern tests
+            pytest.param(
+                SimpleLinearModel(use_act=True, act_inplace=True),
+                (torch.randn(1, 10),),
+                "weight_and_activation",
+                "linear",
+                {
+                    "linear": {"weight_fq": True, "input_fq": True, "output_fq": False},
+                    "relu_": {"input_fq": False, "output_fq": True},
+                },
+                False,
+                id="linear_relu_inplace",
             ),
             # Linear+BN+ReLU pattern tests
             (
@@ -1895,69 +1966,127 @@ class TestAnnotationPatternRegistry:
         expected_scale_shape = (2, 4, *spatial[:-1], spatial[-1] // 2)
         assert tuple(input_fq.qparams_calculator.scale.shape) == expected_scale_shape
 
-    def test_cat(self):
+    @pytest.mark.parametrize("cat_fn", [torch.cat, torch.concat], ids=["cat", "concat"])
+    def test_cat_per_tensor_shares_quantizers(self, cat_fn):
         """
         Given a model with
 
-        input1 -> relu1
-                        \
-                          ->  Cat -> Linear
-        input2 -> relu2 /
+        input1 -> linear1
+                          \
+                            -> cat -> linear3
+        input2 -> linear2 /
 
-        Check that concat inputs and outputs share the same quantizers.
+        Check that with per-tensor quantization, the cat's inputs and output share one
+        quantizer, while linear3's output has its own.
+
+        torch.cat and torch.concat export to different aten ops (aten.cat, aten.concat),
+        each matched by its own entry in ConcatPattern.
         """
-        model = SimpleCatModel()
-        inp = (torch.randn(1, 2), torch.randn(1, 2))
+
+        class CatModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear1 = nn.Linear(2, 2, bias=False)
+                self.linear2 = nn.Linear(2, 2, bias=False)
+                self.linear3 = nn.Linear(2, 2, bias=False)
+
+            def forward(self, x1, x2):
+                x = cat_fn([self.linear1(x1), self.linear2(x2)])
+                out = self.linear3(x)
+                return out
 
         config = QuantizerConfig(
-            global_config=ModuleQuantizerConfig(op_state_spec=None, op_input_spec=None),
+            global_config=ModuleQuantizerConfig(
+                op_state_spec=None,
+                op_input_spec=None,
+                op_output_spec={"*": per_tensor_int8_qspec()},
+            ),
         )
+        quantizer = Quantizer(CatModel(), config)
+        prepared_model = quantizer.prepare(example_inputs=(torch.randn(1, 2), torch.randn(1, 2)))
 
-        quantizer = Quantizer(model, config)
-        prepared_model = quantizer.prepare(example_inputs=inp)
+        cat_nodes = [
+            node
+            for node in prepared_model.graph.nodes
+            if node.target in (torch.ops.aten.cat.default, torch.ops.aten.concat.default)
+        ]
+        assert len(cat_nodes) == 1
+        cat = cat_nodes[0]
+        cat_input1_quantizer, cat_input2_quantizer = (
+            getattr(prepared_model, input_node.target) for input_node in cat.args[0]
+        )
+        (cat_output_quantizer_node,) = cat.users
+        cat_output_quantizer = getattr(prepared_model, cat_output_quantizer_node.target)
+        (linear3,) = cat_output_quantizer_node.users
+        (linear3_output_quantizer_node,) = linear3.users
+        linear3_output_quantizer = getattr(prepared_model, linear3_output_quantizer_node.target)
+
+        assert cat_input1_quantizer is cat_input2_quantizer
+        assert cat_input1_quantizer is cat_output_quantizer
+        assert linear3_output_quantizer is not cat_output_quantizer
+        # No other quantizers: the one the cat shares, and linear3's output quantizer.
         quantizers = [
             module
             for module in prepared_model.modules()
             if isinstance(module, _DefaultFakeQuantizeImpl)
         ]
         assert len(quantizers) == 2
-        assert prepared_model.activation_post_process_0 is prepared_model.activation_post_process_1
-        assert prepared_model.activation_post_process_0 is prepared_model.activation_post_process_2
 
-        # Final linear output quantizer is not associated with the others
-        assert prepared_model.activation_post_process_0 != prepared_model.activation_post_process_3
-
-    def test_concat(self):
+    def test_cat_inputs_per_channel_along_concat_axis(self):
         """
-        Given a model with
+        Concat inputs that are per-channel along the concat axis keep separate quantizers.
 
-        input1 -> relu1
-                        \
-                          ->  Concat -> Linear
-        input2 -> relu2 /
-
-        Check that concat inputs and outputs share the same quantizers.
+        The inputs are parameters named ``weight``, so the default config gives them the
+        per-channel (axis 0) weight spec, while the output is per-tensor. The inputs differ
+        in size along axis 0 ([1, 4] and [3, 4]), so one shared per-channel quantizer can't
+        observe both.
         """
-        model = SimpleConcatModel()
-        inp = (torch.randn(1, 2), torch.randn(1, 2))
+        model = CatOfParametersModel().eval()
+        quantizer = Quantizer(model, QuantizerConfig())
+        prepared_model = quantizer.prepare(example_inputs=(torch.randn(4, 4),))
 
-        config = QuantizerConfig(
-            global_config=ModuleQuantizerConfig(op_state_spec=None, op_input_spec=None),
-        )
-
-        quantizer = Quantizer(model, config)
-        prepared_model = quantizer.prepare(example_inputs=inp)
-        quantizers = [
-            module
-            for module in prepared_model.modules()
-            if isinstance(module, _DefaultFakeQuantizeImpl)
+        cat_nodes = [
+            node for node in prepared_model.graph.nodes if node.target == torch.ops.aten.cat.default
         ]
-        assert len(quantizers) == 2
-        assert prepared_model.activation_post_process_0 is prepared_model.activation_post_process_1
-        assert prepared_model.activation_post_process_0 is prepared_model.activation_post_process_2
+        assert len(cat_nodes) == 1
+        cat = cat_nodes[0]
+        token1_quantizer, token2_quantizer = (
+            getattr(prepared_model, input_node.target) for input_node in cat.args[0]
+        )
+        assert token1_quantizer is not token2_quantizer
 
-        # Final linear output quantizer is not associated with the others
-        assert prepared_model.activation_post_process_0 != prepared_model.activation_post_process_3
+    def test_cat_inputs_per_channel_along_other_axis(self):
+        """
+        Concat inputs that are per-channel along a non-concat axis share one quantizer.
+
+        The inputs ([1, 4] and [3, 4], concatenated along axis 0) are quantized per-channel
+        along axis 1, where they have the same size, so one quantizer can observe both.
+        """
+        model = CatOfParametersModel().eval()
+        weight_spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerChannelGranularity(axis=1),
+        )
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={"weight": weight_spec},
+                op_input_spec={"*": per_tensor_int8_qspec()},
+                op_output_spec={"*": per_tensor_int8_qspec()},
+            ),
+        )
+        quantizer = Quantizer(model, config)
+        prepared_model = quantizer.prepare(example_inputs=(torch.randn(4, 4),))
+
+        cat_nodes = [
+            node for node in prepared_model.graph.nodes if node.target == torch.ops.aten.cat.default
+        ]
+        assert len(cat_nodes) == 1
+        cat = cat_nodes[0]
+        token1_quantizer, token2_quantizer = (
+            getattr(prepared_model, input_node.target) for input_node in cat.args[0]
+        )
+        assert token1_quantizer is token2_quantizer
 
     @pytest.mark.parametrize(
         "granularity",

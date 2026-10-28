@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from coreai_opt import ExportBackend
 from coreai_opt.pruning import (
     MagnitudePruner,
     MagnitudePrunerConfig,
@@ -84,12 +85,37 @@ class TestMagnitudePruner:
         prepared_weight = model.weight.detach().clone()
 
         finalized = pruner.finalize()
+        assert not pruner._is_model_prepared(finalized)
         assert hasattr(finalized, "parametrizations")
         assert "weight" in finalized.parametrizations
 
         assert torch.equal(finalized.weight, prepared_weight)
         sparsity = (finalized.weight == 0).float().mean().item()
         assert sparsity == 0.5
+
+    def test_finalize_torch_folds_mask(self) -> None:
+        """Torch finalize folds the pruning mask into a dense weight that strict-loads
+        into a fresh model."""
+        model = nn.Linear(100, 50, bias=False)
+        with torch.no_grad():
+            model.weight.copy_(torch.arange(1, 5001, dtype=torch.float32).reshape(50, 100))
+        example_input = torch.randn(1, 100)
+
+        pruner = MagnitudePruner(model)
+        prepared_model = pruner.prepare((example_input,))
+        prepared_weight = prepared_model.weight.detach().clone()
+        expected_output = prepared_model(example_input)
+
+        finalized = pruner.finalize(backend=ExportBackend.Torch)
+
+        assert not pruner._is_model_prepared(finalized)
+        assert not hasattr(finalized, "parametrizations")
+        assert torch.equal(finalized.weight, prepared_weight)
+        torch.testing.assert_close(finalized(example_input), expected_output)
+        fresh_model = nn.Linear(100, 50, bias=False)
+        fresh_model.load_state_dict(finalized.state_dict(), strict=True)
+        assert torch.equal(fresh_model.weight, prepared_weight)
+        torch.testing.assert_close(fresh_model(example_input), expected_output)
 
     def test_invalid_state(self) -> None:
         """Double prepare raises; finalize without prepare raises."""

@@ -14,6 +14,7 @@ To estimate what a config costs in terms of bits per weight (BPW), use the {func
 - `granularity`: controls whether there is one LUT for the entire weight tensor or one LUT per group of channels. Allowed: {class}`~coreai_opt.palettization.spec.PerTensorGranularity`() or {class}`~coreai_opt.palettization.spec.PerGroupedChannelGranularity`(), defaults to the former
 - `cluster_dim`: Dimension of the cluster centers, i.e. the entries in the LUT. Defaults to 1; if > 1, it results in vector palettization.
 - `lut_qspec`: Optional {class}`~coreai_opt.quantization.spec.QuantizationSpec` describing how to quantize the LUT centroid values themselves. Defaults to `None` (LUT centroids are stored at the same dtype as the uncompressed weights). Supported dtypes are `torch.int8`, `torch.uint8`, `torch.float8_e4m3fn`, and `torch.float8_e5m2`.
+- `sparsity_detection_threshold`: Optional float in [0, 1]. A weight with at least this fraction of exact zeros (and at least one) is treated as already sparse, for example from a pruned model, and is palettized jointly with its sparsity: only the nonzero values are palettized, the zeros stay exactly zero, and the exported model stores the weight in a sparse representation together with the palettized ops for the nonzero values. Defaults to `None`, which palettizes every weight densely. See [Palettizing already-sparse weights](#palettizing-already-sparse-weights).
 
 ```python
 from coreai_opt.palettization import PalettizationSpec
@@ -40,38 +41,38 @@ spec = PalettizationSpec(
 
 # Cluster pairs of weight values instead of individual scalars
 spec = PalettizationSpec(n_bits=4, cluster_dim=2)
+
+# Palettize pruned weights jointly with their sparsity: weights with at least 40% exact zeros
+spec = PalettizationSpec(n_bits=4, sparsity_detection_threshold=0.4)
 ```
 
 :::{note}
 **Reproducibility with `cluster_dim > 1`**:
 
-When `cluster_dim > 1`, palettization uses vector k-means whose centroid initialization relies on `numpy.random` and `torch.randint`, so it is non-deterministic.
+Vector k-means derives its random seeds from each weight tensor's contents, so repeated calls to `prepare()` produce the same palettized weights without any manual seeding, with or without `num_workers > 1`. On CPU the results are reproducible on the same machine. On a GPU the seeding is reproducible too, but floating-point reductions in the GPU kernels can cause very small run-to-run differences.
 
-```python
-# model gets different weights when we run it multiple times
-model_1 = KMeansPalettizer(model, config).prepare(example_inputs)
-model_2 = KMeansPalettizer(model, config).prepare(example_inputs)
-```
-
-To obtain reproducible results, seed `numpy` and `torch` before each call to `prepare()`:
-
-```python
-seed = 42
-
-# models now have identical palettized weights
-np.random.seed(seed)
-torch.manual_seed(seed)
-model_1 = KMeansPalettizer(model, config).prepare(example_inputs)
-
-np.random.seed(seed)
-torch.manual_seed(seed)
-model_2 = KMeansPalettizer(model, config).prepare(example_inputs)
-```
-
-When `prepare()` is called with `num_workers > 1`, k-means runs in spawned worker processes that do not inherit the parent's RNG state, so the seeding advice above is only effective with `num_workers=1`. Use the sequential path if you need reproducible vector palettization.
-
-Scalar palettization (`cluster_dim == 1`, the default) is deterministic and does not require seeding.
+Scalar palettization (`cluster_dim == 1`, the default) is deterministic.
 :::
+
+### Palettizing already-sparse weights
+
+When `sparsity_detection_threshold` is set, the first forward pass of `prepare()` detects which weights are already sparse. For each of them, the nonzero mask is fixed, k-means fits the palette on the nonzero values only, and the zeros stay exactly zero. `finalize()` then exports the weight as a sparse representation (the mask and the nonzero values) with the palettization ops applied to the nonzero values only, so zeros need no indices.
+
+A few details depend on the configuration:
+
+- With `PerGroupedChannelGranularity`, Core AI maps contiguous blocks of the nonzero values to the groups, so every group has to store the same number of values. Groups with fewer nonzeros than the fullest group also store some of their zeros, which costs a little of the sparse savings. For scalar palettization the palette then holds an entry for exactly `0.0`.
+- With vector palettization (`cluster_dim > 1`), the nonzero values of each group are clustered in vectors of `cluster_dim` consecutive values. If a group's nonzero count is not a multiple of `cluster_dim`, its smallest nonzeros are set to zero (truncated). With per-group vector palettization, the aforementioned padding zeros can share a vector with a nonzero value and result in a nonzero value when de-palettized; therefore this could reduce the percentage of sparsity by a small amount.
+
+Supported configurations for exporting an already-sparse weight:
+
+| Option                      | CoreML | Core AI | Notes                                                                                                              |
+| --------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| Per-tensor                  | Yes    | Yes     |                                                                                                                    |
+| Grouped along axis 0        | Yes    | Yes     | For Core AI, groups are padded with stored zeros so each group stores the same number of values.                   |
+| Grouped along another axis  | Yes    | No      | Core AI needs contiguous groups, which only holds along axis 0.                                                    |
+| Per-channel scale           | Yes    | Yes     |                                                                                                                    |
+| Quantized LUT (`lut_qspec`) | No     | Yes     | For Core AI, the zero point must be 0 (a symmetric `lut_qspec`). Not supported together with vector palettization. |
+| Vector (`cluster_dim > 1`)  | No     | Yes     | For Core AI, per-tensor or grouped along axis 0.                                                                   |
 
 ## Config classes and their defaults
 
@@ -258,4 +259,90 @@ kmeans_palettization_config:
           n_bits: 4
       pat_schedule:
         enable_fake_palettize: 500
+```
+
+### Tune vector palettization k-means (VectorKMeansConfig)
+
+Vector palettization (`cluster_dim > 1`) runs k-means on each palettization block, and its speed/quality trade-off is set with a {class}`~coreai_opt.palettization.config.VectorKMeansConfig` on the module's {class}`~coreai_opt.palettization.config.ModuleKMeansPalettizerConfig`. Scalar palettization solves 1D k-means exactly and does not use these settings; setting `vector_kmeans_config` on a module config without any spec that has `cluster_dim > 1` raises an error. If `vector_kmeans_config` is not set, the defaults below are used.
+
+| Field            | Default | Effect                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `n_local_trials` | `None`  | Candidate centroids sampled at each k-means++ seeding step; the one that most reduces clustering error is kept. `1` is standard k-means++; larger values (greedy k-means++) usually lower the clustering error, at proportionally higher seeding cost. `None` uses scikit-learn's default, `2 + int(log(n_clusters))` (6 for `n_bits=6`, 7 for `n_bits=8`), as in `sklearn.cluster.kmeans_plusplus`. |
+| `n_init`         | `5`     | Number of k-means restarts; the best result is kept per block. Time grows linearly with it.                                                                                                                                                                                                                                                                                                          |
+| `max_iter`       | `300`   | Maximum Lloyd iterations per restart.                                                                                                                                                                                                                                                                                                                                                                |
+| `tol`            | `1e-4`  | A block stops once its clustering error improves by less than `tol` (relative) per iteration, or once no assignment changes. Same on GPU and CPU.                                                                                                                                                                                                                                                    |
+
+Clustering runs where the hardware allows:
+
+```text
+              vector k-means (all blocks of one weight tensor)
+                                  |
+           +------- CUDA GPU -----+------ CPU -------+
+           |                                         |
+  batched k-means++ seeding                     scikit-learn
+   (shared by PTP and SKM)                (seeding + Lloyd, per block)
+           |                                         |
+      +----+----+                                    |
+     PTP       SKM                                   |
+ flash-kmeans  PyTorch                               |
+ (or PyTorch)   |                                    |
+      +----+----+                                    |
+           +-------------------+---------------------+
+                               |
+                     stop each block at tol
+                               |
+                  best of n_init restarts -> LUT
+```
+
+- **GPU**: all vector tensors cluster on the GPU. PTP (data-free post-training palettization) runs its Lloyd iterations with [flash-kmeans](https://github.com/svg-project/flash-kmeans) (Yang et al., 2026, [arXiv:2603.09229](https://arxiv.org/abs/2603.09229)) when it is installed, which is much faster, and otherwise with a PyTorch loop. SKM (Sensitive K-Means, see `calibration_mode()`) always uses the PyTorch loop, because flash-kmeans has no per-point weights.
+- **CPU**: scikit-learn. As for scalar palettization, `prepare(num_workers=N)` clusters `N` layers in parallel.
+
+With a GPU, vector tensors run in the main process, one at a time, while the `num_workers` CPU workers handle the scalar tensors.
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.config import VectorKMeansConfig
+from coreai_opt.palettization.spec import PerGroupedChannelGranularity
+
+spec = PalettizationSpec(
+    n_bits=8,
+    cluster_dim=2,
+    granularity=PerGroupedChannelGranularity(axis=0, group_size=32),
+)
+
+# Defaults: greedy k-means++, 5 restarts, convergence-based stopping.
+config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={"weight": spec},
+        enable_fast_kmeans_mode=False,
+    )
+)
+
+# Fast, approximate clustering, for example to check that a model exports.
+fast_config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={"weight": spec},
+        enable_fast_kmeans_mode=False,
+        vector_kmeans_config=VectorKMeansConfig(n_init=1, max_iter=1),
+    )
+)
+```
+
+```yaml
+# yaml
+kmeans_palettization_config:
+  global_config:
+    enable_fast_kmeans_mode: false
+    op_state_spec:
+      weight:
+        n_bits: 8
+        cluster_dim: 2
+        granularity: { type: per_grouped_channel, axis: 0, group_size: 32 }
+    vector_kmeans_config:
+      n_init: 1
+      max_iter: 1
 ```

@@ -79,7 +79,7 @@ def test_p4a8_compression_mnist_accuracy(
     )
 
     # Finalize and verify accuracy is preserved
-    finalized = quantizer.finalize(backend=ExportBackend._TORCH)
+    finalized = quantizer.finalize(backend=ExportBackend.Torch)
     finalized_acc = utils.eval_model(finalized, test_loader)
     assert post_calib_acc == finalized_acc, (
         f"Post-calibration accuracy ({post_calib_acc:.2f}%) != "

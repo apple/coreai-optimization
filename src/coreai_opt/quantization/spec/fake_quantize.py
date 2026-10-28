@@ -65,6 +65,7 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         self.quant_max = quant_max
         self.qparams_calculator = qparams_calculator
         self.register_buffer("_disabled", torch.tensor(False))
+        self._sync_flags_from_buffers()
 
         # Infer n_bits from dtype if not provided
         if n_bits is None:
@@ -115,7 +116,33 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
 
     def is_disabled(self) -> bool:
         """Return True if fake quantization has been disabled."""
-        return self._disabled.item()
+        return self._disabled_flag
+
+    def _sync_flags_from_buffers(self) -> None:
+        """Refresh the Python flag mirrors from the flag buffers.
+
+        ``_disabled``, ``observer_enabled`` and ``fake_quant_enabled`` are tensor buffers, so
+        they are saved in ``state_dict``. Branching on a buffer in ``forward`` needs ``.item()``,
+        which costs a host-device sync on every call and is a ``torch.compile`` graph break.
+        ``forward`` therefore reads these Python mirrors instead, and every method that writes
+        a flag buffer also updates its mirror.
+        """
+        self._disabled_flag = bool(self._disabled.item())
+        self._observer_on = bool(self.observer_enabled[0] == 1)
+        self._fake_quant_on = bool(self.fake_quant_enabled[0] == 1)
+
+    def _load_from_state_dict(self, *args, **kwargs) -> None:
+        super()._load_from_state_dict(*args, **kwargs)
+        self._sync_flags_from_buffers()
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)
+        if "_disabled_flag" not in state:  # pickled before the flag mirrors existed
+            self._sync_flags_from_buffers()
+
+    def enable_fake_quant(self, enabled: bool = True) -> None:
+        super().enable_fake_quant(enabled)
+        self._fake_quant_on = enabled
 
     def disable_observer(self) -> None:
         """Disable the observer, unless the qparams calculator is stateless.
@@ -140,6 +167,7 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         if not enabled and self.is_stateless:
             return
         super().enable_observer(enabled)
+        self._observer_on = enabled
 
     def _warn_and_disable(self, error: _BlockSizeMismatchError, shape: torch.Size) -> None:
         """Log a warning naming the offending tensor and permanently disable this module."""
@@ -152,16 +180,17 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
             error,
         )
         self._disabled.fill_(True)
+        self._disabled_flag = True  # the mirror ``forward`` reads; see _sync_flags_from_buffers
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         """
         Performs fake quantization of the given tensor using the qparams
         (scale, zero point, minval) computed by the QParamsCalculator.
         """
-        if self._disabled.item():
+        if self._disabled_flag:
             return tensor
 
-        if self.observer_enabled[0] == 1:
+        if self._observer_on:
             # Call the forward function of the qparams_calculator
             # to collect observer statistics when the observer is
             # enabled
@@ -178,7 +207,7 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
             # function to retrieved the stored statistics
             scale, zero_point, minval = self.qparams_calculator.get_qparams()
 
-        if self.fake_quant_enabled[0] == 1:
+        if self._fake_quant_on:
             # Cast incoming tensor to fp32 to perform qdq operations in high precision.
             # Cast the tensor to return back to the original dtype.
             orig_dtype = tensor.dtype

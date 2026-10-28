@@ -10,10 +10,12 @@ import torch
 from coreai_torch._compression._floatx import Float4Tensor
 from safetensors.torch import load_file
 from torch import nn
+from torch.nn.utils import parametrize as P
 from torchao.quantization.pt2e import allow_exported_model_train_eval
 
 from coreai_opt._utils.fx_utils import normalize_module_fqn
 from coreai_opt._utils.torch_utils import (
+    fold_compression_parametrizations,
     mmap_module_state_dict,
     mmap_named_tensors,
     move_model_to_eval,
@@ -68,6 +70,63 @@ class TestMoveModelContextManagers:
 
         with move_model_to_eval(exported, original_state=False):
             pass
+
+
+class _RoundInEval(nn.Module):
+    """Round to a 0.25 grid in eval mode; identity in training mode."""
+
+    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+        return tensor if self.training else torch.round(tensor * 4) / 4
+
+
+class _Scale(nn.Module):
+    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+        return tensor * 2
+
+
+class TestFoldCompressionParametrizations:
+    """Test fold_compression_parametrizations."""
+
+    @staticmethod
+    def test_skips_tensors_without_matching_parametrization():
+        """Tensors whose parametrizations are all of other types stay parametrized."""
+        model = nn.Sequential(nn.Linear(4, 4), nn.Linear(4, 4))
+        P.register_parametrization(model[0], "weight", _RoundInEval())
+        P.register_parametrization(model[1], "weight", _Scale())
+
+        assert fold_compression_parametrizations(model, _RoundInEval) == 1
+
+        assert not P.is_parametrized(model[0])
+        assert P.is_parametrized(model[1], "weight")
+
+    @staticmethod
+    def test_keeps_tie_and_folds_shared_original_once():
+        """Tied tensors stay tied, and their parametrizations are applied only once."""
+        first, second = nn.Linear(4, 4), nn.Linear(4, 4)
+        second.weight = first.weight
+        dense = first.weight.detach().clone()
+        shared = _Scale()
+        P.register_parametrization(first, "weight", shared)
+        P.register_parametrization(second, "weight", shared)
+        model = nn.ModuleList([first, second])
+
+        assert fold_compression_parametrizations(model, _Scale) == 2
+
+        assert first.weight is second.weight
+        assert torch.equal(first.weight, dense * 2)
+
+    @staticmethod
+    def test_keeps_parameter_identity():
+        """The folded value is written into the original parameter in place."""
+        model = nn.Sequential(nn.Linear(4, 4)).eval()
+        P.register_parametrization(model[0], "weight", _RoundInEval())
+        original = model[0].parametrizations["weight"].original
+        parametrized_value = model[0].weight.detach().clone()
+
+        fold_compression_parametrizations(model, _RoundInEval)
+
+        assert model[0].weight is original
+        assert torch.equal(model[0].weight, parametrized_value)
 
 
 class TestNormalizeModuleFqn:

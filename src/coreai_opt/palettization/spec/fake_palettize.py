@@ -17,6 +17,8 @@ from coreai_opt._utils.spec_utils import (
 from coreai_opt.config.spec import CompressionSimulatorBase
 from coreai_opt.palettization.spec import (
     PalettizationGranularity,
+    PerGroupedChannelGranularity,
+    PerTensorGranularity,
 )
 from coreai_opt.quantization.spec import QuantizationSpec
 
@@ -38,6 +40,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         granularity: PalettizationGranularity,
         cluster_dim: int,
         enable_per_channel_scale: bool,
+        sparsity_detection_threshold: float | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -46,6 +49,7 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         self.granularity = granularity
         self.cluster_dim = cluster_dim
         self.enable_per_channel_scale = enable_per_channel_scale
+        self.sparsity_detection_threshold = sparsity_detection_threshold
 
         self.register_buffer("fake_palett_enabled", torch.tensor([1], dtype=torch.uint8))
         # Non-persistent (kept out of new checkpoints); when set to 1 (at runtime or
@@ -54,6 +58,8 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             "observer_enabled", torch.tensor([0], dtype=torch.uint8), persistent=False
         )
         self._disabled = False
+        self.register_buffer("_sparsity_mask", None, persistent=False)
+        self._sparsity_detected = False
 
         self.register_buffer("indices", None)
         self.register_buffer("per_channel_scale", None)
@@ -71,6 +77,13 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
         if self._disabled:
             return tensor
 
+        if self.sparsity_detection_threshold is not None and not self._sparsity_detected:
+            self._sparsity_mask = self._detect_sparsity_mask(tensor)
+            self._sparsity_detected = True
+        if self._sparsity_mask is not None:
+            # Keep the detected zeros fixed, even if training moves those weights.
+            tensor = tensor * self._sparsity_mask
+
         self.ensure_initialized(tensor)
 
         # Check for self._disabled again in case ensure_initialized disabled the palettizer.
@@ -78,7 +91,93 @@ class _FakePalettizeImplBase(CompressionSimulatorBase, nn.Module):
             return tensor
         if self.fake_palett_enabled[0] == 0:
             return tensor
-        return self.forward_enabled(tensor)
+        palettized = self.forward_enabled(tensor)
+        if self._sparsity_mask is not None:
+            # The palette covers only the nonzero weights; the mask restores the zeros.
+            palettized = palettized * self._sparsity_mask
+        return palettized
+
+    def _axis0_group_size(self) -> int | None:
+        """Return the channel group size of axis-0 grouped granularity, else ``None``."""
+        granularity = self.granularity
+        if isinstance(granularity, PerGroupedChannelGranularity) and granularity.axis == 0:
+            return granularity.group_size
+        return None
+
+    def _has_uneven_groups(self) -> bool:
+        """Return True if the sparsity mask leaves axis-0 channel groups unevenly filled."""
+        group_size = self._axis0_group_size()
+        if self._sparsity_mask is None or group_size is None:
+            return False
+        # The granularity guarantees the channel count is divisible by the group size.
+        counts = self._sparsity_mask.reshape(self._sparsity_mask.shape[0] // group_size, -1)
+        return counts.sum(dim=1).unique().numel() > 1
+
+    def _detect_sparsity_mask(self, tensor: torch.Tensor) -> torch.Tensor | None:
+        """Return the nonzero mask of ``tensor`` if it is sparse enough, else ``None``."""
+        num_zeros = tensor.numel() - torch.count_nonzero(tensor).item()
+        if num_zeros == 0 or num_zeros < self.sparsity_detection_threshold * tensor.numel():
+            return None
+        mask = tensor != 0
+        if self.cluster_dim > 1:
+            mask = self._align_mask_to_cluster_dim(mask, tensor)
+        return mask
+
+    def _align_mask_to_cluster_dim(
+        self, mask: torch.Tensor, tensor: torch.Tensor
+    ) -> torch.Tensor | None:
+        """Make every channel group store whole vectors, and the same number of them.
+
+        Vector palettization clusters groups of ``cluster_dim`` consecutive stored values, so
+        each group (the whole tensor for per-tensor granularity) must store a multiple of
+        ``cluster_dim`` values: the smallest ``nnz % cluster_dim`` nonzeros of a group are
+        dropped from the mask. Grouped LUTs also need every group to store as many vectors as
+        the fullest one, so the other groups additionally store some of their zeros. A stored
+        zero may share a vector with a nonzero, so it can be reconstructed as a small nonzero.
+
+        Args:
+            mask (torch.Tensor): Boolean nonzero mask of ``tensor``.
+            tensor (torch.Tensor): The weight the mask was detected on.
+
+        Returns:
+            torch.Tensor | None: The stored-values mask, or ``None`` if no nonzeros are left.
+
+        Raises:
+            ValueError: If the granularity is neither per-tensor nor axis-0 grouped, or a group
+                has too few zeros to store as many vectors as the fullest group.
+        """
+        group_size = self._axis0_group_size()
+        if group_size is None and not isinstance(self.granularity, PerTensorGranularity):
+            raise ValueError(
+                f"'{self.tensor_fqn}': joint sparsity with cluster_dim={self.cluster_dim} "
+                f"requires per-tensor or axis-0 grouped granularity, got {self.granularity}."
+            )
+        num_groups = 1 if group_size is None else mask.shape[0] // group_size
+        group_masks = mask.reshape(num_groups, -1).clone()
+        group_values = tensor.reshape(num_groups, -1)
+
+        for group_mask, values in zip(group_masks, group_values, strict=True):
+            remainder = int(group_mask.sum()) % self.cluster_dim
+            if remainder:
+                nonzero_positions = group_mask.nonzero().flatten()
+                smallest = values[nonzero_positions].abs().argsort()[:remainder]
+                group_mask[nonzero_positions[smallest]] = False
+
+        num_stored = int(group_masks.sum(dim=1).max())
+        if num_stored == 0:
+            return None
+        for group_idx, (group_mask, values) in enumerate(
+            zip(group_masks, group_values, strict=True)
+        ):
+            missing = num_stored - int(group_mask.sum())
+            zero_positions = ((values == 0) & ~group_mask).nonzero().flatten()[:missing]
+            if zero_positions.numel() < missing:
+                raise ValueError(
+                    f"'{self.tensor_fqn}': group {group_idx} cannot store {num_stored} values "
+                    f"to match the fullest group."
+                )
+            group_mask[zero_positions] = True
+        return group_masks.reshape(mask.shape)
 
     @abstractmethod
     def ensure_initialized(self, tensor: torch.Tensor) -> None:

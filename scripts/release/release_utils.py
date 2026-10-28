@@ -71,8 +71,9 @@ def get_version_extension() -> str | None:
 def get_dev_version_override() -> str | None:
     """Return an exact dev version to build, if one was pinned.
 
-    Read from ``DEV_VERSION``. Only honored for dev builds, where it replaces
-    the generated timestamped version — see ``resolve_build_version``.
+    Read from ``DEV_VERSION``. Only honored for dev builds (``build.py --dev``),
+    where it replaces the generated timestamped version — see
+    ``resolve_build_version``.
 
     Returns:
         str | None: The pinned version, or ``None`` when the variable is unset.
@@ -284,6 +285,28 @@ def next_candidate_version(
     return f"{next_release_base(latest_released_version, version, extension)}.dev0"
 
 
+def pep440_dev_version(release_base: str, *, now: datetime | None = None) -> str:
+    """Append a unique, PEP 440-sortable dev suffix to a clean release base.
+
+    The suffix encodes the build's UTC timestamp down to the minute, so each
+    build gets a distinct version, in the form PyPI accepts, that sorts above
+    the one before it and below the eventual release
+    (``0.2.2.dev202607231430 < 0.2.2``).
+    This is the version ``build.py --nightly`` publishes to PyPI. The release
+    base is used verbatim, as in ``timestamped_dev_version``.
+
+    Args:
+        release_base: Clean release version, e.g. ``"0.2.2"`` or ``"0.2.2.1"``.
+        now: UTC timestamp to encode; defaults to the current time. Injectable
+            for deterministic tests.
+
+    Returns:
+        str: PEP 440 dev version, e.g. ``"0.2.2.dev202607231430"``.
+    """
+    dev_timestamp = (now or datetime.now(UTC)).strftime("%Y%m%d%H%M")
+    return f"{release_base}.dev{dev_timestamp}"
+
+
 def timestamped_dev_version(
     release_base: str,
     *,
@@ -293,10 +316,11 @@ def timestamped_dev_version(
     """Append a unique, PEP 440-sortable dev suffix to a clean release base.
 
     The suffix encodes the build's UTC timestamp down to the minute plus the
-    short commit SHA, so repeated builds get distinct versions that all sort
-    below the eventual release (``0.2.2.dev202607231430+abc1234 < 0.2.2``). The
-    release base is used verbatim — no segment is bumped — so ``main`` must
-    already carry the target release (this repo keeps it as ``<release>.dev0``).
+    short commit SHA — ``pep440_dev_version`` with ``+<short-sha>`` appended —
+    so repeated builds get distinct versions that all sort below the eventual
+    release (``0.2.2.dev202607231430+abc1234 < 0.2.2``). The release base is
+    used verbatim — no segment is bumped — so ``main`` must already carry the
+    target release (this repo keeps it as ``<release>.dev0``).
     Segment-count-agnostic, so it also handles an extended base
     (``"0.2.2.1"`` -> ``"0.2.2.1.dev...+..."``).
 
@@ -310,39 +334,43 @@ def timestamped_dev_version(
     Returns:
         str: PEP 440 dev version, e.g. ``"0.2.2.dev202607231430+abc1234"``.
     """
-    dev_timestamp = (now or datetime.now(UTC)).strftime("%Y%m%d%H%M")
     short_sha = sha if sha is not None else get_short_sha()
-    return f"{release_base}.dev{dev_timestamp}+{short_sha}"
+    return f"{pep440_dev_version(release_base, now=now)}+{short_sha}"
 
 
 def resolve_build_version(
     release_base: str,
     *,
     dev: bool,
+    nightly: bool = False,
     dev_version_override: str | None = None,
 ) -> str:
     """Decide the version to write into ``_about.py`` for a build.
 
-    Precedence:
+    By build mode:
 
-    1. ``dev_version_override`` (the ``DEV_VERSION`` env var) — used exactly as
-       given. Only honored for dev builds.
-    2. ``dev`` build — a generated, unique dev version (``build.py --dev``).
-    3. otherwise — ``release_base`` as-is (``build.py``, a plain release build).
+    * ``nightly`` (``build.py --nightly``) — a generated ``pep440_dev_version``.
+    * ``dev`` (``build.py --dev``) — ``dev_version_override`` (the
+      ``DEV_VERSION`` env var) exactly as given, else a generated
+      ``timestamped_dev_version``.
+    * otherwise — ``release_base`` as-is (``build.py``, a plain release build).
 
     Callers pass the ``release_base`` produced by ``next_release_base``, which
-    already has any extension applied — this function only decides dev vs.
-    release, it doesn't shape the release segments itself.
+    already has any extension applied — this function only decides nightly vs.
+    dev vs. release, it doesn't shape the release segments itself.
 
     Args:
         release_base: The clean release to build, e.g. ``"0.2.2"`` or, with an
             extension applied, ``"0.2.2.1"``.
         dev: Whether this is a dev build (``build.py --dev``).
+        nightly: Whether this is a nightly build (``build.py --nightly``).
         dev_version_override: Explicit version to use as-is, or ``None``.
 
     Returns:
         str: The version string to write into ``_about.py`` before building.
     """
+    if nightly:
+        return pep440_dev_version(release_base)
     if dev:
         return dev_version_override or timestamped_dev_version(release_base)
     return release_base

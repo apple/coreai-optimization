@@ -427,11 +427,11 @@ def test_conv_bn_folding_numerical_correctness(
        regressions in the fold's fp32 arithmetic order.
     3. Model outputs remain numerically identical before/after folding
 
-    Backend-agnostic processing is tested with _TORCH backend only.
+    Backend-agnostic processing is tested with Torch backend only.
     Export backend logic is verified separately in
     test_conv_bn_folding_export_verification.
     """
-    backend = ExportBackend._TORCH
+    backend = ExportBackend.Torch
     # Create model and re-initialize BNs with non-trivial params so the fold
     # actually bakes a non-identity scale into conv weights.
     model = model_config.model_cls(**model_config.model_kwargs)

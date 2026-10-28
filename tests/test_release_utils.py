@@ -23,6 +23,7 @@ from scripts.release.release_utils import (
     latest_release_tag,
     next_candidate_version,
     next_release_base,
+    pep440_dev_version,
     read_about,
     read_latest_released_version,
     read_version,
@@ -134,6 +135,7 @@ class TestNextVersion:
     def test_pep440_sort_order(self) -> None:
         ordered = [
             "0.2.1.1.dev0",
+            f"0.2.1.1.dev{_FIXED_TS}",
             f"0.2.1.1.dev{_FIXED_TS}+{_FIXED_SHA}",
             "0.2.1.1",
             "0.2.1.2.dev0",
@@ -146,7 +148,15 @@ class TestNextVersion:
 
 
 class TestResolveBuildVersion:
-    """Tests for resolve_build_version and the timestamped_dev_version it generates."""
+    """Tests for resolve_build_version and the dev and nightly versions it generates."""
+
+    @pytest.mark.parametrize("release_base", ["0.2.2", "0.2.2.1"])
+    def test_pep440_dev_version_is_timestamped(self, release_base: str) -> None:
+        result = pep440_dev_version(release_base, now=_FIXED_NOW)
+        assert result == f"{release_base}.dev{_FIXED_TS}"
+        # PyPI accepts PEP 440 versions whose local label is empty.
+        assert Version(result).local is None
+        assert strip_dev_suffix(result) == release_base
 
     @pytest.mark.parametrize("release_base", ["0.2.2", "0.2.2.1"])
     def test_timestamped_dev_version_does_not_bump_and_uses_base(self, release_base: str) -> None:
@@ -168,6 +178,18 @@ class TestResolveBuildVersion:
         )
         version = resolve_build_version("0.2.2", dev=True)
         assert version == f"0.2.2.dev{_FIXED_TS}+{_FIXED_SHA}"
+
+    def test_nightly_generates_nightly_version_and_ignores_override(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "scripts.release.release_utils.pep440_dev_version",
+            lambda base: f"{base}.dev{_FIXED_TS}",
+        )
+        version = resolve_build_version(
+            "0.2.2", dev=False, nightly=True, dev_version_override="9.9.9.dev1+deadbee"
+        )
+        assert version == f"0.2.2.dev{_FIXED_TS}"
 
     def test_release_is_used_as_is(self) -> None:
         # resolve_build_version doesn't build the version number itself — the

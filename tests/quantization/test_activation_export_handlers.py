@@ -90,7 +90,7 @@ def test_per_block_export_error_names_the_caller_alternatives() -> None:
         validate_activation_export_supported(fake_quant_mod)
 
     msg = str(e.value)
-    for alternative in ("PerChannelGranularity", "ExportBackend._TORCH", "extension"):
+    for alternative in ("PerChannelGranularity", "ExportBackend.Torch", "extension"):
         assert alternative in msg, f"the error should offer {alternative}: {msg}"
 
 

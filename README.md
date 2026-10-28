@@ -1,5 +1,7 @@
 # Core AI Optimization
 
+[![Release](https://img.shields.io/pypi/v/coreai-opt?label=release)](https://pypi.org/project/coreai-opt/) [![Nightly](https://img.shields.io/pypi/v/coreai-opt-nightly?label=nightly)](https://pypi.org/project/coreai-opt-nightly/) [![Nightly build](https://github.com/apple/coreai-optimization/actions/workflows/nightly.yml/badge.svg)](https://github.com/apple/coreai-optimization/actions/workflows/nightly.yml)
+
 `coreai-opt` provides implementations of popular model optimizations such as quantization, palettization (codebook-based compression), and pruning, for PyTorch models, customized for deployment on Apple Silicon via Core AI.
 
 Jump to: [Getting Started](#getting-started) · [Documentation](#documentation) · [Contributing](#contributing) · [Support](#support) · [License](#license) · [Related projects](#related-projects)
@@ -18,6 +20,18 @@ Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv pip install coreai-opt
+```
+
+#### Nightly builds
+
+A wheel built from the latest `main` is published to PyPI every night as [`coreai-opt-nightly`](https://pypi.org/project/coreai-opt-nightly/). It provides the same `coreai_opt` package, so install it in place of `coreai-opt`:
+
+```bash
+# pip
+pip install --upgrade coreai-opt-nightly
+
+# uv
+uv pip install --upgrade coreai-opt-nightly
 ```
 
 #### From source

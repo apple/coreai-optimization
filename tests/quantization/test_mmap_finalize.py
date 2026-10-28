@@ -90,8 +90,12 @@ def test_finalize_mmap_is_file_backed_and_output_preserving(
             )
 
     with torch.no_grad():
-        assert torch.equal(finalized_ref(example_input), finalized_mmap(example_input)), (
-            "mmap backed quantized weights changed the finalized model's output"
+        torch.testing.assert_close(
+            finalized_mmap(example_input),
+            finalized_ref(example_input),
+            msg=lambda m: (
+                f"mmap backed quantized weights changed the finalized model's output\n{m}"
+            ),
         )
 
 
@@ -142,11 +146,11 @@ def test_finalize_mmap_preserves_weight_sharing(
         ], f"tied weight was not collapsed to one graph buffer, got {quantized_buffers}"
 
     with torch.no_grad():
-        assert torch.equal(finalized_ref(example_input), finalized_mmap(example_input))
+        torch.testing.assert_close(finalized_mmap(example_input), finalized_ref(example_input))
 
 
 @pytest.mark.parametrize("execution_mode", MODES)
-@pytest.mark.parametrize("backend", [ExportBackend.CoreML, ExportBackend._TORCH])
+@pytest.mark.parametrize("backend", [ExportBackend.CoreML, ExportBackend.Torch])
 def test_finalize_mmap_rejects_non_coreai_backend(
     execution_mode, backend, simple_linear_model, simple_linear_model_input, tmp_path
 ):

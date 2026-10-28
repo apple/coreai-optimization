@@ -37,6 +37,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     DynamicQParamsCalculator,
     MovingAverageQParamsCalculator,
 )
+from tests.fixtures.quantization import make_quant_config
 from tests.models.simple import SimpleLinearModel
 
 # ---------------------------------------------------------------------------
@@ -492,14 +493,15 @@ class TestDynamicActivationQuantization:
         [
             (ExportBackend.CoreAI, False),
             (ExportBackend.CoreML, False),
-            (ExportBackend._TORCH, True),
+            (ExportBackend.Torch, True),
         ],
     )
     def test_finalize_rejects_dynamic_for_non_torch_backends(
         self, execution_mode, backend, is_supported
     ):
         """``finalize`` must reject CoreAI/CoreML for dynamic FakeQuantize
-        modules. ``_TORCH`` is allowed since it returns the prepared model as-is."""
+        modules. ``Torch`` is allowed since it keeps activation fake quantization,
+        so dynamic qparams are still recomputed every forward."""
         config = self._make_mixed_dynamic_static_config(execution_mode)
         quantizer = Quantizer(SimpleLinearModel(), config)
         prepared_model = quantizer.prepare((torch.randn(4, 64),))
@@ -632,6 +634,35 @@ class TestPerBlockActivationQuantization:
 
         with pytest.raises(Exception, match="does not support PerBlockGranularity on activation"):
             quantizer.finalize(prepared_model, backend=backend)
+
+
+class TestInt6Uint6Quantization:
+    """``torch.int6`` and ``torch.uint6`` are only supported for the Torch backend for now."""
+
+    @pytest.mark.parametrize("dtype", [torch.int6, torch.uint6], ids=["int6", "uint6"])
+    @pytest.mark.parametrize("target", ["weight", "activation"])
+    def test_finalize_supports_6bit_only_for_torch_backend(self, execution_mode, dtype, target):
+        if target == "weight":
+            weight_dtype, act_dtype = dtype, None
+        else:
+            weight_dtype, act_dtype = torch.int8, dtype
+        config = make_quant_config(
+            weight_dtype=weight_dtype, act_dtype=act_dtype, execution_mode=execution_mode
+        )
+        quantizer = Quantizer(SimpleLinearModel(), config)
+        example_input = torch.randn(4, 64)
+        prepared_model = quantizer.prepare((example_input,))
+        prepared_output = prepared_model(example_input)
+
+        for backend in (ExportBackend.CoreAI, ExportBackend.CoreML):
+            with pytest.raises(NotImplementedError, match=str(dtype)):
+                quantizer.finalize(prepared_model, backend=backend)
+        # No explicit model: the check falls back to the quantizer's own prepared model.
+        with pytest.raises(NotImplementedError, match=str(dtype)):
+            quantizer.finalize(backend=ExportBackend.CoreAI)
+
+        finalized = quantizer.finalize(prepared_model, backend=ExportBackend.Torch)
+        torch.testing.assert_close(finalized(example_input), prepared_output)
 
 
 class TestSharedWeightQuantization:

@@ -27,7 +27,11 @@ from coreai_opt._utils.insertion.torch_function import (
     TorchFunctionEagerHandler,
 )
 from coreai_opt._utils.spec_utils import PartialConstructor
-from coreai_opt._utils.torch_utils import move_model_to_eval, move_model_to_train
+from coreai_opt._utils.torch_utils import (
+    fold_compression_parametrizations,
+    move_model_to_eval,
+    move_model_to_train,
+)
 from coreai_opt.common import ExportBackend
 from coreai_opt.config.compression_config import ModuleCompressionConfig
 from coreai_opt.config.spec import CompressionTargetTensor
@@ -237,13 +241,13 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
         """Convert quantized model to backend-specific representations.
 
         Converts fake quantization modules into backend-specific quantization ops.
-        Only call ``finalize`` when exporting to a target backend. For torch-based evaluation, use
-        the model returned by ``prepare()`` directly rather than calling ``finalize``.
+        For ``backend=ExportBackend.Torch``, weight fake quantization is folded into
+        dense weights and activation fake quantization is kept.
 
         Args:
             model: Model to finalize (uses internal model if None).
-            backend: Target export backend for the quantized model. Supports
-                CoreAI (default) and CoreML.
+            backend: Target backend for the quantized model. Supports
+                CoreAI (default), CoreML and Torch.
             mmap_dir (str | None): If provided, serialize finalized quantized
                 weights to safetensors files under this directory and re-load
                 them via mmap. Only supported with the CoreAI backend. The
@@ -272,7 +276,10 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
 
         # Backend specific logic
         match backend:
-            case ExportBackend._TORCH:
+            case ExportBackend.Torch:
+                # Activation fake quantization lives in standalone modules, not
+                # parametrizations, so only weight fake quantization is folded.
+                fold_compression_parametrizations(model, FakeQuantizeImplBase)
                 finalized_model = model
             case ExportBackend.CoreAI:
                 finalized_model = prepare_for_mlir_export(model, mmap_dir=mmap_dir)
@@ -282,6 +289,7 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
                 msg = f"Unsupported backend {backend}"
                 raise ValueError(msg)
 
+        self._unmark_model_as_prepared(finalized_model)
         return finalized_model
 
     @contextmanager

@@ -55,7 +55,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     MovingAverageQParamsCalculator,
     StaticQParamsCalculator,
 )
-from tests.fixtures.quantization import make_quant_config
+from tests.fixtures.quantization import make_graph_mode_module_boundary_config, make_quant_config
 from tests.models.simple import SimpleModel
 from tests.test_utils.general import get_fake_quant_nodes
 
@@ -227,28 +227,48 @@ class TestGraphModeQuantizer:
     def test_finalize_torch_backend(
         self, simple_conv_linear_model, basic_config, simple_model_input
     ):
-        """Test finalize with _TORCH backend."""
+        """Torch finalize folds weight fake quantization and keeps activation fake quantization."""
         quantizer = Quantizer(simple_conv_linear_model, basic_config)
         prepared_model = quantizer.prepare((simple_model_input,))
+        expected_output = prepared_model(simple_model_input)
 
-        finalized_model = quantizer.finalize(prepared_model, ExportBackend._TORCH)
+        finalized_model = quantizer.finalize(prepared_model, ExportBackend.Torch)
 
         assert isinstance(finalized_model, torch.fx.GraphModule)
+        assert not quantizer._is_model_prepared(finalized_model)
+        fake_quant_mods = [
+            m for m in finalized_model.modules() if isinstance(m, FakeQuantizeImplBase)
+        ]
+        assert fake_quant_mods, "activation fake quantization must be kept"
+        assert all(m.quantization_target != CompressionTargetTensor.WEIGHT for m in fake_quant_mods)
+        torch.testing.assert_close(finalized_model(simple_model_input), expected_output)
 
-        # Fake quantize layers should remain the same post finalize
-        prepared_fake_quant_nodes = get_fake_quant_nodes(prepared_model)
-        finalized_fake_quant_nodes = get_fake_quant_nodes(finalized_model)
+    def test_finalize_torch_backend_keeps_weight_read_directly(self, basic_config, caplog):
+        """A weight the graph also reads directly keeps its fake quantization unfolded."""
 
-        for prepared_node in prepared_fake_quant_nodes:
-            finalized_node = [
-                n for n in finalized_fake_quant_nodes if prepared_node.target == n.target
-            ][0]
+        class LinearPlusWeightSum(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
 
-            assert prepared_node == finalized_node
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                return self.linear(x) + self.linear.weight.sum()
 
-        # Test inference on finalized model
-        output = finalized_model(simple_model_input)
-        assert output.shape == (1, 10)
+        example_input = torch.randn(2, 8)
+        quantizer = Quantizer(LinearPlusWeightSum(), basic_config)
+        prepared_model = quantizer.prepare((example_input,))
+        expected_output = prepared_model(example_input)
+
+        with caplog.at_level(logging.WARNING):
+            finalized_model = quantizer.finalize(prepared_model, ExportBackend.Torch)
+
+        assert any(
+            isinstance(m, FakeQuantizeImplBase)
+            and m.quantization_target == CompressionTargetTensor.WEIGHT
+            for m in finalized_model.modules()
+        )
+        assert "keeping its fake quantization" in caplog.text
+        torch.testing.assert_close(finalized_model(example_input), expected_output)
 
     def test_finalize_after_deepcopy(
         self, simple_conv_linear_model, basic_config, simple_model_input
@@ -261,7 +281,7 @@ class TestGraphModeQuantizer:
 
         assert quantizer._is_model_prepared(copied_prepared_model)
 
-        finalized_model = quantizer.finalize(copied_prepared_model, ExportBackend._TORCH)
+        finalized_model = quantizer.finalize(copied_prepared_model, ExportBackend.Torch)
 
         assert isinstance(finalized_model, torch.fx.GraphModule)
         output = finalized_model(simple_model_input)
@@ -290,7 +310,7 @@ class TestGraphModeQuantizer:
         prepared_b = quantizer_b.prepare((simple_model_input,))
         prepared_b.load_state_dict(saved_state_dict)
 
-        finalized_b = quantizer_b.finalize(prepared_b, ExportBackend._TORCH)
+        finalized_b = quantizer_b.finalize(prepared_b, ExportBackend.Torch)
         actual_output = finalized_b(simple_model_input)
 
         assert torch.allclose(expected_output, actual_output)
@@ -308,6 +328,7 @@ class TestGraphModeQuantizer:
         fake_quant_nodes = get_fake_quant_nodes(prepared_model)
 
         finalized_model = quantizer.finalize(backend=ExportBackend.CoreML)
+        assert not quantizer._is_model_prepared(finalized_model)
 
         # Count activation quantization modules (Sequential containing
         # quantize + dequantize)
@@ -345,6 +366,7 @@ class TestGraphModeQuantizer:
         assert len(fake_quant_nodes) == 4
 
         finalized_model = quantizer.finalize(backend=ExportBackend.CoreAI)
+        assert not quantizer._is_model_prepared(finalized_model)
 
         blockwise_shift_scale_nodes = finalized_model.graph.find_nodes(
             op="call_function", target=coreai.constexpr_blockwise_shift_scale
@@ -484,11 +506,11 @@ class TestGraphModeQuantizer:
             assert f"Deepcopy failed for prepared model with error: {e}"
 
         # Step 3: Finalize
-        finalized_model = quantizer.finalize(backend=ExportBackend._TORCH)
+        finalized_model = quantizer.finalize(backend=ExportBackend.Torch)
         assert isinstance(finalized_model, torch.fx.GraphModule)
         # prepare model output before finalize should match output after finalize
         final_output = finalized_model(simple_model_input_3)
-        assert torch.equal(pre_finalize_out, final_output)
+        torch.testing.assert_close(final_output, pre_finalize_out)
 
         # Test output shape
         assert final_output.shape == (1, 10)
@@ -938,7 +960,7 @@ class TestAPIOrdering:
 
         # Should raise RuntimeError when trying to finalize unprepared model
         with pytest.raises(RuntimeError, match="Model must be prepared before finalization"):
-            quantizer.finalize(None, ExportBackend._TORCH)
+            quantizer.finalize(None, ExportBackend.Torch)
 
     def test_calibration_mode_before_prepare(self, simple_conv_linear_model, basic_config):
         """Test calling calibration_mode before prepare should raise error."""
@@ -1209,6 +1231,192 @@ class TestIntegerActivations:
         _ = prepared_model(example_input_ids, 2)
 
 
+class TestSingleElementTensors:
+    """
+    Graph mode skips activations and states with at most one element, matching eager mode
+    """
+
+    @staticmethod
+    def _assert_no_single_element_tensor_observed(prepared_model):
+        fq_nodes = get_fake_quant_nodes(prepared_model)
+        assert fq_nodes, "Expected the larger tensors to still be observed"
+        for fq_node in fq_nodes:
+            observed = fq_node.args[0]
+            assert observed.meta["val"].numel() > 1, (
+                f"{fq_node.name} observes {observed.name} with shape "
+                f"{tuple(observed.meta['val'].shape)}"
+            )
+
+    @pytest.mark.parametrize(
+        "reduce",
+        [
+            torch.sum,
+            torch.mean,  # shares its observer with its input
+            torch.amax,
+            torch.amin,
+            torch.max,
+            torch.min,
+            torch.prod,
+            torch.var,
+            torch.std,
+            torch.norm,
+            pytest.param(lambda y: torch.logsumexp(y, dim=(0, 1)), id="logsumexp"),
+            torch.linalg.vector_norm,
+            pytest.param(
+                lambda y: torch.sum(y, dim=(0, 1), keepdim=True), id="sum_keepdim"
+            ),  # shape (1, 1)
+        ],
+    )
+    def test_reduction_output_not_observed(self, reduce, weight_input_act_output_act_config):
+        class ReductionModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+
+            def forward(self, x):
+                y = self.linear(x)
+                return y * reduce(y)
+
+        quantizer = Quantizer(ReductionModel(), weight_input_act_output_act_config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8),))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
+
+    def test_single_element_model_input_not_observed(self, weight_input_act_output_act_config):
+        class ScaleModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+
+            def forward(self, x, scale):
+                return self.linear(x) * scale
+
+        quantizer = Quantizer(ScaleModel(), weight_input_act_output_act_config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8), torch.tensor(2.0)))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
+
+    @pytest.mark.parametrize(
+        "batch_dim", [Dim.AUTO, Dim("batch", min=1, max=64)], ids=["auto", "min_1"]
+    )
+    def test_dynamic_batch_activation_observed(self, batch_dim, weight_input_act_output_act_config):
+        """A (B, 1) activation is observed, since B is not provably at most one."""
+
+        class KeepdimModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+
+            def forward(self, x):
+                y = self.linear(x)
+                return y * y.sum(dim=1, keepdim=True) + y * y.sum()
+
+        quantizer = Quantizer(KeepdimModel(), weight_input_act_output_act_config)
+        prepared_model = quantizer.prepare(
+            (torch.randn(4, 8),), dynamic_shapes={"x": (batch_dim, Dim.STATIC)}
+        )
+
+        observed_shapes = [
+            tuple(fq_node.args[0].meta["val"].shape)
+            for fq_node in get_fake_quant_nodes(prepared_model)
+        ]
+        dynamic_keepdim_shapes = [
+            shape
+            for shape in observed_shapes
+            if len(shape) == 2 and isinstance(shape[0], torch.SymInt) and shape[1] == 1
+        ]
+        assert dynamic_keepdim_shapes, f"Expected (B, 1) sum to be observed: {observed_shapes}"
+        assert () not in observed_shapes, f"Expected 0-d sum not to be observed: {observed_shapes}"
+        for batch_size in (1, 17):
+            prepared_model(torch.randn(batch_size, 8))
+
+    def test_single_element_module_boundary_not_observed(self):
+        class Block(nn.Module):
+            def forward(self, y, scale):
+                return y * scale, y.sum()
+
+        class BlockModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+                self.block = Block()
+
+            def forward(self, x):
+                y = self.linear(x)
+                return self.block(y, y.mean())
+
+        config = make_graph_mode_module_boundary_config(
+            module_boundary_dtype=torch.int8, module_name="block"
+        )
+        quantizer = Quantizer(BlockModel(), config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8),))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
+
+    @staticmethod
+    def _assert_state_observed(prepared_model, state_name):
+        observed_names = {fq_node.args[0].name for fq_node in get_fake_quant_nodes(prepared_model)}
+        assert state_name in observed_names, f"Expected {state_name} to be observed"
+
+    @pytest.mark.parametrize(
+        "scale", [torch.tensor(2.0), torch.tensor([2.0])], ids=["0d", "shape_1"]
+    )
+    def test_single_element_state_not_observed(self, scale):
+        class ScaleModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 1)  # bias has shape (1,)
+                self.scale = nn.Parameter(scale.clone())
+
+            def forward(self, x):
+                return self.linear(x) * self.scale
+
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={"*": default_weight_quantization_spec()},
+            )
+        )
+        quantizer = Quantizer(ScaleModel(), config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8),))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
+        self._assert_state_observed(prepared_model, "linear_weight")
+
+    @pytest.mark.parametrize(
+        "scale", [torch.tensor(2.0), torch.tensor([2.0])], ids=["0d", "shape_1"]
+    )
+    def test_single_element_module_state_spec_not_observed(self, scale):
+        class Scaler(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.scale = nn.Parameter(scale.clone())
+
+            def forward(self, y):
+                return y * self.scale
+
+        class ScalerModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+                self.scaler = Scaler()
+
+            def forward(self, x):
+                return self.scaler(self.linear(x))
+
+        config = QuantizerConfig(
+            module_name_configs={
+                "scaler": ModuleQuantizerConfig(
+                    module_state_spec={"scale": default_weight_quantization_spec()},
+                )
+            }
+        )
+        quantizer = Quantizer(ScalerModel(), config)
+        prepared_model = quantizer.prepare((torch.randn(2, 8),))
+
+        self._assert_no_single_element_tensor_observed(prepared_model)
+        self._assert_state_observed(prepared_model, "linear_weight")
+
+
 @pytest.mark.parametrize("model_dtype", [torch.float32, torch.float16, torch.bfloat16])
 class TestGraphModeHalfPrecisionSupport:
     """Test graph-mode quantization workflow with half precision models"""
@@ -1216,7 +1424,7 @@ class TestGraphModeHalfPrecisionSupport:
     @pytest.mark.parametrize(
         "backend",
         [
-            pytest.param(ExportBackend._TORCH, id="torch"),
+            pytest.param(ExportBackend.Torch, id="torch"),
             pytest.param(ExportBackend.CoreAI, id="coreai"),
             pytest.param(ExportBackend.CoreML, id="coreml"),
         ],
@@ -1243,7 +1451,7 @@ class TestGraphModeHalfPrecisionSupport:
 
         finalized_model = quantizer.finalize(backend=backend)
         if model_dtype == torch.float32 or backend in [
-            ExportBackend._TORCH,
+            ExportBackend.Torch,
             ExportBackend.CoreAI,
         ]:
             output = finalized_model(example_input)
@@ -1356,7 +1564,7 @@ class TestPreservedAttributes:
     @pytest.mark.parametrize(
         "backend",
         [
-            pytest.param(ExportBackend._TORCH, id="torch"),
+            pytest.param(ExportBackend.Torch, id="torch"),
             pytest.param(ExportBackend.CoreAI, id="coreai"),
             pytest.param(ExportBackend.CoreML, id="coreml"),
         ],

@@ -79,6 +79,21 @@ class _BaseModelCompressor(ABC):
         """
         model.register_buffer(_COREAI_OPT_PREPARED_ATTR, torch.tensor(True), persistent=False)
 
+    @staticmethod
+    def _unmark_model_as_prepared(model: torch.nn.Module) -> None:
+        """
+        Clear the prepared marker from a model.
+
+        Called at the end of ``finalize`` so the finalized model can be further
+        processed (e.g., by Quantizer for activation quantization after weight
+        palettization).
+
+        Args:
+            model: The model to unmark.
+        """
+        if hasattr(model, _COREAI_OPT_PREPARED_ATTR):
+            delattr(model, _COREAI_OPT_PREPARED_ATTR)
+
     @classmethod
     def supported_modules(cls) -> tuple[type[torch.nn.Module]]:
         """
@@ -129,10 +144,12 @@ class _BaseModelCompressor(ABC):
         For example, for quantization:
         - For CoreAI backend (default), custom ops will be inserted.
         - For CoreML, compression metadata will be inserted as buffers in the model.
+        - For Torch, weight compression is folded into dense weights for fast torch
+          inference.
 
         Args:
             model: Optional model to finalize. If None, uses self._model
-            backend: Target export backend (CoreAI, CoreML)
+            backend: Target backend (CoreAI, CoreML, Torch)
             mmap_dir (str | None): If provided, serialize finalized compressed
                 weights to safetensors files under this directory and re-load
                 them via mmap, so large models can be finalized without holding

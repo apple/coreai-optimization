@@ -20,7 +20,7 @@ class TestExportBackend:
     @pytest.mark.parametrize(
         ("value", "expected"),
         [
-            ("_torch", ExportBackend._TORCH),
+            ("torch", ExportBackend.Torch),
             ("coreml", ExportBackend.CoreML),
             ("coreai", ExportBackend.CoreAI),
         ],

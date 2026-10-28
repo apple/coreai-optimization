@@ -40,6 +40,30 @@ def sdpa_externalize_spec():
     )
 
 
+def rope_externalize_spec():
+    """ExternalizeSpec targeting the RoPE composite."""
+    from coreai_torch import ExternalizeSpec  # noqa: PLC0415
+    from coreai_torch.composite_ops import RoPE  # noqa: PLC0415
+
+    return ExternalizeSpec(
+        target_class=RoPE,
+        composite_op_name="rope",
+        composite_attrs=["scale", "base", "dims", "interleaved"],
+    )
+
+
+def gathermm_externalize_spec():
+    """ExternalizeSpec targeting the GatherMM composite."""
+    from coreai_torch import ExternalizeSpec  # noqa: PLC0415
+    from coreai_torch.composite_ops import GatherMM  # noqa: PLC0415
+
+    return ExternalizeSpec(
+        target_class=GatherMM,
+        composite_op_name="gather_mm",
+        composite_attrs=["num_batch_axes"],
+    )
+
+
 class MNISTCompositeRMSNormModel(nn.Module):
     """Tiny MNIST classifier with an embedded RMSNormImpl composite op.
 
@@ -130,3 +154,37 @@ class CompositeSDPAModel(nn.Module):
         v = v.unsqueeze(1)
         attn = self.composite(q, k, v).squeeze(1)
         return self.out(attn)
+
+
+class CompositeRoPEModel(nn.Module):
+    """proj -> RoPE(composite) -> output_proj, fp16."""
+
+    def __init__(self, dim: int = 32) -> None:
+        from coreai_torch.composite_ops import RoPE  # noqa: PLC0415
+
+        super().__init__()
+        self.proj_in = nn.Linear(dim, dim, bias=False)
+        self.composite = RoPE(dims=dim)
+        self.proj_out = nn.Linear(dim, dim, bias=False)
+
+    def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+        h = self.proj_in(x)
+        rotated = self.composite(h, cos, sin)
+        return self.proj_out(rotated)
+
+
+class CompositeGatherMMModel(nn.Module):
+    """proj -> GatherMM(composite) -> output_proj, fp16."""
+
+    def __init__(self, dim: int = 32) -> None:
+        from coreai_torch.composite_ops import GatherMM  # noqa: PLC0415
+
+        super().__init__()
+        self.proj_in = nn.Linear(dim, dim, bias=False)
+        self.composite = GatherMM()
+        self.proj_out = nn.Linear(dim, dim, bias=False)
+
+    def forward(self, lhs: torch.Tensor, rhs: torch.Tensor) -> torch.Tensor:
+        h = self.proj_in(lhs)
+        out = self.composite(h, rhs)
+        return self.proj_out(out)

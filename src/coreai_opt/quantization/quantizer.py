@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from os import PathLike
 from typing import Any
 
+import torch
 import torch.nn as nn
 from torch import fx
 from torchao.quantization.pt2e import (
@@ -38,6 +39,10 @@ from coreai_opt.quantization.config.quantization_config import (
     QuantizerConfig,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
+
+# Quantization dtypes that only the Torch backend supports for now. This is a deny-list: a new dtype
+# that CoreAI/CoreML cannot store must be added here, or replace it with an allow-list.
+_TORCH_ONLY_DTYPES = frozenset({torch.int6, torch.uint6})
 
 
 class Quantizer(_BaseQuantizer):
@@ -417,7 +422,7 @@ class Quantizer(_BaseQuantizer):
         ``EagerActivationExportHandler`` in eager mode.
 
         """
-        if backend == ExportBackend._TORCH:
+        if backend == ExportBackend.Torch:
             return
         model_to_check = model if model is not None else self._model
         stateless_fq_names = [
@@ -432,8 +437,30 @@ class Quantizer(_BaseQuantizer):
                 f"backend={backend} does not yet support qparams calculators that "
                 f"recompute every forward (e.g. dynamic quantization). "
                 f"Affected FakeQuantize modules: {stateless_fq_names}. Use "
-                f"backend=ExportBackend._TORCH for torch-only inference."
+                f"backend=ExportBackend.Torch for torch-only inference."
             )
+
+    def _validate_export_supported_dtypes(
+        self,
+        model: nn.Module | fx.GraphModule | None,
+        backend: ExportBackend,
+    ) -> None:
+        """Reject CoreAI/CoreML export of dtypes that only the Torch backend supports."""
+        if backend == ExportBackend.Torch:
+            return
+        model_to_check = model if model is not None else self._model
+        torch_only_fq_dtypes = {
+            name: mod.dtype
+            for name, mod in model_to_check.named_modules()
+            if isinstance(mod, FakeQuantizeImplBase) and mod.dtype in _TORCH_ONLY_DTYPES
+        }
+        if torch_only_fq_dtypes:
+            msg = (
+                f"backend={backend} does not yet support the dtypes of these FakeQuantize "
+                f"modules: {torch_only_fq_dtypes}. Use backend=ExportBackend.Torch for "
+                f"torch-only inference."
+            )
+            raise NotImplementedError(msg)
 
     def finalize(
         self,
@@ -445,8 +472,6 @@ class Quantizer(_BaseQuantizer):
         """Convert quantized model to backend-specific representations.
 
         Converts fake quantization modules into backend-specific quantization ops.
-        Only call ``finalize`` when exporting to a target backend. For torch-based evaluation, use
-        the model returned by ``prepare()`` directly rather than calling ``finalize``.
 
         Backend-specific processing:
 
@@ -454,12 +479,15 @@ class Quantizer(_BaseQuantizer):
           with Core AI specific PyTorch custom ops.
         - CoreML: Prepares for CoreML export by registering compression metadata
           as buffers and removes fake quantization modules.
+        - Torch: Prepares for fast torch inference (e.g. running evals) by folding
+          weight fake quantization into dense weights. Activation fake quantization
+          is kept.
 
         Args:
             model: Optional model to finalize. If None, uses the internal
                 prepared model.
             backend: Target export backend for the quantized model. Supports
-                CoreAI (default), CoreML, and _TORCH backends.
+                CoreAI (default), CoreML, and Torch backends.
             mmap_dir (str | None): If provided, serialize finalized quantized
                 weights to safetensors files under this directory and re-load
                 them via mmap, one file per weight. Supported in both execution
@@ -470,6 +498,11 @@ class Quantizer(_BaseQuantizer):
 
         Returns:
             The finalized quantized model ready for deployment on the target backend.
+
+        Raises:
+            NotImplementedError: If ``backend`` is CoreAI or CoreML and a quantization
+                spec uses ``torch.int6`` or ``torch.uint6``, which are only supported for
+                ``ExportBackend.Torch``.
 
         Note:
             In graph mode, the returned ``fx.GraphModule`` supports calling
@@ -484,6 +517,7 @@ class Quantizer(_BaseQuantizer):
         """
         self._validate_mmap_dir_constraints(model, backend, mmap_dir)
         self._validate_no_persistent_observer_calculators(model, backend)
+        self._validate_export_supported_dtypes(model, backend)
         return self._quantizer.finalize(model, backend, mmap_dir=mmap_dir)
 
     @contextmanager

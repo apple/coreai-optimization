@@ -231,6 +231,42 @@ class TestCastFp32ToFp16:
 class TestCastInt32ToInt16:
     """Test cast_int32_to_int16."""
 
+    @pytest.mark.parametrize("branching", [False, True])
+    @pytest.mark.parametrize(
+        "input_dtype,intermediate_dtype,values",
+        [
+            (torch.float16, torch.bfloat16, [1.0009765625, 65504.0, 0.333251953125]),
+            (torch.bfloat16, torch.float16, [1e5, 1e-38]),
+            (torch.float8_e4m3fn, torch.float8_e5m2, [1.125, 0.015625]),
+            (torch.float8_e5m2, torch.float8_e4m3fn, [512.0, 0.0000152587890625]),
+        ],
+    )
+    def test_preserves_lossy_float_casts(
+        self,
+        input_dtype: torch.dtype,
+        intermediate_dtype: torch.dtype,
+        values: list[float],
+        branching: bool,
+    ) -> None:
+        """Integer casting must preserve rounding, overflow, and underflow in float casts."""
+
+        class Model(nn.Module):
+            def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, ...]:
+                intermediate = x.to(intermediate_dtype)
+                result = intermediate.to(torch.float32)
+                return (result, intermediate) if branching else (result,)
+
+        model = Model().eval()
+        example_input = torch.tensor(values, dtype=input_dtype)
+        expected = model(example_input)
+        ep = torch.export.export(model, (example_input,))
+
+        cast_int32_to_int16(ep)
+
+        actual = ep.module()(example_input)
+        # Compare the FP32 output, since assert_close does not support all FP8 kernels.
+        torch.testing.assert_close(actual[0], expected[0], rtol=0, atol=0, equal_nan=True)
+
     def test_int_data_model(self):
         """Int64 data ops narrowed to int16, but embedding indices stay wide."""
         model = _IntDataModel().eval()

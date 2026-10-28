@@ -528,7 +528,9 @@ class TestFusedFakeQuantizeIntSTEMatchesTorchBuiltin:
         torch.testing.assert_close(tensor_coreai_opt.grad, tensor_torch.grad)
 
 
-@pytest.mark.parametrize("dtype", [torch.int8, torch.uint8, torch.int4, torch.uint4])
+@pytest.mark.parametrize(
+    "dtype", [torch.int8, torch.uint8, torch.int4, torch.uint4, torch.int6, torch.uint6]
+)
 @pytest.mark.parametrize(
     "granularity",
     [
@@ -575,3 +577,94 @@ def test_zp_minval_round_trip_delta_upper_bound(dtype, granularity, qscheme):
 
     assert torch.equal(scale_zp, scale_minval)
     assert torch.all(torch.abs(y_minval - y_zp) <= scale_zp + 1e-5)
+
+
+def _activation_fake_quantizer(qparam_calculator_cls: str = "dynamic"):
+    spec = QuantizationSpec(
+        dtype=torch.int8,
+        qscheme=QuantizationScheme.SYMMETRIC,
+        granularity=PerTensorGranularity(),
+        qparam_calculator_cls=qparam_calculator_cls,
+    )
+    return QuantizationComponentFactory.create_fake_quantizer(
+        spec, CompressionTargetTensor.ACTIVATION
+    )
+
+
+def test_forward_compiles_without_graph_break():
+    fq = _activation_fake_quantizer()
+    x = torch.randn(4, 16)
+    compiled = torch.compile(fq, fullgraph=True, backend="eager")
+    torch.testing.assert_close(compiled(x), fq(x), atol=0, rtol=0)
+
+
+def test_flag_writers_reach_forward():
+    torch.manual_seed(0)
+    x = torch.randn(4, 16)
+    fq = _activation_fake_quantizer()
+    quantized = fq(x)
+    assert not torch.equal(quantized, x)
+
+    fq.disable_fake_quant()
+    assert torch.equal(fq(x), x)
+    fq.enable_fake_quant()
+    assert torch.equal(fq(x), quantized)
+
+    disabled = _activation_fake_quantizer()
+    disabled._disabled.fill_(True)
+    fq.load_state_dict(disabled.state_dict())
+    assert fq.is_disabled()
+    assert torch.equal(fq(x), x)
+
+
+def test_unpickling_module_without_flag_mirrors():
+    """A module pickled before the flag mirrors existed restores them from its buffers."""
+    fq = _activation_fake_quantizer()
+    fq.disable_fake_quant()
+    x = torch.randn(4, 16)
+    state = fq.__getstate__().copy()
+    for name in ("_disabled_flag", "_observer_on", "_fake_quant_on"):
+        del state[name]
+
+    restored = _activation_fake_quantizer()
+    restored.__setstate__(state)
+    assert torch.equal(restored(x), x)
+
+
+@pytest.mark.parametrize("qparam_calculator_cls", ["static", "moving_average"])
+def test_compiled_observer_toggle_controls_stats_collection(qparam_calculator_cls):
+    """A compiled stateful quantizer updates its qparams only while the observer is enabled."""
+    torch.manual_seed(0)
+    x = torch.randn(4, 16)
+    fq = _activation_fake_quantizer(qparam_calculator_cls)
+    fq(x)  # first forward allocates the qparam buffers, as calibration would
+    compiled = torch.compile(fq, fullgraph=True, backend="aot_eager")
+    scale = lambda: fq.qparams_calculator.scale.clone()  # noqa: E731
+
+    before = scale()
+    compiled(4 * x)
+    assert not torch.equal(scale(), before), "enabled observer should update the qparams"
+
+    fq.disable_observer()
+    frozen = scale()
+    frozen_out = compiled(16 * x)
+    assert torch.equal(scale(), frozen), "disabled observer should not update the qparams"
+    torch.testing.assert_close(frozen_out, fq(16 * x), atol=0, rtol=0)
+
+    fq.enable_observer()
+    compiled(16 * x)
+    assert not torch.equal(scale(), frozen), "re-enabled observer should update the qparams again"
+
+
+def test_compiled_dynamic_quantizer_ignores_observer_toggle():
+    """A dynamic quantizer recomputes qparams every call, so toggling the observer is a no-op."""
+    torch.manual_seed(0)
+    x = torch.randn(4, 16)
+    fq = _activation_fake_quantizer()
+    compiled = torch.compile(fq, fullgraph=True, backend="aot_eager")
+    expected = compiled(x)
+
+    fq.disable_observer()
+    torch.testing.assert_close(compiled(x), expected, atol=0, rtol=0)
+    fq.enable_observer()
+    torch.testing.assert_close(compiled(x), expected, atol=0, rtol=0)

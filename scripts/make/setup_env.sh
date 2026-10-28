@@ -394,7 +394,7 @@ echo "Running: ${SYNC_CMD[*]}"
 apply_post_install_pip_args
 
 echo ""
-echo "[3/3] Installing hook dependencies and configuring pre-commit hooks..."
+echo "[3/3] Configuring pre-commit hooks..."
 if [[ "$VENV_PREEXISTED" == "true" ]]; then
     echo "Skipped (venv already exists, hooks already configured)"
 else

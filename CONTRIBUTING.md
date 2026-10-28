@@ -73,6 +73,8 @@ Before pushing your changes, run these locally:
 
 A clean `make check` and `make test` are required before a pull request will be reviewed.
 
+If a test hangs, its thread stacks are printed every 15 minutes after a `[stuck-test]` line naming the worker and the test. Use `make test PYTEST_ARGS="--dump-stacks-after=120"` to print them every 2 minutes, or `--dump-stacks-after=0` to turn them off.
+
 ## Response time
 
 Issues and pull requests are addressed on a best-effort basis. Response times vary with team bandwidth and the scope of the contribution.

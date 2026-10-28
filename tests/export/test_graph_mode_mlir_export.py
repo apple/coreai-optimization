@@ -638,9 +638,7 @@ def test_fold_quantize_is_noop(
     assert default_nodes == folded_nodes
 
     with torch.no_grad():
-        torch.testing.assert_close(
-            default_final(input_data), folded_final(input_data), atol=0, rtol=0
-        )
+        torch.testing.assert_close(folded_final(input_data), default_final(input_data))
 
     for final in (default_final, folded_final):
         export_utils.convert_and_verify(

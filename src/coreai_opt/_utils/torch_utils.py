@@ -39,6 +39,9 @@ ATEN_OP_TO_MODULE_TYPE: dict[torch._ops.OpOverload, type[torch.nn.Module]] = {
     torch.ops.aten.conv1d.default: torch.nn.Conv1d,
     torch.ops.aten.conv2d.default: torch.nn.Conv2d,
     torch.ops.aten.conv3d.default: torch.nn.Conv3d,
+    torch.ops.aten.conv1d.padding: torch.nn.Conv1d,
+    torch.ops.aten.conv2d.padding: torch.nn.Conv2d,
+    torch.ops.aten.conv3d.padding: torch.nn.Conv3d,
     torch.ops.aten.conv_transpose1d.default: torch.nn.ConvTranspose1d,
     torch.ops.aten.conv_transpose2d.input: torch.nn.ConvTranspose2d,
     torch.ops.aten.conv_transpose3d.input: torch.nn.ConvTranspose3d,
@@ -357,6 +360,54 @@ def remove_compression_parametrizations(
             num_removed += num_removing
 
     return num_removed
+
+
+def fold_compression_parametrizations(
+    model: torch.nn.Module,
+    parametrization_types: type[torch.nn.Module] | tuple[type[torch.nn.Module], ...],
+) -> int:
+    """Fold parametrized tensors carrying a compression parametrization into plain tensors.
+
+    Every tensor whose parametrization list contains an instance of
+    ``parametrization_types`` is unparametrized, keeping its current
+    parametrized value, computed in eval mode. The whole parametrization list on
+    that tensor is folded, since composed parametrizations cannot be folded
+    individually.
+
+    The value is written into the ``original`` tensor in place (see
+    ``torch.nn.utils.parametrize.remove_parametrizations``), so tensor identity
+    is preserved and tied tensors stay tied.
+
+    Args:
+        model (torch.nn.Module): The model to modify in place.
+        parametrization_types (type[torch.nn.Module] | tuple[type[torch.nn.Module], ...]):
+            Parametrization types that mark a tensor for folding.
+
+    Returns:
+        int: Number of tensors folded.
+    """
+    to_fold = [
+        (module, tensor_name)
+        for module in model.modules()
+        if P.is_parametrized(module)
+        for tensor_name, parametrizations in module.parametrizations.items()
+        if any(isinstance(p, parametrization_types) for p in parametrizations)
+    ]
+
+    folded_originals: set[int] = set()
+    for module, tensor_name in to_fold:
+        parametrizations = module.parametrizations[tensor_name]
+        # Only the parametrizations are moved to eval: they are discarded by the fold, so
+        # their mode needs no restoring and the rest of the model is left untouched.
+        parametrizations.eval()
+        original = parametrizations.original
+        # A tensor tied to one folded earlier shares its ``original``, which already
+        # holds the folded value; re-applying the parametrizations would compress it twice.
+        leave_parametrized = id(original) not in folded_originals
+        folded_originals.add(id(original))
+        P.remove_parametrizations(module, tensor_name, leave_parametrized=leave_parametrized)
+
+    return len(to_fold)
 
 
 def find_parametrization_matching_cls(
