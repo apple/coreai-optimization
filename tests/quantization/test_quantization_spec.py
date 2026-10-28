@@ -39,8 +39,7 @@ def expanded_dtype_allowlist(monkeypatch):
     Temporarily expand the dtype allowlist to include additional int/uint types for
     testing. This is necessary because test dtypes and config combinations are tightly
     coupled, and some tests need to verify functionality with dtypes that aren't
-    officially supported for production use (e.g., int1, uint1, int3, int5, int6,
-    int7).
+    officially supported for production use (e.g., int1, uint1, int3, int5, int7).
     """
     # Start with production-supported dtypes and add test-only types
     original_dtypes = QuantizationSpec.SUPPORTED_DTYPES.copy()
@@ -48,20 +47,18 @@ def expanded_dtype_allowlist(monkeypatch):
     expanded_dtypes.update(
         {
             # Additional signed integer types for testing
-            # (int2, int4, int8 already included)
+            # (int2, int4, int6, int8 already included)
             torch.int1,
             torch.int3,
             torch.int5,
-            torch.int6,
             torch.int7,
             torch.int16,
             torch.int32,
             # Additional unsigned integer types for testing
-            # (uint2, uint4, uint8 already included)
+            # (uint2, uint4, uint6, uint8 already included)
             torch.uint1,
             torch.uint3,
             torch.uint5,
-            torch.uint6,
             torch.uint7,
         }
     )
@@ -460,6 +457,9 @@ def test_get_block_size_divisibility_failure(
         (torch.uint2, 2),
         (torch.int4, 4),
         (torch.uint4, 4),
+        (torch.int6, 6),
+        (torch.uint6, 6),
+        ("uint6", 6),
         (torch.int8, 8),
         (torch.uint8, 8),
         (torch.float8_e4m3fn, 8),
@@ -582,6 +582,8 @@ def test_dynamic_calculator_rejects_symmetric_with_clipping():
         (torch.uint1, torch.uint8),
         (torch.int2, torch.int8),
         (torch.uint2, torch.uint8),
+        (torch.int6, torch.int8),
+        (torch.uint6, torch.uint8),
         (torch.int8, torch.int8),
         (torch.uint8, torch.uint8),
         (torch.float8_e4m3fn, torch.float8_e4m3fn),
@@ -610,23 +612,29 @@ def test_target_dtype(dtype, target_dtype, expanded_dtype_allowlist):
     [
         # SYMMETRIC (full range)
         (torch.int8, QuantizationScheme.SYMMETRIC, (-128, 127)),
+        (torch.int6, QuantizationScheme.SYMMETRIC, (-32, 31)),
         (torch.int4, QuantizationScheme.SYMMETRIC, (-8, 7)),
         (torch.int2, QuantizationScheme.SYMMETRIC, (-2, 1)),
         (torch.uint8, QuantizationScheme.SYMMETRIC, (0, 255)),
+        (torch.uint6, QuantizationScheme.SYMMETRIC, (0, 63)),
         (torch.uint4, QuantizationScheme.SYMMETRIC, (0, 15)),
         (torch.uint2, QuantizationScheme.SYMMETRIC, (0, 3)),
         # SYMMETRIC_WITH_CLIPPING (clipped range for signed)
         (torch.int8, QuantizationScheme.SYMMETRIC_WITH_CLIPPING, (-127, 127)),
+        (torch.int6, QuantizationScheme.SYMMETRIC_WITH_CLIPPING, (-31, 31)),
         (torch.int4, QuantizationScheme.SYMMETRIC_WITH_CLIPPING, (-7, 7)),
         (torch.int2, QuantizationScheme.SYMMETRIC_WITH_CLIPPING, (-1, 1)),
         # Unsigned dtypes unchanged
         (torch.uint8, QuantizationScheme.SYMMETRIC_WITH_CLIPPING, (0, 255)),
+        (torch.uint6, QuantizationScheme.SYMMETRIC_WITH_CLIPPING, (0, 63)),
         (torch.uint4, QuantizationScheme.SYMMETRIC_WITH_CLIPPING, (0, 15)),
         (torch.uint2, QuantizationScheme.SYMMETRIC_WITH_CLIPPING, (0, 3)),
         # ASYMMETRIC (same as SYMMETRIC for range)
         (torch.int4, QuantizationScheme.ASYMMETRIC, (-8, 7)),
         (torch.int8, QuantizationScheme.ASYMMETRIC, (-128, 127)),
         (torch.int2, QuantizationScheme.ASYMMETRIC, (-2, 1)),
+        (torch.int6, QuantizationScheme.ASYMMETRIC, (-32, 31)),
+        (torch.uint6, QuantizationScheme.ASYMMETRIC, (0, 63)),
         # FP8 dtypes (scheme doesn't affect FP ranges)
         (torch.float8_e4m3fn, QuantizationScheme.SYMMETRIC, (-448.0, 448.0)),
         (torch.float8_e5m2, QuantizationScheme.SYMMETRIC, (-57344.0, 57344.0)),

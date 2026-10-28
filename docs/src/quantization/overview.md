@@ -164,6 +164,8 @@ Broadly speaking, the following dtypes can be used for quantization:
 
 A few other dtypes (e.g. FP8_E5M2) may also be available to experiment with; however, they may have limited support on the Core AI runtime.
 
+INT6 and UINT6 are only supported for the Torch backend for now, for both weights and activations: the model runs as a torch model after `finalize(backend=ExportBackend.Torch)`, and `finalize` raises `NotImplementedError` for Core AI and Core ML.
+
 ## Two Execution Modes: graph and eager
 
 The {class}`~coreai_opt.quantization.Quantizer` has two internal implementations:

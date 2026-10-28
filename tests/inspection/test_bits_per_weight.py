@@ -179,13 +179,15 @@ def test_full_precision_bits_per_weight():
     ("dtype", "n_bits"),
     [
         (torch.int8, 8),
+        (torch.int6, 6),
         (torch.int4, 4),
         (torch.int2, 2),
         (torch.uint8, 8),
+        (torch.uint6, 6),
         (torch.uint4, 4),
         (torch.uint2, 2),
     ],
-    ids=["int8", "int4", "int2", "uint8", "uint4", "uint2"],
+    ids=["int8", "int6", "int4", "int2", "uint8", "uint6", "uint4", "uint2"],
 )
 def test_eager_quant_matches_analytical(
     dtype: torch.dtype,

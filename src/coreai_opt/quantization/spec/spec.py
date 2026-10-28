@@ -50,6 +50,7 @@ class QuantizationSpec(CompressionSpec):
             Valid inputs:
 
             - Integer dtypes: torch.int8, torch.uint8, torch.int4, torch.uint4, etc.
+              torch.int6 and torch.uint6 are only supported for the Torch backend for now.
             - Floating-point dtypes: torch.float8_e4m3fn, torch.float8_e5m2,
               torch.float4_e2m1fn_x2.
               For FP8 dtypes, the notation specifies the format (e.g., in
@@ -379,10 +380,12 @@ class QuantizationSpec(CompressionSpec):
     SUPPORTED_DTYPES: ClassVar[set[torch.dtype]] = {
         # Signed integer types
         torch.int8,
+        torch.int6,
         torch.int4,
         torch.int2,
         # Unsigned integer types
         torch.uint8,
+        torch.uint6,
         torch.uint4,
         torch.uint2,
         # FP8 types (standard formats)

@@ -1889,6 +1889,23 @@ class TestLazyInitAndStaleness:
         assert target._centroids_initialized is True
         assert target._indices_stale is True
 
+    def test_strict_load_without_indices_into_initialized_module(self):
+        """A prepared target loads an indices-less state dict under strict and recomputes
+        indices.
+        """
+        spec = PalettizationSpec(n_bits=2, granularity=PerTensorGranularity())
+        weight = torch.randn(8, 8)
+        source = _KMeansFakePalettize(**spec.__dict__)
+        source._initialize(weight)
+        state_dict = source.state_dict()
+        del state_dict["indices"]
+
+        target = _KMeansFakePalettize(**spec.__dict__)
+        target._initialize(torch.randn(8, 8))
+        target.load_state_dict(state_dict)  # strict=True: must not raise
+        assert target._indices_stale is True
+        assert torch.equal(target.hard_assign(weight), source.hard_assign(weight))
+
     def test_load_from_state_dict_missing_scale_is_stale(self):
         """With per-channel scale enabled, loading indices but no scale marks stale
         so both are recomputed together on next use.
