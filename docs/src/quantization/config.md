@@ -27,8 +27,9 @@ We will first take a look at the {class}`~coreai_opt.quantization.spec.Quantizat
 - `qscheme`: symmetric or asymmetric quantization scheme (default: {class}`~coreai_opt.quantization.spec.QuantizationScheme`.SYMMETRIC). See [Symmetric vs asymmetric quantization](advanced.md#symmetric-vs-asymmetric-quantization) for how these schemes differ.
 - `granularity`: granularity for quantization scales/zp, per-block, per-channel, per-tensor (default: {class}`~coreai_opt.quantization.spec.PerTensorGranularity()`)
 - `qparam_calculator_cls`: algorithm used for calculating scales/zp, e.g. static, global min/max, moving average min/max etc. (defaults: {class}`~coreai_opt.quantization.spec.MovingAverageQParamsCalculator` for activations)
-- `scale_dtype`: dtype for the quantization scale to be used. (Default: None, picked automatically based on quantization `dtype`)
-  Example:
+- `scale_dtype`: how the quantization scale is stored. `None` (default) keeps the computed scale, except for FP4, which defaults to `torch.float8_e8m0fnu`. `torch.float8_e8m0fnu` rounds scales to powers of two (OCP MX), for FP4 and FP8. `torch.float16` rounds the scale to FP16 whatever the model dtype, for integer and FP8 dtypes; Core AI and Core ML export of it is not supported yet. With `torch.float16`, cast the model before `Quantizer.prepare`: a bf16 scale buffer would round the scales again, so casting the prepared model to bf16 raises `RuntimeError`.
+
+Example:
 
 ```python
 from coreai_opt.quantization import QuantizationSpec

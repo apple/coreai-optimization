@@ -33,6 +33,9 @@ E8M0_TARGET_MAX_POW2: dict[torch.dtype, int] = {
 E8M0_EXPONENT_BIAS: Final[int] = 127
 F32_MIN_NORMAL: Final[float] = 2**-126  # ~1.175e-38
 
+# Scale dtypes that the scale is rounded to before element codes are chosen.
+ROUNDED_SCALE_DTYPES: Final[frozenset[torch.dtype]] = frozenset({torch.float16})
+
 # Maps a graph-mode aten ``OpOverload`` to the ``nn.Module`` type it corresponds
 # to.
 ATEN_OP_TO_MODULE_TYPE: dict[torch._ops.OpOverload, type[torch.nn.Module]] = {

@@ -267,6 +267,10 @@ def test_lut_qspec_validation():
             )
         )
 
+    # Invalid: FP16 LUT scales, which palettization export does not store as FP16
+    with pytest.raises(ValidationError, match="lut_qspec.scale_dtype=torch.float16 is not"):
+        PalettizationSpec(lut_qspec=QuantizationSpec(dtype=torch.int8, scale_dtype=torch.float16))
+
 
 @pytest.mark.parametrize(
     "granularity", [PerTensorGranularity(), PerGroupedChannelGranularity(axis=1, group_size=8)]

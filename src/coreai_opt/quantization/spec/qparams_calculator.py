@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import warnings
 from abc import abstractmethod
+from collections.abc import Callable
+from typing import Self
 
 import torch
 import torch.nn as nn
@@ -21,6 +23,7 @@ from coreai_opt._utils.torch_utils import (
     E8M0_EXPONENT_BIAS as _E8M0_EXPONENT_BIAS,
     E8M0_TARGET_MAX_POW2 as _E8M0_TARGET_MAX_POW2,
     F32_MIN_NORMAL as _F32_MIN_NORMAL,
+    ROUNDED_SCALE_DTYPES as _ROUNDED_SCALE_DTYPES,
 )
 
 from .granularity import QuantizationGranularity
@@ -53,7 +56,7 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         quant_max: int,
         range_calculator: RangeCalculatorBase,
         float_range: tuple[float | None, float | None],
-        scale_dtype: torch.dtype | None = None,  # primarily for FP4
+        scale_dtype: torch.dtype | None = None,  # e8m0 or float16; see QuantizationSpec
         **kwargs,
     ):
         super().__init__()
@@ -161,8 +164,13 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             # A one-sided float_range pairs a float_range bound (built at float32)
             # with a range-calculator bound at the input dtype. Cast both to the
             # input dtype so this mixed case has matching dtypes for the qparams op.
-            min_val = min_val.to(tensor.dtype)
-            max_val = max_val.to(tensor.dtype)
+            range_dtype = tensor.dtype
+            if self.scale_dtype in _ROUNDED_SCALE_DTYPES:
+                # A rounded scale is computed in at least fp32, so keep the float_range
+                # bound unrounded rather than round it to a half-precision input dtype.
+                range_dtype = torch.promote_types(range_dtype, torch.float32)
+            min_val = min_val.to(range_dtype)
+            max_val = max_val.to(range_dtype)
         return min_val, max_val
 
     def _compute_e8m0_scale(self, max_abs: torch.Tensor) -> torch.Tensor:
@@ -209,7 +217,9 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
     def _compute_scale_zero_point_minval(
         self, tensor: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
-        """Supports two scale computation modes based on ``scale_dtype``:
+        """Return ``(scale, zero_point, minval)`` for the observed range.
+
+        Supports three scale computation modes based on ``scale_dtype``:
 
         1. **Default (``scale_dtype=None``)**: Uses torchao's
         ``choose_qparams_affine_with_min_max`` custom op to compute scale and
@@ -221,12 +231,25 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             scale = 2^(floor(log2(max_abs)) - target_max_pow2)
             where ``target_max_pow2`` comes from ``E8M0_TARGET_MAX_POW2``, which
             is the single source of truth for which dtypes support an e8m0 scale.
+
+        3. **Rounded scales** (``scale_dtype`` in ``ROUNDED_SCALE_DTYPES``): The
+        default-path scale, computed in fp32 whatever the input dtype, is clamped to the
+        largest finite ``scale_dtype`` value and rounded to it. An asymmetric zero point
+        is then derived from the rounded scale.
         """
 
         # e8m0 path: power-of-2 scales
         if self.scale_dtype == torch.float8_e8m0fnu:
             max_abs = torch.maximum(torch.abs(min_val), torch.abs(max_val))
             return self._compute_e8m0_scale(max_abs), None, None
+
+        rounds_scale = self.scale_dtype in _ROUNDED_SCALE_DTYPES
+        if rounds_scale:
+            # Start from an fp32 scale, so a half-precision input is not rounded twice. An
+            # fp64 input stays fp64, so its minval is not rounded to fp32.
+            range_dtype = torch.promote_types(min_val.dtype, torch.float32)
+            min_val = min_val.to(range_dtype)
+            max_val = max_val.to(range_dtype)
 
         # Default path: torchao handles integer and FP8 dtypes
         scale, zero_point = choose_qparams_affine_with_min_max(
@@ -240,6 +263,19 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             eps=torch.finfo(torch.float32).eps,
             zero_point_dtype=torch.int32,
         )
+
+        if rounds_scale:
+            # Clamp first, so a large scale does not round to inf.
+            scale_dtype_max = torch.finfo(self.scale_dtype).max
+            scale = scale.clamp(max=scale_dtype_max).to(self.scale_dtype).to(torch.float32)
+        if rounds_scale and self.qscheme == QuantizationScheme.ASYMMETRIC:
+            # The zero point above came from the unrounded scale; recompute it from the
+            # rounded scale so the two match.
+            zero_point = torch.clamp(
+                self.quant_min - torch.round(min_val / scale),
+                self.quant_min,
+                self.quant_max,
+            ).to(torch.int32)
 
         # ``minval`` is the minimum representable float value for the
         # observed range. The fake-quantize / export layer decides whether
@@ -336,8 +372,13 @@ class StatefulQParamsCalculatorBase(QParamsCalculatorBase):
         On the first forward pass, initializes internal buffers using the
         observed tensor shape and device. Delegates the actual qparams
         calculation to ``compute_qparams``.
+
+        Raises:
+            RuntimeError: If the ``scale`` buffer cannot hold rounded ``scale_dtype`` scales
+                exactly (see ``QuantizationSpec.scale_dtype``).
         """
         self._resolve_axis(tensor.ndim)
+        self._validate_scale_buffer_dtype()
 
         scale = self.scale.clone()
         zero_point = self.zero_point.clone() if self.zero_point is not None else None
@@ -393,7 +434,12 @@ class StatefulQParamsCalculatorBase(QParamsCalculatorBase):
         """
         Return the computed scale, zero point and minval.
         For FP4/FP8/floating-point quantization, zero_point and minval are None.
+
+        Raises:
+            RuntimeError: If the ``scale`` buffer cannot hold rounded ``scale_dtype`` scales
+                exactly (see ``QuantizationSpec.scale_dtype``).
         """
+        self._validate_scale_buffer_dtype()
         if not self._initialized:
             warnings.warn(
                 "Using default scale and zero point. Call forward pass to compute actual values.",
@@ -409,6 +455,27 @@ class StatefulQParamsCalculatorBase(QParamsCalculatorBase):
             f"scale={self.scale}, zero_point={self.zero_point}, "
             f"minval={self.minval}, export_mode={self._export_mode}"
         )
+
+    def _apply(self, fn: Callable[[torch.Tensor], torch.Tensor], recurse: bool = True) -> Self:
+        """Cast or move the buffers, then raise if the cast made the ``scale`` buffer lossy."""
+        super()._apply(fn, recurse)
+        self._validate_scale_buffer_dtype()
+        return self
+
+    def _validate_scale_buffer_dtype(self) -> None:
+        """Raise if the ``scale`` buffer cannot hold a rounded ``scale_dtype`` scale exactly."""
+        if self.scale_dtype in _ROUNDED_SCALE_DTYPES and self.scale.dtype not in (
+            torch.float32,
+            torch.float64,
+            self.scale_dtype,
+        ):
+            msg = (
+                f"The scale buffer is {self.scale.dtype}, which cannot hold "
+                f"scale_dtype={self.scale_dtype} scales exactly. Cast the model before "
+                f"Quantizer.prepare, not after, and keep torch.get_default_dtype() float32 "
+                f"while preparing."
+            )
+            raise RuntimeError(msg)
 
 
 class StatelessQParamsCalculatorBase(QParamsCalculatorBase):

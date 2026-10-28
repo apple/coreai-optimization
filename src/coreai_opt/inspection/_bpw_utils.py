@@ -11,6 +11,7 @@ from collections.abc import Iterator
 import torch
 from torch.nn.utils.parametrize import ParametrizationList as _ParametrizationList
 
+from coreai_opt._utils.torch_utils import ROUNDED_SCALE_DTYPES
 from coreai_opt.config.spec import (
     CompressionSimulatorBase as _CompressionSimulatorBase,
     CompressionTargetTensor as _CompressionTargetTensor,
@@ -42,7 +43,7 @@ _SUPPORTED_QUANT_DTYPES = frozenset(
         torch.float4_e2m1fn_x2,
     }
 )
-_SUPPORTED_SCALE_DTYPES = frozenset({None, torch.float8_e8m0fnu})
+_SUPPORTED_SCALE_DTYPES = frozenset({None, torch.float8_e8m0fnu, *ROUNDED_SCALE_DTYPES})
 _SUPPORTED_QSCHEMES = frozenset(
     {
         _QuantizationScheme.SYMMETRIC,
