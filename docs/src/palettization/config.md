@@ -14,6 +14,7 @@ To estimate what a config costs in terms of bits per weight (BPW), use the {func
 - `granularity`: controls whether there is one LUT for the entire weight tensor or one LUT per group of channels. Allowed: {class}`~coreai_opt.palettization.spec.PerTensorGranularity`() or {class}`~coreai_opt.palettization.spec.PerGroupedChannelGranularity`(), defaults to the former
 - `cluster_dim`: Dimension of the cluster centers, i.e. the entries in the LUT. Defaults to 1; if > 1, it results in vector palettization.
 - `lut_qspec`: Optional {class}`~coreai_opt.quantization.spec.QuantizationSpec` describing how to quantize the LUT centroid values themselves. Defaults to `None` (LUT centroids are stored at the same dtype as the uncompressed weights). Supported dtypes are `torch.int8`, `torch.uint8`, `torch.float8_e4m3fn`, and `torch.float8_e5m2`.
+- `sparsity_detection_threshold`: Optional float in [0, 1]. A weight with at least this fraction of exact zeros (and at least one) is treated as already sparse, for example from a pruned model, and is palettized jointly with its sparsity: only the nonzero values are palettized, the zeros stay exactly zero, and the exported model stores the weight in a sparse representation together with the palettized ops for the nonzero values. Defaults to `None`, which palettizes every weight densely. See [Palettizing already-sparse weights](#palettizing-already-sparse-weights).
 
 ```python
 from coreai_opt.palettization import PalettizationSpec
@@ -40,6 +41,9 @@ spec = PalettizationSpec(
 
 # Cluster pairs of weight values instead of individual scalars
 spec = PalettizationSpec(n_bits=4, cluster_dim=2)
+
+# Palettize pruned weights jointly with their sparsity: weights with at least 40% exact zeros
+spec = PalettizationSpec(n_bits=4, sparsity_detection_threshold=0.4)
 ```
 
 :::{note}
@@ -49,6 +53,26 @@ Vector k-means derives its random seeds from each weight tensor's contents, so r
 
 Scalar palettization (`cluster_dim == 1`, the default) is deterministic.
 :::
+
+### Palettizing already-sparse weights
+
+When `sparsity_detection_threshold` is set, the first forward pass of `prepare()` detects which weights are already sparse. For each of them, the nonzero mask is fixed, k-means fits the palette on the nonzero values only, and the zeros stay exactly zero. `finalize()` then exports the weight as a sparse representation (the mask and the nonzero values) with the palettization ops applied to the nonzero values only, so zeros need no indices.
+
+A few details depend on the configuration:
+
+- With `PerGroupedChannelGranularity`, Core AI maps contiguous blocks of the nonzero values to the groups, so every group has to store the same number of values. Groups with fewer nonzeros than the fullest group also store some of their zeros, which costs a little of the sparse savings. For scalar palettization the palette then holds an entry for exactly `0.0`.
+- With vector palettization (`cluster_dim > 1`), the nonzero values of each group are clustered in vectors of `cluster_dim` consecutive values. If a group's nonzero count is not a multiple of `cluster_dim`, its smallest nonzeros are set to zero (truncated). With per-group vector palettization, the aforementioned padding zeros can share a vector with a nonzero value and result in a nonzero value when de-palettized; therefore this could reduce the percentage of sparsity by a small amount.
+
+Supported configurations for exporting an already-sparse weight:
+
+| Option                      | CoreML | Core AI | Notes                                                                                                              |
+| --------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| Per-tensor                  | Yes    | Yes     |                                                                                                                    |
+| Grouped along axis 0        | Yes    | Yes     | For Core AI, groups are padded with stored zeros so each group stores the same number of values.                   |
+| Grouped along another axis  | Yes    | No      | Core AI needs contiguous groups, which only holds along axis 0.                                                    |
+| Per-channel scale           | Yes    | Yes     |                                                                                                                    |
+| Quantized LUT (`lut_qspec`) | No     | Yes     | For Core AI, the zero point must be 0 (a symmetric `lut_qspec`). Not supported together with vector palettization. |
+| Vector (`cluster_dim > 1`)  | No     | Yes     | For Core AI, per-tensor or grouped along axis 0.                                                                   |
 
 ## Config classes and their defaults
 
