@@ -137,7 +137,6 @@ def _import_coreai() -> tuple:
         DebugInfo,
         TensorType,
         blockwise_shift_scale,
-        build_sparse_with_bitmask,
         cast as authoring_cast,
         float4_e2m1fn,
         float8_e4m3fn,
@@ -146,7 +145,6 @@ def _import_coreai() -> tuple:
         float16,
         float32,
         lut_to_dense,
-        sparse_with_bitmask_to_dense,
     )
     from coreai.authoring.constant import constant as authoring_constant  # noqa: PLC0415
     # isort: on
@@ -194,7 +192,6 @@ def _import_coreai() -> tuple:
         authoring_cast,
         authoring_constant,
         blockwise_shift_scale,
-        build_sparse_with_bitmask,
         float4_e2m1fn,
         float8_e4m3fn,
         float8_e5m2,
@@ -202,7 +199,6 @@ def _import_coreai() -> tuple:
         float16,
         float32,
         lut_to_dense,
-        sparse_with_bitmask_to_dense,
         TensorType,
         DebugInfo,
     )
@@ -230,7 +226,6 @@ def _import_coreai() -> tuple:
     authoring_cast,
     authoring_constant,
     blockwise_shift_scale,
-    build_sparse_with_bitmask,
     float4_e2m1fn,
     float8_e4m3fn,
     float8_e5m2,
@@ -238,7 +233,6 @@ def _import_coreai() -> tuple:
     float16,
     float32,
     lut_to_dense,
-    sparse_with_bitmask_to_dense,
     TensorType,
     DebugInfo,
 ) = lazy_import_coreai_torch(_import_coreai)
