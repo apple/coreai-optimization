@@ -490,9 +490,15 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
 
         num_clusters = 2**self.n_bits
 
-        # Must match the zero padding done by _pad_mask_to_equal_groups in _prepare_for_export.py,
-        # whose padded zeros must look up 0.0 (a reused palette holds it at another position).
-        reserve_zero = self._has_uneven_groups()
+        # Axis-0 groups with fewer nonzeros than the fullest group are padded with stored zeros by
+        # _pad_mask_to_equal_groups in _prepare_for_export.py, and these must look up 0.0 (a
+        # reused palette holds it at another position). The fullest groups store no zeros, so
+        # they keep all the centroids for their nonzeros.
+        if self._axis0_group_size() is None or self._sparsity_mask is None:
+            reserve_zero = [False] * len(block_weights_to_cluster)
+        else:
+            nonzero_counts = [int(block_mask.sum()) for block_mask in block_masks]
+            reserve_zero = [count < max(nonzero_counts) for count in nonzero_counts]
 
         # Reuse the palette of leading blocks that are already clustered; detection stops
         # at the first block that is not.
@@ -509,17 +515,22 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
         remaining_weights = block_weights_to_cluster[n_kmeans_skipped:]
         remaining_sensitivities = block_sensitivities[n_kmeans_skipped:]
         remaining_masks = block_masks[n_kmeans_skipped:]
+        remaining_reserve_zero = reserve_zero[n_kmeans_skipped:]
         if self.cluster_dim == 1:
             block_results += [
                 (
                     self._cluster_weights_1d_masked(
-                        block_weight, block_mask, block_sensitivity, reserve_zero
+                        block_weight, block_mask, block_sensitivity, block_reserve_zero
                     )
                     if block_mask is not None
                     else self._cluster_weights_1d(block_weight, block_sensitivity)
                 )
-                for block_weight, block_sensitivity, block_mask in zip(
-                    remaining_weights, remaining_sensitivities, remaining_masks, strict=True
+                for block_weight, block_sensitivity, block_mask, block_reserve_zero in zip(
+                    remaining_weights,
+                    remaining_sensitivities,
+                    remaining_masks,
+                    remaining_reserve_zero,
+                    strict=True,
                 )
             ]
         elif remaining_weights:

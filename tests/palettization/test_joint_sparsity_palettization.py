@@ -117,31 +117,42 @@ def test_sparsity_detection_threshold(small_model, small_input):
 
 
 @pytest.mark.parametrize(
-    "group_size,presparse_group_size,uses_zero_entry",
-    [(None, None, False), (GROUP_SIZE, GROUP_SIZE, False), (GROUP_SIZE, None, True)],
+    "group_size,presparse_group_size",
+    [(None, None), (GROUP_SIZE, GROUP_SIZE), (GROUP_SIZE, None)],
     ids=["per_tensor", "grouped_balanced", "grouped_uneven"],
 )
-def test_centroid_count(
-    group_size, presparse_group_size, uses_zero_entry, small_model, small_input
-):
+def test_centroid_count(group_size, presparse_group_size, small_model, small_input):
+    """Check which LUTs reserve entry 0 for exactly 0.0.
+
+    Pruning each group of ``presparse_group_size`` channels separately gives every LUT group the
+    same number of nonzeros; pruning the whole tensor (``None``) leaves them uneven. Uneven
+    groups with fewer nonzeros than the fullest group are padded with stored zeros at export, so
+    their LUT reserves entry 0 as 0.0 and fits the other 2**n_bits - 1 centroids. The fullest
+    group, and every group of a balanced or per-tensor layer, uses all 2**n_bits centroids.
+    """
     n_bits = 4
     model = presparsify(small_model, SPARSITY, presparse_group_size)
     prepared = build_palettizer(model, **spec_kwargs(n_bits, group_size)).prepare((small_input,))
+    uneven = group_size is not None and presparse_group_size is None
     for name in _LAYERS:
         fake = _fake(prepared, name)
-        lut = fake.lut.reshape(-1, 2**n_bits)
-        kept_indices = fake.indices[fake._sparsity_mask.bool()]
-        if uses_zero_entry:
-            # Uneven groups are padded with zeros at export: k-means reserves entry 0 as
-            # exactly 0.0 and fits the other 2**n_bits - 1 centroids to the nonzero weights.
-            # (A block with at most 2**n_bits distinct values reuses its own palette, with 0.0
-            # at another position; these blocks are larger.)
-            assert (lut[:, 0] == 0).all(), name
-            assert (kept_indices != 0).all(), name
-        else:
-            # All 2**n_bits centroids fit the nonzero weights, so entry 0 is in use.
-            assert (lut[:, 0] != 0).all(), name
-            assert (kept_indices == 0).any(), name
+        num_groups = 1 if group_size is None else getattr(model, name).weight.shape[0] // group_size
+        lut = fake.lut.reshape(num_groups, 2**n_bits)
+        kept = fake._sparsity_mask.reshape(num_groups, -1)
+        indices = fake.indices.reshape(num_groups, -1)
+        num_nonzeros = kept.sum(dim=1)
+        padded = num_nonzeros < num_nonzeros.max()
+        assert padded.any() == uneven, name
+        for group in range(num_groups):
+            kept_indices = indices[group][kept[group]]
+            if padded[group]:
+                # (A block with at most 2**n_bits distinct values reuses its own palette, with
+                # 0.0 at another position; these blocks are larger.)
+                assert lut[group, 0] == 0, (name, group)
+                assert (kept_indices != 0).all(), (name, group)
+            else:
+                assert lut[group, 0] != 0, (name, group)
+                assert (kept_indices == 0).any(), (name, group)
 
 
 @pytest.mark.parametrize("all_zero", ["group", "layer"])
@@ -217,10 +228,14 @@ def test_round_trip(group_size, presparse_group_size, uneven, n_bits, small_mode
         indices = sparse_module.nonzero_indices.long()
         assert lut.shape[1] == 2**n_bits, name
         if uneven:
-            # Entry 0 is reserved as 0.0 (these blocks are large enough to run k-means), and
-            # groups with fewer nonzeros also store zeros so that every group holds as many
-            # elements as the fullest one.
-            assert (lut[:, 0, 0] == 0).all(), name
+            # Groups with fewer nonzeros also store zeros so that every group holds as many
+            # elements as the fullest one, and reserve entry 0 as 0.0 for them (these blocks are
+            # large enough to run k-means). The fullest group uses all its entries for nonzeros.
+            nonzeros_per_group = (~zeros_before[name]).reshape(lut.shape[0], -1).sum(dim=1)
+            padded = nonzeros_per_group < nonzeros_per_group.max()
+            assert padded.any(), name
+            assert (lut[padded, 0, 0] == 0).all(), name
+            assert (lut[~padded, 0, 0] != 0).all(), name
             assert not (~zeros_before[name] & ~mask).any(), name
             stored = torch.stack([g.sum() for g in mask.split(GROUP_SIZE, dim=0)])
             assert stored.unique().numel() == 1, name

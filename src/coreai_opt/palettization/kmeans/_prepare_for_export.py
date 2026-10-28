@@ -377,8 +377,8 @@ def _pad_mask_to_equal_groups(
 
     Groups with fewer nonzeros also store some of their zeros. The stored zeros must look up
     exactly 0.0 in the LUT, so the weight is unchanged. K-means reserves a zero LUT entry for
-    uneven layers, while a palette reused from an already-clustered block holds 0.0 at another
-    position, so the padded positions' own indices are what gets checked.
+    the groups that get padded, while a palette reused from an already-clustered block holds 0.0
+    at another position, so the padded positions' own indices are what gets checked.
 
     Args:
         mask (torch.Tensor): Boolean nonzero mask of the weight.
