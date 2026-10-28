@@ -150,6 +150,13 @@ def _import_coreai() -> tuple:
     # isort: on
 
     from coreai._compiler.dialects import coreai as coreai_dialect  # noqa: PLC0415
+
+    # Raw dialect functions: unlike the coreai.authoring wrappers of the same name, they take and
+    # return raw MLIR values.
+    from coreai._compiler.dialects.coreai import (  # noqa: PLC0415
+        build_sparse_with_bitmask,
+        sparse_with_bitmask_to_dense,
+    )
     from coreai._compiler.dialects.coreai.constant import create_elements_attr  # noqa: PLC0415
     from coreai._compiler.ir import (  # noqa: PLC0415
         BoolAttr,
@@ -192,6 +199,7 @@ def _import_coreai() -> tuple:
         authoring_cast,
         authoring_constant,
         blockwise_shift_scale,
+        build_sparse_with_bitmask,
         float4_e2m1fn,
         float8_e4m3fn,
         float8_e5m2,
@@ -199,6 +207,7 @@ def _import_coreai() -> tuple:
         float16,
         float32,
         lut_to_dense,
+        sparse_with_bitmask_to_dense,
         TensorType,
         DebugInfo,
     )
@@ -226,6 +235,7 @@ def _import_coreai() -> tuple:
     authoring_cast,
     authoring_constant,
     blockwise_shift_scale,
+    build_sparse_with_bitmask,
     float4_e2m1fn,
     float8_e4m3fn,
     float8_e5m2,
@@ -233,6 +243,7 @@ def _import_coreai() -> tuple:
     float16,
     float32,
     lut_to_dense,
+    sparse_with_bitmask_to_dense,
     TensorType,
     DebugInfo,
 ) = lazy_import_coreai_torch(_import_coreai)

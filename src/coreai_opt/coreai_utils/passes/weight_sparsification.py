@@ -23,11 +23,13 @@ from coreai_opt.coreai_utils._coreai_imports import (
     _get_constant_value_as_np_array,
     authoring_constant as _authoring_constant,
     blockwise_shift_scale as _blockwise_shift_scale,
+    build_sparse_with_bitmask as _build_sparse_with_bitmask,
     compression_types as _compression_types,
     coreai as _coreai,
     float8_e4m3fn as _float8_e4m3fn,
     float8_e5m2 as _float8_e5m2,
     lut_to_dense as _lut_to_dense,
+    sparse_with_bitmask_to_dense as _sparse_with_bitmask_to_dense,
 )
 from coreai_opt.coreai_utils._utils.graph_utils import (
     _apply_compression_transform,
@@ -381,8 +383,11 @@ def sparsify_weights(
                 sparse_params.mask,
                 _IntegerType.get_unsigned(1),
             )
-            sparse_tensor = _coreai.build_sparse_with_bitmask(nonzero_data_const, mask)
-            compressed_weight = _coreai.sparse_with_bitmask_to_dense(sparse_tensor)
+            sparse_tensor = _build_sparse_with_bitmask(
+                values=nonzero_data_const,
+                bitmask=mask,
+            )
+            compressed_weight = _sparse_with_bitmask_to_dense(sparse_tensor)
 
             if require_dequantization:
                 compressed_weight = _blockwise_shift_scale(
