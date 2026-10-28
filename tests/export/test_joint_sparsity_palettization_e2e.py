@@ -37,7 +37,7 @@ pruned per group, so every channel group holds the same number of nonzeros.
 | Axis-0 groups (size 2), 4-bit, even groups | yes    | yes    |
 """
 
-import re
+import copy
 
 import pytest
 import torch
@@ -64,59 +64,74 @@ _JOINT_OPS = {
 }
 
 
-def _assert_op_order(converted_model, backend: ExportBackend, num_layers: int, scaled: bool):
-    """Assert each weight is a LUT lookup on the nonzeros, then sparse-to-dense, then a scale."""
-    if backend == _COREML:
-        main = converted_model._mil_program.functions["main"]
-        to_dense = main.find_ops(op_type="constexpr_sparse_to_dense")
-        assert len(to_dense) == num_layers
-        for op in to_dense:
-            assert op.nonzero_data.op.op_type == "constexpr_lut_to_sparse"
-            assert op.mask.op.op_type == "constexpr_lut_to_sparse"
-        scale_ops = main.find_ops(op_type="constexpr_blockwise_shift_scale")
-        assert len(scale_ops) == (num_layers if scaled else 0)
-        assert all(op.data.op.op_type == "constexpr_sparse_to_dense" for op in scale_ops)
-        return
+def _target_name(node) -> str | None:
+    """Return the name of the custom op a graph node calls, e.g. ``coreai::lut_to_dense``."""
+    target = getattr(node, "target", None)
+    return target.name() if hasattr(target, "name") else None
 
-    mlir = str(converted_model._get_graph("main"))
-    producers = {
-        m.group(1): (m.group(2), m.group(3))
-        for m in re.finditer(r"(%\d+) = (coreai\.[\w.]+) (.*)", mlir)
-    }
 
-    def operand_ops(op_name: str) -> list[list[str]]:
-        """Return, for every ``op_name`` op, the op types that produce its operands."""
-        return [
-            [producers[v][0] for v in re.findall(r"%\d+", rest.split(" : ")[0]) if v in producers]
-            for name, rest in producers.values()
-            if name == op_name
-        ]
+def _assert_coreai_op_order(exported_program, num_layers: int, scaled: bool):
+    """Assert each weight is a LUT lookup on the nonzeros, then sparse-to-dense, then a scale.
 
-    to_dense = operand_ops("coreai.sparse_with_bitmask_to_dense")
-    build_sparse = operand_ops("coreai.build_sparse_with_bitmask")
-    assert len(to_dense) == len(build_sparse) == num_layers
-    assert all("coreai.build_sparse_with_bitmask" in ops for ops in to_dense)
-    assert all("coreai.lut_to_dense" in ops for ops in build_sparse)
-    scale_ops = operand_ops("coreai.blockwise_shift_scale")
+    The order is checked on the exported torch program, so it does not depend on how a Core AI
+    version lowers or prints these ops.
+    """
+
+    def nodes(op_name: str) -> list:
+        return [n for n in exported_program.graph.nodes if _target_name(n) == f"coreai::{op_name}"]
+
+    to_dense = nodes("sparse_to_dense")
+    assert len(to_dense) == num_layers
+    assert all(_target_name(n.args[0]) == "coreai::lut_to_dense" for n in to_dense)
+    scale_ops = nodes("constexpr_blockwise_shift_scale")
     assert len(scale_ops) == (num_layers if scaled else 0)
-    assert all("coreai.sparse_with_bitmask_to_dense" in ops for ops in scale_ops)
+    assert all(_target_name(n.args[0]) == "coreai::sparse_to_dense" for n in scale_ops)
 
 
-def _export(backend, model, input_data, kwargs, num_layers, scaled=False, **verify_kwargs):
-    """Palettize ``model``, finalize and convert it, and return the converted model."""
+def _assert_coreml_op_order(converted_model, num_layers: int, scaled: bool):
+    """Assert each weight is a sparse LUT lookup, then sparse-to-dense, then a scale."""
+    main = converted_model._mil_program.functions["main"]
+    to_dense = main.find_ops(op_type="constexpr_sparse_to_dense")
+    assert len(to_dense) == num_layers
+    for op in to_dense:
+        assert op.nonzero_data.op.op_type == "constexpr_lut_to_sparse"
+        assert op.mask.op.op_type == "constexpr_lut_to_sparse"
+    scale_ops = main.find_ops(op_type="constexpr_blockwise_shift_scale")
+    assert len(scale_ops) == (num_layers if scaled else 0)
+    assert all(op.data.op.op_type == "constexpr_sparse_to_dense" for op in scale_ops)
+
+
+def _export(
+    backend, model, input_data, kwargs, num_layers, scaled=False, check_order=False, **verify_kwargs
+):
+    """Palettize ``model``, finalize and convert it, and return the converted model.
+
+    With ``check_order``, also assert the order of the ops that rebuild each weight.
+    """
     palettizer = build_palettizer(model, **kwargs)
     prepared = palettizer.prepare((input_data,))
     with torch.no_grad():
         prepared_output = prepared(input_data)
     ops = _JOINT_OPS[backend] + (["constexpr_blockwise_shift_scale"] if scaled else [])
-    return export_utils.convert_and_verify(
-        finalized_model=palettizer.finalize(backend=backend),
+    expected_ops = dict.fromkeys(ops, num_layers)
+    finalized_model = palettizer.finalize(backend=backend)
+    if check_order and backend == _COREAI:
+        # Traced on a copy, since converting may modify the model.
+        exported_program = export_utils.create_converter(backend).trace(
+            copy.deepcopy(finalized_model), input_data, expected_ops
+        )
+        _assert_coreai_op_order(exported_program, num_layers, scaled)
+    converted_model = export_utils.convert_and_verify(
+        finalized_model=finalized_model,
         input_data=input_data,
-        expected_ops=dict.fromkeys(ops, num_layers),
+        expected_ops=expected_ops,
         export_backend=backend,
         prepared_model_output=prepared_output,
         **verify_kwargs,
     )
+    if check_order and backend == _COREML:
+        _assert_coreml_op_order(converted_model, num_layers, scaled)
+    return converted_model
 
 
 _SCALE = {"enable_per_channel_scale": True}
@@ -158,17 +173,17 @@ def test_mnist(
 ):
     model = presparsify(custom_test_mnist_model, SPARSITY, prune_group_size)
     scaled = "enable_per_channel_scale" in extra or "lut_qspec" in extra
-    converted = _export(
+    _export(
         backend,
         model,
         mnist_example_input,
         {**spec_kwargs(n_bits, group_size, axis), **extra},
         len(_MNIST_LAYERS),
         scaled=scaled,
+        check_order=True,
         snr_thresh=40.0,
         psnr_thresh=40.0,
     )
-    _assert_op_order(converted, backend, len(_MNIST_LAYERS), scaled=scaled)
 
 
 @pytest.mark.parametrize(
@@ -182,17 +197,17 @@ def test_mnist_vector_palettization(
     # Pruning a hair under half leaves most layers with a nonzero count that is not a multiple
     # of cluster_dim, so the smallest nonzeros are dropped from the mask.
     model = presparsify(custom_test_mnist_model, 0.4999)
-    converted = _export(
+    _export(
         _COREAI,
         model,
         mnist_example_input,
         {**spec_kwargs(4, None), "cluster_dim": cluster_dim, **extra},
         len(_MNIST_LAYERS),
         scaled=bool(extra),
+        check_order=True,
         snr_thresh=40.0,
         psnr_thresh=40.0,
     )
-    _assert_op_order(converted, _COREAI, len(_MNIST_LAYERS), scaled=bool(extra))
 
 
 @pytest.mark.slow
