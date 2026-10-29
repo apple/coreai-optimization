@@ -19,6 +19,7 @@ from coreai_opt.quantization.spec.qparams_calculator import (
     DynamicQParamsCalculator,
     GlobalMinMaxQParamsCalculator,
     MovingAverageQParamsCalculator,
+    QParamsCalculatorBase,
     StatelessQParamsCalculatorBase,
     StaticQParamsCalculator,
 )
@@ -1078,3 +1079,136 @@ def test_scale_clamping(precision_dtype, dtype, granularity, compression_target)
             f"Scale should be less than {precision_dtype} eps floor {precision_eps}, "
             f"max scale={scale.max().item()}"
         )
+
+
+@pytest.mark.parametrize("input_dtype", [torch.float32, torch.bfloat16, torch.float16])
+@pytest.mark.parametrize("qscheme", [QuantizationScheme.SYMMETRIC, QuantizationScheme.ASYMMETRIC])
+def test_float16_scale_dtype(qscheme, input_dtype):
+    """The scale is rounded to FP16 whatever the input dtype.
+
+    An asymmetric zero point follows the rounded scale.
+    """
+    spec = QuantizationSpec(
+        dtype=torch.int8,
+        qscheme=qscheme,
+        granularity=PerChannelGranularity(axis=0),
+        scale_dtype=torch.float16,
+    )
+    calculator = QuantizationComponentFactory.create_qparams_calculator(
+        spec, CompressionTargetTensor.WEIGHT
+    )
+    tensor = (torch.randn(1024, 16) * 0.37 + 0.11).to(input_dtype)
+
+    scale, zero_point, _minval = calculator(tensor)
+
+    min_val = tensor.float().amin(dim=1, keepdim=True).clamp(max=0)
+    max_val = tensor.float().amax(dim=1, keepdim=True).clamp(min=0)
+    if qscheme == QuantizationScheme.ASYMMETRIC:
+        unrounded_scale = (max_val - min_val) / 255
+        expected_zero_point = torch.clamp(-128 - torch.round(min_val / scale), -128, 127)
+    else:
+        unrounded_scale = torch.maximum(-min_val, max_val) / 127.5
+        expected_zero_point = torch.zeros_like(scale)
+    assert scale.dtype == torch.float32
+    assert torch.equal(scale, unrounded_scale.half().float())
+    assert torch.equal(zero_point, expected_zero_point.to(torch.int32))
+
+
+def test_float16_scale_dtype_clamps_to_the_largest_finite_value():
+    """A scale beyond the FP16 range is clamped to the FP16 max, not rounded to inf."""
+    spec = QuantizationSpec(
+        dtype=torch.int8,
+        granularity=PerTensorGranularity(),
+        scale_dtype=torch.float16,
+    )
+    calculator = QuantizationComponentFactory.create_qparams_calculator(
+        spec, CompressionTargetTensor.WEIGHT
+    )
+
+    scale, _zero_point, _minval = calculator(torch.tensor([[1e9, -1e9]]))
+
+    assert scale.item() == torch.finfo(torch.float16).max
+
+
+def test_float16_scale_dtype_keeps_an_fp64_minval():
+    """Only the scale is rounded, so an fp64 input keeps its fp64 minval."""
+    spec = QuantizationSpec(
+        dtype=torch.uint8,
+        qscheme=QuantizationScheme.ASYMMETRIC,
+        granularity=PerTensorGranularity(),
+        scale_dtype=torch.float16,
+    )
+    calculator = QuantizationComponentFactory.create_qparams_calculator(
+        spec, CompressionTargetTensor.WEIGHT
+    )
+    # Neither bound is representable in fp32.
+    tensor = torch.tensor([[-0.1234567890123, 0.9876543210123]], dtype=torch.float64)
+
+    _scale, _zero_point, minval = calculator(tensor)
+
+    assert minval.dtype == torch.float64
+    assert minval.item() == tensor.min().item()
+
+
+def test_float16_scale_dtype_keeps_a_one_sided_float_range_bound_unrounded():
+    """A float_range bound is not rounded to a bf16 input dtype before the FP16 rounding."""
+    spec = QuantizationSpec(
+        dtype=torch.int8,
+        granularity=PerTensorGranularity(),
+        float_range=[None, 0.1],
+        scale_dtype=torch.float16,
+    )
+    calculator = QuantizationComponentFactory.create_qparams_calculator(
+        spec, CompressionTargetTensor.WEIGHT
+    )
+    # Non-negative values below the bound, so the scale comes from the 0.1 bound alone.
+    tensor = torch.rand(8, 16, dtype=torch.bfloat16) * 0.05
+
+    scale, _zero_point, _minval = calculator(tensor)
+
+    # int8 symmetric: max_abs / 127.5, with max_abs the fp32 bound 0.1.
+    assert scale.item() == (torch.tensor(0.1) / 127.5).half().item()
+
+
+def _create_calculator_under_default_dtype(
+    spec: QuantizationSpec, default_dtype: torch.dtype
+) -> QParamsCalculatorBase:
+    """Build a weight calculator while ``torch.get_default_dtype()`` is ``default_dtype``."""
+    previous_default_dtype = torch.get_default_dtype()
+    torch.set_default_dtype(default_dtype)
+    try:
+        return QuantizationComponentFactory.create_qparams_calculator(
+            spec, CompressionTargetTensor.WEIGHT
+        )
+    finally:
+        torch.set_default_dtype(previous_default_dtype)
+
+
+def test_float16_scale_dtype_rejects_a_bf16_default_dtype_buffer():
+    """A bf16 default dtype makes the scale buffer bf16, which would round FP16 scales again."""
+    spec = QuantizationSpec(dtype=torch.int8, scale_dtype=torch.float16)
+    calculator = _create_calculator_under_default_dtype(spec, torch.bfloat16)
+
+    with pytest.raises(RuntimeError, match="torch.get_default_dtype"):
+        calculator(torch.randn(8, 16))
+
+
+def test_float16_scale_dtype_rejects_a_bf16_buffer_set_without_apply():
+    """A bf16 buffer assigned directly, as FSDP buffer casting does, raises on the next read."""
+    calculator = QuantizationComponentFactory.create_qparams_calculator(
+        QuantizationSpec(dtype=torch.int8, scale_dtype=torch.float16),
+        CompressionTargetTensor.WEIGHT,
+    )
+    calculator(torch.randn(8, 16))
+
+    calculator.scale = calculator.scale.bfloat16()
+
+    with pytest.raises(RuntimeError, match="Cast the model before Quantizer.prepare"):
+        calculator.get_qparams()
+
+
+def test_default_scale_dtype_accepts_a_bf16_scale_buffer():
+    """The buffer check applies only to rounded scale dtypes, so default scales still run."""
+    calculator = _create_calculator_under_default_dtype(QuantizationSpec(), torch.bfloat16)
+
+    calculator(torch.randn(8, 16))

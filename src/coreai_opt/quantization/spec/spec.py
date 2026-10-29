@@ -20,6 +20,7 @@ from pydantic import (
 
 from coreai_opt._utils.torch_utils import (
     E8M0_TARGET_MAX_POW2 as _E8M0_TARGET_MAX_POW2,
+    ROUNDED_SCALE_DTYPES as _ROUNDED_SCALE_DTYPES,
     get_n_bits_from_dtype as _get_n_bits_from_dtype,
     is_float4_dtype as _is_float4_dtype,
 )
@@ -156,6 +157,7 @@ class QuantizationSpec(CompressionSpec):
               power-of-2 scale per OCP MX spec —
               ``scale = 2^(floor(log2(max_abs)) - target_max_pow2)``, with
               ``target_max_pow2`` of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2.
+            - ``scale_dtype=torch.float16`` (FP8): the ``None`` scale, rounded to FP16.
 
             **MINVAL formulation**, e.g. with 8 bit signed and unsigned fixed point types:
 
@@ -303,8 +305,9 @@ class QuantizationSpec(CompressionSpec):
             - float_min < float_max
 
         scale_dtype (torch.dtype | None): Data type for quantization scale factors.
-            Controls whether scales are constrained to power-of-2 values (e8m0 format)
-            or allowed to be arbitrary floating-point values.
+            Controls whether scales are constrained to power-of-2 values (e8m0 format),
+            rounded to a floating-point storage dtype, or allowed to be arbitrary
+            floating-point values.
             Valid inputs:
 
             - None: Use default scale computation via torchao's
@@ -312,14 +315,24 @@ class QuantizationSpec(CompressionSpec):
               For FP4, None is resolved to torch.float8_e8m0fnu automatically.
             - torch.float8_e8m0fnu: Power-of-2 scales following OCP Microscaling (MX)
               spec. Required for FP4 quantization, optional for FP8.
+            - torch.float16: Each scale is rounded to the nearest FP16 value, whatever
+              the model dtype. The tensor is then quantized with the rounded scale (an
+              asymmetric zero point is recomputed from it too), so the result matches a
+              format that stores its scales in FP16.
 
             Constraints:
 
             - FP4 (float4_e2m1fn_x2): scale_dtype must be torch.float8_e8m0fnu or None
               (defaults to e8m0)
             - FP8 (float8_e4m3fn, float8_e5m2): scale_dtype must be
-              torch.float8_e8m0fnu or None (defaults to None)
-            - Integer dtypes: scale_dtype must be None (defaults to None)
+              torch.float8_e8m0fnu, torch.float16 or None (defaults to None)
+            - Integer dtypes: scale_dtype must be torch.float16 or None (defaults to None)
+            - Export of torch.float16 to CoreAI or CoreML is not supported yet:
+              ``Quantizer.finalize`` raises ``NotImplementedError`` for those backends.
+            - With torch.float16, cast the model before ``Quantizer.prepare``, and keep
+              ``torch.get_default_dtype()`` float32 while preparing: a bf16 scale buffer
+              would round the cached scales again, so ``Quantizer.prepare``, a bf16 cast
+              of the prepared model, or the next forward raises ``RuntimeError``.
 
             Default: None
 
@@ -541,28 +554,40 @@ class QuantizationSpec(CompressionSpec):
         Validate scale_dtype based on element dtype.
 
         Rules:
-            - Only None or torch.float8_e8m0fnu are supported.
-            - When scale_dtype is set, dtype must be a key of ``E8M0_TARGET_MAX_POW2``
-              (the dtypes with an e8m0 target exponent); for any other dtype, including
-              all integer dtypes, scale_dtype must be None.
+            - Only None, torch.float8_e8m0fnu or torch.float16 are supported.
+            - torch.float16 is rejected for FP4 dtypes.
+            - torch.float8_e8m0fnu requires dtype to be a key of
+              ``E8M0_TARGET_MAX_POW2`` (the dtypes with an e8m0 target exponent); for
+              any other dtype, including all integer dtypes, it is rejected.
             - FP4 dtypes: scale_dtype is resolved to torch.float8_e8m0fnu
               by resolve_scale_dtype (before validator).
         """
         if self.scale_dtype is None:
             return self
 
+        if self.scale_dtype in _ROUNDED_SCALE_DTYPES:
+            if _is_float4_dtype(self.dtype):
+                msg = (
+                    f"scale_dtype={self.scale_dtype} is not supported for dtype={self.dtype}. "
+                    f"FP4 scales must be power-of-two (scale_dtype=torch.float8_e8m0fnu)."
+                )
+                raise ValueError(msg)
+            return self
+
         if self.scale_dtype != torch.float8_e8m0fnu:
-            raise ValueError(
+            msg = (
                 f"Unsupported scale_dtype: {self.scale_dtype}. "
-                f"Only None or torch.float8_e8m0fnu are supported."
+                f"Only None, torch.float8_e8m0fnu or torch.float16 are supported."
             )
+            raise ValueError(msg)
 
         if self.dtype not in _E8M0_TARGET_MAX_POW2:
-            raise ValueError(
-                f"scale_dtype must be None for dtype={self.dtype}, got "
-                f"scale_dtype={self.scale_dtype}. No e8m0 target exponent is defined "
-                f"for it; supported dtypes are {list(_E8M0_TARGET_MAX_POW2)}."
+            msg = (
+                f"scale_dtype={self.scale_dtype} is not supported for dtype={self.dtype}. "
+                f"No e8m0 target exponent is defined for it; supported dtypes are "
+                f"{list(_E8M0_TARGET_MAX_POW2)}."
             )
+            raise ValueError(msg)
 
         return self
 

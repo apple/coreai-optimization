@@ -15,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 
+from coreai_opt._utils.torch_utils import ROUNDED_SCALE_DTYPES as _ROUNDED_SCALE_DTYPES
 from coreai_opt.common import CompressionType
 from coreai_opt.config.spec import CompressionSpec
 from coreai_opt.quantization.spec import (
@@ -49,8 +50,8 @@ class PalettizationSpec(CompressionSpec):
             If None, no quantization is applied to the LUT. When specified,
             only ``torch.int8``, ``torch.uint8``, ``torch.float8_e4m3fn``, and
             ``torch.float8_e5m2`` dtypes are supported, and granularity must be
-            ``PerTensorGranularity``. FP8 dtypes require symmetric quantization.
-            Default: None.
+            ``PerTensorGranularity``. FP8 dtypes require symmetric quantization, and
+            a float16 ``scale_dtype`` is not supported. Default: None.
         granularity: Defines how palettization is applied - per-tensor applies a
             single palette to the entire tensor, per-channel applies separate
             palettes to each channel. Default: PerTensorGranularity().
@@ -142,6 +143,13 @@ class PalettizationSpec(CompressionSpec):
                 "lut_qspec.qformulation=MINVAL is not supported for palettization. "
                 "Use lut_qspec.qformulation=ZP instead."
             )
+
+        if self.lut_qspec.scale_dtype in _ROUNDED_SCALE_DTYPES:
+            msg = (
+                f"lut_qspec.scale_dtype={self.lut_qspec.scale_dtype} is not supported for "
+                f"palettization."
+            )
+            raise ValueError(msg)
 
         return self
 

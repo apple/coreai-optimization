@@ -53,6 +53,7 @@ _OUT_CHANNELS = _HIDDEN_FEATURES + _OUT_FEATURES
 _FP32_BITS = 32
 _INT64_BITS = 64
 _E8M0_BITS = 8
+_FP16_BITS = 16
 
 # Sanity envelope for the qparam / LUT / bias overhead a sane config adds on top of the
 # nominal bit width, in bpw.
@@ -463,6 +464,22 @@ def test_e8m0_scale_width():
     assert result.total_weights == expected_elems
     assert result.bpw == expected_bits / expected_elems
     _assert_bpw_is_plausible(result.bpw, 8)
+
+
+def test_rounded_scale_dtype_width():
+    """A float16 ``scale_dtype`` charges one 16-bit scale per block."""
+    prepared = _prepare_eager_quant(
+        SimpleLinearModel(bias=False),
+        torch.int8,
+        granularity=_PER_BLOCK_32,
+        scale_dtype=torch.float16,
+    )
+    result = bits_per_weight(prepared)
+
+    expected_bits = _expected_quant_bits(
+        8, _PER_BLOCK_32_BLOCKS, "symmetric", bias=False, scale_dtype_bits=_FP16_BITS
+    )
+    assert result.total_bits == expected_bits
 
 
 def test_supported_quantization_settings_cover_the_library():

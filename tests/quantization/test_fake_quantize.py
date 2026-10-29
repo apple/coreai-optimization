@@ -404,6 +404,43 @@ def test_float8_matches_torchao_primitives(dtype, granularity):
     torch.testing.assert_close(custom_dequant, torchao_dequant)
 
 
+@pytest.mark.parametrize("weight_dtype", [torch.float32, torch.bfloat16, torch.float16])
+@pytest.mark.parametrize(
+    ("dtype", "qscheme"),
+    [
+        (torch.int8, QuantizationScheme.SYMMETRIC),
+        (torch.int8, QuantizationScheme.ASYMMETRIC),
+        (torch.float8_e4m3fn, QuantizationScheme.SYMMETRIC),
+    ],
+)
+def test_float16_scale_dtype_matches_fp32_reference(dtype, qscheme, weight_dtype):
+    """The output matches an fp32 decode with the FP16 scale, cast to the weight dtype."""
+    spec = QuantizationSpec(
+        dtype=dtype,
+        qscheme=qscheme,
+        granularity=PerChannelGranularity(axis=0),
+        scale_dtype=torch.float16,
+    )
+    fq = QuantizationComponentFactory.create_fake_quantizer(spec, CompressionTargetTensor.WEIGHT)
+    weight = (torch.randn(8, 64) * 0.37 + 0.11).to(weight_dtype)
+
+    out = fq(weight)
+
+    scale, zero_point, _minval = fq.calculate_qparams()
+    weight_fp32 = weight.float()
+    if dtype.is_floating_point:
+        max_abs = weight_fp32.abs().amax(dim=1, keepdim=True)
+        assert torch.equal(scale, (max_abs / torch.finfo(dtype).max).half().float())
+        codes = _quantize_affine_float8(weight_fp32, scale, dtype)
+        expected = _dequantize_affine_float8(codes, scale)
+    else:
+        codes = torch.round(weight_fp32 / scale) + zero_point
+        codes = torch.clamp(codes, spec.quant_min, spec.quant_max)
+        expected = (codes - zero_point) * scale
+    assert out.dtype == weight_dtype
+    assert torch.equal(out, expected.to(weight_dtype))
+
+
 class TestFusedFakeQuantizeIntSTEMatchesTorchBuiltin:
     """Verify FusedFakeQuantizeIntSTE produces identical results to
     torch.fake_quantize_per_{tensor,channel}_affine for forward and backward."""

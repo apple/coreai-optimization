@@ -24,7 +24,10 @@ from coreai_opt._utils.config_utils import ConfigLevel as _ConfigLevel
 from coreai_opt._utils.export_utils import (
     validate_mmap_backend_and_device as _validate_mmap_backend_and_device,
 )
-from coreai_opt._utils.torch_utils import get_module_name as _get_module_name
+from coreai_opt._utils.torch_utils import (
+    ROUNDED_SCALE_DTYPES as _ROUNDED_SCALE_DTYPES,
+    get_module_name as _get_module_name,
+)
 from coreai_opt.common import ExportBackend
 from coreai_opt.quantization._eager import EagerQuantizer as _EagerQuantizer
 from coreai_opt.quantization._export_utils import (
@@ -357,6 +360,11 @@ class Quantizer(_BaseQuantizer):
             The prepared model with fake quantization modules inserted, ready for
             calibration or training. This is a data-free PTQ compressed model.
 
+        Raises:
+            RuntimeError: If a spec sets ``scale_dtype=torch.float16`` and its scale buffers
+                cannot hold FP16 scales exactly, e.g. bf16 buffers created under
+                ``torch.set_default_dtype(torch.bfloat16)``.
+
         Note:
             In graph mode, the returned ``fx.GraphModule`` supports calling
             ``.train()`` and ``.eval()``, but with limited effect: only dropout
@@ -462,6 +470,33 @@ class Quantizer(_BaseQuantizer):
             )
             raise NotImplementedError(msg)
 
+    def _validate_export_supported_qparams(
+        self,
+        model: nn.Module | fx.GraphModule | None,
+        backend: ExportBackend,
+    ) -> None:
+        """Reject CoreAI/CoreML export of qparams those backends cannot store yet.
+
+        Export stores each scale at the model dtype, so it would store a float16 ``scale_dtype``
+        at the model dtype instead of FP16 (rounding it again in a bf16 model).
+        """
+        if backend == ExportBackend.Torch:
+            return
+        model_to_check = model if model is not None else self._model
+        unsupported_fq_names = [
+            name
+            for name, mod in model_to_check.named_modules()
+            if isinstance(mod, FakeQuantizeImplBase)
+            and mod.qparams_calculator.scale_dtype in _ROUNDED_SCALE_DTYPES
+        ]
+        if unsupported_fq_names:
+            msg = (
+                f"backend={backend} does not yet support a float16 scale_dtype. "
+                f"Affected FakeQuantize modules: {unsupported_fq_names}. Use "
+                f"backend=ExportBackend.Torch for torch-only inference."
+            )
+            raise NotImplementedError(msg)
+
     def finalize(
         self,
         model: nn.Module | fx.GraphModule | None = None,
@@ -503,6 +538,8 @@ class Quantizer(_BaseQuantizer):
             NotImplementedError: If ``backend`` is CoreAI or CoreML and a quantization
                 spec uses ``torch.int6`` or ``torch.uint6``, which are only supported for
                 ``ExportBackend.Torch``.
+            NotImplementedError: If ``backend`` is CoreAI or CoreML and the model holds qparams
+                that backend cannot export yet, or scales rounded to a float16 ``scale_dtype``.
 
         Note:
             In graph mode, the returned ``fx.GraphModule`` supports calling
@@ -516,6 +553,7 @@ class Quantizer(_BaseQuantizer):
             finalize frees the original dense weights.
         """
         self._validate_mmap_dir_constraints(model, backend, mmap_dir)
+        self._validate_export_supported_qparams(model, backend)
         self._validate_no_persistent_observer_calculators(model, backend)
         self._validate_export_supported_dtypes(model, backend)
         return self._quantizer.finalize(model, backend, mmap_dir=mmap_dir)

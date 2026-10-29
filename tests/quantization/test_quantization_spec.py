@@ -884,6 +884,9 @@ def test_partial_defaults():
         ),
         (torch.float4_e2m1fn_x2, None, torch.float8_e8m0fnu),
         (torch.float4_e2m1fn_x2, torch.float8_e8m0fnu, torch.float8_e8m0fnu),
+        (torch.int8, torch.float16, torch.float16),
+        (torch.float8_e4m3fn, torch.float16, torch.float16),
+        (torch.uint8, "float16", torch.float16),
     ],
 )
 def test_valid_scale_dtype(dtype, scale_dtype, expected_scale_dtype):
@@ -900,9 +903,10 @@ def test_valid_scale_dtype(dtype, scale_dtype, expected_scale_dtype):
     "dtype,scale_dtype",
     [
         (torch.float8_e4m3fn, torch.float32),
-        (torch.int8, torch.float16),
+        (torch.int8, torch.bfloat16),
         (torch.float8_e4m3fn, "float8_typo"),
         (torch.float4_e2m1fn_x2, torch.float32),
+        (torch.float4_e2m1fn_x2, torch.float16),
         (
             torch.int4,
             torch.float8_e8m0fnu,
