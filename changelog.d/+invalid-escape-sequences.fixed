@@ -1,0 +1,1 @@
+Fix `SyntaxWarning: invalid escape sequence '\*'` emitted when `coreai_opt.quantization.config` is compiled on Python 3.12+ (and a `SyntaxError` under `python -W error`).
