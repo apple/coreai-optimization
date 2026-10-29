@@ -7,9 +7,18 @@
 
 import importlib.util
 from decimal import ROUND_FLOOR, Decimal
+from typing import Any
 
 import torch
 from torch.ops import coreai
+
+from coreai_opt.quantization.spec import (
+    PerBlockGranularity,
+    PerTensorGranularity,
+    QuantizationFormulation,
+    QuantizationScheme,
+    QuantizationSpec,
+)
 
 COREAI_AVAILABLE = importlib.util.find_spec("coreai") is not None
 
@@ -161,3 +170,68 @@ def is_coreai_dequantize(target: object) -> bool:
 def get_quantize_dtype(node: torch.fx.Node) -> torch.dtype | None:
     """Return the quantized dtype carried in an FX node's args, else None."""
     return next((a for a in node.args if isinstance(a, torch.dtype)), None)
+
+
+def nvfp4_spec(axis: int | None = 1, **overrides: Any) -> QuantizationSpec:
+    """NVFP4: FP4 E2M1 elements in blocks of 16, FP8 E4M3 block scales under one tensor scale."""
+    kwargs = {
+        "dtype": torch.float4_e2m1fn_x2,
+        "granularity": PerBlockGranularity(axis=axis, block_size=16),
+        "qparam_qspec": QuantizationSpec(
+            dtype=torch.float8_e4m3fn, granularity=PerTensorGranularity()
+        ),
+    }
+    return QuantizationSpec(**(kwargs | overrides))
+
+
+def minval_qparam_qspec(**overrides: Any) -> QuantizationSpec:
+    """uint8 asymmetric codes under one super-scale per 8 blocks."""
+    kwargs = {
+        "dtype": torch.uint8,
+        "qscheme": QuantizationScheme.ASYMMETRIC,
+        "granularity": PerBlockGranularity(block_size=8),
+    }
+    return QuantizationSpec(**(kwargs | overrides))
+
+
+def minval_spec(axis: int | None = 1, **overrides: Any) -> QuantizationSpec:
+    """uint4 MINVAL elements in blocks of 32, with uint8 scale and minval codes.
+
+    The two codes sit under separate super-scales, one of each per 8 blocks.
+    """
+    kwargs = {
+        "dtype": torch.uint4,
+        "qscheme": QuantizationScheme.ASYMMETRIC,
+        "qformulation": QuantizationFormulation.MINVAL,
+        "granularity": PerBlockGranularity(axis=axis, block_size=32),
+        "qparam_qspec": minval_qparam_qspec(),
+    }
+    return QuantizationSpec(**(kwargs | overrides))
+
+
+def minval_uint6_fp16_spec(axis: int | None = 1) -> QuantizationSpec:
+    """``minval_spec`` with uint6 scale and minval codes under FP16 super-scales."""
+    return minval_spec(
+        axis, qparam_qspec=minval_qparam_qspec(dtype=torch.uint6, scale_dtype=torch.float16)
+    )
+
+
+def twice_quantized_spec(**nested_overrides: Any) -> QuantizationSpec:
+    """int4 blocks of 32 whose qparams are quantized twice.
+
+    Each block's scale is a uint8 code under a super-scale shared by 4 blocks, and those
+    super-scales are FP8 E4M3 codes under one tensor scale.
+    """
+    nested_kwargs = {
+        "dtype": torch.uint8,
+        "qscheme": QuantizationScheme.ASYMMETRIC,
+        "granularity": PerBlockGranularity(block_size=4),
+        "qparam_qspec": QuantizationSpec(
+            dtype=torch.float8_e4m3fn, granularity=PerTensorGranularity()
+        ),
+    }
+    return QuantizationSpec(
+        dtype=torch.int4,
+        granularity=PerBlockGranularity(axis=1, block_size=32),
+        qparam_qspec=QuantizationSpec(**(nested_kwargs | nested_overrides)),
+    )

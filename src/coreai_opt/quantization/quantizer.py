@@ -25,8 +25,8 @@ from coreai_opt._utils.export_utils import (
     validate_mmap_backend_and_device as _validate_mmap_backend_and_device,
 )
 from coreai_opt._utils.torch_utils import (
-    ROUNDED_SCALE_DTYPES as _ROUNDED_SCALE_DTYPES,
     get_module_name as _get_module_name,
+    get_parent_module_and_attr_name as _get_parent_module_and_attr_name,
 )
 from coreai_opt.common import ExportBackend
 from coreai_opt.quantization._eager import EagerQuantizer as _EagerQuantizer
@@ -42,6 +42,7 @@ from coreai_opt.quantization.config.quantization_config import (
     QuantizerConfig,
 )
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
+from coreai_opt.quantization.spec.qparams_calculator import QParamsCalculatorBase
 
 # Quantization dtypes that only the Torch backend supports for now. This is a deny-list: a new dtype
 # that CoreAI/CoreML cannot store must be added here, or replace it with an allow-list.
@@ -229,8 +230,12 @@ class Quantizer(_BaseQuantizer):
         """Apply observer/fake-quant state for the current step count."""
         for fq_module, schedule in self._fq_to_schedule.items():
             state = schedule._compute_state(self._step_count)
-            fq_module.enable_observer(state.obs_on)
-            fq_module.enable_fake_quant(state.fq_on)
+            # ``apply`` also reaches the fake quantizers a ``qparam_qspec`` nests in the qparams
+            # calculator, so a nested scale that a dynamic calculator keeps using freezes too.
+            fq_module.apply(_torchao_enable_observer if state.obs_on else _torchao_disable_observer)
+            fq_module.apply(
+                _torchao_enable_fake_quant if state.fq_on else _torchao_disable_fake_quant
+            )
 
     def _validate_no_schedule_configured(self) -> None:
         """Raise RuntimeError if any FQ modules have a qat_schedule."""
@@ -477,8 +482,9 @@ class Quantizer(_BaseQuantizer):
     ) -> None:
         """Reject CoreAI/CoreML export of qparams those backends cannot store yet.
 
-        Export stores each scale at the model dtype, so it would store a float16 ``scale_dtype``
-        at the model dtype instead of FP16 (rounding it again in a bf16 model).
+        Export stores each scale at the model dtype, so it would drop the codes and super-scales of
+        a ``qparam_qspec``, and store a float16 ``scale_dtype`` at the model dtype instead of FP16
+        (rounding it again in a bf16 model).
         """
         if backend == ExportBackend.Torch:
             return
@@ -487,12 +493,16 @@ class Quantizer(_BaseQuantizer):
             name
             for name, mod in model_to_check.named_modules()
             if isinstance(mod, FakeQuantizeImplBase)
-            and mod.qparams_calculator.scale_dtype in _ROUNDED_SCALE_DTYPES
+            and mod.qparams_calculator.adjusts_scale
+            and not isinstance(
+                _get_parent_module_and_attr_name(model_to_check, name)[0],
+                QParamsCalculatorBase,
+            )
         ]
         if unsupported_fq_names:
             msg = (
-                f"backend={backend} does not yet support a float16 scale_dtype. "
-                f"Affected FakeQuantize modules: {unsupported_fq_names}. Use "
+                f"backend={backend} does not yet support quantized qparams (qparam_qspec) or a "
+                f"float16 scale_dtype. Affected FakeQuantize modules: {unsupported_fq_names}. Use "
                 f"backend=ExportBackend.Torch for torch-only inference."
             )
             raise NotImplementedError(msg)
@@ -539,7 +549,9 @@ class Quantizer(_BaseQuantizer):
                 spec uses ``torch.int6`` or ``torch.uint6``, which are only supported for
                 ``ExportBackend.Torch``.
             NotImplementedError: If ``backend`` is CoreAI or CoreML and the model holds qparams
-                that backend cannot export yet, or scales rounded to a float16 ``scale_dtype``.
+                that backend cannot export yet: qparams calculators that recompute every
+                forward (e.g. dynamic quantization), qparams quantized by a
+                ``qparam_qspec``, or scales rounded to a float16 ``scale_dtype``.
 
         Note:
             In graph mode, the returned ``fx.GraphModule`` supports calling
@@ -553,6 +565,8 @@ class Quantizer(_BaseQuantizer):
             finalize frees the original dense weights.
         """
         self._validate_mmap_dir_constraints(model, backend, mmap_dir)
+        # First, so a nested fake quantizer with a dynamic calculator is reported as part of its
+        # qparam_qspec rather than by name under the dynamic-quantization error.
         self._validate_export_supported_qparams(model, backend)
         self._validate_no_persistent_observer_calculators(model, backend)
         self._validate_export_supported_dtypes(model, backend)

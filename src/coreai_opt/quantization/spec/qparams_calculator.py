@@ -8,7 +8,7 @@ from __future__ import annotations
 import warnings
 from abc import abstractmethod
 from collections.abc import Callable
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 import torch
 import torch.nn as nn
@@ -24,11 +24,16 @@ from coreai_opt._utils.torch_utils import (
     E8M0_TARGET_MAX_POW2 as _E8M0_TARGET_MAX_POW2,
     F32_MIN_NORMAL as _F32_MIN_NORMAL,
     ROUNDED_SCALE_DTYPES as _ROUNDED_SCALE_DTYPES,
+    nonzero_scale as _nonzero_scale,
 )
+from coreai_opt.quantization.spec.errors import _BlockSizeMismatchError
 
-from .granularity import QuantizationGranularity
+from .granularity import PerBlockGranularity, PerTensorGranularity, QuantizationGranularity
 from .qscheme import QuantizationScheme
 from .range_calculator import RangeCalculatorBase
+
+if TYPE_CHECKING:
+    from .fake_quantize import FakeQuantizeImplBase
 
 
 class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
@@ -57,10 +62,17 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         range_calculator: RangeCalculatorBase,
         float_range: tuple[float | None, float | None],
         scale_dtype: torch.dtype | None = None,  # e8m0 or float16; see QuantizationSpec
+        scale_fake_quantize: FakeQuantizeImplBase | None = None,
+        minval_fake_quantize: FakeQuantizeImplBase | None = None,
         **kwargs,
     ):
         super().__init__()
         self.scale_dtype = scale_dtype
+        # Quantize the scale and minval as the spec's ``qparam_qspec`` describes. The
+        # factory sets them only when ``qparam_qspec`` is set, the minval one only under
+        # the MINVAL formulation.
+        self.scale_fake_quantize = scale_fake_quantize
+        self.minval_fake_quantize = minval_fake_quantize
         self.dtype = dtype
         self.qscheme = qscheme
         self._granularity = granularity
@@ -79,6 +91,8 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         # Resolved non-negative axis for per-channel export paths.
         # Ellipsis sentinel means unresolved; resolved on first forward() call.
         self._resolved_axis: int | None = ...  # type: ignore[assignment]
+
+        self._resolve_nested_granularity()
 
     @property
     def granularity(self) -> QuantizationGranularity:
@@ -103,6 +117,41 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             )
         self._granularity = granularity
         self.range_calculator.granularity = granularity
+        self._resolve_nested_granularity()
+
+    @property
+    def adjusts_scale(self) -> bool:
+        """Whether the scale is rounded to ``scale_dtype`` or quantized by ``qparam_qspec``.
+
+        Either way, elements are quantized against a scale that export cannot store at the model
+        dtype yet.
+        """
+        return self.scale_dtype in _ROUNDED_SCALE_DTYPES or self.scale_fake_quantize is not None
+
+    def _resolve_nested_granularity(self) -> None:
+        """Fit the ``qparam_qspec`` granularities to this calculator's grid of qparams.
+
+        Weight axis defaults only reach the fake quantizers inserted in the model, so a nested
+        single-axis per-block granularity left at ``axis=None`` follows this calculator's block
+        axis whenever it is set. A per-tensor calculator, such as a shared observer that graph
+        mode forces to per-tensor, has a single qparam, so the nested fake quantizers quantize
+        it per tensor.
+        """
+        granularity = self.granularity
+        for fake_quantize in (self.scale_fake_quantize, self.minval_fake_quantize):
+            if fake_quantize is None:
+                continue
+            nested = fake_quantize.granularity
+            if isinstance(granularity, PerTensorGranularity):
+                fake_quantize.granularity = PerTensorGranularity()
+            elif (
+                isinstance(granularity, PerBlockGranularity)
+                and granularity.axis is not None
+                and isinstance(nested, PerBlockGranularity)
+                and isinstance(nested.block_size, int)
+                and nested.axis is None
+            ):
+                fake_quantize.granularity = nested.model_copy(update={"axis": granularity.axis})
 
     def _resolve_axis(self, tensor_ndim: int) -> None:
         """Resolve axis to non-negative on first call, delegating to granularity.
@@ -163,15 +212,25 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
                 max_val = torch.clamp(computed_max, min=0)
             # A one-sided float_range pairs a float_range bound (built at float32)
             # with a range-calculator bound at the input dtype. Cast both to the
-            # input dtype so this mixed case has matching dtypes for the qparams op.
-            range_dtype = tensor.dtype
-            if self.scale_dtype in _ROUNDED_SCALE_DTYPES:
-                # A rounded scale is computed in at least fp32, so keep the float_range
-                # bound unrounded rather than round it to a half-precision input dtype.
-                range_dtype = torch.promote_types(range_dtype, torch.float32)
+            # qparams compute dtype so this mixed case has matching dtypes for the qparams op.
+            range_dtype = self._qparams_compute_dtype(tensor.dtype)
             min_val = min_val.to(range_dtype)
             max_val = max_val.to(range_dtype)
         return min_val, max_val
+
+    def _qparams_compute_dtype(self, input_dtype: torch.dtype) -> torch.dtype:
+        """Return the dtype the qparams of an ``input_dtype`` tensor are computed in.
+
+        A scale that ``qparam_qspec`` quantizes is computed in fp32, so an fp64 input decodes
+        like fp32 and FP4 element quantization gets the fp32 it requires. A scale rounded to
+        ``scale_dtype`` is computed in at least fp32, so a half-precision input is not rounded
+        twice, while an fp64 minval stays fp64. Other scales use the input dtype.
+        """
+        if self.scale_fake_quantize is not None:
+            return torch.float32
+        if self.scale_dtype in _ROUNDED_SCALE_DTYPES:
+            return torch.promote_types(input_dtype, torch.float32)
+        return input_dtype
 
     def _compute_e8m0_scale(self, max_abs: torch.Tensor) -> torch.Tensor:
         """
@@ -223,7 +282,7 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
 
         1. **Default (``scale_dtype=None``)**: Uses torchao's
         ``choose_qparams_affine_with_min_max`` custom op to compute scale and
-        zero point. Supports integer dtypes and FP8 dtypes.
+        zero point. Supports integer dtypes, FP8 dtypes, and FP4 dtypes with ``qparam_qspec``.
 
         2. **e8m0 scales** (``scale_dtype=torch.float8_e8m0fnu``): Scales are
         constrained to powers of 2 following the OCP Microscaling (MX)
@@ -234,8 +293,14 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
 
         3. **Rounded scales** (``scale_dtype`` in ``ROUNDED_SCALE_DTYPES``): The
         default-path scale, computed in fp32 whatever the input dtype, is clamped to the
-        largest finite ``scale_dtype`` value and rounded to it. An asymmetric zero point
-        is then derived from the rounded scale.
+        largest finite ``scale_dtype`` value and rounded to it.
+
+        With ``scale_fake_quantize`` / ``minval_fake_quantize`` set (the spec's
+        ``qparam_qspec``), the default-path scale and minval are then quantized, and
+        the decoded values are returned, so elements are quantized against the qparams
+        a low-precision qparam format reconstructs.
+
+        In both cases, an asymmetric zero point is derived from the rounded or decoded scale.
         """
 
         # e8m0 path: power-of-2 scales
@@ -243,15 +308,11 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             max_abs = torch.maximum(torch.abs(min_val), torch.abs(max_val))
             return self._compute_e8m0_scale(max_abs), None, None
 
-        rounds_scale = self.scale_dtype in _ROUNDED_SCALE_DTYPES
-        if rounds_scale:
-            # Start from an fp32 scale, so a half-precision input is not rounded twice. An
-            # fp64 input stays fp64, so its minval is not rounded to fp32.
-            range_dtype = torch.promote_types(min_val.dtype, torch.float32)
-            min_val = min_val.to(range_dtype)
-            max_val = max_val.to(range_dtype)
+        compute_dtype = self._qparams_compute_dtype(min_val.dtype)
+        min_val = min_val.to(compute_dtype)
+        max_val = max_val.to(compute_dtype)
 
-        # Default path: torchao handles integer and FP8 dtypes
+        # Default path: torchao handles integer and FP8 dtypes, and FP4 with qparam_qspec
         scale, zero_point = choose_qparams_affine_with_min_max(
             min_val=min_val,
             max_val=max_val,
@@ -264,15 +325,18 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             zero_point_dtype=torch.int32,
         )
 
-        if rounds_scale:
+        if self.scale_dtype in _ROUNDED_SCALE_DTYPES:
             # Clamp first, so a large scale does not round to inf.
             scale_dtype_max = torch.finfo(self.scale_dtype).max
             scale = scale.clamp(max=scale_dtype_max).to(self.scale_dtype).to(torch.float32)
-        if rounds_scale and self.qscheme == QuantizationScheme.ASYMMETRIC:
+        if self.scale_fake_quantize is not None:
+            scale = self._quantize_qparam(scale, self.scale_fake_quantize, "scale")
+        if self.adjusts_scale and self.qscheme == QuantizationScheme.ASYMMETRIC:
             # The zero point above came from the unrounded scale; recompute it from the
-            # rounded scale so the two match.
+            # rounded or decoded scale so the two match. Where that scale is 0, every element
+            # dequantizes to 0 whatever the zero point, so divide by 1 only to keep it finite.
             zero_point = torch.clamp(
-                self.quant_min - torch.round(min_val / scale),
+                self.quant_min - torch.round(min_val / _nonzero_scale(scale)),
                 self.quant_min,
                 self.quant_max,
             ).to(torch.int32)
@@ -296,6 +360,10 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             #     ``_get_min_and_max_val``.
             minval = torch.min(min_val, torch.zeros_like(min_val))
 
+        if self.minval_fake_quantize is not None:
+            # The nested spec sees non-negative values, since minval is never positive.
+            minval = -self._quantize_qparam(-minval, self.minval_fake_quantize, "minval")
+
         # For FP dtypes, neither zero_point nor minval is used (symmetric
         # quantization with no offset).
         if self.dtype.is_floating_point:
@@ -315,6 +383,42 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
         Tensor shape and device are not known at construction time, so stateful
         subclasses override this to resize their buffers (e.g.
         ``running_min``/``running_max``) to match the observed input."""
+
+    @staticmethod
+    def _quantize_qparam(
+        values: torch.Tensor, fake_quantize: FakeQuantizeImplBase, qparam_name: str
+    ) -> torch.Tensor:
+        """Return per-block qparams after quantization by ``fake_quantize``, decoded.
+
+        The nested qparams follow ``fake_quantize``'s observer state, like
+        ``FakeQuantizeImplBase.forward``: recomputed while it observes, frozen otherwise.
+        Its fake-quant toggle is ignored, since the qparams must always be quantized.
+
+        Args:
+            values (torch.Tensor): Non-negative qparams in fp32, one entry per block.
+            fake_quantize (FakeQuantizeImplBase): Fake quantizer built from
+                ``qparam_qspec``.
+            qparam_name (str): Name of the qparam, for error messages.
+
+        Returns:
+            torch.Tensor: The decoded qparams, in fp32 and with the shape of ``values``.
+
+        Raises:
+            _BlockSizeMismatchError: If the blocks do not divide into the groups of
+                ``qparam_qspec``.
+        """
+        if fake_quantize._observer_on:
+            try:
+                scale, zero_point, minval = fake_quantize.qparams_calculator(values)
+            except _BlockSizeMismatchError as e:
+                msg = (
+                    f"qparam_qspec cannot group the per-block {qparam_name} grid of shape "
+                    f"{tuple(values.shape)}: {e}"
+                )
+                raise _BlockSizeMismatchError(msg) from e
+        else:
+            scale, zero_point, minval = fake_quantize.calculate_qparams()
+        return fake_quantize._fused_fake_quant_dequant(values, scale, zero_point, minval)
 
     def compute_qparams(
         self,
@@ -374,8 +478,8 @@ class StatefulQParamsCalculatorBase(QParamsCalculatorBase):
         calculation to ``compute_qparams``.
 
         Raises:
-            RuntimeError: If the ``scale`` buffer cannot hold rounded ``scale_dtype`` scales
-                exactly (see ``QuantizationSpec.scale_dtype``).
+            RuntimeError: If the ``scale`` buffer cannot hold rounded ``scale_dtype`` scales or
+                ``qparam_qspec``-decoded scales exactly (see ``QuantizationSpec.scale_dtype``).
         """
         self._resolve_axis(tensor.ndim)
         self._validate_scale_buffer_dtype()
@@ -436,8 +540,8 @@ class StatefulQParamsCalculatorBase(QParamsCalculatorBase):
         For FP4/FP8/floating-point quantization, zero_point and minval are None.
 
         Raises:
-            RuntimeError: If the ``scale`` buffer cannot hold rounded ``scale_dtype`` scales
-                exactly (see ``QuantizationSpec.scale_dtype``).
+            RuntimeError: If the ``scale`` buffer cannot hold rounded ``scale_dtype`` scales or
+                ``qparam_qspec``-decoded scales exactly (see ``QuantizationSpec.scale_dtype``).
         """
         self._validate_scale_buffer_dtype()
         if not self._initialized:
@@ -463,17 +567,17 @@ class StatefulQParamsCalculatorBase(QParamsCalculatorBase):
         return self
 
     def _validate_scale_buffer_dtype(self) -> None:
-        """Raise if the ``scale`` buffer cannot hold a rounded ``scale_dtype`` scale exactly."""
-        if self.scale_dtype in _ROUNDED_SCALE_DTYPES and self.scale.dtype not in (
+        """Raise if the ``scale`` buffer cannot hold a rounded or decoded scale exactly."""
+        if self.adjusts_scale and self.scale.dtype not in (
             torch.float32,
             torch.float64,
             self.scale_dtype,
         ):
             msg = (
-                f"The scale buffer is {self.scale.dtype}, which cannot hold "
-                f"scale_dtype={self.scale_dtype} scales exactly. Cast the model before "
-                f"Quantizer.prepare, not after, and keep torch.get_default_dtype() float32 "
-                f"while preparing."
+                f"The scale buffer is {self.scale.dtype}, which cannot hold scales rounded to "
+                f"scale_dtype={self.scale_dtype} or decoded by qparam_qspec exactly. Cast the "
+                f"model before Quantizer.prepare, not after, and keep torch.get_default_dtype() "
+                f"float32 while preparing."
             )
             raise RuntimeError(msg)
 

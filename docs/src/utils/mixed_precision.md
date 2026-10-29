@@ -103,6 +103,7 @@ The utility supports:
 
 - **Eager-mode integer weight quantization**: any spec-supported integer dtype, any quantization scheme (symmetric or asymmetric), at any granularity.
 - **Eager-mode floating-point weight quantization**: FP8 (`e4m3`, `e5m2`) and FP4 (`e2m1`).
+- **Quantized qparams** (`qparam_qspec`): each block's scale (and minval) costs its code width, plus the nested spec's own qparams, counted the same way. For example, NVFP4 (FP4 elements, FP8 E4M3 scales per block of 16, one FP32 tensor scale) comes to 4.5 BPW, plus 32 bits per tensor.
 - **Palettization** at any spec-supported `n_bits`, including a quantized LUT.
 
 Sub-byte payloads and zero-points are packed at `n_bits` with no padding.

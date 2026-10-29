@@ -267,6 +267,15 @@ def test_lut_qspec_validation():
             )
         )
 
+    # Invalid: quantized LUT qparams
+    with pytest.raises(ValidationError, match="lut_qspec.qparam_qspec is not supported"):
+        PalettizationSpec(
+            lut_qspec=QuantizationSpec(
+                dtype=torch.int8,
+                qparam_qspec=QuantizationSpec(dtype=torch.float8_e4m3fn),
+            )
+        )
+
     # Invalid: FP16 LUT scales, which palettization export does not store as FP16
     with pytest.raises(ValidationError, match="lut_qspec.scale_dtype=torch.float16 is not"):
         PalettizationSpec(lut_qspec=QuantizationSpec(dtype=torch.int8, scale_dtype=torch.float16))

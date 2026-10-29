@@ -24,6 +24,7 @@ from coreai_opt._utils.torch_utils import (
     is_float4_dtype as _is_float4_dtype,
     is_float8_dtype as _is_float8_dtype,
     is_float_quant_dtype as _is_float_quant_dtype,
+    nonzero_scale as _nonzero_scale,
 )
 from coreai_opt.config.spec import CompressionSimulatorBase, CompressionTargetTensor
 from coreai_opt.quantization._utils import get_quantization_shapes as _get_quantization_shapes
@@ -158,10 +159,9 @@ class FakeQuantizeImplBase(CompressionSimulatorBase, FakeQuantizeBase):
         super().disable_observer()
 
     def enable_observer(self, enabled: bool = True) -> None:
-        """Inverse of ``disable_observer``: ignore ``enabled=False`` when the
-        qparams calculator is stateless. Covers callers that invoke
-        ``enable_observer(False)`` directly (e.g. the QAT scheduler at
-        ``quantizer.py:_maybe_apply_qat_schedule``); ``disable_observer()``
+        """Enable the observer; ignore ``enabled=False`` for a stateless qparams calculator.
+
+        Covers callers that invoke ``enable_observer(False)`` directly; ``disable_observer()``
         itself routes through the override above.
         """
         if not enabled and self.is_stateless:
@@ -717,11 +717,14 @@ def _quantize_int(
     - ZP:     ``quant_offset = zero_point``, ``float_offset = 0``
     - MINVAL: ``quant_offset = quant_min``,  ``float_offset = minval``
 
+    A block whose scale is zero, which a quantized scale can decode to, is divided by 1
+    instead, so :func:`_dequantize_int` returns its offset rather than NaN.
+
     The quantized tensor remains in FP dtype.
     The quantized tensor as well as a mask tensor marking positions in the tensor which were clamped
     are both returned.
     """
-    result = (tensor - float_offset) / scale
+    result = (tensor - float_offset) / _nonzero_scale(scale)
     result.round_()
     result.add_(quant_offset)
     mask = result >= quant_min
@@ -756,10 +759,13 @@ def _quantize_float(
     """
     Float quantization: cast_decast(clamp(tensor / scale, min, max))
 
+    A block whose scale is zero, which a quantized scale can decode to, is divided by 1
+    instead, so :func:`_dequantize_float` returns zeros rather than NaN.
+
     The quantized tensor as well as a mask tensor marking positions in the tensor which were clamped
     are both returned.
     """
-    result = tensor / scale
+    result = tensor / _nonzero_scale(scale)
     mask = result >= quant_min
     mask &= result <= quant_max
     result.clamp_(min=quant_min, max=quant_max)
