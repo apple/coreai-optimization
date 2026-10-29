@@ -1,0 +1,1 @@
+Add `QuantizationSpec.qparam_qspec` to simulate double-scale quantization in PyTorch, such as NVFP4 and GGUF-style double scales.

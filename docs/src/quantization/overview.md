@@ -166,6 +166,8 @@ A few other dtypes (e.g. FP8_E5M2) may also be available to experiment with; how
 
 INT6 and UINT6 are only supported for the Torch backend for now, for both weights and activations: the model runs as a torch model after `finalize(backend=ExportBackend.Torch)`, and `finalize` raises `NotImplementedError` for Core AI and Core ML.
 
+The quantization parameters can themselves be quantized with a nested spec (`qparam_qspec`), for weights and activations. These are available for simulation in PyTorch; Core AI and Core ML export is not supported yet. See [Quantizing the quantization parameters](config.md#example-quantizing-the-quantization-parameters-qparam_qspec).
+
 ## Two Execution Modes: graph and eager
 
 The {class}`~coreai_opt.quantization.Quantizer` has two internal implementations:

@@ -27,8 +27,10 @@ We will first take a look at the {class}`~coreai_opt.quantization.spec.Quantizat
 - `qscheme`: symmetric or asymmetric quantization scheme (default: {class}`~coreai_opt.quantization.spec.QuantizationScheme`.SYMMETRIC). See [Symmetric vs asymmetric quantization](advanced.md#symmetric-vs-asymmetric-quantization) for how these schemes differ.
 - `granularity`: granularity for quantization scales/zp, per-block, per-channel, per-tensor (default: {class}`~coreai_opt.quantization.spec.PerTensorGranularity()`)
 - `qparam_calculator_cls`: algorithm used for calculating scales/zp, e.g. static, global min/max, moving average min/max etc. (defaults: {class}`~coreai_opt.quantization.spec.MovingAverageQParamsCalculator` for activations)
-- `scale_dtype`: dtype for the quantization scale to be used. (Default: None, picked automatically based on quantization `dtype`)
-  Example:
+- `scale_dtype`: how the quantization scale is stored. `None` (default) keeps the computed scale, except for FP4, which defaults to `torch.float8_e8m0fnu`. `torch.float8_e8m0fnu` rounds scales to powers of two (OCP MX), for FP4 and FP8. `torch.float16` rounds the scale to FP16 whatever the model dtype, for integer and FP8 dtypes; Core AI and Core ML export of it is not supported yet. With `torch.float16`, cast the model before `Quantizer.prepare`: a bf16 scale buffer would round the scales again, so casting the prepared model to bf16 raises `RuntimeError`.
+- `qparam_qspec`: a nested `QuantizationSpec` that quantizes the per-block scales themselves (and the per-block minvals, with `qformulation="minval"`). See [Quantizing the quantization parameters](#example-quantizing-the-quantization-parameters-qparam_qspec). (Default: None)
+
+Example:
 
 ```python
 from coreai_opt.quantization import QuantizationSpec
@@ -265,6 +267,133 @@ flowchart LR
     style input fill:#d4edda,stroke:#28a745
     style weight fill:#d4edda,stroke:#28a745
     style output fill:#d4edda,stroke:#28a745
+```
+
+### Example: Quantizing the quantization parameters (`qparam_qspec`)
+
+`qparam_qspec` quantizes the quantization parameters themselves. Quantizing a tensor per block produces a grid of qparams with one scale per block, plus one minval per block with `qformulation="minval"`. The nested `QuantizationSpec` quantizes that grid like any other tensor, and the tensor is then quantized against the decoded qparams, as a format that stores its qparams at low precision reconstructs them.
+
+Every `QuantizationSpec` field works in the nested spec as usual:
+
+- `granularity`: `PerBlockGranularity(block_size=8)` shares one set of nested qparams across 8 consecutive blocks. Left at `axis=None`, it follows the outer spec's block axis.
+- `scale_dtype` is the dtype of the super-scales; for example, `torch.float16` gives FP16 super-scales like GGUF Q4_K's `d` and `dmin`.
+- Calibration, observer toggles and QAT schedules apply to the nested qparams the same way as to any other qparams.
+
+For example, int4 blocks whose scales are int8 codes under one scale per output channel:
+
+```python
+from coreai_opt.quantization import QuantizationSpec
+from coreai_opt.quantization.spec import PerBlockGranularity, PerChannelGranularity
+
+int4_weight = QuantizationSpec(
+    dtype=torch.int4,
+    granularity=PerBlockGranularity(block_size=32),
+    qparam_qspec=QuantizationSpec(
+        dtype=torch.int8,
+        granularity=PerChannelGranularity(axis=0),
+    ),
+)
+```
+
+Layers whose blocks do not divide into the nested groups are left unquantized, with a warning. Core AI and Core ML export of a spec with `qparam_qspec` is not supported yet: `finalize()` raises `NotImplementedError`. Use the prepared model for torch inference. As with a float16 `scale_dtype`, cast the model before `Quantizer.prepare`: a half-precision scale buffer would round the decoded scales again, so casting the prepared model to bf16 or fp16 raises `RuntimeError`.
+
+Double scale can be used to specify several popular quantization formats, such as GGUF's Q4_K and NVFP4.
+
+#### GGUF double scale
+
+GGUF k-quants such as Q4_K store 4-bit weights in blocks of 32, each with a scale and a min (`qformulation="minval"`). The scales and the mins are quantized in turn, under separate super-scales shared by 8 blocks (256 weights), so layers whose input channels are not a multiple of 256 are left unquantized. The scale and min codes are 6-bit (`torch.uint6`), and the super-scales are FP16 (`scale_dtype=torch.float16` in the nested spec), whatever the model dtype, for 4.5 bits per weight.
+
+```python
+# programmatic
+
+from coreai_opt.quantization.config import QuantizerConfig, ModuleQuantizerConfig
+from coreai_opt.quantization import QuantizationSpec
+from coreai_opt.quantization.spec import PerBlockGranularity
+
+gguf_weight = QuantizationSpec(
+    dtype=torch.uint4,
+    qscheme="asymmetric",
+    qformulation="minval",
+    granularity=PerBlockGranularity(block_size=32),
+    qparam_qspec=QuantizationSpec(
+        dtype=torch.uint6,
+        qscheme="asymmetric",
+        granularity=PerBlockGranularity(block_size=8),
+        scale_dtype=torch.float16,
+    ),
+)
+
+config = QuantizerConfig(
+    global_config=ModuleQuantizerConfig(
+        op_input_spec=None,
+        op_output_spec=None,
+        op_state_spec={"weight": gguf_weight},
+    )
+)
+```
+
+```yaml
+# yaml config
+quantization_spec:
+  spec1: &gguf_weight
+    dtype: uint4
+    qscheme: asymmetric
+    qformulation: minval
+    granularity: { type: per_block, block_size: 32 }
+    qparam_qspec:
+      dtype: uint6
+      qscheme: asymmetric
+      granularity: { type: per_block, block_size: 8 }
+      scale_dtype: float16
+
+quantization_config:
+  global_config:
+    op_input_spec: null
+    op_output_spec: null
+    op_state_spec:
+      weight: *gguf_weight
+```
+
+#### NVFP4
+
+NVFP4 stores FP4 E2M1 values in blocks of 16, each block with an FP8 E4M3 scale, under one FP32 scale per tensor (4.5 bits per weight, plus 32 bits per tensor). For weights and activations:
+
+```python
+# programmatic
+
+from coreai_opt.quantization.config import QuantizerConfig, ModuleQuantizerConfig
+from coreai_opt.quantization import QuantizationSpec
+from coreai_opt.quantization.spec import PerBlockGranularity, PerTensorGranularity
+
+nvfp4_weight = QuantizationSpec(
+    dtype=torch.float4_e2m1fn_x2,
+    granularity=PerBlockGranularity(block_size=16),
+    # FP8 E4M3 block scales, under one FP32 scale per tensor
+    qparam_qspec=QuantizationSpec(
+        dtype=torch.float8_e4m3fn,
+        granularity=PerTensorGranularity(),
+    ),
+)
+
+# NVFP4 activations: block scales recomputed every forward, under a tensor scale
+# that is calibrated and then frozen
+nvfp4_activation = QuantizationSpec(
+    dtype=torch.float4_e2m1fn_x2,
+    granularity=PerBlockGranularity(axis=-1, block_size=16),
+    qparam_calculator_cls="dynamic",
+    qparam_qspec=QuantizationSpec(
+        dtype=torch.float8_e4m3fn,
+        granularity=PerTensorGranularity(),
+    ),
+)
+
+config = QuantizerConfig(
+    global_config=ModuleQuantizerConfig(
+        op_input_spec={"*": nvfp4_activation},
+        op_output_spec=None,
+        op_state_spec={"weight": nvfp4_weight},
+    )
+)
 ```
 
 ### Example: Skip quantization for a specific layer type

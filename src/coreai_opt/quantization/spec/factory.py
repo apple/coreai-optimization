@@ -14,6 +14,7 @@ from coreai_opt.config.spec import (
 )
 
 from .fake_quantize import FakeQuantizeImplBase
+from .qformulation import QuantizationFormulation
 from .qparams_calculator import (
     DynamicQParamsCalculator,
     MovingAverageQParamsCalculator,
@@ -116,6 +117,15 @@ class QuantizationComponentFactory(CompressionComponentFactoryBase):
             "float_range": spec.float_range,
             "scale_dtype": spec.scale_dtype,
         }
+        if spec.qparam_qspec is not None:
+            common_args["scale_fake_quantize"] = cls.create_fake_quantizer(
+                spec.qparam_qspec, quantization_target
+            )
+            if spec.qformulation == QuantizationFormulation.MINVAL:
+                # A separate instance, so minval gets its own super-scales.
+                common_args["minval_fake_quantize"] = cls.create_fake_quantizer(
+                    spec.qparam_qspec, quantization_target
+                )
 
         # Automatically detect and include any extra arguments
         extra_args = spec.get_extra_args()

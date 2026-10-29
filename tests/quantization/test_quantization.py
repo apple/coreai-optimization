@@ -27,6 +27,7 @@ from coreai_opt.quantization._graph.quantizer import GraphQuantizer
 from coreai_opt.quantization.config.quantization_config import QATSchedule
 from coreai_opt.quantization.spec import (
     PerBlockGranularity,
+    PerChannelGranularity,
     PerTensorGranularity,
     QuantizationScheme,
     default_activation_quantization_spec,
@@ -663,6 +664,84 @@ class TestInt6Uint6Quantization:
 
         finalized = quantizer.finalize(prepared_model, backend=ExportBackend.Torch)
         torch.testing.assert_close(finalized(example_input), prepared_output)
+
+
+class TestFloat16ScaleDtype:
+    """Simulation and export of a float16 ``scale_dtype``."""
+
+    @staticmethod
+    def _make_config(execution_mode: str) -> QuantizerConfig:
+        weight_spec = QuantizationSpec(
+            dtype=torch.int8,
+            granularity=PerChannelGranularity(axis=0),
+            scale_dtype=torch.float16,
+        )
+        return QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={"weight": weight_spec},
+                op_input_spec=None,
+                op_output_spec=None,
+            ),
+        ).set_execution_mode(execution_mode)
+
+    @staticmethod
+    def _weight_scales(prepared_model: nn.Module) -> list[torch.Tensor]:
+        return [
+            m.calculate_qparams()[0]
+            for m in prepared_model.modules()
+            if isinstance(m, FakeQuantizeImplBase)
+        ]
+
+    @pytest.mark.parametrize("backend", [ExportBackend.CoreAI, ExportBackend.CoreML])
+    def test_finalize_rejects_non_torch_backends(self, execution_mode, backend):
+        quantizer = Quantizer(SimpleLinearModel(), self._make_config(execution_mode))
+        quantizer.prepare((torch.randn(4, 64),))
+
+        with pytest.raises(NotImplementedError, match="float16 scale_dtype"):
+            quantizer.finalize(backend=backend)
+
+    @pytest.mark.parametrize("model_dtype", [torch.float32, torch.bfloat16, torch.float16])
+    def test_simulation_in_any_model_dtype(self, execution_mode, model_dtype):
+        """Cached scales are fp32 scales rounded to FP16, and Torch folding keeps the outputs."""
+        model = SimpleLinearModel().to(model_dtype)
+        # int8 symmetric per-channel: max_abs / 127.5, computed in fp32 and rounded once.
+        expected_scales = [
+            (layer.weight.float().abs().amax(dim=1, keepdim=True) / 127.5).half().float()
+            for layer in (model.l1, model.l2)
+        ]
+        inputs = torch.randn(4, 64, dtype=model_dtype)
+        quantizer = Quantizer(model, self._make_config(execution_mode))
+        prepared_model = quantizer.prepare((inputs,))
+
+        out = prepared_model(inputs)
+
+        assert out.dtype == model_dtype
+        scales = self._weight_scales(prepared_model)
+        for scale, expected_scale in zip(scales, expected_scales, strict=True):
+            assert torch.equal(scale, expected_scale)
+        assert torch.equal(quantizer.finalize(backend=ExportBackend.Torch)(inputs), out)
+
+    def test_bf16_cast_of_the_prepared_model_raises(self, execution_mode):
+        """The cast itself raises, since a bf16 scale buffer would round the FP16 scales."""
+        quantizer = Quantizer(SimpleLinearModel(), self._make_config(execution_mode))
+        prepared_model = quantizer.prepare((torch.randn(4, 64),))
+
+        with pytest.raises(RuntimeError, match="Cast the model before Quantizer.prepare"):
+            prepared_model.to(torch.bfloat16)
+
+    @pytest.mark.parametrize("cast_dtype", [torch.float16, torch.float64])
+    def test_fp16_or_fp64_cast_keeps_the_scales(self, execution_mode, cast_dtype):
+        """Casting the prepared model to fp16 or fp64 keeps the cached FP16 scales exactly."""
+        inputs = torch.randn(4, 64)
+        quantizer = Quantizer(SimpleLinearModel(), self._make_config(execution_mode))
+        prepared_model = quantizer.prepare((inputs,))
+        scales = [scale.clone() for scale in self._weight_scales(prepared_model)]
+
+        prepared_model.to(cast_dtype)
+
+        for cast_scale, scale in zip(self._weight_scales(prepared_model), scales, strict=True):
+            assert torch.equal(cast_scale.float(), scale)
+        prepared_model(inputs.to(cast_dtype))
 
 
 class TestSharedWeightQuantization:

@@ -20,6 +20,7 @@ from pydantic import (
 
 from coreai_opt._utils.torch_utils import (
     E8M0_TARGET_MAX_POW2 as _E8M0_TARGET_MAX_POW2,
+    ROUNDED_SCALE_DTYPES as _ROUNDED_SCALE_DTYPES,
     get_n_bits_from_dtype as _get_n_bits_from_dtype,
     is_float4_dtype as _is_float4_dtype,
 )
@@ -27,6 +28,7 @@ from coreai_opt.config.spec import CompressionSpec, CompressionType
 
 from .fake_quantize import FakeQuantizeImplBase
 from .granularity import (
+    PerBlockGranularity,
     PerChannelGranularity,
     PerTensorGranularity,
     QuantizationGranularity,
@@ -149,13 +151,16 @@ class QuantizationSpec(CompressionSpec):
             And for FP4/FP8 dtypes, zero-point is always set to 0 (FP supports only the
             symmetric qscheme). The scale formula depends on ``scale_dtype``:
 
-            - ``scale_dtype=None`` (FP8 only): ``scale = max_abs / fp_max``, where
-              ``fp_max`` is the largest representable value for the target FP dtype
-              (448.0 for FP8 E4M3, 57344.0 for FP8 E5M2).
+            - ``scale_dtype=None`` (FP8, or FP4 with ``qparam_qspec``):
+              ``scale = max_abs / fp_max``, where ``fp_max`` is the largest
+              representable value for the target FP dtype (6.0 for FP4 E2M1, 448.0 for
+              FP8 E4M3, 57344.0 for FP8 E5M2). ``qparam_qspec`` then quantizes this
+              scale.
             - ``scale_dtype=torch.float8_e8m0fnu`` (FP4 and FP8):
               power-of-2 scale per OCP MX spec —
               ``scale = 2^(floor(log2(max_abs)) - target_max_pow2)``, with
               ``target_max_pow2`` of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2.
+            - ``scale_dtype=torch.float16`` (FP8): the ``None`` scale, rounded to FP16.
 
             **MINVAL formulation**, e.g. with 8 bit signed and unsigned fixed point types:
 
@@ -303,23 +308,76 @@ class QuantizationSpec(CompressionSpec):
             - float_min < float_max
 
         scale_dtype (torch.dtype | None): Data type for quantization scale factors.
-            Controls whether scales are constrained to power-of-2 values (e8m0 format)
-            or allowed to be arbitrary floating-point values.
+            Controls whether scales are constrained to power-of-2 values (e8m0 format),
+            rounded to a floating-point storage dtype, or allowed to be arbitrary
+            floating-point values.
             Valid inputs:
 
             - None: Use default scale computation via torchao's
               choose_qparams_affine_with_min_max (integer and FP8 dtypes).
-              For FP4, None is resolved to torch.float8_e8m0fnu automatically.
+              For FP4, None is resolved to torch.float8_e8m0fnu automatically,
+              unless ``qparam_qspec`` is set.
             - torch.float8_e8m0fnu: Power-of-2 scales following OCP Microscaling (MX)
-              spec. Required for FP4 quantization, optional for FP8.
+              spec. Required for FP4 quantization without ``qparam_qspec``, optional
+              for FP8.
+            - torch.float16: Each scale is rounded to the nearest FP16 value, whatever
+              the model dtype. The tensor is then quantized with the rounded scale (an
+              asymmetric zero point is recomputed from it too), so the result matches a
+              format that stores its scales in FP16. Inside ``qparam_qspec``, it rounds
+              the super-scales.
 
             Constraints:
 
             - FP4 (float4_e2m1fn_x2): scale_dtype must be torch.float8_e8m0fnu or None
-              (defaults to e8m0)
+              (defaults to e8m0; stays None when ``qparam_qspec`` is set)
             - FP8 (float8_e4m3fn, float8_e5m2): scale_dtype must be
-              torch.float8_e8m0fnu or None (defaults to None)
-            - Integer dtypes: scale_dtype must be None (defaults to None)
+              torch.float8_e8m0fnu, torch.float16 or None (defaults to None)
+            - Integer dtypes: scale_dtype must be torch.float16 or None (defaults to None)
+            - scale_dtype must be None when ``qparam_qspec`` is set
+            - Export of torch.float16 to CoreAI or CoreML is not supported yet:
+              ``Quantizer.finalize`` raises ``NotImplementedError`` for those backends.
+            - With torch.float16, cast the model before ``Quantizer.prepare``, and keep
+              ``torch.get_default_dtype()`` float32 while preparing: a bf16 scale buffer
+              would round the cached scales again, so ``Quantizer.prepare``, a bf16 cast
+              of the prepared model, or the next forward raises ``RuntimeError``.
+
+            Default: None
+
+        qparam_qspec (coreai_opt.quantization.QuantizationSpec | None): Quantization
+            specification for this spec's quantization parameters. The per-block qparams
+            form a grid with one entry per block, and ``qparam_qspec`` quantizes that
+            grid like any other tensor: the scale always, and under
+            ``qformulation="minval"`` the minval too, each with its own qparams of the
+            nested spec. Elements are then quantized against the decoded qparams, as a
+            format that stores the qparams at low precision reconstructs them. All
+            ``QuantizationSpec`` fields apply to the nested spec, with the grid as the
+            quantized tensor:
+
+            - ``granularity`` counts qparam entries, not elements: for example,
+              ``PerBlockGranularity(block_size=8)`` shares one set of nested qparams
+              across 8 consecutive blocks. A single-axis ``PerBlockGranularity`` with
+              ``axis=None`` follows this spec's block axis, and requires this spec to use
+              single-axis ``PerBlockGranularity``. A ``PerChannelGranularity`` needs an
+              explicit axis.
+            - ``scale_dtype`` of the nested spec is the dtype of its own scales, and its
+              own ``qparam_qspec`` quantizes those in turn.
+            - ``qparam_calculator_cls`` and observer state control when the nested
+              qparams update. For example, a dynamic activation spec can recompute block
+              scales every forward, while its nested spec's tensor scale is calibrated,
+              then frozen when observers are disabled.
+
+            When this spec is an asymmetric integer spec with ``qformulation="zp"``, it
+            derives its zero point from the decoded scale.
+
+            Constraints:
+
+            - scale_dtype must be None when ``qparam_qspec`` is set
+            - Export to CoreAI or CoreML is not supported yet: ``Quantizer.finalize``
+              raises ``NotImplementedError`` for those backends.
+            - Cast the model before ``Quantizer.prepare``, as with a float16
+              ``scale_dtype``: a half-precision scale buffer would round the decoded
+              scales again, so a bf16 or fp16 cast of the prepared model raises
+              ``RuntimeError``.
 
             Default: None
 
@@ -347,6 +405,26 @@ class QuantizationSpec(CompressionSpec):
         ...     range_calculator_cls="minmax",
         ...     float_range=[-1.0, 1.0]
         ... )
+        >>>
+        >>> # int4 blocks whose scales are int8 codes, with one scale per output channel
+        >>> spec = QuantizationSpec(
+        ...     dtype=torch.int4,
+        ...     granularity=PerBlockGranularity(axis=1, block_size=32),
+        ...     qparam_qspec=QuantizationSpec(
+        ...         dtype=torch.int8,
+        ...         granularity=PerChannelGranularity(axis=0),
+        ...     ),
+        ... )
+        >>>
+        >>> # NVFP4: FP8 E4M3 block scales under one FP32 scale per tensor
+        >>> spec = QuantizationSpec(
+        ...     dtype=torch.float4_e2m1fn_x2,
+        ...     granularity=PerBlockGranularity(axis=1, block_size=16),
+        ...     qparam_qspec=QuantizationSpec(
+        ...         dtype=torch.float8_e4m3fn,
+        ...         granularity=PerTensorGranularity(),
+        ...     ),
+        ... )
 
     Notes:
         - All fields have defaults and are optional
@@ -372,6 +450,7 @@ class QuantizationSpec(CompressionSpec):
     range_calculator_cls: type[RangeCalculatorBase] = Field(default="minmax", validate_default=True)
     float_range: list[float | int | None] = Field(default_factory=lambda: [None, None])
     scale_dtype: torch.dtype | None = None
+    qparam_qspec: QuantizationSpec | None = None
 
     # Private attribute for compression type
     _compression_type: CompressionType = PrivateAttr(default=CompressionType.QUANTIZATION)
@@ -492,7 +571,11 @@ class QuantizationSpec(CompressionSpec):
     @model_validator(mode="before")
     @classmethod
     def resolve_scale_dtype(cls, data: Any) -> Any:
-        """Resolve scale_dtype: convert string to torch.dtype and default to e8m0 for FP4."""
+        """Resolve scale_dtype: convert string to torch.dtype and default to e8m0 for FP4.
+
+        FP4 keeps ``scale_dtype=None`` when ``qparam_qspec`` is set, since the nested
+        spec then defines how the scale is stored.
+        """
         if isinstance(data, dict):
             dtype = data.get("dtype")
             scale_dtype = data.get("scale_dtype")
@@ -501,7 +584,11 @@ class QuantizationSpec(CompressionSpec):
                 data["dtype"] = dtype
             if isinstance(scale_dtype, str):
                 data["scale_dtype"] = cls._resolve_str_dtype(scale_dtype)
-            if _is_float4_dtype(dtype) and data.get("scale_dtype") is None:
+            if (
+                _is_float4_dtype(dtype)
+                and data.get("scale_dtype") is None
+                and data.get("qparam_qspec") is None
+            ):
                 data["scale_dtype"] = torch.float8_e8m0fnu
         return data
 
@@ -541,28 +628,41 @@ class QuantizationSpec(CompressionSpec):
         Validate scale_dtype based on element dtype.
 
         Rules:
-            - Only None or torch.float8_e8m0fnu are supported.
-            - When scale_dtype is set, dtype must be a key of ``E8M0_TARGET_MAX_POW2``
-              (the dtypes with an e8m0 target exponent); for any other dtype, including
-              all integer dtypes, scale_dtype must be None.
+            - Only None, torch.float8_e8m0fnu or torch.float16 are supported.
+            - torch.float16 is rejected for FP4 dtypes.
+            - torch.float8_e8m0fnu requires dtype to be a key of
+              ``E8M0_TARGET_MAX_POW2`` (the dtypes with an e8m0 target exponent); for
+              any other dtype, including all integer dtypes, it is rejected.
             - FP4 dtypes: scale_dtype is resolved to torch.float8_e8m0fnu
-              by resolve_scale_dtype (before validator).
+              by resolve_scale_dtype (before validator), unless ``qparam_qspec`` is set.
         """
         if self.scale_dtype is None:
             return self
 
+        if self.scale_dtype in _ROUNDED_SCALE_DTYPES:
+            if _is_float4_dtype(self.dtype):
+                msg = (
+                    f"scale_dtype={self.scale_dtype} is not supported for dtype={self.dtype}. "
+                    f"FP4 scales must be power-of-two (scale_dtype=torch.float8_e8m0fnu), or "
+                    f"quantized by a nested spec (qparam_qspec, e.g. FP8 E4M3 scales as in NVFP4)."
+                )
+                raise ValueError(msg)
+            return self
+
         if self.scale_dtype != torch.float8_e8m0fnu:
-            raise ValueError(
+            msg = (
                 f"Unsupported scale_dtype: {self.scale_dtype}. "
-                f"Only None or torch.float8_e8m0fnu are supported."
+                f"Only None, torch.float8_e8m0fnu or torch.float16 are supported."
             )
+            raise ValueError(msg)
 
         if self.dtype not in _E8M0_TARGET_MAX_POW2:
-            raise ValueError(
-                f"scale_dtype must be None for dtype={self.dtype}, got "
-                f"scale_dtype={self.scale_dtype}. No e8m0 target exponent is defined "
-                f"for it; supported dtypes are {list(_E8M0_TARGET_MAX_POW2)}."
+            msg = (
+                f"scale_dtype={self.scale_dtype} is not supported for dtype={self.dtype}. "
+                f"No e8m0 target exponent is defined for it; supported dtypes are "
+                f"{list(_E8M0_TARGET_MAX_POW2)}."
             )
+            raise ValueError(msg)
 
         return self
 
@@ -579,6 +679,58 @@ class QuantizationSpec(CompressionSpec):
                 "qparam_calculator_cls. Use qscheme=SYMMETRIC or ASYMMETRIC."
             )
             raise ValueError(error_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_qparam_qspec(self) -> QuantizationSpec:
+        """Validate ``qparam_qspec`` against this spec.
+
+        Rules:
+            - ``scale_dtype`` must be None, since ``qparam_qspec`` defines how the scale
+              is stored.
+            - The nested granularity is applied to the grid of per-block qparams, so an
+              axis it needs must be known: a single-axis ``PerBlockGranularity`` left at
+              ``axis=None`` follows this spec's block axis, which requires this spec to
+              use single-axis ``PerBlockGranularity``; a ``PerChannelGranularity`` needs
+              an explicit axis.
+        """
+        nested = self.qparam_qspec
+        if nested is None:
+            return self
+
+        if self.scale_dtype is not None:
+            msg = (
+                f"scale_dtype must be None when qparam_qspec is set, got {self.scale_dtype}; "
+                f"qparam_qspec defines how the scale is stored."
+            )
+            raise ValueError(msg)
+
+        nested_granularity = nested.granularity
+        if (
+            isinstance(nested_granularity, PerChannelGranularity)
+            and nested_granularity.axis is None
+        ):
+            msg = (
+                "qparam_qspec.granularity=PerChannelGranularity needs an explicit axis of the "
+                "per-block qparam grid."
+            )
+            raise ValueError(msg)
+        if (
+            isinstance(nested_granularity, PerBlockGranularity)
+            and isinstance(nested_granularity.block_size, int)
+            and nested_granularity.axis is None
+            and not (
+                isinstance(self.granularity, PerBlockGranularity)
+                and isinstance(self.granularity.block_size, int)
+            )
+        ):
+            msg = (
+                "qparam_qspec.granularity=PerBlockGranularity with axis=None follows this "
+                "spec's block axis, so this spec needs single-axis PerBlockGranularity (an int "
+                "block_size). Otherwise, set the qparam_qspec axis explicitly."
+            )
+            raise ValueError(msg)
+
         return self
 
     def get_extra_args(self) -> dict[str, Any]:

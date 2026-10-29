@@ -1,0 +1,1 @@
+Add `scale_dtype=torch.float16` to round quantization scales to FP16 in PyTorch simulation; Core AI and Core ML export raise `NotImplementedError`.

@@ -200,6 +200,7 @@ _SPEC_KWARG_FROM_FIELD: dict[FieldName, str] = {
     FieldName.QPARAM_CALCULATOR_CLS: "qparam_calculator_cls",
     FieldName.RANGE_CALCULATOR_CLS: "range_calculator_cls",
     FieldName.SCALE_DTYPE: "scale_dtype",
+    FieldName.QPARAM_QSPEC: "qparam_qspec",
 }
 
 
