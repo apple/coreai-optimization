@@ -19,7 +19,6 @@ import pytest
 import torch
 import torch.nn as nn
 from coreai_torch import ExternalizeSpec, _patch_model_for_externalization
-from torch.export.dynamic_shapes import Dim
 
 from coreai_opt import ExportBackend
 from coreai_opt.quantization import (
@@ -369,33 +368,3 @@ class TestCompositeOpIOQuantization:
             f"the composite's output is quantized as {consumer_dtype}, expected the "
             f"composite dtype {boundary_dtype}"
         )
-
-    def test_module_input_spec_skips_non_tensor_boundary_inputs(self) -> None:
-        """A module that is not externalized can have a shape integer as a boundary input.
-
-        Unexternalized, SDPA decomposes and builds its causal mask from shape integers
-        before it touches q. With a dynamic sequence dim, boundary input 0 is therefore a
-        SymInt, and ``module_input_spec`` must not attach a quantizer to it.
-        """
-        boundary_dtype = torch.uint8
-        model = CompositeSDPAModel().eval().half()
-        config = self._config(
-            sdpa_externalize_spec(),
-            "composite",
-            "type",
-            boundary_dtype,
-            module_input_spec={0: self._composite_act_spec(boundary_dtype)},
-        )
-
-        prepared = Quantizer(model, config).prepare(
-            _single_tensor_sample(),
-            dynamic_shapes={"x": (Dim.STATIC, Dim.DYNAMIC, Dim.STATIC)},
-        )
-
-        for node in prepared.graph.nodes:
-            if node.op == "call_module" and str(node.target).startswith("activation_post_process"):
-                for quantized in node.all_input_nodes:
-                    value = quantized.meta.get("val")
-                    assert isinstance(value, torch.Tensor) and value.is_floating_point(), (
-                        f"{node.name} quantizes non-float value {quantized.name} ({value!r})"
-                    )

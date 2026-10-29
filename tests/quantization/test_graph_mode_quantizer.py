@@ -1417,6 +1417,51 @@ class TestSingleElementTensors:
         self._assert_state_observed(prepared_model, "linear_weight")
 
 
+class TestNonFloatModuleBoundary:
+    """
+    Graph mode skips module boundary values that are not floating-point tensors, such as a
+    shape integer computed outside a module and consumed inside it
+    """
+
+    @pytest.mark.parametrize(
+        "module_input_spec",
+        [None, {0: default_activation_quantization_spec()}],
+        ids=["wildcard", "index_0"],
+    )
+    def test_shape_integer_module_input_not_observed(self, module_input_spec):
+        class Block(nn.Module):
+            def forward(self, n, y):
+                # The shape integer is consumed first, so it is boundary input 0.
+                return y * torch.arange(n, device=y.device)[None, :, None]
+
+        class BlockModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+                self.block = Block()
+
+            def forward(self, x):
+                y = self.linear(x)
+                return self.block(y.shape[1], y)
+
+        config = make_graph_mode_module_boundary_config(
+            module_boundary_dtype=torch.int8,
+            module_name="block",
+            module_input_spec=module_input_spec,
+        )
+        quantizer = Quantizer(BlockModel(), config)
+        prepared_model = quantizer.prepare(
+            (torch.randn(2, 4, 8),), dynamic_shapes={"x": (Dim.STATIC, Dim.AUTO, Dim.STATIC)}
+        )
+
+        fq_nodes = get_fake_quant_nodes(prepared_model)
+        assert fq_nodes, "Expected the float tensors to still be observed"
+        for fq_node in fq_nodes:
+            assert _is_fx_node_floating_point(fq_node.args[0]), (
+                f"{fq_node.name} observes non-float value {fq_node.args[0].name}"
+            )
+
+
 @pytest.mark.parametrize("model_dtype", [torch.float32, torch.float16, torch.bfloat16])
 class TestGraphModeHalfPrecisionSupport:
     """Test graph-mode quantization workflow with half precision models"""
