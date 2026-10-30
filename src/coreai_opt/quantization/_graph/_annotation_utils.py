@@ -1105,7 +1105,12 @@ def _find_and_apply_module_level_spec(
         is_input: True if the input of the node is to be annotated, False for output
     """
     tensor_node = input_node if is_input else node_to_annotate
-    if tensor_node is not None and _is_fx_node_single_element_tensor(tensor_node):
+    # Skip nodes that are not floating-point tensors (e.g. SymInt/int boundary values, which
+    # have no qparams) and single-element tensors, matching op-level processing.
+    if tensor_node is not None and (
+        not _is_fx_node_floating_point(tensor_node)
+        or _is_fx_node_single_element_tensor(tensor_node)
+    ):
         return
     found, spec = _get_spec_from_spec_dict(spec_dict, identifier)
     # If spec is not found, do not do any more processing (as opposed to disabling
