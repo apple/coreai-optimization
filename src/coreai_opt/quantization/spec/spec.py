@@ -545,7 +545,7 @@ class QuantizationSpec(CompressionSpec):
         return self
 
     @model_validator(mode="after")
-    def validate_qscheme_for_fp_quant(self) -> QuantizationSpec:
+    def validate_symmetric_qscheme(self) -> QuantizationSpec:
         """
         Validate that FP quantization and e8m0 scales use symmetric quantization scheme.
         """
@@ -561,7 +561,7 @@ class QuantizationSpec(CompressionSpec):
         return self
 
     @model_validator(mode="after")
-    def validate_qformulation_for_fp_quant(self) -> QuantizationSpec:
+    def validate_zp_qformulation(self) -> QuantizationSpec:
         """
         Validate that FP quantization and e8m0 scales use zero-point quantization formulation.
         """

@@ -230,6 +230,8 @@ class QParamsCalculatorBase(_ClassRegistryMixin, nn.Module):
             scale = self._compute_e8m0_scale(max_abs)
             if self.dtype.is_floating_point:
                 return scale, None, None
+            # Integer dtypes need both a zero point and a minval. e8m0 allows only symmetric ZP,
+            # so the zero point is 0; minval is unused under ZP, -max_abs matches the default path.
             return scale, torch.zeros_like(scale, dtype=torch.int32), -max_abs
 
         # Default path: torchao handles integer and FP8 dtypes

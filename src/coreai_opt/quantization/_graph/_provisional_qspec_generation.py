@@ -284,7 +284,7 @@ def _apply_op_intrinsic_override(
 
     The ``QSCHEME`` half is skipped for a floating-point dtype or an e8m0 scale,
     which admit only the symmetric scheme — see
-    ``QuantizationSpec.validate_qscheme_for_fp_quant``.
+    ``QuantizationSpec.validate_symmetric_qscheme``.
     An op like ``relu`` proposes an asymmetric scheme to exploit its one-sided
     range, but that is a representational choice the spec forbids, so proposing it
     would make the group unbuildable rather than merely lower quality. The
