@@ -346,3 +346,114 @@ kmeans_palettization_config:
       n_init: 1
       max_iter: 1
 ```
+
+## Training strategy: DKM (`training_strategy_spec`)
+
+Each {class}`~coreai_opt.palettization.spec.PalettizationSpec` carries a `training_strategy_spec` field that selects the training-time behavior for that weight. It defaults to vanilla (frozen) k-means, where the codebook and index assignments computed at `prepare()` stay fixed during training. Setting it to a `DKMTrainingSpec` instead enables [Differentiable K-Means](overview.md#differentiable-k-means-dkm-api), so the codebook and assignments are learned through gradient-based fine-tuning.
+
+`DKMTrainingSpec` exposes the following settings:
+
+- `tau`: Softmax temperature for the soft centroid assignment (default `1e-4`). Smaller values sharpen toward hard k-means; larger values soften it. The loss-minimizing `tau` is model-dependent — **smaller models and lower bit-widths tend to prefer a larger `tau`**. A good starting point is `1e-5` for LLMs and the default `1e-4` for smaller models.
+- `kmeans_max_iter`: Number of soft-assignment EM iterations per DKM training forward pass (default `3`).
+- `enforce_zero`: If `True`, pins the centroid nearest the origin to exactly zero (default `False`). Useful for joint pruning and palettization.
+- `zero_threshold`: Numerical-stability floor applied to the softmax assignment weights and per-centroid mass at small `tau` (default `1e-7`).
+
+### Apply DKM to all modules
+
+Set `training_strategy_spec=DKMTrainingSpec()` on the `global_config` spec to enable DKM for every palettized weight in the model:
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.kmeans.dkm import DKMTrainingSpec
+
+config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={
+            "weight": PalettizationSpec(
+                n_bits=4,
+                training_strategy_spec=DKMTrainingSpec(),
+            )
+        },
+    )
+)
+```
+
+```yaml
+# yaml
+kmeans_palettization_config:
+  global_config:
+    op_state_spec:
+      weight:
+        n_bits: 4
+        training_strategy_spec:
+          type: dkm
+```
+
+### Apply DKM to a subset of modules, vanilla k-means to the rest
+
+Because `training_strategy_spec` lives on the per-weight `PalettizationSpec`, DKM can be enabled for selected modules while the rest keep the default vanilla k-means. Below, all layers are palettized 4-bit; two named modules train their palettization with DKM, and every other module (covered by `global_config`) uses vanilla k-means simply by not setting a `training_strategy_spec`.
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.kmeans.dkm import DKMTrainingSpec
+
+config = KMeansPalettizerConfig(
+    # Default for all layers: vanilla 4-bit k-means (no training_strategy_spec).
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+    ),
+    module_name_configs={
+        "encoder.layer.0.attention": ModuleKMeansPalettizerConfig(
+            op_state_spec={
+                "weight": PalettizationSpec(
+                    n_bits=4,
+                    training_strategy_spec=DKMTrainingSpec(tau=1e-4, kmeans_max_iter=3),
+                )
+            },
+        ),
+        "encoder.layer.1.attention": ModuleKMeansPalettizerConfig(
+            op_state_spec={
+                "weight": PalettizationSpec(
+                    n_bits=4,
+                    training_strategy_spec=DKMTrainingSpec(tau=5e-5),
+                )
+            },
+        ),
+    },
+)
+```
+
+```yaml
+# yaml
+kmeans_palettization_config:
+  global_config:
+    op_state_spec:
+      weight:
+        n_bits: 4
+  module_name_configs:
+    encoder.layer.0.attention:
+      op_state_spec:
+        weight:
+          n_bits: 4
+          training_strategy_spec:
+            type: dkm
+            tau: 1.0e-4
+            kmeans_max_iter: 3
+    encoder.layer.1.attention:
+      op_state_spec:
+        weight:
+          n_bits: 4
+          training_strategy_spec:
+            type: dkm
+            tau: 5.0e-5
+```
+
+For a DKM spec with the defaults, the `default_dkm_weight_palettization_spec()` helper (importable from `coreai_opt.palettization.kmeans`) returns a ready-made 4-bit, per-tensor `PalettizationSpec` with `training_strategy_spec=DKMTrainingSpec()`.

@@ -1,0 +1,1 @@
+Added Differentiable K-Means (DKM) training-time palettization (`coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec`).

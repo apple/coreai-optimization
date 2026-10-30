@@ -5,6 +5,7 @@
 
 """K-means palettization compressor."""
 
+from . import dkm  # Registers the "dkm" training strategy.
 from .palettizer import KMeansPalettizer
 
 __all__ = [

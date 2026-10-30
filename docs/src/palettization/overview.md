@@ -196,3 +196,43 @@ with palettizer.training_mode():
 Each time `palettizer.step()` is called, the palettizer checks each module's `PATSchedule` to see whether any palettizer should be enabled. With the above config settings of `enable_fake_palettize` = 2 and 4 for `module1` and `module2` respectively, this results in both palettizers being disabled to start, `module1`'s palettizer enabled after `palettizer.step()` has been called twice, and `module2`'s palettizer enabled after `palettizer.step()` has been called 4 times in total.
 
 Note that `palettizer.step()` can be called whenever the user desires, whether it be per-batch, per-epoch, or on some other cadence.
+
+## Differentiable K-Means (DKM) API
+
+DKM palettization allows the palettization codebook and cluster assignments to be learned through training, removing the inability for already palettized weights to update their codebook and index assignments. This is achieved through calculation of attention scores between all weights and all centroids, along with utilizing a soft-assignment instead of hard-assignment during training forward, allowing gradients to propagate through palettizers to the original weight parameters.
+
+For more details on DKM, refer to [DKM (Cho et al., 2022)](https://arxiv.org/abs/2108.12659).
+
+Enabling DKM simply requires setting `training_strategy_spec` of `PalettizationSpec` to the `DKMTrainingSpec` class. The same `KMeansPalettizer` class is used for palettization. For example, the below code shows enabling DKM for all weights in the model:
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizer,
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.kmeans.dkm import DKMTrainingSpec
+
+kmeans_palettizer_config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={
+            "weight": PalettizationSpec(
+                ..., training_strategy_spec=DKMTrainingSpec(...)
+            )
+        }
+    )
+)
+
+palettizer = KMeansPalettizer(model, kmeans_palettizer_config)
+prepared_model = palettizer.prepare(example_inputs)
+
+with palettizer.training_mode():
+    for i in range(...):
+        # Perform whatever training forward pass / loss calculation / optimizer gradient application is desired
+        ...
+
+finalized_model = palettizer.finalize(...)
+```
+
+As `training_strategy_spec` is part of `PalettizationSpec`, which in turn can be configured on a per-op or module basis in `KMeansPalettizerConfig`, users may choose to enable DKM for a subset of palettized weights in the model while leaving another portion of palettized weights using non-DKM `Vanilla K-means`.
