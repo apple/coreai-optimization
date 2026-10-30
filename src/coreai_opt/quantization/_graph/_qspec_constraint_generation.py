@@ -29,7 +29,6 @@ from ._annotation_pattern_registry import (
     _OPERAND_NODE_OPS,
     SharedObserverModulePattern,
 )
-from ._annotation_utils import _get_call_function_node_from_partition
 from ._qspec_constraints import Constraint, InheritFields, ShareObserverInstance
 from ._qspec_types import FieldName, NodeSlot, ProvisionalQSpecMap, SlotKind
 
@@ -390,7 +389,8 @@ def _nodes_covered_by(match_info: Any) -> list[fx.Node]:
     if isinstance(match, tuple) and all(
         isinstance(partition, SourcePartition) for partition in match
     ):
-        return [_get_call_function_node_from_partition(partition) for partition in match]
+        # Each partition holds a single op node
+        return [partition.nodes[0] for partition in match]
 
     raise TypeError(
         f"Unknown annotator match type: {type(match).__name__}. Update "

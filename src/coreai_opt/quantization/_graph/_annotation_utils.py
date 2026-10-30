@@ -42,7 +42,6 @@ from coreai_opt._utils.python_utils import get_fn_arg_names
 from coreai_opt._utils.version_utils import version_ge
 from coreai_opt.config.compression_config import ModuleConfigDict
 from coreai_opt.config.spec import CompressionTargetTensor
-from coreai_opt.quantization._graph._utils import get_source_module_name
 from coreai_opt.quantization.config import ModuleQuantizerConfig
 from coreai_opt.quantization.config.quantization_config import (
     _ACTIVATION_SPEC_DICT,
@@ -697,34 +696,6 @@ def _fill_input_qspec_map_for_input(
         input_qspec_map[input_node] = input_node.meta[Q_ANNOTATION_KEY].output_qspec
 
 
-def _get_call_function_node_from_partition(partition: SourcePartition) -> torch.fx.Node:
-    """
-    Given a partition, return the call function node associated with the partition.
-
-    We expect there to be only one call function node in the partition.
-    """
-    call_function_nodes = [node for node in partition.nodes if node.op == "call_function"]
-    if len(call_function_nodes) != 1:
-        module_names = {
-            name
-            for node in call_function_nodes
-            if (name := get_source_module_name(node)) is not None
-        }
-        module_hint = ""
-        if module_names:
-            module_hint = (
-                f"\nSource module(s): {', '.join(sorted(module_names))}. "
-                f"Consider excluding this module from quantization via "
-                f"module_name_configs."
-            )
-        error_msg = (
-            f"Expected exactly 1 call function node in source partition but got "
-            f"{call_function_nodes}.{module_hint}"
-        )
-        raise RuntimeError(error_msg)
-    return call_function_nodes[0]
-
-
 def _single_op_partition(node: Node, op_type: str) -> SourcePartition:
     """Wrap one op node in a ``SourcePartition`` of its own."""
     input_nodes = [arg for arg in node.all_input_nodes if arg.op != "get_attr"]
@@ -808,11 +779,12 @@ def match_pattern_with_sequential_partitions(
     node_to_match_dict: dict[torch.fx.Node, tuple[SourcePartition, ...]] = {}
 
     partitions = _find_sequential_partitions(model, pattern.pattern)
-    # Each sequential partition is a tuple of source partitions, one per pattern element.
+    # Each sequential partition is a tuple of source partitions, one per pattern element,
+    # each holding a single op node.
     for sequential_partition in partitions:
         if _is_branching_partition(sequential_partition):
             continue
-        first_op_node = _get_call_function_node_from_partition(sequential_partition[0])
+        first_op_node = sequential_partition[0].nodes[0]
         assert first_op_node not in node_to_match_dict
 
         # Use the first node in the sequences as the key
@@ -829,7 +801,7 @@ def _is_branching_partition(sequential_partition: tuple[SourcePartition, ...]) -
     """
     # Ignore the final node in the pattern since it is ok for it to have multiple outputs
     for source_partition in sequential_partition[:-1]:
-        node = _get_call_function_node_from_partition(source_partition)
+        node = source_partition.nodes[0]
         if len(node.users) > 1:
             return True
     return False
