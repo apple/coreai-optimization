@@ -14,6 +14,7 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 import torch.nn as nn
+from pydantic import ValidationError
 from torch.export.dynamic_shapes import Dim
 from torch.ops import coreai
 from torchao.quantization.pt2e.quantizer import (
@@ -145,6 +146,25 @@ class TestGraphModeQuantizer:
         # Test that the prepared model can be called
         output = prepared_model(simple_model_input)
         assert output.shape == (1, 10)
+
+    def test_prepare_failure_reaches_the_caller_unchanged(
+        self, simple_conv_linear_model, basic_config, simple_model_input, monkeypatch
+    ):
+        """An exception that takes more than a message to construct keeps its type."""
+
+        def _failing_prepare(*_args, **_kwargs):
+            QuantizationSpec(
+                dtype=torch.int8, qscheme="asymmetric", scale_dtype=torch.float8_e8m0fnu
+            )
+
+        monkeypatch.setattr(
+            "coreai_opt.quantization._graph.quantizer.prepare_qat_pt2e", _failing_prepare
+        )
+        quantizer = Quantizer(simple_conv_linear_model, basic_config)
+
+        with pytest.raises(ValidationError, match="requires symmetric") as exc_info:
+            quantizer.prepare((simple_model_input,))
+        assert exc_info.value.__notes__ == ["prepare_qat_pt2e call failed"]
 
     def test_prepare_with_dynamic_shapes(
         self, simple_conv_linear_model, basic_config, simple_model_input

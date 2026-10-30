@@ -668,6 +668,34 @@ class TestBuildConcreteSpec:
         spec = _build_concrete_spec(self._fields(QSCHEME=_fv(QuantizationScheme.ASYMMETRIC)))
         assert self._calculator(spec).qscheme is QuantizationScheme.ASYMMETRIC
 
+    @pytest.mark.parametrize(
+        "dtype,scale_dtype",
+        [(torch.int8, torch.float8_e8m0fnu), (torch.float8_e4m3fn, None)],
+        ids=["int8-e8m0", "fp8"],
+    )
+    def test_op_intrinsic_asymmetric_yields_to_a_symmetric_only_spec(
+        self, dtype: torch.dtype, scale_dtype: torch.dtype | None
+    ) -> None:
+        """Another slot in the group can bring in a dtype or scale the op's own config lacked."""
+        spec = _build_concrete_spec(
+            self._fields(
+                DTYPE=_fv(dtype),
+                SCALE_DTYPE=_fv(scale_dtype),
+                QSCHEME=_fv(QuantizationScheme.ASYMMETRIC, OP_INTRINSIC_PRIORITY),
+            )
+        )
+        assert self._calculator(spec).qscheme is QuantizationScheme.SYMMETRIC
+
+    def test_user_asymmetric_with_an_e8m0_scale_still_raises(self) -> None:
+        """Only the op's preference yields; a conflicting user config still surfaces."""
+        with pytest.raises(ValueError, match="requires symmetric"):
+            _build_concrete_spec(
+                self._fields(
+                    SCALE_DTYPE=_fv(torch.float8_e8m0fnu),
+                    QSCHEME=_fv(QuantizationScheme.ASYMMETRIC),
+                )
+            )
+
     def test_reconciled_float_range_reaches_the_calculator(self) -> None:
         spec = _build_concrete_spec(self._fields(FLOAT_RANGE=_fv([0.0, 1.0])))
         assert tuple(self._calculator(spec).float_range) == (0.0, 1.0)
