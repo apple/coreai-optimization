@@ -11,6 +11,8 @@
 introduction/installation
 introduction/how_to_use_coreaiopt
 introduction/integration_coreai
+introduction/torch_backend
+introduction/checkpoints
 ```
 
 ```{toctree}

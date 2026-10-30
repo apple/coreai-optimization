@@ -78,8 +78,9 @@ finalized_model = quantizer.finalize()
 
 After `finalize()`, weights and compression statistics are frozen — the model is no longer expected to be modified. Depending on the compressor, `finalize()` may update the model in-place or operate on a copy; the returned `finalized_model` is what should be exported. The finalized model inherits the current training mode, so call `.eval()` on it before running inference or downstream conversion.
 
-The finalized model can then be used to convert with [coreai-torch](https://github.com/apple/coreai-torch) to produce a Core AI model (`.aimodel`).
-For details, see [Integration with Core AI](integration_coreai.md).
+`finalize()` takes a `backend` argument. With `ExportBackend.CoreAI` (the default), the finalized model can be converted with [coreai-torch](https://github.com/apple/coreai-torch) to produce a Core AI model (`.aimodel`); see [Integration with Core AI](integration_coreai.md). `ExportBackend.CoreML` prepares the model for conversion with `coremltools`, while `ExportBackend.Torch` folds (decompresses) the compressed weights into dense weights, so the finalized model runs in PyTorch at similar latency to the uncompressed model, for example to evaluate it; see [Running PyTorch evaluations with compressed models](torch_backend.md).
+
+To finalize the same compressed model for more than one backend, save a checkpoint of the prepared model and reload it with `prepare(..., state_dict=...)`; see [Checkpoints and workflows](checkpoints.md).
 
 ## Configs
 
