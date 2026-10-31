@@ -92,7 +92,7 @@ jobs:
     name: macOS / make test-highest-pytorch / markers=not-slow
     needs: [check, test-smoke, test-tutorials]
     if: github.repository == 'apple/coreai-optimization'
-    runs-on: [self-hosted, macos, tahoe, ARM64]
+    runs-on: [self-hosted, macos, goldengate]
     timeout-minutes: 60
     env:
       INSTALL_PRECOMMIT: "false"
