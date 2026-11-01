@@ -5,8 +5,10 @@
 
 """K-means palettization compressor."""
 
+from . import dkm
 from .palettizer import KMeansPalettizer
 
 __all__ = [
     "KMeansPalettizer",
+    "dkm",
 ]
