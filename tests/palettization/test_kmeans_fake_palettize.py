@@ -1329,26 +1329,18 @@ class TestSensitivityBasedPalettization:
         lut_regular, indices_regular = _initialize_and_get_lut_indices(palettizer_regular, weight)
         palettized_regular = palettizer_regular._palettize(lut_regular, indices_regular, weight)
 
-        # Calculate reconstruction errors
-        mse_fast = torch.mean((weight - palettized_fast) ** 2)
-        mse_regular = torch.mean((weight - palettized_regular) ** 2)
+        # Compare the sensitivity-weighted error, which is what weighted k-means minimizes.
+        # Fast mode clusters fp16-rounded weights, so a weight near a tie between two clusters
+        # can land in the neighboring cluster. That moves centroids and the unweighted error
+        # by a lot, but changes the weighted error by well under 1%.
+        err_fast = torch.sum(sensitivities * (weight - palettized_fast) ** 2)
+        err_regular = torch.sum(sensitivities * (weight - palettized_regular) ** 2)
 
-        print(f"MSE fast: {mse_fast:.6f}, MSE regular: {mse_regular:.6f}")
+        print(f"Weighted error fast: {err_fast:.6f}, regular: {err_regular:.6f}")
 
-        # The reconstruction errors should be similar (within reasonable tolerance)
-        # Note: They won't be identical due to rounding in fast mode
-        assert torch.allclose(mse_fast, mse_regular, rtol=0.5), (
-            f"Fast and regular k-means should produce similar reconstruction errors. "
-            f"Got {mse_fast:.6f} vs {mse_regular:.6f}"
-        )
-
-        # The centroids should also be similar
-        # Sort centroids for comparison since order might differ
-        centroids_fast_sorted = torch.sort(lut_fast.flatten()).values
-        centroids_regular_sorted = torch.sort(lut_regular.flatten()).values
-
-        assert torch.allclose(centroids_fast_sorted, centroids_regular_sorted, atol=0.1), (
-            "Fast and regular k-means should produce similar centroids"
+        assert torch.allclose(err_fast, err_regular, rtol=0.01), (
+            f"Fast and regular k-means should produce similar weighted reconstruction errors. "
+            f"Got {err_fast:.6f} vs {err_regular:.6f}"
         )
 
     def test_uniform_sensitivities_equivalent_to_no_sensitivities(self):
