@@ -1233,7 +1233,8 @@ class TestIntegerActivations:
 
 class TestSingleElementTensors:
     """
-    Graph mode skips activations and states with at most one element, matching eager mode
+    Graph mode skips activations and states that are non-float or have at most one element,
+    matching eager mode
     """
 
     @staticmethod
@@ -1353,6 +1354,60 @@ class TestSingleElementTensors:
 
         self._assert_no_single_element_tensor_observed(prepared_model)
 
+    @pytest.mark.parametrize(
+        "module_input_spec, expect_warning",
+        [
+            ({"*": default_activation_quantization_spec()}, False),
+            (
+                {
+                    0: default_activation_quantization_spec(),
+                    1: default_activation_quantization_spec(),
+                },
+                True,
+            ),
+        ],
+        ids=["wildcard", "indexed"],
+    )
+    def test_non_float_module_boundary_not_observed(
+        self, module_input_spec, expect_warning, caplog
+    ):
+        class Block(nn.Module):
+            def forward(self, n, y):
+                # The shape integer is consumed first, so it is boundary input 0.
+                return y * torch.arange(n, device=y.device)[None, :, None]
+
+        class BlockModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(8, 8)
+                self.block = Block()
+
+            def forward(self, x):
+                y = self.linear(x)
+                return self.block(y.shape[1], y)
+
+        # Only the block boundary is quantized, so the float boundary input y (the linear
+        # output) can only be observed through module_input_spec.
+        config = QuantizerConfig(
+            module_name_configs={
+                "block": ModuleQuantizerConfig(module_input_spec=module_input_spec)
+            }
+        )
+        quantizer = Quantizer(BlockModel(), config)
+        with caplog.at_level(logging.WARNING):
+            # Dim.AUTO on dim 1 makes y.shape[1] a SymInt node rather than a constant.
+            prepared_model = quantizer.prepare(
+                (torch.randn(2, 4, 8),), dynamic_shapes={"x": (Dim.STATIC, Dim.AUTO, Dim.STATIC)}
+            )
+
+        fq_nodes = get_fake_quant_nodes(prepared_model)
+        for fq_node in fq_nodes:
+            assert _is_fx_node_floating_point(fq_node.args[0]), (
+                f"{fq_node.name} observes non-float value {fq_node.args[0].name}"
+            )
+        self._assert_state_observed(prepared_model, "linear")
+        assert any("module_input_spec idx 0" in msg for msg in caplog.messages) is expect_warning
+
     @staticmethod
     def _assert_state_observed(prepared_model, state_name):
         observed_names = {fq_node.args[0].name for fq_node in get_fake_quant_nodes(prepared_model)}
@@ -1415,51 +1470,6 @@ class TestSingleElementTensors:
 
         self._assert_no_single_element_tensor_observed(prepared_model)
         self._assert_state_observed(prepared_model, "linear_weight")
-
-
-class TestNonFloatModuleBoundary:
-    """
-    Graph mode skips module boundary values that are not floating-point tensors, such as a
-    shape integer computed outside a module and consumed inside it
-    """
-
-    @pytest.mark.parametrize(
-        "module_input_spec",
-        [None, {0: default_activation_quantization_spec()}],
-        ids=["wildcard", "index_0"],
-    )
-    def test_shape_integer_module_input_not_observed(self, module_input_spec):
-        class Block(nn.Module):
-            def forward(self, n, y):
-                # The shape integer is consumed first, so it is boundary input 0.
-                return y * torch.arange(n, device=y.device)[None, :, None]
-
-        class BlockModel(nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.linear = nn.Linear(8, 8)
-                self.block = Block()
-
-            def forward(self, x):
-                y = self.linear(x)
-                return self.block(y.shape[1], y)
-
-        config = make_graph_mode_module_boundary_config(
-            module_boundary_dtype=torch.int8,
-            module_name="block",
-            module_input_spec=module_input_spec,
-        )
-        quantizer = Quantizer(BlockModel(), config)
-        prepared_model = quantizer.prepare(
-            (torch.randn(2, 4, 8),), dynamic_shapes={"x": (Dim.STATIC, Dim.AUTO, Dim.STATIC)}
-        )
-
-        fq_nodes = get_fake_quant_nodes(prepared_model)
-        assert fq_nodes, "Expected the float tensors to still be observed"
-        for fq_node in fq_nodes:
-            assert _is_fx_node_floating_point(fq_node.args[0]), (
-                f"{fq_node.name} observes non-float value {fq_node.args[0].name}"
-            )
 
 
 @pytest.mark.parametrize("model_dtype", [torch.float32, torch.float16, torch.bfloat16])
