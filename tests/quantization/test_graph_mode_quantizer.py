@@ -1995,12 +1995,22 @@ class TestFixedQParamsActivations:
 
         self._assert_fq_properties(fq, expected_qscheme, expected_float_range, expected_scale)
 
+    @pytest.mark.parametrize(
+        "softmax_fn",
+        [
+            pytest.param(lambda x, dim: torch.softmax(x, dim=dim), id="torch.softmax"),
+            pytest.param(lambda x, dim: torch.nn.functional.softmax(x, dim=dim), id="F.softmax"),
+            pytest.param(lambda x, dim: nn.Softmax(dim=dim)(x), id="nn.Softmax"),
+            pytest.param(lambda x, dim: x.softmax(dim=dim), id="Tensor.softmax"),
+        ],
+    )
     @pytest.mark.parametrize("dim", [1, -1])
     @pytest.mark.parametrize("producer", ["linear", "matmul"])
-    def test_softmax_fixed_qparams_and_fusion(self, producer, dim):
+    def test_softmax_fixed_qparams_and_fusion(self, producer, dim, softmax_fn):
         """Softmax after ``linear``/``matmul`` is fused and its output gets fixed [0, 1] qparams.
 
-        The producer's output is not quantized, only the softmax output is, for any ``dim``.
+        The producer's output is not quantized, only the softmax output is, for any ``dim``
+        and any way of spelling softmax.
         """
 
         class SoftmaxModel(nn.Module):
@@ -2010,7 +2020,7 @@ class TestFixedQParamsActivations:
 
             def forward(self, x, y):
                 x = self.linear(x) if producer == "linear" else x @ y
-                return torch.softmax(x, dim=dim)
+                return softmax_fn(x, dim)
 
         torch.manual_seed(42)
         model = SoftmaxModel().eval()

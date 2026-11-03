@@ -170,6 +170,12 @@ def softmax(input: torch.Tensor) -> torch.Tensor:
 
     The pattern matcher ignores literal arguments, so the choice of ``dim`` here does not
     restrict which models match.
+
+    Note:
+        This function is deliberately named ``softmax`` so its ``__name__`` lines up with what
+        ``F.softmax`` would have provided, since pattern names are built from ``__name__``.
+        ``functools.partial(F.softmax, dim=-1)`` would not work because a partial object has
+        no ``__name__``.
     """
     return F.softmax(input, dim=-1)
 
