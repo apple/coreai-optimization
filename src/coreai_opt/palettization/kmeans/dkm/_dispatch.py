@@ -5,23 +5,21 @@
 
 """Resolve the DKM forward function for a device.
 
-Providers registered under the ``coreai_opt.dkm_providers`` entry-point group may supply
-the forward.
+Backends registered with :class:`DKMBackend` may supply the forward.
 """
 
 import logging
 from collections.abc import Callable
 from functools import cache
-from importlib.metadata import entry_points
-from typing import NamedTuple, Protocol
+from typing import Protocol
 
 import torch
 
-__all__ = ["Forward", "Provider", "get_forward"]
+from coreai_opt._utils.registry_utils import FunctionRegistryMixin
+
+__all__ = ["DKMBackend", "Forward", "get_forward"]
 
 logger = logging.getLogger(__name__)
-
-ENTRY_POINT_GROUP = "coreai_opt.dkm_providers"
 
 
 class Forward(Protocol):
@@ -41,33 +39,21 @@ class Forward(Protocol):
         ...
 
 
-class Provider(NamedTuple):
-    """A named provider; ``load(device)`` returns its forward, or ``None`` if it does not apply."""
+class DKMBackend(FunctionRegistryMixin):
+    """Registry of DKM backends, tried in registration order.
 
-    name: str
-    load: Callable[[torch.device], Forward | None]
-
-
-@cache
-def _providers() -> tuple[Provider, ...]:
-    providers: list[Provider] = []
-    for entry_point in entry_points(group=ENTRY_POINT_GROUP):
-        try:
-            providers = entry_point.load()(providers)
-        except Exception:
-            logger.warning(
-                "DKM: provider %s failed to load; skipping.", entry_point.name, exc_info=True
-            )
-    return tuple(providers)
+    Each entry is a loader ``(device) -> Forward | None`` that returns its forward, or ``None``
+    if it does not apply to the device.
+    """
 
 
 @cache
 def get_forward(device: torch.device) -> Forward | None:
-    """Return the forward supplied by a provider for ``device``, or ``None``."""
-    for provider in _providers():
-        forward = provider.load(device)
+    """Return the forward supplied by a registered backend for ``device``, or ``None``."""
+    for name, load in DKMBackend.REGISTRY.items():
+        forward = load(device)
         if forward is not None:
-            logger.info("DKM: using the %s provider on %s", provider.name, device)
+            logger.info("DKM: using the %s backend on %s", name, device)
             return forward
     logger.info("DKM: using the PyTorch implementation on %s", device)
     return None
