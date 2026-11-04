@@ -884,6 +884,7 @@ def test_partial_defaults():
         ),
         (torch.float4_e2m1fn_x2, None, torch.float8_e8m0fnu),
         (torch.float4_e2m1fn_x2, torch.float8_e8m0fnu, torch.float8_e8m0fnu),
+        (torch.int8, torch.float8_e8m0fnu, torch.float8_e8m0fnu),
     ],
 )
 def test_valid_scale_dtype(dtype, scale_dtype, expected_scale_dtype):
@@ -907,6 +908,7 @@ def test_valid_scale_dtype(dtype, scale_dtype, expected_scale_dtype):
             torch.int4,
             torch.float8_e8m0fnu,
         ),
+        (torch.uint8, torch.float8_e8m0fnu),
     ],
 )
 def test_invalid_scale_dtype(dtype, scale_dtype):
@@ -915,6 +917,65 @@ def test_invalid_scale_dtype(dtype, scale_dtype):
             dtype=dtype,
             qscheme="symmetric",
             granularity=PerChannelGranularity(axis=0),
+            scale_dtype=scale_dtype,
+        )
+
+
+@pytest.mark.parametrize(
+    "qscheme,qformulation",
+    [
+        (QuantizationScheme.ASYMMETRIC, QuantizationFormulation.ZP),
+        (QuantizationScheme.SYMMETRIC_WITH_CLIPPING, QuantizationFormulation.ZP),
+        (QuantizationScheme.SYMMETRIC, QuantizationFormulation.MINVAL),
+    ],
+)
+def test_e8m0_scale_requires_symmetric_zp(qscheme, qformulation):
+    with pytest.raises(ValueError, match="FP quantization or an e8m0 scale"):
+        QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=qscheme,
+            qformulation=qformulation,
+            granularity=PerBlockGranularity(axis=1, block_size=32),
+            scale_dtype=torch.float8_e8m0fnu,
+        )
+
+
+@pytest.mark.parametrize(
+    "dtype,scale_dtype,qscheme,qformulation,match",
+    [
+        (
+            torch.uint8,
+            torch.float8_e8m0fnu,
+            QuantizationScheme.ASYMMETRIC,
+            QuantizationFormulation.ZP,
+            "scale_dtype must be None for dtype=torch.uint8",
+        ),
+        (
+            torch.int4,
+            torch.float8_e8m0fnu,
+            QuantizationScheme.SYMMETRIC,
+            QuantizationFormulation.MINVAL,
+            "scale_dtype must be None for dtype=torch.int4",
+        ),
+        (
+            torch.int8,
+            torch.float16,
+            QuantizationScheme.ASYMMETRIC,
+            QuantizationFormulation.ZP,
+            "Unsupported scale_dtype",
+        ),
+    ],
+)
+def test_scale_dtype_error_is_reported_before_qscheme_and_qformulation(
+    dtype, scale_dtype, qscheme, qformulation, match
+):
+    """Fixing the qscheme or qformulation first would only lead to the scale_dtype error."""
+    with pytest.raises(ValueError, match=match):
+        QuantizationSpec(
+            dtype=dtype,
+            qscheme=qscheme,
+            qformulation=qformulation,
+            granularity=PerBlockGranularity(axis=1, block_size=32),
             scale_dtype=scale_dtype,
         )
 

@@ -371,20 +371,18 @@ def get_activation_export_handler(
     return _GRAPH_ACTIVATION_EXPORT_HANDLERS.get(type(granularity))
 
 
-def can_export_stateless_fake_quant(
+def has_activation_export_handler(
     fake_quant_mod: FakeQuantizeImplBase,
     backend: ExportBackend,
     execution_mode: ExecutionMode,
 ) -> bool:
-    """Return whether a recompute-every-forward calculator can still be exported.
+    """Return whether a registered activation handler will export this module.
 
-    The built-in export paths bake qparams into buffers, so a calculator that
-    recomputes them every forward has nothing to bake. A registered activation handler
-    emits its own ops and can express the recomputation, so it lifts the
-    restriction for the activation it covers.
+    A handler emits its own ops, so callers use this to lift restrictions of the
+    built-in export paths.
 
     Args:
-        fake_quant_mod (FakeQuantizeImplBase): The module whose calculator is stateless.
+        fake_quant_mod (FakeQuantizeImplBase): The module to export.
         backend (ExportBackend): The export target.
         execution_mode (ExecutionMode): The quantizer's execution mode.
 

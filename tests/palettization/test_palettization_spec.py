@@ -267,6 +267,16 @@ def test_lut_qspec_validation():
             )
         )
 
+    # Invalid: e8m0 scale on an integer LUT
+    with pytest.raises(ValidationError, match="lut_qspec.scale_dtype must be None"):
+        PalettizationSpec(
+            lut_qspec=QuantizationSpec(
+                dtype=torch.int8,
+                qscheme=QuantizationScheme.SYMMETRIC,
+                scale_dtype=torch.float8_e8m0fnu,
+            )
+        )
+
 
 @pytest.mark.parametrize(
     "granularity", [PerTensorGranularity(), PerGroupedChannelGranularity(axis=1, group_size=8)]
