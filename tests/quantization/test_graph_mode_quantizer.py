@@ -2015,6 +2015,57 @@ class TestFixedQParamsActivations:
 
         self._assert_fq_properties(fq, expected_qscheme, expected_float_range, expected_scale)
 
+    @pytest.mark.parametrize(
+        "softmax_fn",
+        [
+            pytest.param(lambda x, dim: torch.softmax(x, dim=dim), id="torch.softmax"),
+            pytest.param(lambda x, dim: torch.nn.functional.softmax(x, dim=dim), id="F.softmax"),
+            pytest.param(lambda x, dim: nn.Softmax(dim=dim)(x), id="nn.Softmax"),
+            pytest.param(lambda x, dim: x.softmax(dim=dim), id="Tensor.softmax"),
+        ],
+    )
+    @pytest.mark.parametrize("dim", [1, -1])
+    @pytest.mark.parametrize("producer", ["linear", "matmul"])
+    def test_softmax_fixed_qparams_and_fusion(self, producer, dim, softmax_fn):
+        """Softmax after ``linear``/``matmul`` is fused and its output gets fixed [0, 1] qparams.
+
+        The producer's output is not quantized, only the softmax output is, for any ``dim``
+        and any way of spelling softmax.
+        """
+
+        class SoftmaxModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(4, 4, bias=False)
+
+            def forward(self, x, y):
+                x = self.linear(x) if producer == "linear" else x @ y
+                return softmax_fn(x, dim)
+
+        torch.manual_seed(42)
+        model = SoftmaxModel().eval()
+        example_inputs = (torch.randn(2, 3, 4), torch.randn(2, 4, 4))
+
+        quantizer = Quantizer(model, QuantizerConfig())
+        prepared_model = quantizer.prepare(example_inputs)
+        prepared_model(*example_inputs)
+
+        nodes = list(prepared_model.graph.nodes)
+        softmax_node = next(n for n in nodes if n.target == torch.ops.aten.softmax.int)
+        (output_fq_node,) = softmax_node.users
+        fq = getattr(prepared_model, output_fq_node.target)
+
+        # Asymmetric [0, 1] over 255 int8 steps: scale = 1/255.
+        self._assert_fq_properties(fq, QuantizationScheme.ASYMMETRIC, (0.0, 1.0), 1.0 / 255.0)
+
+        assert "activation_post_process" not in str(softmax_node.args[0].target)
+
+        with quantizer.calibration_mode():
+            for _ in range(5):
+                prepared_model(torch.randn(2, 3, 4), torch.randn(2, 4, 4))
+
+        self._assert_fq_properties(fq, QuantizationScheme.ASYMMETRIC, (0.0, 1.0), 1.0 / 255.0)
+
     def test_relu_output_qparams(self):
         """ReLU output fake quant should have ASYMMETRIC qscheme with float_range=(0, None).
 

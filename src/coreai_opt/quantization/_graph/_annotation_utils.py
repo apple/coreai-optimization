@@ -153,6 +153,9 @@ _fixed_q_params_ops = {
     # relu6: clipped to [0, 6]
     torch.ops.aten.relu6.default: (QuantizationScheme.ASYMMETRIC, (0.0, 6.0)),
     torch.ops.aten.relu6_.default: (QuantizationScheme.ASYMMETRIC, (0.0, 6.0)),
+    # softmax: bounded to [0, 1] regardless of dim
+    torch.ops.aten.softmax.int: (QuantizationScheme.ASYMMETRIC, (0.0, 1.0)),
+    torch.ops.aten._softmax.default: (QuantizationScheme.ASYMMETRIC, (0.0, 1.0)),
 }
 
 # hardtanh bounds are configurable via node arguments; handled separately.
@@ -162,8 +165,23 @@ _hardtanh_ops = (
 )
 
 
+def softmax(input: torch.Tensor) -> torch.Tensor:
+    """Softmax with ``dim`` bound, since ``F.softmax`` warns on an implicit ``dim``.
+
+    The pattern matcher ignores literal arguments, so the choice of ``dim`` here does not
+    restrict which models match.
+
+    Note:
+        This function is deliberately named ``softmax`` so its ``__name__`` lines up with what
+        ``F.softmax`` would have provided, since pattern names are built from ``__name__``.
+        ``functools.partial(F.softmax, dim=-1)`` would not work because a partial object has
+        no ``__name__``.
+    """
+    return F.softmax(input, dim=-1)
+
+
 # These activation functions don't have an inplace argument
-_supported_activations_no_inplace = (F.gelu, F.sigmoid, F.logsigmoid, F.tanh)
+_supported_activations_no_inplace = (F.gelu, F.sigmoid, F.logsigmoid, F.tanh, softmax)
 
 
 # Map of dimension to convolution and convtranspose functions
