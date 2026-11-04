@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import contextmanager
 from os import PathLike
 from typing import Any
@@ -29,7 +29,7 @@ from coreai_opt._utils.torch_utils import get_module_name as _get_module_name
 from coreai_opt.common import ExportBackend
 from coreai_opt.quantization._eager import EagerQuantizer as _EagerQuantizer
 from coreai_opt.quantization._export_utils import (
-    can_export_stateless_fake_quant as _can_export_stateless_fake_quant,
+    has_activation_export_handler as _has_activation_export_handler,
 )
 from coreai_opt.quantization._graph import GraphQuantizer as _GraphQuantizer
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
@@ -435,16 +435,9 @@ class Quantizer(_BaseQuantizer):
         ``EagerActivationExportHandler`` in eager mode.
 
         """
-        if backend == ExportBackend.Torch:
-            return
-        model_to_check = model if model is not None else self._model
-        stateless_fq_names = [
-            name
-            for name, mod in model_to_check.named_modules()
-            if isinstance(mod, FakeQuantizeImplBase)
-            and mod.is_stateless
-            and not _can_export_stateless_fake_quant(mod, backend, self._execution_mode)
-        ]
+        stateless_fq_names = self._fake_quant_names_without_export_handler(
+            model, backend, lambda mod: mod.is_stateless
+        )
         if stateless_fq_names:
             raise NotImplementedError(
                 f"backend={backend} does not yet support qparams calculators that "
@@ -474,6 +467,54 @@ class Quantizer(_BaseQuantizer):
                 f"torch-only inference."
             )
             raise NotImplementedError(msg)
+
+    def _validate_no_integer_e8m0_scales(
+        self,
+        model: nn.Module | fx.GraphModule | None,
+        backend: ExportBackend,
+    ) -> None:
+        """Reject CoreAI/CoreML export of integer quantization with e8m0 scales.
+
+        The built-in integer export ops cannot take an e8m0 scale; a registered
+        activation export handler lifts the restriction.
+        """
+        e8m0_int_fq_names = self._fake_quant_names_without_export_handler(
+            model,
+            backend,
+            lambda mod: (
+                not mod.dtype.is_floating_point
+                and mod.qparams_calculator.scale_dtype == torch.float8_e8m0fnu
+            ),
+        )
+        if e8m0_int_fq_names:
+            msg = (
+                f"backend={backend} does not support integer quantization with "
+                f"scale_dtype={torch.float8_e8m0fnu}. Affected FakeQuantize modules: "
+                f"{e8m0_int_fq_names}. Use backend=ExportBackend.Torch for torch-only "
+                f"inference."
+            )
+            raise NotImplementedError(msg)
+
+    def _fake_quant_names_without_export_handler(
+        self,
+        model: nn.Module | fx.GraphModule | None,
+        backend: ExportBackend,
+        predicate: Callable[[FakeQuantizeImplBase], bool],
+    ) -> list[str]:
+        """Return FakeQuantize modules matching ``predicate`` with no activation export handler.
+
+        Always empty for ``ExportBackend.Torch``.
+        """
+        if backend == ExportBackend.Torch:
+            return []
+        model_to_check = model if model is not None else self._model
+        return [
+            name
+            for name, mod in model_to_check.named_modules()
+            if isinstance(mod, FakeQuantizeImplBase)
+            and predicate(mod)
+            and not _has_activation_export_handler(mod, backend, self._execution_mode)
+        ]
 
     def finalize(
         self,
@@ -531,6 +572,7 @@ class Quantizer(_BaseQuantizer):
         self._validate_mmap_dir_constraints(model, backend, mmap_dir)
         self._validate_no_persistent_observer_calculators(model, backend)
         self._validate_export_supported_dtypes(model, backend)
+        self._validate_no_integer_e8m0_scales(model, backend)
         return self._quantizer.finalize(model, backend, mmap_dir=mmap_dir)
 
     @contextmanager
