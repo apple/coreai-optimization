@@ -456,4 +456,4 @@ kmeans_palettization_config:
             tau: 5.0e-5
 ```
 
-For a DKM spec with the defaults, the `default_dkm_weight_palettization_spec()` helper (importable from `coreai_opt.palettization.kmeans`) returns a ready-made 4-bit, per-tensor `PalettizationSpec` with `training_strategy_spec=DKMTrainingSpec()`.
+For a DKM spec with the defaults, the `default_dkm_weight_palettization_spec()` helper (importable from `coreai_opt.palettization.kmeans.dkm`) returns a ready-made 4-bit, per-tensor `PalettizationSpec` with `training_strategy_spec=DKMTrainingSpec()`.

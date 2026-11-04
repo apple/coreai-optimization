@@ -17,6 +17,8 @@ import torch
 
 from coreai_opt._utils.registry_utils import FunctionRegistryMixin
 
+from ._forward import dkm_forward
+
 __all__ = ["DKMBackend", "Forward", "get_forward"]
 
 logger = logging.getLogger(__name__)
@@ -48,12 +50,15 @@ class DKMBackend(FunctionRegistryMixin):
 
 
 @cache
-def get_forward(device: torch.device) -> Forward | None:
-    """Return the forward supplied by a registered backend for ``device``, or ``None``."""
+def get_forward(device: torch.device) -> Forward:
+    """
+    Return the forward from the first applicable registered backend, else the PyTorch
+    ``dkm_forward``.
+    """
     for name, load in DKMBackend.REGISTRY.items():
         forward = load(device)
         if forward is not None:
             logger.info("DKM: using the %s backend on %s", name, device)
             return forward
     logger.info("DKM: using the PyTorch implementation on %s", device)
-    return None
+    return dkm_forward

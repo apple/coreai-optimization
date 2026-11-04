@@ -8,7 +8,7 @@ from collections import OrderedDict
 import pytest
 import torch
 
-from coreai_opt.palettization.kmeans.dkm import _dispatch
+from coreai_opt.palettization.kmeans.dkm import _dispatch, _forward
 
 
 @pytest.fixture(autouse=True)
@@ -19,9 +19,9 @@ def _isolated_registry(monkeypatch):
     _dispatch.get_forward.cache_clear()
 
 
-def test_no_backends_returns_none_and_logs(caplog):
+def test_no_backends_returns_pytorch_forward_and_logs(caplog):
     with caplog.at_level("INFO", logger=_dispatch.logger.name):
-        assert _dispatch.get_forward(torch.device("cpu")) is None
+        assert _dispatch.get_forward(torch.device("cpu")) is _forward.dkm_forward
     assert "DKM: using the PyTorch implementation on cpu" in caplog.text
 
 

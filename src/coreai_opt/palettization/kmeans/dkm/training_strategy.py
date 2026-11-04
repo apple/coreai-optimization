@@ -15,7 +15,6 @@ from coreai_opt.palettization.spec import PalettizationSpec, PerTensorGranularit
 from coreai_opt.palettization.spec.training_strategy import TrainingStrategy, TrainingStrategySpec
 
 from ._dispatch import get_forward as _get_forward
-from ._forward import dkm_forward as _dkm_forward
 
 # Cluster dim values which are supported by DKM
 SUPPORTED_CLUSTER_DIMS = {1, 2, 4}
@@ -85,26 +84,15 @@ class _DKMTrainingStrategy(TrainingStrategy):
 
         forward = _get_forward(weight.device)
 
-        if forward is not None:
-            reconstructed_weights, centroids_new = forward(
-                weights,
-                centroids,
-                self.tau,
-                kmeans_max_iter=self.kmeans_max_iter,
-                zero_threshold=self.zero_threshold,
-                enforce_zero=self.enforce_zero,
-                quantize_fn=quantize_fn,
-            )
-        else:
-            reconstructed_weights, centroids_new = _dkm_forward(
-                weights,
-                centroids,
-                self.tau,
-                self.kmeans_max_iter,
-                zero_threshold=self.zero_threshold,
-                enforce_zero=self.enforce_zero,
-                quantize_fn=quantize_fn,
-            )
+        reconstructed_weights, centroids_new = forward(
+            weights,
+            centroids,
+            self.tau,
+            kmeans_max_iter=self.kmeans_max_iter,
+            zero_threshold=self.zero_threshold,
+            enforce_zero=self.enforce_zero,
+            quantize_fn=quantize_fn,
+        )
 
         module.centroids.copy_(centroids_new.detach())
         module._indices_stale = True
