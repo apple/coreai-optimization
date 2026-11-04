@@ -196,6 +196,7 @@ class TestGraphModeQuantizer:
         with pytest.raises(RuntimeError, match="Debugging hints"):
             quantizer.prepare(example_inputs=(torch.randn(2, 2),))
 
+    @pytest.mark.requires_coreai
     def test_finalize_with_none_model_arg(
         self, simple_conv_linear_model, basic_config, simple_model_input
     ):
@@ -355,6 +356,7 @@ class TestGraphModeQuantizer:
             len(weight_metadata_buffers) // 4 + len(activation_quant_modules)
         )
 
+    @pytest.mark.requires_coreai
     def test_finalize_mlir_backend(
         self, simple_conv_linear_model, basic_config, simple_model_input
     ):
@@ -978,6 +980,7 @@ class TestAPIOrdering:
             with quantizer.calibration_mode():
                 pass
 
+    @pytest.mark.requires_coreai
     def test_prepared_attribute_persistence(
         self, simple_conv_linear_model, basic_config, simple_model_input
     ):
@@ -1425,7 +1428,7 @@ class TestGraphModeHalfPrecisionSupport:
         "backend",
         [
             pytest.param(ExportBackend.Torch, id="torch"),
-            pytest.param(ExportBackend.CoreAI, id="coreai"),
+            pytest.param(ExportBackend.CoreAI, id="coreai", marks=pytest.mark.requires_coreai),
             pytest.param(ExportBackend.CoreML, id="coreml"),
         ],
     )
@@ -1476,6 +1479,7 @@ class TestGraphModeHalfPrecisionSupport:
 class TestPreservedAttributes:
     """Test cases for preserved_attributes functionality in graph-mode quantization."""
 
+    @pytest.mark.requires_coreai
     def test_preserved_attributes_on_compressed_model(
         self, simple_conv_linear_model, basic_config, simple_model_input
     ):
@@ -1512,6 +1516,7 @@ class TestPreservedAttributes:
         assert hasattr(finalized_model, "custom_dict")
         assert finalized_model.custom_dict == {"key": "value", "num": 42}
 
+    @pytest.mark.requires_coreai
     def test_preserved_attributes_survive_deepcopy(
         self, simple_conv_linear_model, basic_config, simple_model_input
     ):
@@ -1565,7 +1570,7 @@ class TestPreservedAttributes:
         "backend",
         [
             pytest.param(ExportBackend.Torch, id="torch"),
-            pytest.param(ExportBackend.CoreAI, id="coreai"),
+            pytest.param(ExportBackend.CoreAI, id="coreai", marks=pytest.mark.requires_coreai),
             pytest.param(ExportBackend.CoreML, id="coreml"),
         ],
     )
@@ -1623,6 +1628,7 @@ class TestGraphModeQuantizerTrainEval:
         prepared_model.eval()
         assert not self._is_training(prepared_model)
 
+    @pytest.mark.requires_coreai
     def test_finalized_model_train_eval(
         self, simple_conv_linear_model, simple_model_input, weight_only_config
     ):
@@ -1664,6 +1670,7 @@ class TestGraphModeQuantizerTrainEval:
         assert prepared_model.training
 
 
+@pytest.mark.requires_coreai
 class TestFP4MLIRExportValidation:
     """Test that FP4 export validation rejects unsupported configurations."""
 
@@ -1838,7 +1845,7 @@ class TestBlockSizeMismatchSkipGraphMode:
         "backend",
         [
             pytest.param(ExportBackend.CoreML, id="coreml"),
-            pytest.param(ExportBackend.CoreAI, id="coreai"),
+            pytest.param(ExportBackend.CoreAI, id="coreai", marks=pytest.mark.requires_coreai),
         ],
     )
     def test_all_nodes_disabled_finalize_raises_for_no_fq_nodes(self, caplog, backend):

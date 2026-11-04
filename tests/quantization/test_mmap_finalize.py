@@ -58,6 +58,7 @@ def _expected_file_names(weight_fqns, execution_mode):
     return sorted(f"{fqn}.safetensors" for fqn in weight_fqns)
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.parametrize("execution_mode", MODES)
 @pytest.mark.parametrize("kind", ["int4", "fp4"])
 def test_finalize_mmap_is_file_backed_and_output_preserving(
@@ -99,6 +100,7 @@ def test_finalize_mmap_is_file_backed_and_output_preserving(
         )
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.parametrize("execution_mode", MODES)
 def test_finalize_mmap_preserves_weight_sharing(
     execution_mode, shared_params_model, shared_params_model_input, tmp_path
@@ -164,6 +166,7 @@ def test_finalize_mmap_rejects_non_coreai_backend(
         quantizer.finalize(backend=backend, mmap_dir=str(tmp_path))
 
 
+@pytest.mark.requires_coreai
 def test_eager_finalize_state_dict_safetensors_roundtrip(
     simple_linear_model, simple_linear_model_input, tmp_path
 ):

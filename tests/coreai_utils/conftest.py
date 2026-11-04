@@ -4,6 +4,9 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 import pytest
+
+pytest.importorskip("coreai")
+
 import torch
 from torch import nn
 

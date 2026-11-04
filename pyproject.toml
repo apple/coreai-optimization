@@ -323,7 +323,8 @@ pythonpath = [ "." ]
 norecursedirs = [ ".oss-export" ]
 markers = [
     "cuda: marks tests that require an NVIDIA GPU",
-    # `seed` is registered by tests/config/plugin.py, alongside the fixture that reads it.
+    # `seed` and `requires_coreai` are registered by tests/config/plugin.py, alongside the
+    # code that reads them.
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 log_format = "%(asctime)s %(levelname)s %(name)s:%(lineno)d: %(message)s"

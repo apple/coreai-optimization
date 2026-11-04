@@ -16,6 +16,9 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
+
+pytest.importorskip("coreai")
+
 import torch
 import torch.nn as nn
 from coreai_torch import ExternalizeSpec, _patch_model_for_externalization
