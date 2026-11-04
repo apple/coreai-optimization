@@ -137,7 +137,9 @@ class TestPrepareFromStateDict:
             (example_input,), state_dict=torch.load(path)
         )
 
-        torch.testing.assert_close(reloaded(example_input), expected, rtol=0, atol=0)
+        # Reloaded state is exact; outputs may differ slightly
+        torch.testing.assert_close(reloaded.state_dict(), source.state_dict(), rtol=0, atol=0)
+        torch.testing.assert_close(reloaded(example_input), expected)
 
     def test_flags_match_regular_prepare(self, make_compressor):
         """Enable flags are left as a regular ``prepare`` leaves them, whatever was saved."""

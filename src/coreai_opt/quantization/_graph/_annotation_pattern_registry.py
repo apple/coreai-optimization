@@ -261,7 +261,7 @@ class WeightedModulePattern(BaseAnnotationPattern[InternalMatch]):
         return _annotation_utils.match_pattern_with_subgraph_matcher(model, pattern)
 
 
-class NAryActPattern(BaseAnnotationPattern[tuple[SourcePartition]]):
+class NAryActPattern(BaseAnnotationPattern[tuple[SourcePartition, ...]]):
     """
     Base class for annotation patterns that handle an op of one or more inputs along
     with an optional activation.
@@ -285,7 +285,7 @@ class NAryActPattern(BaseAnnotationPattern[tuple[SourcePartition]]):
     @classmethod
     def match_single_pattern(
         cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
-    ) -> dict[torch.fx.Node, tuple[SourcePartition]]:
+    ) -> dict[torch.fx.Node, tuple[SourcePartition, ...]]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
         nodes to matches.
@@ -300,7 +300,7 @@ class NAryActPattern(BaseAnnotationPattern[tuple[SourcePartition]]):
         return _annotation_utils.match_pattern_with_sequential_partitions(model, pattern)
 
 
-class SharedObserverModulePattern(BaseAnnotationPattern[tuple[SourcePartition]]):
+class SharedObserverModulePattern(BaseAnnotationPattern[tuple[SourcePartition, ...]]):
     """
     Base class for annotation patterns that handle shared observer modules.
 
@@ -353,7 +353,7 @@ class SharedObserverModulePattern(BaseAnnotationPattern[tuple[SourcePartition]])
     @classmethod
     def match_single_pattern(
         cls, model: torch.fx.GraphModule, pattern: torch.fx.GraphModule | OpsListPattern
-    ) -> dict[torch.fx.Node, tuple[SourcePartition]]:
+    ) -> dict[torch.fx.Node, tuple[SourcePartition, ...]]:
         """
         Match nodes in model to the provided pattern and return a dictionary mapping
         nodes to matches.

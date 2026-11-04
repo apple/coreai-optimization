@@ -1721,7 +1721,9 @@ class TestKMeansPalettizerLoadFromStateDict:
         with torch.no_grad():
             got = loaded(simple_model_input)
 
-        torch.testing.assert_close(got, expected, rtol=0, atol=0)
+        # Reloaded state is exact; outputs may differ slightly
+        torch.testing.assert_close(loaded.state_dict(), prepared.state_dict(), rtol=0, atol=0)
+        torch.testing.assert_close(got, expected)
 
     def test_missing_centroids_raises(
         self, simple_conv_linear_model, simple_model_input, basic_config

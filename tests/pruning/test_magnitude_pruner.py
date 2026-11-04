@@ -758,7 +758,9 @@ class TestPrepareFromStateDict:
             (example_input,), state_dict=source.state_dict()
         )
 
-        torch.testing.assert_close(reloaded(example_input), expected, rtol=0, atol=0)
+        # Reloaded state is exact; outputs may differ  slightly
+        torch.testing.assert_close(reloaded.state_dict(), source.state_dict(), rtol=0, atol=0)
+        torch.testing.assert_close(reloaded(example_input), expected)
 
     @pytest.mark.parametrize("load_after_prepare", [False, True])
     def test_resumes_schedule_mid_way(

@@ -32,11 +32,15 @@ val_metric = validate(prepared_model, val_dataset)
 finalized_model_for_coreai = pruner.finalize(backend=opt.ExportBackend.CoreAI)
 # OR
 finalized_model_for_coreml = pruner.finalize(backend=opt.ExportBackend.CoreML)
+# OR, to run evaluations in PyTorch
+finalized_model_for_torch = pruner.finalize(backend=opt.ExportBackend.Torch)
 ```
+
+See [Running PyTorch evaluations with compressed models](../introduction/torch_backend.md) for when to use the Torch backend, and [Checkpoints and workflows](../introduction/checkpoints.md) for how to reload a prepared model to finalize it for more than one backend.
 
 ## Pruning with Fine-Tuning
 
-In most cases, fine-tuning is required to recover good accuracy after pruning. We can use a sparsity schedule on the module config and call `pruner.step()` to gradually ramp up sparsity over training.
+In most cases, fine-tuning is required to recover good accuracy after pruning. We can use a sparsity schedule on the module config and call `pruner.step()` after `prepare()` to gradually ramp up sparsity over training.
 
 ```python
 from coreai_opt.pruning import (

@@ -38,6 +38,9 @@ from .supported_ops_registry import _KMeansPalettizerSupportedOpsRegistry
 
 logger = logging.getLogger(__name__)
 
+# Max size of the (rows, num_clusters) fp32 distance matrix built at once in _assign_indices.
+_CDIST_CHUNK_BYTES = 512 * 1024**2
+
 
 @dataclass(frozen=True)
 class _WeightVectorization:
@@ -586,18 +589,24 @@ class _KMeansFakePalettize(_FakePalettizeImplBase):
             distances = torch.cdist(vectors.float(), centroids.detach().cpu().float())
             return distances.argmin(dim=-1).flatten().to(torch.uint8)
 
-        blocks, axis = self._scale_reshape_and_block(original_weights.detach().cpu())
-        centroids_cpu = centroids.detach().cpu().float()
+        blocks, axis = self._scale_reshape_and_block(original_weights.detach())
+        centroids = centroids.detach().float()
 
         block_indices = []
         for block_idx, block_weight in enumerate(blocks):
             vec = self._vectorize_block(block_weight)
-            dist = torch.cdist(vec.float(), centroids_cpu[block_idx])
-            clusters = dist.argmin(dim=-1)
-            block_indices.append(self._build_block_indices(clusters, block_weight).to(torch.uint8))
+            centroid = centroids[block_idx]
+            chunk_rows = max(1, _CDIST_CHUNK_BYTES // (centroid.shape[0] * 4))
+            clusters = torch.cat(
+                [
+                    torch.cdist(v.float(), centroid).argmin(dim=-1).to(torch.uint8)
+                    for v in vec.split(chunk_rows)
+                ]
+            )
+            block_indices.append(self._build_block_indices(clusters, block_weight))
 
         # self.indices is always CPU-resident, matching self.lut.
-        return self._combine_block_indices(block_indices, axis, original_weights)
+        return self._combine_block_indices(block_indices, axis, original_weights).cpu()
 
     def _combine_block_indices(
         self,

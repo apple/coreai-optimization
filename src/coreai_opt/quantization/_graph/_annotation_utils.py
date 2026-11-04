@@ -19,7 +19,7 @@ from torch.fx.passes.utils.matcher_with_name_node_map_utils import (
     SubgraphMatcherWithNameNodeMap,
 )
 from torch.fx.passes.utils.source_matcher_utils import SourcePartition
-from torchao.quantization.pt2e import WrapperModule, find_sequential_partitions
+from torchao.quantization.pt2e import WrapperModule
 from torchao.quantization.pt2e.quantizer import (
     QuantizationAnnotation,
     QuantizationSpec as TorchAOQuantizationSpec,
@@ -35,13 +35,13 @@ from coreai_opt._utils.config_utils import (
 from coreai_opt._utils.fx_utils import (
     get_local_state_name,
     get_module_boundary_nodes,
+    get_node_type,
     is_coreai_compressed_state_node,
 )
 from coreai_opt._utils.python_utils import get_fn_arg_names
 from coreai_opt._utils.version_utils import version_ge
 from coreai_opt.config.compression_config import ModuleConfigDict
 from coreai_opt.config.spec import CompressionTargetTensor
-from coreai_opt.quantization._graph._utils import get_source_module_name
 from coreai_opt.quantization.config import ModuleQuantizerConfig
 from coreai_opt.quantization.config.quantization_config import (
     _ACTIVATION_SPEC_DICT,
@@ -699,60 +699,95 @@ def _fill_input_qspec_map_for_input(
         input_qspec_map[input_node] = input_node.meta[Q_ANNOTATION_KEY].output_qspec
 
 
-def _get_call_function_node_from_partition(partition: SourcePartition) -> torch.fx.Node:
-    """
-    Given a partition, return the call function node associated with the partition.
+def _single_op_partition(node: Node, op_type: str) -> SourcePartition:
+    """Wrap one op node in a ``SourcePartition`` of its own."""
+    input_nodes = [arg for arg in node.all_input_nodes if arg.op != "get_attr"]
+    output_nodes = [node] if node.users else []
+    partition = SourcePartition(
+        nodes=[node], source=op_type, input_nodes=input_nodes, output_nodes=output_nodes
+    )
+    return partition
 
-    We expect there to be only one call function node in the partition.
-    """
-    call_function_nodes = [node for node in partition.nodes if node.op == "call_function"]
-    if len(call_function_nodes) != 1:
-        # torch.export's insert_deferred_runtime_asserts synthesizes one SymInt mul per
-        # shape-runtime assertion, all sharing one torch_fn tag, so several can collapse
-        # into a single partition. They carry no tensor value to annotate, so picking any
-        # one of them is safe here; downstream floating-point filtering no-ops on SymInt.
-        if call_function_nodes and all(
-            isinstance(node.meta.get("val"), torch.SymInt) for node in call_function_nodes
-        ):
-            return call_function_nodes[0]
 
-        module_names = {
-            name
-            for node in call_function_nodes
-            if (name := get_source_module_name(node)) is not None
-        }
-        module_hint = ""
-        if module_names:
-            module_hint = (
-                f"\nSource module(s): {', '.join(sorted(module_names))}. "
-                f"Consider excluding this module from quantization via "
-                f"module_name_configs."
-            )
-        error_msg = (
-            f"Expected exactly 1 call function node in source partition but got "
-            f"{call_function_nodes}.{module_hint}"
+def _find_sequential_partitions(
+    model: torch.fx.GraphModule, op_types: list[str]
+) -> list[tuple[SourcePartition, ...]]:
+    """Find every chain of ops in ``model`` whose op types are ``op_types``, in order.
+
+    Each chain is returned as a tuple with one ``SourcePartition`` per element of
+    ``op_types``, each holding exactly one call_function node.
+
+    This is a local replacement for torchao's ``find_sequential_partitions``: it returns
+    results in the same format, but does not merge unrelated ops into one partition.
+
+    torchao's ``find_sequential_partitions`` gets the ops from torch's
+    ``get_source_partitions``, which can put separate nodes into a single partition: it
+    builds partitions based on the first element of ``node.meta["torch_fn"]``, a name that
+    can be the same for two separate nodes. For example::
+
+        def forward(self, x1, x2):
+            s = x1 + x2           # add:   torch_fn ("add_1", "method_descriptor.add")
+            t = torch.add(s, x2)  # add_1: torch_fn ("add_1", "builtin_function_or_method.add")
+            out = torch.relu(t)   # relu:  only add_1 feeds it
+            return out
+
+    Both adds get the ``torch_fn`` name ``"add_1"``. Writing each partition as the list of
+    its nodes, torchao's ``find_sequential_partitions`` returns:
+
+    - for ``["add"]``: one chain, ``([add, add_1],)``: a single partition holding both adds.
+    - for ``["add", "relu"]``: one chain, ``([add, add_1], [relu])``.
+
+    This function returns:
+
+    - for ``["add"]``: two chains, ``([add],)`` and ``([add_1],)``.
+    - for ``["add", "relu"]``: one chain, ``([add_1], [relu])``.
+
+    So each add gets its own match, and the inputs of both adds are quantized.
+    """
+    chains = []
+    for node in model.graph.nodes:
+        if node.op == "call_function" and get_node_type(node, warn_on_failure=False) == op_types[0]:
+            chains.append([node])
+
+    for op_type in op_types[1:]:
+        extended_chains = []
+        for chain in chains:
+            for user in chain[-1].users:
+                if (
+                    user.op == "call_function"
+                    and get_node_type(user, warn_on_failure=False) == op_type
+                ):
+                    extended_chains.append([*chain, user])
+        chains = extended_chains
+
+    sequences = []
+    for chain in chains:
+        sequence = tuple(
+            _single_op_partition(node, op_type)
+            for node, op_type in zip(chain, op_types, strict=True)
         )
-        raise RuntimeError(error_msg)
-    return call_function_nodes[0]
+        sequences.append(sequence)
+    return sequences
 
 
 def match_pattern_with_sequential_partitions(
     model: torch.fx.GraphModule, pattern: OpsListPattern
-) -> dict[torch.fx.Node, tuple[SourcePartition]]:
+) -> dict[torch.fx.Node, tuple[SourcePartition, ...]]:
     """
     Helper function for matching model nodes with pattern using
-    find_sequential_partitions.
+    ``_find_sequential_partitions``.
 
     Returns a dictionary mapping nodes to matches.
     """
-    node_to_match_dict: dict[torch.fx.Node, tuple[SourcePartition]] = {}
+    node_to_match_dict: dict[torch.fx.Node, tuple[SourcePartition, ...]] = {}
 
-    partitions = find_sequential_partitions(model, pattern.pattern)
-    # Each sequential partition is a tuple of source partitions, one per pattern element.
+    partitions = _find_sequential_partitions(model, pattern.pattern)
+    # Each sequential partition is a tuple of source partitions, one per pattern element,
+    # each holding a single op node.
     for sequential_partition in partitions:
         if _is_branching_partition(sequential_partition):
             continue
-        first_op_node = _get_call_function_node_from_partition(sequential_partition[0])
+        first_op_node = sequential_partition[0].nodes[0]
         assert first_op_node not in node_to_match_dict
 
         # Use the first node in the sequences as the key
@@ -760,7 +795,7 @@ def match_pattern_with_sequential_partitions(
     return node_to_match_dict
 
 
-def _is_branching_partition(sequential_partition: tuple[SourcePartition]) -> bool:
+def _is_branching_partition(sequential_partition: tuple[SourcePartition, ...]) -> bool:
     """
     Return True if the partition is a branching partition, False otherwise.
 
@@ -769,7 +804,7 @@ def _is_branching_partition(sequential_partition: tuple[SourcePartition]) -> boo
     """
     # Ignore the final node in the pattern since it is ok for it to have multiple outputs
     for source_partition in sequential_partition[:-1]:
-        node = _get_call_function_node_from_partition(source_partition)
+        node = source_partition.nodes[0]
         if len(node.users) > 1:
             return True
     return False
