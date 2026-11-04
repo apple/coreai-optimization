@@ -246,6 +246,7 @@ def test_w8_global_with_module_w4_embedding_override():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 @pytest.mark.parametrize(
     "preset_factory",
@@ -266,6 +267,7 @@ def test_demo_preset_runs_end_to_end(
     finalized_model(simple_linear_model_input)
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 def test_demo_w4_quantize_all_layers():
     """Apply w4 preset to every layer using eager mode."""
@@ -281,6 +283,7 @@ def test_demo_w4_quantize_all_layers():
     model_int4(inp)
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 def test_demo_w4_excluding_detr_decoder():
     """Apply w4 preset to all layers except detr_decoder via set_module_name."""
@@ -297,6 +300,7 @@ def test_demo_w4_excluding_detr_decoder():
     model_opt(inp)
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 def test_demo_mixed_presets(simple_linear_model, simple_linear_model_input):
     """w4 globally, w8 for a specific module, LayerNorm excluded."""
@@ -313,6 +317,7 @@ def test_demo_mixed_presets(simple_linear_model, simple_linear_model_input):
     finalized_model(simple_linear_model_input)
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 def test_demo_parameterized_preset(simple_linear_model, simple_linear_model_input):
     """Override a preset's defaults via kwargs."""
@@ -325,6 +330,7 @@ def test_demo_parameterized_preset(simple_linear_model, simple_linear_model_inpu
     finalized_model(simple_linear_model_input)
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 def test_demo_only_for(simple_linear_model, simple_linear_model_input):
     """only_for: apply preset only to Linear layers."""

@@ -3,7 +3,7 @@
 # Use of this source code is governed by a BSD-3-Clause license that can
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
-"""Reusable pytest plugin: compute unit selection, seeding, and generic fixtures."""
+"""Reusable pytest plugin: compute units, seeding, requires_coreai, generic fixtures."""
 
 import random
 import tempfile
@@ -12,6 +12,8 @@ from collections.abc import Iterator
 import numpy as np
 import pytest
 import torch
+
+from tests.test_utils.general import COREAI_AVAILABLE
 
 from .env import (
     COMPUTE_UNIT_KINDS,
@@ -25,6 +27,10 @@ _SEED_MARKER = (
     "seed(value): enable deterministic seeding; "
     f"no value uses default seed ({_DEFAULT_SEED}), "
     "value=None means nondeterministic seeding"
+)
+_REQUIRES_COREAI_MARKER = (
+    "requires_coreai: needs the optional coreai and coreai-torch packages; "
+    "skipped when coreai is not installed"
 )
 
 
@@ -47,9 +53,24 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register this plugin's marker and publish the selected compute unit."""
+    """Register this plugin's markers and publish the selected compute unit."""
     config.addinivalue_line("markers", _SEED_MARKER)
+    config.addinivalue_line("markers", _REQUIRES_COREAI_MARKER)
     select_compute_unit_kind(config.getoption("--compute-unit-kind"))
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Skip tests marked requires_coreai when coreai is not installed.
+
+    Deciding at collection skips them before any fixture runs. A coreai that is installed
+    but fails to import still fails the test, since only a missing package is skipped.
+    """
+    if COREAI_AVAILABLE:
+        return
+    skip = pytest.mark.skip(reason="requires coreai (the optional coreai extra)")
+    for item in items:
+        if item.get_closest_marker("requires_coreai"):
+            item.add_marker(skip)
 
 
 @pytest.fixture(autouse=True)

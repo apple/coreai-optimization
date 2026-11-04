@@ -19,7 +19,6 @@ from coreai_opt import ExportBackend
 from coreai_opt.quantization import ModuleQuantizerConfig, Quantizer, QuantizerConfig
 from coreai_opt.quantization._graph._conv_bn_utils import _compute_fused_conv_bn_params
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
-from tests.export import export_utils
 
 # ============================================================================
 # Test Model Definitions
@@ -506,6 +505,7 @@ def test_conv_bn_folding_numerical_correctness(
     )
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 @pytest.mark.parametrize(
     ("model_config", "backend"),
@@ -536,6 +536,8 @@ def test_conv_bn_folding_export_verification(
     1. The finalized model exports successfully
     2. Exported model outputs match the prepared model
     """
+    from tests.export import export_utils  # noqa: PLC0415
+
     # Create and prepare model
     model = model_config.model_cls(**model_config.model_kwargs)
     model.eval()

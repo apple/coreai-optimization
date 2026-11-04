@@ -17,13 +17,12 @@ from coreai_opt.palettization.spec.fake_palettize import _FakePalettizeImplBase
 from coreai_opt.quantization import Quantizer
 from tests.fixtures.compression import ParametrizedP4A8CompressionConfigs
 from tests.models.simple import SimpleModel
-from tests.test_utils.general import COREAI_AVAILABLE
 
 batch_size = 128
 num_calibration_batches = 17
 
 
-@pytest.mark.skipif(not COREAI_AVAILABLE, reason="Requires coreai")
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 def test_p4a8_compression_mnist_accuracy(
     mnist_pretrained_model: torch.nn.Module,
@@ -88,7 +87,7 @@ def test_p4a8_compression_mnist_accuracy(
     )
 
 
-@pytest.mark.skipif(not COREAI_AVAILABLE, reason="Requires coreai")
+@pytest.mark.requires_coreai
 def test_p4a8_reload_each_stage_from_state_dict(
     parametrized_p4a8_compression_config: ParametrizedP4A8CompressionConfigs,
 ) -> None:

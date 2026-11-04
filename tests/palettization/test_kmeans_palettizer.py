@@ -503,6 +503,7 @@ class TestKMeansPalettizer:
 
         assert finalized_model is not None
 
+    @pytest.mark.requires_coreai
     def test_finalize_mlir_backend(self, simple_conv_linear_model, simple_model_input):
         palettizer = KMeansPalettizer(simple_conv_linear_model)
 
@@ -546,7 +547,11 @@ class TestKMeansPalettizer:
 
     @pytest.mark.parametrize(
         "backend",
-        [ExportBackend.Torch, ExportBackend.CoreAI, ExportBackend.CoreML],
+        [
+            ExportBackend.Torch,
+            pytest.param(ExportBackend.CoreAI, marks=pytest.mark.requires_coreai),
+            ExportBackend.CoreML,
+        ],
     )
     def test_finalize_weight_parametrization_state_per_backend(
         self, backend, simple_conv_linear_model, simple_model_input, basic_config
@@ -579,6 +584,7 @@ class TestKMeansPalettizer:
                 assert not P.is_parametrized(m, "weight")
                 assert m.weight.numel() > 0
 
+    @pytest.mark.requires_coreai
     @pytest.mark.parametrize("use_mmap", [False, True])
     def test_finalize_mmap_files_exist(
         self, use_mmap, simple_conv_linear_model, simple_model_input, basic_config, tmp_path
@@ -611,6 +617,7 @@ class TestKMeansPalettizer:
         else:
             assert files == []
 
+    @pytest.mark.requires_coreai
     def test_finalize_mmap_matches_non_mmap_output(
         self, simple_conv_linear_model, simple_model_input, basic_config, tmp_path
     ):
@@ -635,6 +642,7 @@ class TestKMeansPalettizer:
 
         torch.testing.assert_close(out_with_mmap, out_no_mmap)
 
+    @pytest.mark.requires_coreai
     def test_finalize_state_dict_safetensors_roundtrip(
         self, simple_conv_linear_model, simple_model_input, basic_config, tmp_path
     ):
