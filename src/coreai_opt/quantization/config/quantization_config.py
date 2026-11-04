@@ -169,7 +169,7 @@ class InvalidExecutionModeError(ValueError):
 
 
 class OpQuantizerConfig(OpCompressionConfig[QuantizationSpec]):
-    """
+    r"""
     Configuration class for quantization at the operation level.
 
     This class specifies quantization settings for inputs, outputs, and state
@@ -271,7 +271,7 @@ class OpQuantizerConfig(OpCompressionConfig[QuantizationSpec]):
 
 @final
 class ModuleQuantizerConfig(ModuleCompressionConfig[OpQuantizerConfig, QuantizationSpec]):
-    """
+    r"""
     Configuration class for quantization at the module level.
 
     This class manages quantization settings for an entire module, including:
