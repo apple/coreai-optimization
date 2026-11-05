@@ -72,6 +72,14 @@ A release branch is the one place where the two match: it sets both `latest_rele
 
 ### Release branches
 
+Before the cut, `main` needs the release's changelog entry: `towncrier build --version <version> --date <date> --yes` renders the fragments in `changelog.d/` into a new section of `CHANGELOG.md` and deletes them. Add the `[<version>]` compare link at the bottom, and remove the extra blank line towncrier leaves above the previous release's heading so markdown lint passes. When the release also needs `__version__` set (the version-change PR above), put both changes in one PR to `main`. The PR that moves `main` forward after the cut can't join them: `check-about-version` rejects a `latest_released_version` that has neither a tag nor a `release/<version>` branch.
+
+The generated section is a first draft, so whoever cuts the release edits it before the PR merges:
+
+- Give every entry enough context to stand alone: which technique it affects (quantization, palettization, pruning, casting), whether it applies to eager mode, graph mode or both, and which export backends support it, in a sentence or two. An entry like "Add MXINT8 support." says none of that.
+- Don't mix tenses in a section, e.g. write "Added" rather than "Add" next to other "Added" entries. Otherwise keep the fragment author's wording.
+- Sort the entries in each section in a logical order instead of the order towncrier emits them: project-wide entries first (Python and PyTorch support, export backends, APIs shared by several techniques), then one group per technique in the order quantization, palettization, pruning, with the same group order in every section.
+
 1. `release/<version>` is created from `main`, once the version of the next release has been decided — that is, which digit gets one added to it. Its first commit sets `latest_released_version` and `__version__` to that version, with no `.dev0`, so the branch names its own release.
 2. The tag is created on the `release/<version>` branch, never on `main`.
 3. After the cut, `main` continues on to the next release's `.dev0`.
