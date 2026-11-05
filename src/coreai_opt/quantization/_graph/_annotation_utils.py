@@ -562,6 +562,7 @@ def _warn_non_quantizable_tensor_setting(
     spec_type: Literal["input", "output", "state"],
     identifier: int | str,
     spec_dict: dict[str | int, TorchAOQuantizationSpec | None],
+    spec_scope: Literal["op", "module"] = "op",
 ) -> None:
     """
     Warn that the user has configured quantization for a non-floating-point tensor.
@@ -571,8 +572,10 @@ def _warn_non_quantizable_tensor_setting(
         spec_type: Type of spec being configured ("input", "state", or "output")
         identifier: The index or state name used in the config
         spec_dict: The full spec dictionary for context in the warning
+        spec_scope: Whether the spec dictionary is an op-level ("op_*_spec") or
+            module-level ("module_*_spec") config field
     """
-    spec_dict_name = f"op_{spec_type}_spec"
+    spec_dict_name = f"{spec_scope}_{spec_type}_spec"
 
     if isinstance(identifier, int):
         identifier_str = f"idx {identifier}"
@@ -1123,7 +1126,21 @@ def _find_and_apply_module_level_spec(
         is_input: True if the input of the node is to be annotated, False for output
     """
     tensor_node = input_node if is_input else node_to_annotate
-    if tensor_node is not None and _is_fx_node_single_element_tensor(tensor_node):
+    # Skip nodes that are not floating-point tensors (e.g. SymInt/int boundary values, which
+    # have no qparams) and single-element tensors, matching op-level processing.
+    if tensor_node is not None and (
+        not _is_fx_node_floating_point(tensor_node)
+        or _is_fx_node_single_element_tensor(tensor_node)
+    ):
+        # Only explicitly indexed entries are flagged (settings using "*" will not be)
+        if identifier in spec_dict:
+            _warn_non_quantizable_tensor_setting(
+                tensor_node,
+                "input" if is_input else "output",
+                identifier,
+                spec_dict,
+                spec_scope="module",
+            )
         return
     found, spec = _get_spec_from_spec_dict(spec_dict, identifier)
     # If spec is not found, do not do any more processing (as opposed to disabling
