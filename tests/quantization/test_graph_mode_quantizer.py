@@ -1233,8 +1233,7 @@ class TestIntegerActivations:
 
 class TestSingleElementTensors:
     """
-    Graph mode skips activations and states that are non-float or have at most one element,
-    matching eager mode
+    Graph mode skips activations and states that are non-float or have at most one element
     """
 
     @staticmethod
