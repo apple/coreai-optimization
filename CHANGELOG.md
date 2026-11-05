@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [0.4.0] - 2026-11-05
+
+### Added
+
+- Added support for Python 3.14.
+- Added the public `ExportBackend.Torch` backend for fast torch inference, e.g. running evals. `finalize(backend=ExportBackend.Torch)` folds weight compression (palettization, weight quantization, pruning) into dense weights and keeps activation fake quantization.
+- Added a `state_dict` argument to `prepare()` for `Quantizer` (eager and graph mode) and `MagnitudePruner`, matching `KMeansPalettizer`. It reloads a previously prepared model's compression state (calibrated qparams, pruning masks and step count, centroids), validates it against the config, and leaves the model in the same state as a regular `prepare()` call.
+- Added MXINT8 quantization (`int8` with `float8_e8m0fnu` scales) in `QuantizationSpec`, supported in eager and graph mode. It is only supported for `ExportBackend.Torch` for now.
+- Added the `torch.int6` and `torch.uint6` quantization dtypes. They are only supported for `ExportBackend.Torch` for now: `finalize` raises `NotImplementedError` for the Core AI and Core ML backends.
+- Added `VectorKMeansConfig` (`vector_kmeans_config` on `ModuleKMeansPalettizerConfig`) to set the k-means++ candidates per seeding step (`n_local_trials`), restarts, iteration cap and convergence tolerance of vector palettization (`cluster_dim > 1`). Vector k-means now clusters on a CUDA GPU, with flash-kmeans when it is installed and a batched PyTorch loop otherwise or for sensitivity-weighted clustering, and on CPU with scikit-learn, falling back to the PyTorch loop with a warning when scikit-learn is not installed.
+- K-means palettization detects weights that are already palettized for their spec (at most `2 ** n_bits` distinct values or vectors per block, e.g. a fake-palettized checkpoint) and uses those unique values as the centroids instead of running k-means. Other weights fall back to k-means after one small probe.
+- Added the `sparsity_detection_threshold` option to `PalettizationSpec`. A weight with at least that fraction of exact zeros is treated as already sparse and palettized jointly with its sparsity: only its nonzero values are palettized, the zeros stay exactly zero, and the exported model stores the weight in a sparse representation together with the palettized ops for the nonzero values. Supports per-tensor and per-group-channel granularity, per-channel scales and, on Core AI, quantized LUTs and vector palettization.
+
+### Changed
+
+- Graph-mode `Quantizer` now skips activations and states with at most one element (e.g. the 0-d output of `x.sum()`), matching eager mode. This also fixes `prepare` failing on 0-d parameters under a per-channel weight spec.
+- Vector palettization (`cluster_dim > 1`) now seeds with greedy k-means++ instead of farthest-point initialization, stops each block once its clustering error stops improving instead of running a fixed number of iterations, and is reproducible without manual seeding, including with `num_workers > 1`. It is much faster on GPU. With `num_workers > 1`, tensors that cluster on the GPU run in the main process while the worker processes handle the others.
+- Pruning modules now store their step count in a `step_count` buffer, so a `MagnitudePruner` state dict saved before this change cannot be reloaded with `prepare(state_dict=...)`.
+
+### Removed
+
+- Removed the deprecated `ExportBackend._TORCH` alias. Use `ExportBackend.Torch` instead.
+- Removed the `prev_sparsity` argument from `SparsityScheduleBase.compute_sparsity` and its subclasses. Schedules are now pure functions of the step count; `PolynomialDecaySchedule` returns the last update's sparsity for steps between updates instead of passing through `prev_sparsity` or raising `ValueError` when it is omitted.
+
+### Fixed
+
+- Fixed `KMeansPalettizer.prepare(state_dict=...)` failing for configs with a quantized LUT, and `MagnitudePruner` restarting its sparsity schedule from step 0 after a model saved mid-schedule was reloaded.
+- Preserve original floating-point casts that lose precision or range when cleaning up cast chains.
+
 ## [0.3.0] - 2026-09-25
 
 ### Added
@@ -59,3 +88,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/apple/coreai-optimization/commits/v0.2.0/
 [0.2.1]: https://github.com/apple/coreai-optimization/compare/v0.2.0...v0.2.1/
 [0.3.0]: https://github.com/apple/coreai-optimization/compare/v0.2.1...v0.3.0/
+[0.4.0]: https://github.com/apple/coreai-optimization/compare/v0.3.0...v0.4.0/

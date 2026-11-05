@@ -1,1 +1,0 @@
-Pruning modules now store their step count in a `step_count` buffer, so a `MagnitudePruner` state dict saved before this change cannot be reloaded with `prepare(state_dict=...)`.
