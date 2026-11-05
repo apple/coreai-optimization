@@ -16,5 +16,5 @@ read it at build time without importing the package (which would pull in a
 lot of dependencies).
 """
 
-latest_released_version = "0.3.0"
-__version__ = "0.4.0.dev0"
+latest_released_version = "0.4.0"
+__version__ = "0.4.1.dev0"
