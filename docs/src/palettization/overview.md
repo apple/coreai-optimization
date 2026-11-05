@@ -140,7 +140,7 @@ with palettizer.training_mode():
 
 ### Using PATSchedule
 
-Users may also choose to enable palettization of parameters at a future point during training instead of right from the start. Weights which are marked for palettization, but have not yet had their palettizers enabled, will still be able to update during training. When a weight's palettizer is switched from disabled to enabled, its codebook and index assignments are recomputed using the most current weight values.
+Users may also choose to enable palettization of parameters at a future point during training instead of right from the start. Weights which are marked for palettization, but have not yet had their palettizers enabled, will still be able to update during training. When a weight's palettizer is switched from disabled to enabled, its codebook and index assignments are recomputed using the most current weight values. `PATSchedule` applies to any training strategy, including [DKM](#differentiable-k-means-dkm-api).
 
 Since palettizer enabling can be configured on a module by module basis, this gives users more flexibility on training to be palettization-aware by allowing weights to update in response to palettization noise from other palettized weights before themselves being palettized.
 
@@ -149,7 +149,7 @@ For example, users could choose to apply the following workflow:
 1. Begin training with all parameters marked to be palettized but with all palettizers disabled
 2. Fine-tune the model with no palettization noise for a few epochs
 3. Enable a subset of palettizers while keeping the rest of the palettizers disabled
-4. Fine-tune the model with palettization noise from the subset of enabled palettizers (any weights with enabled palettizers will not update further, but any weights with palettizers not yet enabled will continue training)
+4. Fine-tune the model with palettization noise from the subset of enabled palettizers (with the default strategy, any weights with enabled palettizers will not update further, but any weights with palettizers not yet enabled will continue training)
 5. Enable the rest of palettizers in the model and evaluate the final accuracy
 
 Steps 3 and 4 can be repeated as many times as desired with more and more palettizers being enabled.
@@ -196,3 +196,45 @@ with palettizer.training_mode():
 Each time `palettizer.step()` is called, the palettizer checks each module's `PATSchedule` to see whether any palettizer should be enabled. With the above config settings of `enable_fake_palettize` = 2 and 4 for `module1` and `module2` respectively, this results in both palettizers being disabled to start, `module1`'s palettizer enabled after `palettizer.step()` has been called twice, and `module2`'s palettizer enabled after `palettizer.step()` has been called 4 times in total.
 
 Note that `palettizer.step()` can be called whenever the user desires, whether it be per-batch, per-epoch, or on some other cadence.
+
+## Differentiable K-Means (DKM) API
+
+DKM palettization allows the palettization codebook and cluster assignments to be learned through training, removing the inability for already palettized weights to update their codebook and index assignments. This is achieved through calculation of attention scores between all weights and all centroids, along with utilizing a soft-assignment instead of hard-assignment during training forward, allowing gradients to propagate through palettizers to the original weight parameters.
+
+For more details on DKM, refer to [DKM (Cho et al., 2022)](https://arxiv.org/abs/2108.12659).
+
+Enabling DKM simply requires setting `training_strategy_spec` of `PalettizationSpec` to the `DKMTrainingSpec` class. The same `KMeansPalettizer` class is used for palettization. For example, the below code shows enabling DKM for all weights in the model:
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizer,
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.kmeans.dkm import DKMTrainingSpec
+
+kmeans_palettizer_config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={
+            "weight": PalettizationSpec(
+                ..., training_strategy_spec=DKMTrainingSpec(...)
+            )
+        }
+    )
+)
+
+palettizer = KMeansPalettizer(model, kmeans_palettizer_config)
+prepared_model = palettizer.prepare(example_inputs)
+
+with palettizer.training_mode():
+    for i in range(...):
+        # Perform whatever training forward pass / loss calculation / optimizer gradient application is desired
+        ...
+
+finalized_model = palettizer.finalize(...)
+```
+
+DKM works with `PATSchedule` as well. A schedule decides when a module's palettizer becomes active, while the training strategy decides what that palettizer's forward pass does once it is. For example, you can leave DKM modules unpalettized for the first few hundred steps and then turn on soft-assignment training. To do this, set `pat_schedule` on the module config and call `palettizer.step()` in the training loop as described in [Using PATSchedule](#using-patschedule). Unlike with the default strategy, a DKM weight keeps updating after its palettizer is enabled, because gradients flow through the soft assignment.
+
+As `training_strategy_spec` is part of `PalettizationSpec`, which in turn can be configured on a per-op or module basis in `KMeansPalettizerConfig`, users may choose to enable DKM for a subset of palettized weights in the model while leaving another portion of palettized weights using non-DKM `Vanilla K-means`.
