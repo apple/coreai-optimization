@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul class="current">
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -269,6 +273,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.convert"><code class="docutils literal notranslate">convert()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.dequantize"><code class="docutils literal notranslate">dequantize()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.disable_observer"><code class="docutils literal notranslate">disable_observer()</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_fake_quant"><code class="docutils literal notranslate">enable_fake_quant()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer"><code class="docutils literal notranslate">enable_observer()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr"><code class="docutils literal notranslate">extra_repr()</span></code></a></li>
 <li><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward"><code class="docutils literal notranslate">forward()</span></code></a></li>
@@ -405,43 +410,46 @@ data-aria-dark="Switch to auto color mode">
 <tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.disable_observer" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.disable_observer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">disable_observer</span></code></a>()</p></td>
 <td><p>Disable the observer, unless the qparams calculator is stateless.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">enable_observer</span></code></a>([enabled])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_fake_quant" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_fake_quant"><code class="xref py py-obj docutils literal notranslate"><span class="pre">enable_fake_quant</span></code></a>([enabled])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">enable_observer</span></code></a>([enabled])</p></td>
 <td><p>Inverse of <code class="docutils literal notranslate"><span class="pre">disable_observer</span></code>: ignore <code class="docutils literal notranslate"><span class="pre">enabled=False</span></code> when the qparams calculator is stateless.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">extra_repr</span></code></a>()</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr"><code class="xref py py-obj docutils literal notranslate"><span class="pre">extra_repr</span></code></a>()</p></td>
 <td><p>Return the extra representation of the module.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(tensor)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward"><code class="xref py py-obj docutils literal notranslate"><span class="pre">forward</span></code></a>(tensor)</p></td>
 <td><p>Performs fake quantization of the given tensor using the qparams (scale, zero point, minval) computed by the QParamsCalculator.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.get_block_size" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.get_block_size"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_block_size</span></code></a>(tensor_shape)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.get_block_size" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.get_block_size"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_block_size</span></code></a>(tensor_shape)</p></td>
 <td><p>Resolve this module's granularity to a concrete block extent per dimension.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_class</span></code>(key)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_class</span></code>(key)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.is_disabled" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.is_disabled"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_disabled</span></code></a>()</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.is_disabled" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.is_disabled"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_disabled</span></code></a>()</p></td>
 <td><p>Return True if fake quantization has been disabled.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_registry_keys</span></code>()</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_registry_keys</span></code>()</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_registry_values</span></code>()</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_registry_values</span></code>()</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.quantize" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.quantize"><code class="xref py py-obj docutils literal notranslate"><span class="pre">quantize</span></code></a>(tensor, scale, zero_point, minval)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.quantize" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.quantize"><code class="xref py py-obj docutils literal notranslate"><span class="pre">quantize</span></code></a>(tensor, scale, zero_point, minval)</p></td>
 <td><p>Given a tensor, scale and zero point, perform quantization of the tensor based on the configuration in the <code class="docutils literal notranslate"><span class="pre">QuantizationSpec</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">register</span></code>(key)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">register</span></code>(key)</p></td>
 <td><p>Register a virtual subclass of an ABC.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">resolve</span></code>(data)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">resolve</span></code>(data)</p></td>
 <td><p>Resolve a string key or class type against this registry.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.set_export_mode" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.set_export_mode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_export_mode</span></code></a>([enabled])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.set_export_mode" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.set_export_mode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_export_mode</span></code></a>([enabled])</p></td>
 <td><p>Set or unset export mode.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.with_args" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.with_args"><code class="xref py py-obj docutils literal notranslate"><span class="pre">with_args</span></code></a>(**kwargs)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.with_args" title="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.with_args"><code class="xref py py-obj docutils literal notranslate"><span class="pre">with_args</span></code></a>(**kwargs)</p></td>
 <td><p></p></td>
 </tr>
 </tbody>
@@ -515,6 +523,19 @@ that flag to route between live recompute and the stateful
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_fake_quant">
+<span class="sig-name descname"><span class="pre">enable_fake_quant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/fake_quantize.html#FakeQuantizeImplBase.enable_fake_quant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_fake_quant" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>enabled</strong> (<em>bool</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
 </dd>
 </dl>
 </dd></dl>

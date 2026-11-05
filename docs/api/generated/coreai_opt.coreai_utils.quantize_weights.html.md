@@ -39,7 +39,7 @@ For a 4-D Conv weight `[C_out, C_in, KH, KW]`:
   * **coreai_program** (*AIProgram*) – The model to be quantized.
   * **dtype** ([*DType*](coreai_opt.coreai_utils.DType.md#coreai_opt.coreai_utils.DType)) – Target quantized data type (e.g. `DType.INT8`,
     `DType.INT4`, `DType.FP8_E4M3FN`, `DType.FP4_E2M1FN`).
-  * **qscheme** ([*QScheme*](coreai_opt.coreai_utils.common.QScheme.md#coreai_opt.coreai_utils.common.QScheme)) – Quantization scheme. Use `QScheme.SYMMETRIC` or
+  * **qscheme** ([*QScheme*](coreai_opt.coreai_utils.QScheme.md#coreai_opt.coreai_utils.QScheme)) – Quantization scheme. Use `QScheme.SYMMETRIC` or
     `QScheme.ASYMMETRIC`. FP dtypes only support
     `QScheme.SYMMETRIC`. Defaults to `QScheme.SYMMETRIC`.
   * **granularity** ([*CompressionGranularity*](coreai_opt.coreai_utils.CompressionGranularity.md#coreai_opt.coreai_utils.CompressionGranularity)) – Quantization granularity. Supports

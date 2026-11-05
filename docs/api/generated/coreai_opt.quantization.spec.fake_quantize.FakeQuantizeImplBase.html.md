@@ -37,6 +37,7 @@ Initialize internal Module state, shared by both nn.Module and ScriptModule.
 | [`convert`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.convert)(model, observer_node)                    | No-op: keep fake quant nodes intact during convert_pt2e.                                                                                                                                                                            |
 | [`dequantize`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.dequantize)(tensor, scale, zero_point, minval) | Given a quantized tensor, the scale and zero point used to perform quantization, perform de-quantization of the tensor based on the configuration in the `QuantizationSpec` and return it as a tensor with dtype as `output_dtype`. |
 | [`disable_observer`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.disable_observer)()                      | Disable the observer, unless the qparams calculator is stateless.                                                                                                                                                                   |
+| [`enable_fake_quant`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_fake_quant)([enabled])           |                                                                                                                                                                                                                                     |
 | [`enable_observer`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_observer)([enabled])               | Inverse of `disable_observer`: ignore `enabled=False` when the qparams calculator is stateless.                                                                                                                                     |
 | [`extra_repr`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.extra_repr)()                                  | Return the extra representation of the module.                                                                                                                                                                                      |
 | [`forward`](#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.forward)(tensor)                                  | Performs fake quantization of the given tensor using the qparams (scale, zero point, minval) computed by the QParamsCalculator.                                                                                                     |
@@ -100,6 +101,13 @@ forward and need `observer_enabled=1` permanently — `forward` uses
 that flag to route between live recompute and the stateful
 `get_qparams()` cache (which stateless doesn’t have).
 
+* **Return type:**
+  None
+
+#### enable_fake_quant(enabled=True)
+
+* **Parameters:**
+  **enabled** (*bool*)
 * **Return type:**
   None
 

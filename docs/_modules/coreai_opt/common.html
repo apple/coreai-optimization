@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -477,71 +481,77 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="140"><span class="sd">    Each member is a string value representing the backend format.</span>
 </span><span data-line="141">
 </span><span data-line="142"><span class="sd">    Attributes:</span>
-</span><span data-line="143"><span class="sd">        CoreML: Core ML format with compression metadata buffers.</span>
-</span><span data-line="144"><span class="sd">        CoreAI: Core AI format with custom ops.</span>
-</span><span data-line="145">
-</span><span data-line="146"><span class="sd">    """</span>
-</span><span data-line="147">
-</span><span data-line="148">    <span class="n">_TORCH</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
-</span><span data-line="149">    <span class="n">CoreML</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
-</span><span data-line="150">    <span class="n">CoreAI</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
-</span><span data-line="151">
-</span><span data-line="152">    <span class="n">__deprecated_aliases__</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"MIL"</span><span class="p">:</span> <span class="s2">"CoreML"</span><span class="p">,</span> <span class="s2">"MLIR"</span><span class="p">:</span> <span class="s2">"CoreAI"</span><span class="p">}</span>
-</span><span data-line="153">
-</span><span data-line="154">    <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-</span><span data-line="155">        <span class="c1"># Surface the deprecated aliases above for static type checkers.</span>
-</span><span data-line="156">        <span class="n">MIL</span><span class="p">:</span> <span class="n">ExportBackend</span>
-</span><span data-line="157"><span class="w">        </span><span class="sd">"""Deprecated. Use `ExportBackend.CoreML` instead."""</span>
-</span><span data-line="158">
-</span><span data-line="159">        <span class="n">MLIR</span><span class="p">:</span> <span class="n">ExportBackend</span>
-</span><span data-line="160"><span class="w">        </span><span class="sd">"""Deprecated. Use `ExportBackend.CoreAI` instead."""</span></div>
+</span><span data-line="143"><span class="sd">        Torch: Plain PyTorch model for fast inference (e.g. running evals). Weight</span>
+</span><span data-line="144"><span class="sd">            compression is folded into dense weights; activation fake quantization</span>
+</span><span data-line="145"><span class="sd">            is kept.</span>
+</span><span data-line="146"><span class="sd">        CoreML: Core ML format with compression metadata buffers.</span>
+</span><span data-line="147"><span class="sd">        CoreAI: Core AI format with custom ops.</span>
+</span><span data-line="148">
+</span><span data-line="149"><span class="sd">    """</span>
+</span><span data-line="150">
+</span><span data-line="151">    <span class="n">Torch</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+</span><span data-line="152">    <span class="n">CoreML</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+</span><span data-line="153">    <span class="n">CoreAI</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
+</span><span data-line="154">
+</span><span data-line="155">    <span class="n">__deprecated_aliases__</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="156">        <span class="s2">"MIL"</span><span class="p">:</span> <span class="s2">"CoreML"</span><span class="p">,</span>
+</span><span data-line="157">        <span class="s2">"MLIR"</span><span class="p">:</span> <span class="s2">"CoreAI"</span><span class="p">,</span>
+</span><span data-line="158">    <span class="p">}</span>
+</span><span data-line="159">
+</span><span data-line="160">    <span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+</span><span data-line="161">        <span class="c1"># Surface the deprecated aliases above for static type checkers.</span>
+</span><span data-line="162">        <span class="n">MIL</span><span class="p">:</span> <span class="n">ExportBackend</span>
+</span><span data-line="163"><span class="w">        </span><span class="sd">"""Deprecated. Use `ExportBackend.CoreML` instead."""</span>
+</span><span data-line="164">
+</span><span data-line="165">        <span class="n">MLIR</span><span class="p">:</span> <span class="n">ExportBackend</span>
+</span><span data-line="166"><span class="w">        </span><span class="sd">"""Deprecated. Use `ExportBackend.CoreAI` instead."""</span></div>
 
-</span><span data-line="161">
-</span><span data-line="162">
+</span><span data-line="167">
+</span><span data-line="168">
 <div class="viewcode-block" id="CoreMLExportError">
 <a class="viewcode-back" href="../../api/generated/coreai_opt.CoreMLExportError.html#coreai_opt.CoreMLExportError">[docs]</a>
-</span><span data-line="163"><span class="k">class</span><span class="w"> </span><span class="nc">CoreMLExportError</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
-</span><span data-line="164"><span class="w">    </span><span class="sd">"""Raised when a model cannot be exported to the CoreML backend."""</span>
-</span><span data-line="165">
-</span><span data-line="166">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="167">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2"> Use backend=ExportBackend.CoreAI instead."</span><span class="p">)</span>
-</span><span data-line="168">
+</span><span data-line="169"><span class="k">class</span><span class="w"> </span><span class="nc">CoreMLExportError</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+</span><span data-line="170"><span class="w">    </span><span class="sd">"""Raised when a model cannot be exported to the CoreML backend."""</span>
+</span><span data-line="171">
+</span><span data-line="172">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="173">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2"> Use backend=ExportBackend.CoreAI instead."</span><span class="p">)</span>
+</span><span data-line="174">
 <div class="viewcode-block" id="CoreMLExportError.from_dtype">
 <a class="viewcode-back" href="../../api/generated/coreai_opt.CoreMLExportError.html#coreai_opt.CoreMLExportError.from_dtype">[docs]</a>
-</span><span data-line="169">    <span class="nd">@classmethod</span>
-</span><span data-line="170">    <span class="k">def</span><span class="w"> </span><span class="nf">from_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoreMLExportError</span><span class="p">:</span>
-</span><span data-line="171"><span class="w">        </span><span class="sd">"""Build the error for an unsupported weight/activation/LUT dtype."""</span>
-</span><span data-line="172">        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CoreML export does not support dtype </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span></div>
+</span><span data-line="175">    <span class="nd">@classmethod</span>
+</span><span data-line="176">    <span class="k">def</span><span class="w"> </span><span class="nf">from_dtype</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoreMLExportError</span><span class="p">:</span>
+</span><span data-line="177"><span class="w">        </span><span class="sd">"""Build the error for an unsupported weight/activation/LUT dtype."""</span>
+</span><span data-line="178">        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CoreML export does not support dtype </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span></div>
 
-</span><span data-line="173">
+</span><span data-line="179">
 <div class="viewcode-block" id="CoreMLExportError.from_config">
 <a class="viewcode-back" href="../../api/generated/coreai_opt.CoreMLExportError.html#coreai_opt.CoreMLExportError.from_config">[docs]</a>
-</span><span data-line="174">    <span class="nd">@classmethod</span>
-</span><span data-line="175">    <span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoreMLExportError</span><span class="p">:</span>
-</span><span data-line="176"><span class="w">        </span><span class="sd">"""Build the error for an unsupported quantization config attribute (e.g. granularity)."""</span>
-</span><span data-line="177">        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CoreML export does not support </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span></div>
+</span><span data-line="180">    <span class="nd">@classmethod</span>
+</span><span data-line="181">    <span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoreMLExportError</span><span class="p">:</span>
+</span><span data-line="182"><span class="w">        </span><span class="sd">"""Build the error for an unsupported quantization config attribute (e.g. granularity)."""</span>
+</span><span data-line="183">        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CoreML export does not support </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">context</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span></div>
 </div>
 
-</span><span data-line="178">
-</span><span data-line="179">
+</span><span data-line="184">
+</span><span data-line="185">
 <div class="viewcode-block" id="DependencyVersionWarning">
 <a class="viewcode-back" href="../../api/generated/coreai_opt.DependencyVersionWarning.html#coreai_opt.DependencyVersionWarning">[docs]</a>
-</span><span data-line="180"><span class="k">class</span><span class="w"> </span><span class="nc">DependencyVersionWarning</span><span class="p">(</span><span class="ne">UserWarning</span><span class="p">):</span>
-</span><span data-line="181"><span class="w">    </span><span class="sd">"""Base category for the dependency version checks run at import."""</span></div>
+</span><span data-line="186"><span class="k">class</span><span class="w"> </span><span class="nc">DependencyVersionWarning</span><span class="p">(</span><span class="ne">UserWarning</span><span class="p">):</span>
+</span><span data-line="187"><span class="w">    </span><span class="sd">"""Base category for the dependency version checks run at import."""</span></div>
 
-</span><span data-line="182">
-</span><span data-line="183">
+</span><span data-line="188">
+</span><span data-line="189">
 <div class="viewcode-block" id="UntestedTorchVersionWarning">
 <a class="viewcode-back" href="../../api/generated/coreai_opt.UntestedTorchVersionWarning.html#coreai_opt.UntestedTorchVersionWarning">[docs]</a>
-</span><span data-line="184"><span class="k">class</span><span class="w"> </span><span class="nc">UntestedTorchVersionWarning</span><span class="p">(</span><span class="n">DependencyVersionWarning</span><span class="p">):</span>
-</span><span data-line="185"><span class="w">    </span><span class="sd">"""The installed torch is newer than the highest version coreai-opt tests against."""</span></div>
+</span><span data-line="190"><span class="k">class</span><span class="w"> </span><span class="nc">UntestedTorchVersionWarning</span><span class="p">(</span><span class="n">DependencyVersionWarning</span><span class="p">):</span>
+</span><span data-line="191"><span class="w">    </span><span class="sd">"""The installed torch is newer than the highest version coreai-opt tests against."""</span></div>
 
-</span><span data-line="186">
-</span><span data-line="187">
+</span><span data-line="192">
+</span><span data-line="193">
 <div class="viewcode-block" id="TorchaoTorchIncompatibilityWarning">
 <a class="viewcode-back" href="../../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html#coreai_opt.TorchaoTorchIncompatibilityWarning">[docs]</a>
-</span><span data-line="188"><span class="k">class</span><span class="w"> </span><span class="nc">TorchaoTorchIncompatibilityWarning</span><span class="p">(</span><span class="n">DependencyVersionWarning</span><span class="p">):</span>
-</span><span data-line="189"><span class="w">    </span><span class="sd">"""The installed torchao and torch are a known-incompatible pair."""</span></div>
+</span><span data-line="194"><span class="k">class</span><span class="w"> </span><span class="nc">TorchaoTorchIncompatibilityWarning</span><span class="p">(</span><span class="n">DependencyVersionWarning</span><span class="p">):</span>
+</span><span data-line="195"><span class="w">    </span><span class="sd">"""The installed torchao and torch are a known-incompatible pair."""</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

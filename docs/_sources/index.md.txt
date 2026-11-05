@@ -11,6 +11,8 @@
 introduction/installation
 introduction/how_to_use_coreaiopt
 introduction/integration_coreai
+introduction/torch_backend
+introduction/checkpoints
 ```
 
 ```{toctree}
@@ -51,6 +53,7 @@ utils/coreai_compression
 
 debugging/model_inspection
 debugging/graph_mode_troubleshooting
+debugging/palettization_troubleshooting
 ```
 
 ```{toctree}

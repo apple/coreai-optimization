@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
@@ -102,11 +102,11 @@ data-aria-dark="Switch to auto color mode">
 </li>
         <li><a href="api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html#coreai_opt.config.WeightOnlyOpValidationMixin.__init__">(coreai_opt.config.WeightOnlyOpValidationMixin method)</a>
 </li>
-        <li><a href="api/generated/coreai_opt.coreai_utils.common.QScheme.html#coreai_opt.coreai_utils.common.QScheme.__init__">(coreai_opt.coreai_utils.common.QScheme method)</a>
-</li>
         <li><a href="api/generated/coreai_opt.coreai_utils.CompressionGranularity.html#coreai_opt.coreai_utils.CompressionGranularity.__init__">(coreai_opt.coreai_utils.CompressionGranularity method)</a>
 </li>
         <li><a href="api/generated/coreai_opt.coreai_utils.DType.html#coreai_opt.coreai_utils.DType.__init__">(coreai_opt.coreai_utils.DType method)</a>
+</li>
+        <li><a href="api/generated/coreai_opt.coreai_utils.QScheme.html#coreai_opt.coreai_utils.QScheme.__init__">(coreai_opt.coreai_utils.QScheme method)</a>
 </li>
         <li><a href="api/generated/coreai_opt.ExportBackend.html#coreai_opt.ExportBackend.__init__">(coreai_opt.ExportBackend method)</a>
 </li>
@@ -183,7 +183,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/generated/coreai_opt.coreai_utils.common.QScheme.html#coreai_opt.coreai_utils.common.QScheme.ASYMMETRIC">ASYMMETRIC (coreai_opt.coreai_utils.common.QScheme attribute)</a>
+      <li><a href="api/generated/coreai_opt.coreai_utils.QScheme.html#coreai_opt.coreai_utils.QScheme.ASYMMETRIC">ASYMMETRIC (coreai_opt.coreai_utils.QScheme attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.pruning.spec.PruningScheme.html#coreai_opt.pruning.spec.PruningScheme.axis">axis (coreai_opt.pruning.spec.PruningScheme attribute)</a>
 </li>
@@ -346,7 +346,11 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="api/generated/coreai_opt.quantization.config.QATSchedule.html#coreai_opt.quantization.config.QATSchedule.enable_fake_quant">enable_fake_quant (coreai_opt.quantization.config.QATSchedule attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.enable_fake_quant">enable_fake_quant() (coreai_opt.quantization.Quantizer method)</a>
+
+      <ul>
+        <li><a href="api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html#coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.enable_fake_quant">(coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase method)</a>
 </li>
+      </ul></li>
       <li><a href="api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html#coreai_opt.palettization.ModuleKMeansPalettizerConfig.enable_fast_kmeans_mode">enable_fast_kmeans_mode (coreai_opt.palettization.ModuleKMeansPalettizerConfig attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.config.QATSchedule.html#coreai_opt.quantization.config.QATSchedule.enable_observer">enable_observer (coreai_opt.quantization.config.QATSchedule attribute)</a>
@@ -607,6 +611,8 @@ data-aria-dark="Switch to auto color mode">
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.pruning.MagnitudePruner.html#coreai_opt.pruning.MagnitudePruner">MagnitudePruner (class in coreai_opt.pruning)</a>
 </li>
+      <li><a href="api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html#coreai_opt.palettization.config.VectorKMeansConfig.max_iter">max_iter (coreai_opt.palettization.config.VectorKMeansConfig attribute)</a>
+</li>
       <li><a href="api/generated/coreai_opt.ExportBackend.html#coreai_opt.ExportBackend.MIL">MIL (coreai_opt.ExportBackend attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html#coreai_opt.quantization.spec.MinMaxRangeCalculator">MinMaxRangeCalculator (class in coreai_opt.quantization.spec)</a>
@@ -703,12 +709,16 @@ data-aria-dark="Switch to auto color mode">
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.palettization.PalettizationSpec.html#coreai_opt.palettization.PalettizationSpec.n_bits">n_bits (coreai_opt.palettization.PalettizationSpec attribute)</a>
 </li>
-      <li><a href="api/generated/coreai_opt.inspection.ModuleInfo.html#coreai_opt.inspection.ModuleInfo.named_children">named_children() (coreai_opt.inspection.ModuleInfo method)</a>
+      <li><a href="api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html#coreai_opt.palettization.config.VectorKMeansConfig.n_init">n_init (coreai_opt.palettization.config.VectorKMeansConfig attribute)</a>
 </li>
-      <li><a href="api/generated/coreai_opt.inspection.ModuleInfo.html#coreai_opt.inspection.ModuleInfo.named_modules">named_modules() (coreai_opt.inspection.ModuleInfo method)</a>
+      <li><a href="api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html#coreai_opt.palettization.config.VectorKMeansConfig.n_local_trials">n_local_trials (coreai_opt.palettization.config.VectorKMeansConfig attribute)</a>
+</li>
+      <li><a href="api/generated/coreai_opt.inspection.ModuleInfo.html#coreai_opt.inspection.ModuleInfo.named_children">named_children() (coreai_opt.inspection.ModuleInfo method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/coreai_opt.inspection.ModuleInfo.html#coreai_opt.inspection.ModuleInfo.named_modules">named_modules() (coreai_opt.inspection.ModuleInfo method)</a>
+</li>
       <li><a href="api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html#coreai_opt.palettization.spec.PalettizationGranularity.num_blocks_to_cluster">num_blocks_to_cluster() (coreai_opt.palettization.spec.PalettizationGranularity method)</a>
 
       <ul>
@@ -875,7 +885,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html#coreai_opt.quantization.spec.QParamsCalculatorBase">QParamsCalculatorBase (class in coreai_opt.quantization.spec)</a>
 </li>
-      <li><a href="api/generated/coreai_opt.coreai_utils.common.QScheme.html#coreai_opt.coreai_utils.common.QScheme">QScheme (class in coreai_opt.coreai_utils.common)</a>
+      <li><a href="api/generated/coreai_opt.coreai_utils.QScheme.html#coreai_opt.coreai_utils.QScheme">QScheme (class in coreai_opt.coreai_utils)</a>
 </li>
       <li><a href="api/generated/coreai_opt.quantization.QuantizationSpec.html#coreai_opt.quantization.QuantizationSpec.qscheme">qscheme (coreai_opt.quantization.QuantizationSpec attribute)</a>
 
@@ -961,13 +971,15 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.inspection.OpInfo.html#coreai_opt.inspection.OpInfo.source_frames">source_frames (coreai_opt.inspection.OpInfo attribute)</a>, <a href="api/generated/coreai_opt.inspection.OpInfo.html#id6">[1]</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.inspection.SourceFrame.html#coreai_opt.inspection.SourceFrame">SourceFrame (class in coreai_opt.inspection)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.coreai_utils.sparsify_weights.html#coreai_opt.coreai_utils.sparsify_weights">sparsify_weights() (in module coreai_opt.coreai_utils)</a>
 </li>
       <li><a href="api/generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase.sparsity">sparsity (coreai_opt.pruning.spec.PruneImplBase property)</a>
+</li>
+      <li><a href="api/generated/coreai_opt.palettization.PalettizationSpec.html#coreai_opt.palettization.PalettizationSpec.sparsity_detection_threshold">sparsity_detection_threshold (coreai_opt.palettization.PalettizationSpec attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html#coreai_opt.pruning.ModuleMagnitudePrunerConfig.sparsity_schedule">sparsity_schedule (coreai_opt.pruning.ModuleMagnitudePrunerConfig attribute)</a>
 </li>
@@ -985,13 +997,15 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="api/generated/coreai_opt.quantization.Quantizer.html#coreai_opt.quantization.Quantizer.step">(coreai_opt.quantization.Quantizer method)</a>
 </li>
       </ul></li>
+      <li><a href="api/generated/coreai_opt.pruning.spec.PruneImplBase.html#coreai_opt.pruning.spec.PruneImplBase.step_count">step_count (coreai_opt.pruning.spec.PruneImplBase attribute)</a>
+</li>
       <li><a href="api/generated/coreai_opt.inspection.ModelInspector.html#coreai_opt.inspection.ModelInspector.summary">summary (coreai_opt.inspection.ModelInspector attribute)</a>
 
       <ul>
         <li><a href="api/generated/coreai_opt.inspection.ModelInspector.html#id0">(coreai_opt.inspection.ModelInspector property)</a>
 </li>
       </ul></li>
-      <li><a href="api/generated/coreai_opt.coreai_utils.common.QScheme.html#coreai_opt.coreai_utils.common.QScheme.SYMMETRIC">SYMMETRIC (coreai_opt.coreai_utils.common.QScheme attribute)</a>
+      <li><a href="api/generated/coreai_opt.coreai_utils.QScheme.html#coreai_opt.coreai_utils.QScheme.SYMMETRIC">SYMMETRIC (coreai_opt.coreai_utils.QScheme attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1007,12 +1021,16 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="api/generated/coreai_opt.config.CompressionConfig.html#coreai_opt.config.CompressionConfig.to_dict">to_dict() (coreai_opt.config.CompressionConfig method)</a>
 </li>
-      <li><a href="api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html#coreai_opt.TorchaoTorchIncompatibilityWarning">TorchaoTorchIncompatibilityWarning</a>
+      <li><a href="api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html#coreai_opt.palettization.config.VectorKMeansConfig.tol">tol (coreai_opt.palettization.config.VectorKMeansConfig attribute)</a>
 </li>
-      <li><a href="api/generated/coreai_opt.inspection.BitsPerWeightResult.html#coreai_opt.inspection.BitsPerWeightResult.total_bits">total_bits (coreai_opt.inspection.BitsPerWeightResult attribute)</a>, <a href="api/generated/coreai_opt.inspection.BitsPerWeightResult.html#id2">[1]</a>
+      <li><a href="api/generated/coreai_opt.ExportBackend.html#coreai_opt.ExportBackend.Torch">Torch (coreai_opt.ExportBackend attribute)</a>
+</li>
+      <li><a href="api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html#coreai_opt.TorchaoTorchIncompatibilityWarning">TorchaoTorchIncompatibilityWarning</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/generated/coreai_opt.inspection.BitsPerWeightResult.html#coreai_opt.inspection.BitsPerWeightResult.total_bits">total_bits (coreai_opt.inspection.BitsPerWeightResult attribute)</a>, <a href="api/generated/coreai_opt.inspection.BitsPerWeightResult.html#id2">[1]</a>
+</li>
       <li><a href="api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html#coreai_opt.pruning.config.PolynomialDecaySchedule.total_iters">total_iters (coreai_opt.pruning.config.PolynomialDecaySchedule attribute)</a>
 </li>
       <li><a href="api/generated/coreai_opt.inspection.BitsPerWeightResult.html#coreai_opt.inspection.BitsPerWeightResult.total_weights">total_weights (coreai_opt.inspection.BitsPerWeightResult attribute)</a>, <a href="api/generated/coreai_opt.inspection.BitsPerWeightResult.html#id3">[1]</a>
@@ -1068,6 +1086,8 @@ data-aria-dark="Switch to auto color mode">
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html#coreai_opt.config.WeightOnlyOpValidationMixin.validate_weight_only_op_constraint">validate_weight_only_op_constraint() (coreai_opt.config.WeightOnlyOpValidationMixin method)</a>
+</li>
+      <li><a href="api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html#coreai_opt.palettization.ModuleKMeansPalettizerConfig.vector_kmeans_config">vector_kmeans_config (coreai_opt.palettization.ModuleKMeansPalettizerConfig attribute)</a>
 </li>
   </ul></td>
 </tr></table>

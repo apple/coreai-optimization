@@ -86,3 +86,5 @@ Create a partial constructor with pre-filled arguments.
 #### *property* sparsity *: float*
 
 Sparsity that the current mask reflects. Use `update_sparsity` to change.
+
+#### step_count *: torch.Tensor*

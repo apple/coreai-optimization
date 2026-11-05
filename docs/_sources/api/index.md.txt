@@ -68,20 +68,10 @@ Core AI MLIR-level compression transforms.
 
    coreai_opt.coreai_utils.CompressionGranularity
    coreai_opt.coreai_utils.DType
+   coreai_opt.coreai_utils.QScheme
    coreai_opt.coreai_utils.palettize_weights
    coreai_opt.coreai_utils.quantize_weights
    coreai_opt.coreai_utils.sparsify_weights
-```
-
-### coreai_opt.coreai_utils.common
-
-Common enums and constants for coreai_opt.coreai_utils.
-
-```{eval-rst}
-.. autosummary::
-   :toctree: generated
-
-   coreai_opt.coreai_utils.common.QScheme
 ```
 
 ## coreai_opt.inspection
@@ -128,6 +118,7 @@ Palettization configuration classes.
 
    coreai_opt.palettization.config.OpKMeansPalettizerConfig
    coreai_opt.palettization.config.PATSchedule
+   coreai_opt.palettization.config.VectorKMeansConfig
 ```
 
 ### coreai_opt.palettization.spec

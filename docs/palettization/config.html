@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -263,7 +267,10 @@ data-aria-dark="Switch to auto color mode">
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#palettizationspec">PalettizationSpec</a></li>
+<li><a class="reference internal" href="#palettizationspec">PalettizationSpec</a><ul>
+<li><a class="reference internal" href="#palettizing-already-sparse-weights">Palettizing already-sparse weights</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#config-classes-and-their-defaults">Config classes and their defaults</a><ul>
 <li><a class="reference internal" href="#default-behavior-when-no-arguments-are-provided">Default behavior when no arguments are provided</a></li>
 </ul>
@@ -275,6 +282,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#apply-4-bit-palettization-to-conv-layers-8-bit-to-linear-layers">Apply 4-bit palettization to conv layers, 8-bit to linear layers</a></li>
 <li><a class="reference internal" href="#enable-palettization-at-different-training-steps-per-module-patschedule">Enable palettization at different training steps per module (PATSchedule)</a></li>
+<li><a class="reference internal" href="#tune-vector-palettization-k-means-vectorkmeansconfig">Tune vector palettization k-means (VectorKMeansConfig)</a></li>
 </ul>
 </li>
 </ul>
@@ -356,6 +364,7 @@ They are simpler as palettization applies only to the weights in the model.
 <li><p><code class="docutils literal notranslate"><span class="pre">granularity</span></code>: controls whether there is one LUT for the entire weight tensor or one LUT per group of channels. Allowed: <a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html#coreai_opt.palettization.spec.PerTensorGranularity" title="coreai_opt.palettization.spec.PerTensorGranularity"><code class="xref py py-class docutils literal notranslate"><span class="pre">PerTensorGranularity</span></code></a>() or <a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html#coreai_opt.palettization.spec.PerGroupedChannelGranularity" title="coreai_opt.palettization.spec.PerGroupedChannelGranularity"><code class="xref py py-class docutils literal notranslate"><span class="pre">PerGroupedChannelGranularity</span></code></a>(), defaults to the former</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cluster_dim</span></code>: Dimension of the cluster centers, i.e. the entries in the LUT. Defaults to 1; if &gt; 1, it results in vector palettization.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">lut_qspec</span></code>: Optional <code class="xref py py-class docutils literal notranslate"><span class="pre">QuantizationSpec</span></code> describing how to quantize the LUT centroid values themselves. Defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code> (LUT centroids are stored at the same dtype as the uncompressed weights). Supported dtypes are <code class="docutils literal notranslate"><span class="pre">torch.int8</span></code>, <code class="docutils literal notranslate"><span class="pre">torch.uint8</span></code>, <code class="docutils literal notranslate"><span class="pre">torch.float8_e4m3fn</span></code>, and <code class="docutils literal notranslate"><span class="pre">torch.float8_e5m2</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sparsity_detection_threshold</span></code>: Optional float in [0, 1]. A weight with at least this fraction of exact zeros (and at least one) is treated as already sparse, for example from a pruned model, and is palettized jointly with its sparsity: only the nonzero values are palettized, the zeros stay exactly zero, and the exported model stores the weight in a sparse representation together with the palettized ops for the nonzero values. Defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code>, which palettizes every weight densely. See <a class="reference internal" href="#palettizing-already-sparse-weights"><span class="std std-ref">Palettizing already-sparse weights</span></a>.</p></li>
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="n">PalettizationSpec</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.spec</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -381,33 +390,70 @@ They are simpler as palettization applies only to the weights in the model.
 </span><span data-line="22">
 </span><span data-line="23"><span class="c1"># Cluster pairs of weight values instead of individual scalars</span>
 </span><span data-line="24"><span class="n">spec</span> <span class="o">=</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">cluster_dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="25">
+</span><span data-line="26"><span class="c1"># Palettize pruned weights jointly with their sparsity: weights with at least 40% exact zeros</span>
+</span><span data-line="27"><span class="n">spec</span> <span class="o">=</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">sparsity_detection_threshold</span><span class="o">=</span><span class="mf">0.4</span><span class="p">)</span>
 </span></pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><strong>Reproducibility with <code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code></strong>:</p>
-<p>When <code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, palettization uses vector k-means whose centroid initialization relies on <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code> and <code class="docutils literal notranslate"><span class="pre">torch.randint</span></code>, so it is non-deterministic.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># model gets different weights when we run it multiple times</span>
-</span><span data-line="2"><span class="n">model_1</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
-</span><span data-line="3"><span class="n">model_2</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
-</span></pre></div>
+<p>Vector k-means derives its random seeds from each weight tensor’s contents, so repeated calls to <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> produce the same palettized weights without any manual seeding, with or without <code class="docutils literal notranslate"><span class="pre">num_workers</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>. On CPU the results are reproducible on the same machine. On a GPU the seeding is reproducible too, but floating-point reductions in the GPU kernels can cause very small run-to-run differences.</p>
+<p>Scalar palettization (<code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">==</span> <span class="pre">1</span></code>, the default) is deterministic.</p>
 </div>
-<p>To obtain reproducible results, seed <code class="docutils literal notranslate"><span class="pre">numpy</span></code> and <code class="docutils literal notranslate"><span class="pre">torch</span></code> before each call to <code class="docutils literal notranslate"><span class="pre">prepare()</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">seed</span> <span class="o">=</span> <span class="mi">42</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="c1"># models now have identical palettized weights</span>
-</span><span data-line="4"><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-</span><span data-line="5"><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-</span><span data-line="6"><span class="n">model_1</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
-</span><span data-line="7">
-</span><span data-line="8"><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-</span><span data-line="9"><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-</span><span data-line="10"><span class="n">model_2</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
-</span></pre></div>
+<section id="palettizing-already-sparse-weights">
+<h3>Palettizing already-sparse weights<a class="headerlink" href="#palettizing-already-sparse-weights" title="Link to this heading">¶</a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">sparsity_detection_threshold</span></code> is set, the first forward pass of <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> detects which weights are already sparse. For each of them, the nonzero mask is fixed, k-means fits the palette on the nonzero values only, and the zeros stay exactly zero. <code class="docutils literal notranslate"><span class="pre">finalize()</span></code> then exports the weight as a sparse representation (the mask and the nonzero values) with the palettization ops applied to the nonzero values only, so zeros need no indices.</p>
+<p>A few details depend on the configuration:</p>
+<ul class="simple">
+<li><p>With <code class="docutils literal notranslate"><span class="pre">PerGroupedChannelGranularity</span></code>, Core AI maps contiguous blocks of the nonzero values to the groups, so every group has to store the same number of values. Groups with fewer nonzeros than the fullest group also store some of their zeros, which costs a little of the sparse savings. For scalar palettization the palette then holds an entry for exactly <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p></li>
+<li><p>With vector palettization (<code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>), the nonzero values of each group are clustered in vectors of <code class="docutils literal notranslate"><span class="pre">cluster_dim</span></code> consecutive values. If a group’s nonzero count is not a multiple of <code class="docutils literal notranslate"><span class="pre">cluster_dim</span></code>, its smallest nonzeros are set to zero (truncated). With per-group vector palettization, the aforementioned padding zeros can share a vector with a nonzero value and result in a nonzero value when de-palettized; therefore this could reduce the percentage of sparsity by a small amount.</p></li>
+</ul>
+<p>Supported configurations for exporting an already-sparse weight:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>CoreML</p></th>
+<th class="head"><p>Core AI</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Per-tensor</p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>Grouped along axis 0</p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td><p>For Core AI, groups are padded with stored zeros so each group stores the same number of values.</p></td>
+</tr>
+<tr class="row-even"><td><p>Grouped along another axis</p></td>
+<td><p>Yes</p></td>
+<td><p>No</p></td>
+<td><p>Core AI needs contiguous groups, which only holds along axis 0.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Per-channel scale</p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>Quantized LUT (<code class="docutils literal notranslate"><span class="pre">lut_qspec</span></code>)</p></td>
+<td><p>No</p></td>
+<td><p>Yes</p></td>
+<td><p>For Core AI, the zero point must be 0 (a symmetric <code class="docutils literal notranslate"><span class="pre">lut_qspec</span></code>). Not supported together with vector palettization.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Vector (<code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>)</p></td>
+<td><p>No</p></td>
+<td><p>Yes</p></td>
+<td><p>For Core AI, per-tensor or grouped along axis 0.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
-<p>When <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> is called with <code class="docutils literal notranslate"><span class="pre">num_workers</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, k-means runs in spawned worker processes that do not inherit the parent’s RNG state, so the seeding advice above is only effective with <code class="docutils literal notranslate"><span class="pre">num_workers=1</span></code>. Use the sequential path if you need reproducible vector palettization.</p>
-<p>Scalar palettization (<code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">==</span> <span class="pre">1</span></code>, the default) is deterministic and does not require seeding.</p>
-</div>
+</section>
 </section>
 <section id="config-classes-and-their-defaults">
 <h2>Config classes and their defaults<a class="headerlink" href="#config-classes-and-their-defaults" title="Link to this heading">¶</a></h2>
@@ -582,6 +628,109 @@ They are simpler as palettization applies only to the weights in the model.
 </span><span data-line="17"><span class="w">          </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
 </span><span data-line="18"><span class="w">      </span><span class="nt">pat_schedule</span><span class="p">:</span>
 </span><span data-line="19"><span class="w">        </span><span class="nt">enable_fake_palettize</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+</span></pre></div>
+</div>
+</section>
+<section id="tune-vector-palettization-k-means-vectorkmeansconfig">
+<h3>Tune vector palettization k-means (VectorKMeansConfig)<a class="headerlink" href="#tune-vector-palettization-k-means-vectorkmeansconfig" title="Link to this heading">¶</a></h3>
+<p>Vector palettization (<code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>) runs k-means on each palettization block, and its speed/quality trade-off is set with a <a class="reference internal" href="../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html#coreai_opt.palettization.config.VectorKMeansConfig" title="coreai_opt.palettization.config.VectorKMeansConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">VectorKMeansConfig</span></code></a> on the module’s <code class="xref py py-class docutils literal notranslate"><span class="pre">ModuleKMeansPalettizerConfig</span></code>. Scalar palettization solves 1D k-means exactly and does not use these settings; setting <code class="docutils literal notranslate"><span class="pre">vector_kmeans_config</span></code> on a module config without any spec that has <code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> raises an error. If <code class="docutils literal notranslate"><span class="pre">vector_kmeans_config</span></code> is not set, the defaults below are used.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">n_local_trials</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Candidate centroids sampled at each k-means++ seeding step; the one that most reduces clustering error is kept. <code class="docutils literal notranslate"><span class="pre">1</span></code> is standard k-means++; larger values (greedy k-means++) usually lower the clustering error, at proportionally higher seeding cost. <code class="docutils literal notranslate"><span class="pre">None</span></code> uses scikit-learn’s default, <code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">+</span> <span class="pre">int(log(n_clusters))</span></code> (6 for <code class="docutils literal notranslate"><span class="pre">n_bits=6</span></code>, 7 for <code class="docutils literal notranslate"><span class="pre">n_bits=8</span></code>), as in <code class="docutils literal notranslate"><span class="pre">sklearn.cluster.kmeans_plusplus</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">n_init</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Number of k-means restarts; the best result is kept per block. Time grows linearly with it.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_iter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">300</span></code></p></td>
+<td><p>Maximum Lloyd iterations per restart.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tol</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1e-4</span></code></p></td>
+<td><p>A block stops once its clustering error improves by less than <code class="docutils literal notranslate"><span class="pre">tol</span></code> (relative) per iteration, or once no assignment changes. Same on GPU and CPU.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Clustering runs where the hardware allows:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><span data-line="1">              vector k-means (all blocks of one weight tensor)
+</span><span data-line="2">                                  |
+</span><span data-line="3">           +------- CUDA GPU -----+------ CPU -------+
+</span><span data-line="4">           |                                         |
+</span><span data-line="5">  batched k-means++ seeding                     scikit-learn
+</span><span data-line="6">   (shared by PTP and SKM)                (seeding + Lloyd, per block)
+</span><span data-line="7">           |                                         |
+</span><span data-line="8">      +----+----+                                    |
+</span><span data-line="9">     PTP       SKM                                   |
+</span><span data-line="10"> flash-kmeans  PyTorch                               |
+</span><span data-line="11"> (or PyTorch)   |                                    |
+</span><span data-line="12">      +----+----+                                    |
+</span><span data-line="13">           +-------------------+---------------------+
+</span><span data-line="14">                               |
+</span><span data-line="15">                     stop each block at tol
+</span><span data-line="16">                               |
+</span><span data-line="17">                  best of n_init restarts -&gt; LUT
+</span></pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>GPU</strong>: all vector tensors cluster on the GPU. PTP (data-free post-training palettization) runs its Lloyd iterations with <a class="reference external" href="https://github.com/svg-project/flash-kmeans">flash-kmeans</a> (Yang et al., 2026, <a class="reference external" href="https://arxiv.org/abs/2603.09229">arXiv:2603.09229</a>) when it is installed, which is much faster, and otherwise with a PyTorch loop. SKM (Sensitive K-Means, see <code class="docutils literal notranslate"><span class="pre">calibration_mode()</span></code>) always uses the PyTorch loop, because flash-kmeans has no per-point weights.</p></li>
+<li><p><strong>CPU</strong>: scikit-learn. As for scalar palettization, <code class="docutils literal notranslate"><span class="pre">prepare(num_workers=N)</span></code> clusters <code class="docutils literal notranslate"><span class="pre">N</span></code> layers in parallel.</p></li>
+</ul>
+<p>With a GPU, vector tensors run in the main process, one at a time, while the <code class="docutils literal notranslate"><span class="pre">num_workers</span></code> CPU workers handle the scalar tensors.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">KMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">PalettizationSpec</span><span class="p">,</span>
+</span><span data-line="5"><span class="p">)</span>
+</span><span data-line="6"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">VectorKMeansConfig</span>
+</span><span data-line="7"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerGroupedChannelGranularity</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="n">spec</span> <span class="o">=</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
+</span><span data-line="10">    <span class="n">n_bits</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+</span><span data-line="11">    <span class="n">cluster_dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+</span><span data-line="12">    <span class="n">granularity</span><span class="o">=</span><span class="n">PerGroupedChannelGranularity</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">group_size</span><span class="o">=</span><span class="mi">32</span><span class="p">),</span>
+</span><span data-line="13"><span class="p">)</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="c1"># Defaults: greedy k-means++, 5 restarts, convergence-based stopping.</span>
+</span><span data-line="16"><span class="n">config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="17">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="18">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">spec</span><span class="p">},</span>
+</span><span data-line="19">        <span class="n">enable_fast_kmeans_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span data-line="20">    <span class="p">)</span>
+</span><span data-line="21"><span class="p">)</span>
+</span><span data-line="22">
+</span><span data-line="23"><span class="c1"># Fast, approximate clustering, for example to check that a model exports.</span>
+</span><span data-line="24"><span class="n">fast_config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="25">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="26">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">spec</span><span class="p">},</span>
+</span><span data-line="27">        <span class="n">enable_fast_kmeans_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span data-line="28">        <span class="n">vector_kmeans_config</span><span class="o">=</span><span class="n">VectorKMeansConfig</span><span class="p">(</span><span class="n">n_init</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+</span><span data-line="29">    <span class="p">)</span>
+</span><span data-line="30"><span class="p">)</span>
+</span></pre></div>
+</div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># yaml</span>
+</span><span data-line="2"><span class="nt">kmeans_palettization_config</span><span class="p">:</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">global_config</span><span class="p">:</span>
+</span><span data-line="4"><span class="w">    </span><span class="nt">enable_fast_kmeans_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span data-line="5"><span class="w">    </span><span class="nt">op_state_spec</span><span class="p">:</span>
+</span><span data-line="6"><span class="w">      </span><span class="nt">weight</span><span class="p">:</span>
+</span><span data-line="7"><span class="w">        </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+</span><span data-line="8"><span class="w">        </span><span class="nt">cluster_dim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span data-line="9"><span class="w">        </span><span class="nt">granularity</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">per_grouped_channel</span><span class="p p-Indicator">,</span><span class="nt"> axis</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="nt"> group_size</span><span class="p">:</span><span class="w"> </span><span class="nv">32</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</span><span data-line="10"><span class="w">    </span><span class="nt">vector_kmeans_config</span><span class="p">:</span>
+</span><span data-line="11"><span class="w">      </span><span class="nt">n_init</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</span><span data-line="12"><span class="w">      </span><span class="nt">max_iter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 </span></pre></div>
 </div>
 </section>

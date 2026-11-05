@@ -108,3 +108,13 @@ begins. Default: None.
 
 * **Type:**
   [PATSchedule](coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule) | None
+
+#### vector_kmeans_config
+
+K-means settings for vector
+palettization (`cluster_dim > 1`). Only valid when the module configures
+at least one spec with `cluster_dim > 1`. If None, vector palettization
+uses the `VectorKMeansConfig` defaults. Default: None.
+
+* **Type:**
+  [VectorKMeansConfig](coreai_opt.palettization.config.VectorKMeansConfig.md#coreai_opt.palettization.config.VectorKMeansConfig) | None

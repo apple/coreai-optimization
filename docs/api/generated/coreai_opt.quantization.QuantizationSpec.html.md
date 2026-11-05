@@ -16,6 +16,7 @@ Target data type for quantization.
 Valid inputs:
 
 - Integer dtypes: torch.int8, torch.uint8, torch.int4, torch.uint4, etc.
+  torch.int6 and torch.uint6 are only supported for the Torch backend for now.
 - Floating-point dtypes: torch.float8_e4m3fn, torch.float8_e5m2,
   torch.float4_e2m1fn_x2.
   For FP8 dtypes, the notation specifies the format (e.g., in
@@ -59,9 +60,9 @@ Notation used in the formulae below:
 - `x`: unquantized data.
 - `q`: quantized data (dtype as specified by `QuantizationSpec.dtype`).
 - `x'`: dequantized data (same dtype as `x`).
-- `scale`: for INT quantization, defaults to the same dtype as
-  `x`. For FP quantization, see the `scale_dtype` description
-  below.
+- `scale`: for INT quantization without an e8m0 `scale_dtype`,
+  defaults to the same dtype as `x`. Otherwise, see the
+  `scale_dtype` description below.
 
 Formulae:
 
@@ -107,16 +108,19 @@ than the full tensor.
 | UINT8   | SYM_W_CLIP | [0, 255]      | max_abs / 127.5 | 128                                                 |
 | UINT8   | ASYMMETRIC | [0, 255]      | range / 255     | clip(-round(<br/>min_val_neg/scale), 0, 255)        |
 
-And for FP4/FP8 dtypes, zero-point is always set to 0 (FP supports only the
-symmetric qscheme). The scale formula depends on `scale_dtype`:
+And for FP4/FP8 dtypes, and INT8 with an e8m0 `scale_dtype`, zero-point is
+always set to 0 (both support only the symmetric qscheme). The scale formula
+depends on `scale_dtype`:
 
 - `scale_dtype=None` (FP8 only): `scale = max_abs / fp_max`, where
   `fp_max` is the largest representable value for the target FP dtype
   (448.0 for FP8 E4M3, 57344.0 for FP8 E5M2).
-- `scale_dtype=torch.float8_e8m0fnu` (FP4 and FP8):
+- `scale_dtype=torch.float8_e8m0fnu` (FP4, FP8 and INT8):
   power-of-2 scale per OCP MX spec —
   `scale = 2^(floor(log2(max_abs)) - target_max_pow2)`, with
-  `target_max_pow2` of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2.
+  `target_max_pow2` of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2,
+  and 6 for INT8. OCP MXINT8 keeps a `2^-6` factor in each element and a
+  shared scale 64x larger; here that factor is folded into `scale`.
 
 **MINVAL formulation**, e.g. with 8 bit signed and unsigned fixed point types:
 
@@ -286,15 +290,16 @@ Valid inputs:
   choose_qparams_affine_with_min_max (integer and FP8 dtypes).
   For FP4, None is resolved to torch.float8_e8m0fnu automatically.
 - torch.float8_e8m0fnu: Power-of-2 scales following OCP Microscaling (MX)
-  spec. Required for FP4 quantization, optional for FP8.
+  spec. Required for FP4 quantization, optional for FP8 and int8.
 
 Constraints:
 
 - FP4 (float4_e2m1fn_x2): scale_dtype must be torch.float8_e8m0fnu or None
   (defaults to e8m0)
-- FP8 (float8_e4m3fn, float8_e5m2): scale_dtype must be
+- FP8 (float8_e4m3fn, float8_e5m2) and int8: scale_dtype must be
   torch.float8_e8m0fnu or None (defaults to None)
-- Integer dtypes: scale_dtype must be None (defaults to None)
+- Other integer dtypes: scale_dtype must be None (defaults to None)
+- torch.float8_e8m0fnu requires qscheme=”symmetric” and qformulation=”zp”
 
 Default: None
 

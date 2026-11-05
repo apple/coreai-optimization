@@ -2,14 +2,14 @@
 <html lang="en" data-accent-color="indigo" data-content_root="../">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Mixed-precision palettization with ResNet50 - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="EDSR model: Weight palettization + activation quantization (PTQ)" href="edsr.html" /><link rel="prev" title="ResNet50 model: Weight + Activation Quantization (PTQ)" href="resnet50.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Running PyTorch evaluations with compressed models - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Checkpoints and workflows" href="checkpoints.html" /><link rel="prev" title="Integration with Core AI" href="integration_coreai.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=86898c54" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,7 +21,7 @@
 }
 </style>
     
-  <meta property="og:type" content="website"/><meta property="og:title" content="Mixed-precision palettization with ResNet50"/>
+  <meta property="og:type" content="website"/><meta property="og:title" content="Running PyTorch evaluations with compressed models"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -62,23 +62,26 @@ data-aria-dark="Switch to auto color mode">
     <div class="sy-lside-inner md:sticky">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../introduction/installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
-<ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="reference internal" href="model_examples.html">Model Examples</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Mixed-precision palettization with ResNet50</a></li>
-<li class="toctree-l2"><a class="reference internal" href="edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
 </ul>
 </li>
 </ul>
@@ -89,6 +92,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../quantization/overview.html">API Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/config.html">Config API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../palettization/index.html">Palettization</a><ul>
@@ -97,21 +101,35 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../palettization/config.html">Config API</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pruning/config.html">Config API</a></li>
+</ul>
+</li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../utils/joint_compression.html">Joint Compression</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../utils/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/casting.html">16-bit PyTorch Model Casting</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
@@ -127,10 +145,11 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
@@ -139,6 +158,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
@@ -160,9 +180,14 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
@@ -178,6 +203,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
@@ -220,6 +246,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
 </ul>
 </li>
@@ -238,20 +266,7 @@ data-aria-dark="Switch to auto color mode">
     <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
       <i class="i-lucide close"></i>
     </button>
-    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#model-and-dataset">Model and dataset</a></li>
-<li><a class="reference internal" href="#baseline">Baseline</a></li>
-<li><a class="reference internal" href="#uniform-4-bit-palettization">Uniform 4-bit palettization</a></li>
-<li><a class="reference internal" href="#mixed-precision-compression">Mixed-precision compression</a><ul>
-<li><a class="reference internal" href="#layer-wise-sensitivity-computation">Layer-wise sensitivity computation</a></li>
-<li><a class="reference internal" href="#recipe-generation">Recipe generation</a></li>
-<li><a class="reference internal" href="#results">Results</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#accuracy-vs-bpw-graph">Accuracy vs BPW graph</a></li>
-<li><a class="reference internal" href="#summary">Summary</a></li>
-</ul>
-</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
   <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
   <main class="sy-main w-full max-sm:max-w-full print:pt-6">
@@ -267,12 +282,8 @@ data-aria-dark="Switch to auto color mode">
         <span>/</span>
         <meta itemprop="position" content="1" />
       </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <a itemprop="item" href="model_examples.html"><span itemprop="name">Model Examples</span></a>
-        <span>/</span>
+        <strong itemprop="name">Running PyTorch evaluations with compressed models</strong>
         <meta itemprop="position" content="2" />
-      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <strong itemprop="name">Mixed-precision palettization with ResNet50</strong>
-        <meta itemprop="position" content="3" />
       </li></ol>
     <div class="xl:hidden ml-1">
       <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
@@ -286,7 +297,7 @@ data-aria-dark="Switch to auto color mode">
   <div id="copy-page-trigger"><button
       type="button"
       class="js-copy px-3 py-1 inline-flex items-center gap-1"
-      data-url="mixed_precision_palettization.html.md"
+      data-url="torch_backend.html.md"
     >
       <i class="i-lucide" data-icon="copy"></i>
       <span>Copy page</span>
@@ -299,13 +310,13 @@ data-aria-dark="Switch to auto color mode">
   <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
     <div role="presentation">
       <div class="flex flex-col" role="group">
-        <button class="js-copy" type="button" role="menuitem" data-url="mixed_precision_palettization.html.md">
+        <button class="js-copy" type="button" role="menuitem" data-url="torch_backend.html.md">
           <span class="iconify-icon">
             <i class="i-lucide" data-icon="copy"></i>
           </span>
           <span>Copy page</span>
         </button>
-        <a role="menuitem" href="mixed_precision_palettization.html.md" target="_blank" rel="nofollow">
+        <a role="menuitem" href="torch_backend.html.md" target="_blank" rel="nofollow">
           <span class="iconify-icon">
             <img src="../_static/icons/markdown.svg" alt="" width="14" height="14">
           </span>
@@ -315,214 +326,29 @@ data-aria-dark="Switch to auto color mode">
     </div>
   </div>
 </div><article class="yue" role="main">
-          <section class="tex2jax_ignore mathjax_ignore" id="mixed-precision-palettization-with-resnet50">
-<h1>Mixed-precision palettization with ResNet50<a class="headerlink" href="#mixed-precision-palettization-with-resnet50" title="Link to this heading">¶</a></h1>
-<p>In this article we walk through the <a class="reference internal" href="../utils/mixed_precision.html"><span class="std std-doc">Mixed-Precision Compression</span></a> workflow applied to ResNet50 weight palettization. We use 2/4/6-bit per-tensor palettization as our candidate configs, PSNR on logits as the sensitivity metric, and generate the recipe with the greedy approach targeting 4 bits-per-weight (BPW). See the linked page for definitions of each term and the three-stage workflow.</p>
-<section id="model-and-dataset">
-<h2>Model and dataset<a class="headerlink" href="#model-and-dataset" title="Link to this heading">¶</a></h2>
-<p>We apply palettization to a pretrained <a class="reference external" href="https://pytorch.org/vision/stable/models/generated/torchvision.models.resnet50.html#torchvision.models.resnet50">ResNet50</a> (<code class="docutils literal notranslate"><span class="pre">IMAGENET1K_V1</span></code> weights) from torchvision.
-The model has 54 conv and linear layers — these are the weights we palettize.
-We draw data samples from the ImageNet validation set: 2560 images for sensitivity computation and the full 50,000-image validation set for top-1 evaluation. All accuracy numbers reported below are measured using PyTorch with <code class="docutils literal notranslate"><span class="pre">mps</span></code> backend.</p>
-</section>
-<section id="baseline">
-<h2>Baseline<a class="headerlink" href="#baseline" title="Link to this heading">¶</a></h2>
-<p>The pretrained model at fp16 gives us a top-1 eval accuracy of <code class="docutils literal notranslate"><span class="pre">75.02%</span></code>.</p>
-</section>
-<section id="uniform-4-bit-palettization">
-<h2>Uniform 4-bit palettization<a class="headerlink" href="#uniform-4-bit-palettization" title="Link to this heading">¶</a></h2>
-<p>The simplest compression strategy is to apply the same per-tensor 4-bit lookup table (LUT) to every layer.
-This gives us roughly a 4x reduction in model size going from 16-bit precision to 4-bit precision, plus a small overhead for storing the lookup table itself.</p>
-<p>We build a uniform config by setting a single <code class="docutils literal notranslate"><span class="pre">global_config</span></code> that applies to every palettizable layer, then run k-means palettization and use the prepared model directly for evaluation.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+          <section class="tex2jax_ignore mathjax_ignore" id="running-pytorch-evaluations-with-compressed-models">
+<h1>Running PyTorch evaluations with compressed models<a class="headerlink" href="#running-pytorch-evaluations-with-compressed-models" title="Link to this heading">¶</a></h1>
+<p>Compressing a model with coreai-opt starts with <a class="reference internal" href="how_to_use_coreaiopt.html#prepare"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">prepare()</span></code></span></a>, which inserts compression into the model, optionally followed by calibration or training. The resulting prepared model is ready to be evaluated or exported. <a class="reference internal" href="how_to_use_coreaiopt.html#finalize"><span class="std std-ref"><code class="docutils literal notranslate"><span class="pre">finalize()</span></code></span></a> converts it into a finalized model for the target backend selected by its <code class="docutils literal notranslate"><span class="pre">backend</span></code> argument. This page covers <code class="docutils literal notranslate"><span class="pre">ExportBackend.Torch</span></code>, which finalizes the model for running evaluations of the compressed model in PyTorch.</p>
+<p>A prepared model applies compression on the fly: on every forward pass, each compressed weight is reconstructed from its compression state (for example, the palettization LUT and indices, the quantization scales, or the pruning mask). That keeps the model ready for calibration and training, but makes its forward pass slower than the uncompressed model’s, especially for large models.</p>
+<p><code class="docutils literal notranslate"><span class="pre">finalize(backend=opt.ExportBackend.Torch)</span></code> folds (decompresses) each compressed weight once into a dense weight. Activation fake quantization is kept, so the finalized model produces the same outputs as the prepared model, and runs at similar latency to the uncompressed model.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">coreai_opt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">opt</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="4">    <span class="n">KMeansPalettizer</span><span class="p">,</span>
-</span><span data-line="5">    <span class="n">KMeansPalettizerConfig</span><span class="p">,</span>
-</span><span data-line="6">    <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span>
-</span><span data-line="7">    <span class="n">PalettizationSpec</span><span class="p">,</span>
-</span><span data-line="8"><span class="p">)</span>
-</span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerTensorGranularity</span>
-</span><span data-line="10">
-</span><span data-line="11"><span class="n">cfg</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
-</span><span data-line="12">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
-</span><span data-line="13">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="14">            <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">granularity</span><span class="o">=</span><span class="n">PerTensorGranularity</span><span class="p">()),</span>
-</span><span data-line="15">        <span class="p">},</span>
-</span><span data-line="16">    <span class="p">),</span>
-</span><span data-line="17"><span class="p">)</span>
-</span><span data-line="18"><span class="n">palettizer</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
-</span><span data-line="19"><span class="n">palettized_model</span> <span class="o">=</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="o">=</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">224</span><span class="p">),))</span>
+</span><span data-line="3"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="4"><span class="c1"># ... calibrate or train if needed ...</span>
+</span><span data-line="5"><span class="n">eval_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="n">opt</span><span class="o">.</span><span class="n">ExportBackend</span><span class="o">.</span><span class="n">Torch</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">eval_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 </span></pre></div>
 </div>
-<p>Top-1 accuracy on the eval set: <code class="docutils literal notranslate"><span class="pre">65.87%</span></code>.</p>
-</section>
-<section id="mixed-precision-compression">
-<h2>Mixed-precision compression<a class="headerlink" href="#mixed-precision-compression" title="Link to this heading">¶</a></h2>
-<p>For this example we use 2/4/6-bit per-tensor palettization as our candidate configs for every layer.</p>
-<section id="layer-wise-sensitivity-computation">
-<h3>Layer-wise sensitivity computation<a class="headerlink" href="#layer-wise-sensitivity-computation" title="Link to this heading">¶</a></h3>
-<p>To compress a single layer in isolation, we set <code class="docutils literal notranslate"><span class="pre">global_config=None</span></code> and add a <code class="docutils literal notranslate"><span class="pre">module_name_configs</span></code> entry that targets only that layer’s fully qualified name. For example, palettizing only <code class="docutils literal notranslate"><span class="pre">conv1</span></code> at 2 bits:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">cfg</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
-</span><span data-line="2">    <span class="n">global_config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span data-line="3">    <span class="n">module_name_configs</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="4">        <span class="s2">&quot;conv1&quot;</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
-</span><span data-line="5">            <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="6">                <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
-</span><span data-line="7">                    <span class="n">n_bits</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">granularity</span><span class="o">=</span><span class="n">PerTensorGranularity</span><span class="p">()</span>
-</span><span data-line="8">                <span class="p">),</span>
-</span><span data-line="9">            <span class="p">},</span>
-</span><span data-line="10">        <span class="p">),</span>
-</span><span data-line="11">    <span class="p">},</span>
-</span><span data-line="12"><span class="p">)</span>
-</span></pre></div>
-</div>
-<p>The fully qualified names used as <code class="docutils literal notranslate"><span class="pre">module_name_configs</span></code> keys (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;conv1&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;layer1.0.conv1&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;fc&quot;</span></code>) come from iterating <code class="docutils literal notranslate"><span class="pre">model.named_modules()</span></code> and keeping the modules supported for palettization.</p>
-<p>For ResNet50 this produces 54 entries — 53 conv layers plus the final <code class="docutils literal notranslate"><span class="pre">fc</span></code> linear.</p>
-<p>We run this for every <code class="docutils literal notranslate"><span class="pre">(layer,</span> <span class="pre">candidate</span> <span class="pre">config)</span></code> pair and score each candidate against the baseline with PSNR to yield a sensitivity table. The first five layers look like this:</p>
-<div class="table-wrapper colwidths-auto docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Layer</p></th>
-<th class="head"><p>Config</p></th>
-<th class="head"><p>Size (KB)</p></th>
-<th class="head"><p>Sensitivity (PSNR)</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">conv1</span></code></p></td>
-<td><p>2-bit</p></td>
-<td><p>2.31</p></td>
-<td><p>22.79</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">conv1</span></code></p></td>
-<td><p>4-bit</p></td>
-<td><p>4.66</p></td>
-<td><p>31.64</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">conv1</span></code></p></td>
-<td><p>6-bit</p></td>
-<td><p>7.14</p></td>
-<td><p>44.27</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.conv1</span></code></p></td>
-<td><p>2-bit</p></td>
-<td><p>1.02</p></td>
-<td><p>31.89</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.conv1</span></code></p></td>
-<td><p>4-bit</p></td>
-<td><p>2.06</p></td>
-<td><p>44.98</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.conv1</span></code></p></td>
-<td><p>6-bit</p></td>
-<td><p>3.25</p></td>
-<td><p>55.60</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.conv2</span></code></p></td>
-<td><p>2-bit</p></td>
-<td><p>9.02</p></td>
-<td><p>36.42</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.conv2</span></code></p></td>
-<td><p>4-bit</p></td>
-<td><p>18.06</p></td>
-<td><p>47.21</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.conv2</span></code></p></td>
-<td><p>6-bit</p></td>
-<td><p>27.25</p></td>
-<td><p>57.06</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.conv3</span></code></p></td>
-<td><p>2-bit</p></td>
-<td><p>4.02</p></td>
-<td><p>35.17</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.conv3</span></code></p></td>
-<td><p>4-bit</p></td>
-<td><p>8.06</p></td>
-<td><p>48.50</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.conv3</span></code></p></td>
-<td><p>6-bit</p></td>
-<td><p>12.25</p></td>
-<td><p>59.20</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.downsample.0</span></code></p></td>
-<td><p>2-bit</p></td>
-<td><p>4.02</p></td>
-<td><p>28.24</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.downsample.0</span></code></p></td>
-<td><p>4-bit</p></td>
-<td><p>8.06</p></td>
-<td><p>40.45</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">layer1.0.downsample.0</span></code></p></td>
-<td><p>6-bit</p></td>
-<td><p>12.25</p></td>
-<td><p>52.55</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>Higher PSNR means lower sensitivity — that bitwidth distorts the layer’s output less.</p>
-</section>
-<section id="recipe-generation">
-<h3>Recipe generation<a class="headerlink" href="#recipe-generation" title="Link to this heading">¶</a></h3>
-<p>We run the greedy recipe generation on the sensitivity table with a target BPW of <code class="docutils literal notranslate"><span class="pre">4</span></code>, which assigns all 54 layers and realizes a BPW of <code class="docutils literal notranslate"><span class="pre">3.95</span></code>.
-The bitwidth distribution is:</p>
+<p>Use the Torch backend to:</p>
 <ul class="simple">
-<li><p>2 layers at 6-bit (most sensitive): <code class="docutils literal notranslate"><span class="pre">conv1</span></code>, <code class="docutils literal notranslate"><span class="pre">layer1.0.downsample.0</span></code></p></li>
-<li><p>50 layers at 4-bit</p></li>
-<li><p>2 layers at 2-bit (least sensitive): <code class="docutils literal notranslate"><span class="pre">layer1.1.conv1</span></code>, <code class="docutils literal notranslate"><span class="pre">layer3.4.conv2</span></code></p></li>
+<li><p>Evaluate the accuracy of a compressed model, or benchmark it, in PyTorch.</p></li>
+<li><p>Use the compressed weights with other PyTorch tooling. With weight-only compression (palettization, pruning, or weight-only quantization in eager mode), finalizing removes the compression parametrizations from the weights and writes the compressed values into them. The finalized model has the original model structure, with compressed weight values, so it works with any tooling that expects the original model structure.</p></li>
 </ul>
-</section>
-<section id="results">
-<h3>Results<a class="headerlink" href="#results" title="Link to this heading">¶</a></h3>
-<p>Comparing against the FP16 baseline and uniform 4-bit:</p>
-<div class="table-wrapper colwidths-auto docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Configuration</p></th>
-<th class="head"><p>BPW</p></th>
-<th class="head"><p>Size (MB)</p></th>
-<th class="head"><p>Top-1 accuracy</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>FP16 baseline</p></td>
-<td><p>16</p></td>
-<td><p>48.64</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">75.02%</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p>uniform 4-bit</p></td>
-<td><p>4</p></td>
-<td><p>12.16</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">65.87%</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p>mixed precision (target 4)</p></td>
-<td><p>3.95</p></td>
-<td><p>12.03</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">70.27%</span></code></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>At a slightly lower BPW than uniform 4-bit, mixed precision lifts top-1 accuracy from <code class="docutils literal notranslate"><span class="pre">65.87%</span></code> to <code class="docutils literal notranslate"><span class="pre">70.27%</span></code> — recovering more than four percentage points of the gap to the FP16 baseline — by spending its bit budget on the layers that are more sensitive.</p>
-</section>
-</section>
-<section id="accuracy-vs-bpw-graph">
-<h2>Accuracy vs BPW graph<a class="headerlink" href="#accuracy-vs-bpw-graph" title="Link to this heading">¶</a></h2>
-<p>We sweep the target BPW from 2 to 6 to trace out the curve below.</p>
-<p><img alt="Accuracy vs realized BPW for greedy mixed-precision recipes on ResNet50" src="../_images/mixed_precision_tradeoff.png" /></p>
-<p>The inflection sits at around <code class="docutils literal notranslate"><span class="pre">4.0</span></code> realized BPW: below it, every additional 0.5 BPW buys us 15-35 percentage points of accuracy; above it, gains drop to 1-2 points per 0.5 BPW as the curve flattens toward the FP16 baseline.</p>
-</section>
-<section id="summary">
-<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">¶</a></h2>
-<p>At the same model size, mixed-precision palettization significantly narrowed the gap to the FP16 baseline compared to uniform 4-bit palettization.</p>
-</section>
+<p>Don’t use it to:</p>
+<ul class="simple">
+<li><p><strong>Export a compressed model.</strong> The finalized weights are dense and carry no compression information, so they can’t be converted to a compressed Core AI or Core ML model. Keep a checkpoint of the prepared model and finalize it for <code class="docutils literal notranslate"><span class="pre">ExportBackend.CoreAI</span></code> or <code class="docutils literal notranslate"><span class="pre">ExportBackend.CoreML</span></code> instead. See <a class="reference internal" href="checkpoints.html#evaluate-with-the-torch-backend-then-export-to-core-ai"><span class="std std-ref">Evaluate with the Torch backend, then export to Core AI</span></a>.</p></li>
+<li><p><strong>Fine-tune the compressed model.</strong> The folded weights are plain parameters, so training moves them away from their compressed values. Fine-tune the prepared model instead, for example with <code class="docutils literal notranslate"><span class="pre">quantizer.training_mode()</span></code> (see <a class="reference internal" href="how_to_use_coreaiopt.html"><span class="std std-doc">How to use coreai-opt</span></a>), and finalize afterwards.</p></li>
+</ul>
 </section>
 
         </article><button class="back-to-top" type="button">
@@ -531,16 +357,16 @@ The bitwidth distribution is:</p>
   </svg>
   <span>Back to top</span>
 </button><div class="navigation flex print:hidden"><div class="navigation-prev">
-    <a href="resnet50.html">
+    <a href="integration_coreai.html">
       <i class="i-lucide chevron-left"></i>
       <div class="page-info">
-        <span>Previous</span><div class="title">ResNet50 model: Weight + Activation Quantization (PTQ)</div></div>
+        <span>Previous</span><div class="title">Integration with Core AI</div></div>
     </a>
   </div><div class="navigation-next">
-    <a href="edsr.html">
+    <a href="checkpoints.html">
       <div class="page-info">
         <span>Next</span>
-        <div class="title">EDSR model: Weight palettization + activation quantization (PTQ)</div>
+        <div class="title">Checkpoints and workflows</div>
       </div>
       <i class="i-lucide chevron-right"></i>
     </a>

@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -361,7 +365,7 @@ data-aria-dark="Switch to auto color mode">
 <section id="how-the-casting-passes-select-what-to-cast">
 <h2>How the casting passes select what to cast<a class="headerlink" href="#how-the-casting-passes-select-what-to-cast" title="Link to this heading">¶</a></h2>
 <p>The two casting passes apply different selection criteria, resulting in different levels of aggressiveness.</p>
-<p><strong>FP32 → FP16.</strong> The FP pass is relatively aggressive: it attempts to cast all floating-point state and operations to FP16 by default. The main exception is numerical safety — tensors whose values exceed the FP16 representable range (approximately ±65504) are left in FP32 to avoid overflow. Users can also provide <code class="docutils literal notranslate"><span class="pre">ignored_ops</span></code> (as a set/collection of <code class="docutils literal notranslate"><span class="pre">OpOverload</span></code> or <code class="docutils literal notranslate"><span class="pre">OpOverloadPacket</span></code> instances such as <code class="docutils literal notranslate"><span class="pre">{torch.ops.aten.exp}</span></code>, or as a predicate function <code class="docutils literal notranslate"><span class="pre">Callable[[torch.fx.Node],</span> <span class="pre">bool]</span></code>) to <code class="docutils literal notranslate"><span class="pre">cast_fp32_to_fp16</span></code> or <code class="docutils literal notranslate"><span class="pre">cast_to_16_bit_precision</span></code> to explicitly preserve specific operations in FP32 to avoid intermediate activation overflow.</p>
+<p><strong>FP32 → FP16.</strong> The FP pass is relatively aggressive: it attempts to cast all floating-point state and operations to FP16 by default. The main exception is numerical safety — tensors whose values exceed the FP16 representable range (approximately ±65504) are left in FP32 to avoid overflow. Users can supply <code class="docutils literal notranslate"><span class="pre">calibration_data</span></code> (an iterable yielding sample inputs, such as <code class="docutils literal notranslate"><span class="pre">[tensor]</span></code>, <code class="docutils literal notranslate"><span class="pre">[(arg1,</span> <span class="pre">arg2)]</span></code>, or a <code class="docutils literal notranslate"><span class="pre">DataLoader</span></code>) to <code class="docutils literal notranslate"><span class="pre">cast_fp32_to_fp16</span></code> or <code class="docutils literal notranslate"><span class="pre">cast_to_16_bit_precision</span></code> to automatically observe intermediate activation ranges and preserve operations whose activations exceed FP16 range in FP32. Users can also provide <code class="docutils literal notranslate"><span class="pre">ignored_ops</span></code> (as a set/collection of <code class="docutils literal notranslate"><span class="pre">OpOverload</span></code> or <code class="docutils literal notranslate"><span class="pre">OpOverloadPacket</span></code> instances such as <code class="docutils literal notranslate"><span class="pre">{torch.ops.aten.exp}</span></code>, or as a predicate function <code class="docutils literal notranslate"><span class="pre">Callable[[torch.fx.Node],</span> <span class="pre">bool]</span></code>) to explicitly preserve specific operations in FP32.</p>
 <p><strong>INT32/INT64 → INT16.</strong> The INT pass is more conservative. Rather than casting all integer tensors, it targets only those that are likely to benefit without risking correctness. A tensor is skipped if any of the following apply:</p>
 <ul class="simple">
 <li><p>It is <strong>constant-foldable</strong>: its value is fully determined at compile time and will be folded away, so a dtype change has no effect.</p></li>

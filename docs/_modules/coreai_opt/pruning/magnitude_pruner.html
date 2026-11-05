@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../../introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -335,235 +339,290 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="6"><span class="sd">"""Magnitude pruner implementation."""</span>
 </span><span data-line="7">
 </span><span data-line="8"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-</span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
-</span><span data-line="10">
-</span><span data-line="11"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
-</span><span data-line="12">
-</span><span data-line="13"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigLevel</span> <span class="k">as</span> <span class="n">_ConfigLevel</span>
-</span><span data-line="14"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.eager_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="15">    <span class="n">EagerCompressionComponentBuilderMixin</span> <span class="k">as</span> <span class="n">_EagerCompressionComponentBuilderMixin</span><span class="p">,</span>
-</span><span data-line="16"><span class="p">)</span>
-</span><span data-line="17"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.insertion.torch_function</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="18">    <span class="n">TorchFunctionEagerHandler</span> <span class="k">as</span> <span class="n">_TorchFunctionEagerHandler</span><span class="p">,</span>
-</span><span data-line="19"><span class="p">)</span>
-</span><span data-line="20"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.spec_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PartialConstructor</span> <span class="k">as</span> <span class="n">_PartialConstructor</span>
-</span><span data-line="21"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="22">    <span class="n">find_parametrization_matching_cls</span> <span class="k">as</span> <span class="n">_find_parametrization_matching_cls</span><span class="p">,</span>
-</span><span data-line="23">    <span class="n">move_model_to_eval</span> <span class="k">as</span> <span class="n">_move_model_to_eval</span><span class="p">,</span>
-</span><span data-line="24"><span class="p">)</span>
-</span><span data-line="25"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExportBackend</span>
-</span><span data-line="26"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.compression_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModuleCompressionConfig</span>
-</span><span data-line="27"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionTargetTensor</span>
-</span><span data-line="28"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSpec</span>
-</span><span data-line="29"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.pruning.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">PruneImplBase</span>
-</span><span data-line="30">
-</span><span data-line="31"><span class="kn">from</span><span class="w"> </span><span class="nn">._prepare_for_export</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="32">    <span class="n">prepare_for_mil_export</span> <span class="k">as</span> <span class="n">_prepare_for_mil_export</span><span class="p">,</span>
-</span><span data-line="33">    <span class="n">prepare_for_mlir_export</span> <span class="k">as</span> <span class="n">_prepare_for_mlir_export</span><span class="p">,</span>
-</span><span data-line="34"><span class="p">)</span>
-</span><span data-line="35"><span class="kn">from</span><span class="w"> </span><span class="nn">.base_pruner</span><span class="w"> </span><span class="kn">import</span> <span class="n">_BasePruner</span>
-</span><span data-line="36"><span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">MagnitudePrunerConfig</span>
-</span><span data-line="37"><span class="kn">from</span><span class="w"> </span><span class="nn">.supported_ops_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">_PrunerSupportedOpsRegistry</span>
-</span><span data-line="38">
-</span><span data-line="39"><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+</span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">NamedTuple</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.config_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigLevel</span> <span class="k">as</span> <span class="n">_ConfigLevel</span>
+</span><span data-line="15"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.eager_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="16">    <span class="n">EagerCompressionComponentBuilderMixin</span> <span class="k">as</span> <span class="n">_EagerCompressionComponentBuilderMixin</span><span class="p">,</span>
+</span><span data-line="17"><span class="p">)</span>
+</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.insertion.torch_function</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="19">    <span class="n">TorchFunctionEagerHandler</span> <span class="k">as</span> <span class="n">_TorchFunctionEagerHandler</span><span class="p">,</span>
+</span><span data-line="20"><span class="p">)</span>
+</span><span data-line="21"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.spec_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">PartialConstructor</span> <span class="k">as</span> <span class="n">_PartialConstructor</span>
+</span><span data-line="22"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt._utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="23">    <span class="n">find_parametrization_matching_cls</span> <span class="k">as</span> <span class="n">_find_parametrization_matching_cls</span><span class="p">,</span>
+</span><span data-line="24">    <span class="n">fold_compression_parametrizations</span> <span class="k">as</span> <span class="n">_fold_compression_parametrizations</span><span class="p">,</span>
+</span><span data-line="25">    <span class="n">move_model_to_eval</span> <span class="k">as</span> <span class="n">_move_model_to_eval</span><span class="p">,</span>
+</span><span data-line="26"><span class="p">)</span>
+</span><span data-line="27"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExportBackend</span>
+</span><span data-line="28"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.compression_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModuleCompressionConfig</span>
+</span><span data-line="29"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionTargetTensor</span>
+</span><span data-line="30"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSpec</span>
+</span><span data-line="31"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.pruning.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">PruneImplBase</span>
+</span><span data-line="32">
+</span><span data-line="33"><span class="kn">from</span><span class="w"> </span><span class="nn">._prepare_for_export</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="34">    <span class="n">prepare_for_mil_export</span> <span class="k">as</span> <span class="n">_prepare_for_mil_export</span><span class="p">,</span>
+</span><span data-line="35">    <span class="n">prepare_for_mlir_export</span> <span class="k">as</span> <span class="n">_prepare_for_mlir_export</span><span class="p">,</span>
+</span><span data-line="36"><span class="p">)</span>
+</span><span data-line="37"><span class="kn">from</span><span class="w"> </span><span class="nn">.base_pruner</span><span class="w"> </span><span class="kn">import</span> <span class="n">_BasePruner</span>
+</span><span data-line="38"><span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">MagnitudePrunerConfig</span>
+</span><span data-line="39"><span class="kn">from</span><span class="w"> </span><span class="nn">.supported_ops_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">_PrunerSupportedOpsRegistry</span>
 </span><span data-line="40">
-</span><span data-line="41">
-</span><span data-line="42"><span class="k">class</span><span class="w"> </span><span class="nc">_ScheduledModule</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
-</span><span data-line="43"><span class="w">    </span><span class="sd">"""Cached location of a scheduled PruneImplBase: the impl plus where to find its weight."""</span>
-</span><span data-line="44">
-</span><span data-line="45">    <span class="n">impl</span><span class="p">:</span> <span class="n">PruneImplBase</span>
-</span><span data-line="46">    <span class="n">module</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span>
-</span><span data-line="47">    <span class="n">param_name</span><span class="p">:</span> <span class="nb">str</span>
-</span><span data-line="48">
-</span><span data-line="49">
+</span><span data-line="41"><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span data-line="42">
+</span><span data-line="43">
+</span><span data-line="44"><span class="k">class</span><span class="w"> </span><span class="nc">_ScheduledModule</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+</span><span data-line="45"><span class="w">    </span><span class="sd">"""Cached location of a scheduled PruneImplBase: the impl plus where to find its weight."""</span>
+</span><span data-line="46">
+</span><span data-line="47">    <span class="n">impl</span><span class="p">:</span> <span class="n">PruneImplBase</span>
+</span><span data-line="48">    <span class="n">module</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span>
+</span><span data-line="49">    <span class="n">param_name</span><span class="p">:</span> <span class="nb">str</span>
+</span><span data-line="50">
+</span><span data-line="51">
 <div class="viewcode-block" id="MagnitudePruner">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.pruning.MagnitudePruner.html#coreai_opt.pruning.MagnitudePruner">[docs]</a>
-</span><span data-line="50"><span class="k">class</span><span class="w"> </span><span class="nc">MagnitudePruner</span><span class="p">(</span><span class="n">_BasePruner</span><span class="p">,</span> <span class="n">_EagerCompressionComponentBuilderMixin</span><span class="p">):</span>
-</span><span data-line="51"><span class="w">    </span><span class="sd">"""Apply magnitude-based pruning to a model.</span>
-</span><span data-line="52">
-</span><span data-line="53"><span class="sd">    This pruner zeros out the smallest-magnitude weight elements to reach a</span>
-</span><span data-line="54"><span class="sd">    configurable sparsity target. The model is parsed in an eager fashion and</span>
-</span><span data-line="55"><span class="sd">    the pruner registers parametrizations for each candidate parameter to be</span>
-</span><span data-line="56"><span class="sd">    pruned. The mask is applied on every forward pass while parametrizations</span>
-</span><span data-line="57"><span class="sd">    are active.</span>
-</span><span data-line="58">
-</span><span data-line="59"><span class="sd">    When a ``sparsity_schedule`` is configured on a module's config, ``step()``</span>
-</span><span data-line="60"><span class="sd">    advances the schedule and recomputes the mask for that module's</span>
-</span><span data-line="61"><span class="sd">    parametrizations. Without a schedule, the spec's ``target_sparsity`` is</span>
-</span><span data-line="62"><span class="sd">    applied statically.</span>
-</span><span data-line="63">
-</span><span data-line="64"><span class="sd">    Args:</span>
-</span><span data-line="65"><span class="sd">        model (torch.nn.Module): Model to prune.</span>
-</span><span data-line="66"><span class="sd">        config (MagnitudePrunerConfig | None): Pruning configuration. When</span>
-</span><span data-line="67"><span class="sd">            ``None``, a default config with 50 % sparsity is used.</span>
-</span><span data-line="68">
-</span><span data-line="69"><span class="sd">    Example:</span>
-</span><span data-line="70"><span class="sd">        &gt;&gt;&gt; model = torch.nn.Linear(100, 50)</span>
-</span><span data-line="71"><span class="sd">        &gt;&gt;&gt; pruner = MagnitudePruner(model, MagnitudePrunerConfig())</span>
-</span><span data-line="72"><span class="sd">        &gt;&gt;&gt; pruner.prepare((torch.randn(1, 100),))</span>
-</span><span data-line="73"><span class="sd">        &gt;&gt;&gt; pruner.finalize()</span>
-</span><span data-line="74"><span class="sd">    """</span>
-</span><span data-line="75">
-</span><span data-line="76">    <span class="n">_step_count</span><span class="p">:</span> <span class="nb">int</span>
-</span><span data-line="77">    <span class="n">_scheduled_modules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_ScheduledModule</span><span class="p">]</span>
-</span><span data-line="78">
+</span><span data-line="52"><span class="k">class</span><span class="w"> </span><span class="nc">MagnitudePruner</span><span class="p">(</span><span class="n">_BasePruner</span><span class="p">,</span> <span class="n">_EagerCompressionComponentBuilderMixin</span><span class="p">):</span>
+</span><span data-line="53"><span class="w">    </span><span class="sd">"""Apply magnitude-based pruning to a model.</span>
+</span><span data-line="54">
+</span><span data-line="55"><span class="sd">    This pruner zeros out the smallest-magnitude weight elements to reach a</span>
+</span><span data-line="56"><span class="sd">    configurable sparsity target. The model is parsed in an eager fashion and</span>
+</span><span data-line="57"><span class="sd">    the pruner registers parametrizations for each candidate parameter to be</span>
+</span><span data-line="58"><span class="sd">    pruned. The mask is applied on every forward pass while parametrizations</span>
+</span><span data-line="59"><span class="sd">    are active.</span>
+</span><span data-line="60">
+</span><span data-line="61"><span class="sd">    When a ``sparsity_schedule`` is configured on a module's config, ``step()``</span>
+</span><span data-line="62"><span class="sd">    advances the schedule and recomputes the mask for that module's</span>
+</span><span data-line="63"><span class="sd">    parametrizations. Without a schedule, the spec's ``target_sparsity`` is</span>
+</span><span data-line="64"><span class="sd">    applied statically.</span>
+</span><span data-line="65">
+</span><span data-line="66"><span class="sd">    Args:</span>
+</span><span data-line="67"><span class="sd">        model (torch.nn.Module): Model to prune.</span>
+</span><span data-line="68"><span class="sd">        config (MagnitudePrunerConfig | None): Pruning configuration. When</span>
+</span><span data-line="69"><span class="sd">            ``None``, a default config with 50 % sparsity is used.</span>
+</span><span data-line="70">
+</span><span data-line="71"><span class="sd">    Example:</span>
+</span><span data-line="72"><span class="sd">        &gt;&gt;&gt; model = torch.nn.Linear(100, 50)</span>
+</span><span data-line="73"><span class="sd">        &gt;&gt;&gt; pruner = MagnitudePruner(model, MagnitudePrunerConfig())</span>
+</span><span data-line="74"><span class="sd">        &gt;&gt;&gt; pruner.prepare((torch.randn(1, 100),))</span>
+</span><span data-line="75"><span class="sd">        &gt;&gt;&gt; pruner.finalize()</span>
+</span><span data-line="76"><span class="sd">    """</span>
+</span><span data-line="77">
+</span><span data-line="78">    <span class="n">_scheduled_modules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">_ScheduledModule</span><span class="p">]</span>
+</span><span data-line="79">    <span class="n">_prune_impls</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">PruneImplBase</span><span class="p">]</span>
+</span><span data-line="80">
 <div class="viewcode-block" id="MagnitudePruner.__init__">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.pruning.MagnitudePruner.html#coreai_opt.pruning.MagnitudePruner.__init__">[docs]</a>
-</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">MagnitudePrunerConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-</span><span data-line="80">        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="81">            <span class="n">config</span> <span class="o">=</span> <span class="n">MagnitudePrunerConfig</span><span class="p">()</span>
-</span><span data-line="82">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span data-line="83">
-</span><span data-line="84">        <span class="n">module_components_dict</span><span class="p">,</span> <span class="n">module_priority_dict</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="85">            <span class="bp">self</span><span class="o">.</span><span class="n">_get_module_compression_components_and_priority</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span data-line="86">        <span class="p">)</span>
-</span><span data-line="87">        <span class="bp">self</span><span class="o">.</span><span class="n">_handler</span> <span class="o">=</span> <span class="n">_TorchFunctionEagerHandler</span><span class="p">(</span>
-</span><span data-line="88">            <span class="n">compression_config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
-</span><span data-line="89">            <span class="n">module_components_dict</span><span class="o">=</span><span class="n">module_components_dict</span><span class="p">,</span>
-</span><span data-line="90">            <span class="n">module_priority_dict</span><span class="o">=</span><span class="n">module_priority_dict</span><span class="p">,</span>
-</span><span data-line="91">            <span class="n">supported_ops_registry</span><span class="o">=</span><span class="n">_PrunerSupportedOpsRegistry</span><span class="p">,</span>
-</span><span data-line="92">            <span class="n">optimization_type_name</span><span class="o">=</span><span class="s2">"prune"</span><span class="p">,</span>
-</span><span data-line="93">        <span class="p">)</span>
-</span><span data-line="94">        <span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="95">        <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_modules</span> <span class="o">=</span> <span class="p">[]</span></div>
+</span><span data-line="81">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">MagnitudePrunerConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+</span><span data-line="82">        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="83">            <span class="n">config</span> <span class="o">=</span> <span class="n">MagnitudePrunerConfig</span><span class="p">()</span>
+</span><span data-line="84">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span data-line="85">
+</span><span data-line="86">        <span class="n">module_components_dict</span><span class="p">,</span> <span class="n">module_priority_dict</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="87">            <span class="bp">self</span><span class="o">.</span><span class="n">_get_module_compression_components_and_priority</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span data-line="88">        <span class="p">)</span>
+</span><span data-line="89">        <span class="bp">self</span><span class="o">.</span><span class="n">_handler</span> <span class="o">=</span> <span class="n">_TorchFunctionEagerHandler</span><span class="p">(</span>
+</span><span data-line="90">            <span class="n">compression_config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+</span><span data-line="91">            <span class="n">module_components_dict</span><span class="o">=</span><span class="n">module_components_dict</span><span class="p">,</span>
+</span><span data-line="92">            <span class="n">module_priority_dict</span><span class="o">=</span><span class="n">module_priority_dict</span><span class="p">,</span>
+</span><span data-line="93">            <span class="n">supported_ops_registry</span><span class="o">=</span><span class="n">_PrunerSupportedOpsRegistry</span><span class="p">,</span>
+</span><span data-line="94">            <span class="n">optimization_type_name</span><span class="o">=</span><span class="s2">"prune"</span><span class="p">,</span>
+</span><span data-line="95">        <span class="p">)</span>
+</span><span data-line="96">        <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_modules</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="97">        <span class="bp">self</span><span class="o">.</span><span class="n">_prune_impls</span> <span class="o">=</span> <span class="p">[]</span></div>
 
-</span><span data-line="96">
+</span><span data-line="98">
+</span><span data-line="99">    <span class="nd">@property</span>
+</span><span data-line="100">    <span class="k">def</span><span class="w"> </span><span class="nf">_step_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="101"><span class="w">        </span><span class="sd">"""Number of ``step()`` calls, persisted in each pruning module's ``step_count`` buffer.</span>
+</span><span data-line="102">
+</span><span data-line="103"><span class="sd">        Every pruning module holds the same count; it is 0 when nothing is pruned.</span>
+</span><span data-line="104"><span class="sd">        """</span>
+</span><span data-line="105">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_prune_impls</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">step_count</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prune_impls</span> <span class="k">else</span> <span class="mi">0</span>
+</span><span data-line="106">
 <div class="viewcode-block" id="MagnitudePruner.prepare">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.pruning.MagnitudePruner.html#coreai_opt.pruning.MagnitudePruner.prepare">[docs]</a>
-</span><span data-line="97">    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">example_inputs</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
-</span><span data-line="98"><span class="w">        </span><span class="sd">"""Prepare the model for pruning.</span>
-</span><span data-line="99">
-</span><span data-line="100"><span class="sd">        Args:</span>
-</span><span data-line="101"><span class="sd">            example_inputs (tuple[torch.Tensor]): Sample inputs to trace the</span>
-</span><span data-line="102"><span class="sd">                model and configure pruning parametrizations.</span>
-</span><span data-line="103">
-</span><span data-line="104"><span class="sd">        Returns:</span>
-</span><span data-line="105"><span class="sd">            torch.nn.Module: The prepared model with pruning parametrizations.</span>
-</span><span data-line="106">
-</span><span data-line="107"><span class="sd">        Raises:</span>
-</span><span data-line="108"><span class="sd">            RuntimeError: If the model has already been prepared.</span>
-</span><span data-line="109"><span class="sd">        """</span>
-</span><span data-line="110">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_model_prepared</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">):</span>
-</span><span data-line="111">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-</span><span data-line="112">                <span class="s2">"Model has already been prepared. Cannot re-prepare a prepared model."</span>
-</span><span data-line="113">            <span class="p">)</span>
+</span><span data-line="107">    <span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span>
+</span><span data-line="108">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="109">        <span class="n">example_inputs</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+</span><span data-line="110">        <span class="o">*</span><span class="p">,</span>
+</span><span data-line="111">        <span class="n">state_dict</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="112">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
+</span><span data-line="113"><span class="w">        </span><span class="sd">"""Prepare the model for pruning.</span>
 </span><span data-line="114">
-</span><span data-line="115">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Preparing model for pruning"</span><span class="p">)</span>
-</span><span data-line="116">        <span class="n">prepared_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handler</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">example_inputs</span><span class="o">=</span><span class="n">example_inputs</span><span class="p">)</span>
-</span><span data-line="117">
-</span><span data-line="118">        <span class="bp">self</span><span class="o">.</span><span class="n">_mark_model_as_prepared</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">)</span>
-</span><span data-line="119">        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">prepared_model</span>
-</span><span data-line="120">        <span class="c1"># Apply schedule before we run a forward pass to initialize the parameterizations</span>
-</span><span data-line="121">        <span class="bp">self</span><span class="o">.</span><span class="n">_build_scheduled_modules</span><span class="p">()</span>
+</span><span data-line="115"><span class="sd">        Args:</span>
+</span><span data-line="116"><span class="sd">            example_inputs (tuple[Any, ...]): Sample inputs to trace the</span>
+</span><span data-line="117"><span class="sd">                model and configure pruning parametrizations.</span>
+</span><span data-line="118"><span class="sd">            state_dict (Mapping[str, torch.Tensor] | None): Optional state dict of a</span>
+</span><span data-line="119"><span class="sd">                model previously prepared with the same config. When provided, its</span>
+</span><span data-line="120"><span class="sd">                pruning masks and step count are loaded instead of computing the masks,</span>
+</span><span data-line="121"><span class="sd">                so a model saved mid-schedule resumes from the saved step.</span>
 </span><span data-line="122">
-</span><span data-line="123">        <span class="k">with</span> <span class="n">_move_model_to_eval</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-</span><span data-line="124">            <span class="n">prepared_model</span><span class="p">(</span><span class="o">*</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="123"><span class="sd">        Returns:</span>
+</span><span data-line="124"><span class="sd">            torch.nn.Module: The prepared model with pruning parametrizations.</span>
 </span><span data-line="125">
-</span><span data-line="126">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span></div>
+</span><span data-line="126"><span class="sd">        Raises:</span>
+</span><span data-line="127"><span class="sd">            RuntimeError: If the model has already been prepared.</span>
+</span><span data-line="128"><span class="sd">            RuntimeError: If ``state_dict`` does not match the prepared model.</span>
+</span><span data-line="129"><span class="sd">        """</span>
+</span><span data-line="130">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_model_prepared</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">):</span>
+</span><span data-line="131">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+</span><span data-line="132">                <span class="s2">"Model has already been prepared. Cannot re-prepare a prepared model."</span>
+</span><span data-line="133">            <span class="p">)</span>
+</span><span data-line="134">
+</span><span data-line="135">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Preparing model for pruning"</span><span class="p">)</span>
+</span><span data-line="136">        <span class="n">prepared_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_handler</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">example_inputs</span><span class="o">=</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="137">
+</span><span data-line="138">        <span class="bp">self</span><span class="o">.</span><span class="n">_mark_model_as_prepared</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">)</span>
+</span><span data-line="139">        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">prepared_model</span>
+</span><span data-line="140">        <span class="bp">self</span><span class="o">.</span><span class="n">_prune_impls</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">prepared_model</span><span class="o">.</span><span class="n">modules</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">PruneImplBase</span><span class="p">)]</span>
+</span><span data-line="141">        <span class="n">prepared_model</span><span class="o">.</span><span class="n">register_load_state_dict_post_hook</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_check_step_counts_match</span><span class="p">)</span>
+</span><span data-line="142">        <span class="bp">self</span><span class="o">.</span><span class="n">_build_scheduled_modules</span><span class="p">()</span>
+</span><span data-line="143">        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_modules</span><span class="p">:</span>
+</span><span data-line="144">            <span class="n">entry</span><span class="o">.</span><span class="n">impl</span><span class="o">.</span><span class="n">update_sparsity</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span><span class="p">)</span>
+</span><span data-line="145">
+</span><span data-line="146">        <span class="k">if</span> <span class="n">state_dict</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="147">            <span class="c1"># Run a forward pass to compute the masks of every parametrization.</span>
+</span><span data-line="148">            <span class="k">with</span> <span class="n">_move_model_to_eval</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+</span><span data-line="149">                <span class="n">prepared_model</span><span class="p">(</span><span class="o">*</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="150">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="151">            <span class="bp">self</span><span class="o">.</span><span class="n">_load_prepared_state_dict</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">)</span>
+</span><span data-line="152">
+</span><span data-line="153">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span></div>
 
-</span><span data-line="127">
+</span><span data-line="154">
 <div class="viewcode-block" id="MagnitudePruner.step">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.pruning.MagnitudePruner.html#coreai_opt.pruning.MagnitudePruner.step">[docs]</a>
-</span><span data-line="128">    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="129"><span class="w">        </span><span class="sd">"""Advance the sparsity schedule by one step.</span>
-</span><span data-line="130">
-</span><span data-line="131"><span class="sd">        Increments the step count, then recomputes and applies the mask for</span>
-</span><span data-line="132"><span class="sd">        every parametrization with a configured ``sparsity_schedule``. Safe to</span>
-</span><span data-line="133"><span class="sd">        call when no schedule is configured (no-op).</span>
-</span><span data-line="134"><span class="sd">        """</span>
-</span><span data-line="135">        <span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="136">        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_schedule</span><span class="p">()</span></div>
+</span><span data-line="155">    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="156"><span class="w">        </span><span class="sd">"""Advance the sparsity schedule by one step.</span>
+</span><span data-line="157">
+</span><span data-line="158"><span class="sd">        Increments the step count, then recomputes and applies the mask for</span>
+</span><span data-line="159"><span class="sd">        every parametrization with a configured ``sparsity_schedule``. Safe to</span>
+</span><span data-line="160"><span class="sd">        call when no schedule is configured (no-op).</span>
+</span><span data-line="161">
+</span><span data-line="162"><span class="sd">        Raises:</span>
+</span><span data-line="163"><span class="sd">            RuntimeError: If the model has not been prepared.</span>
+</span><span data-line="164"><span class="sd">        """</span>
+</span><span data-line="165">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_model_prepared</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">):</span>
+</span><span data-line="166">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Model must be prepared before step(). Call prepare() first."</span><span class="p">)</span>
+</span><span data-line="167">        <span class="k">for</span> <span class="n">impl</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prune_impls</span><span class="p">:</span>
+</span><span data-line="168">            <span class="n">impl</span><span class="o">.</span><span class="n">step_count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="169">        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_schedule</span><span class="p">()</span></div>
 
-</span><span data-line="137">
+</span><span data-line="170">
 <div class="viewcode-block" id="MagnitudePruner.finalize">
 <a class="viewcode-back" href="../../../api/generated/coreai_opt.pruning.MagnitudePruner.html#coreai_opt.pruning.MagnitudePruner.finalize">[docs]</a>
-</span><span data-line="138">    <span class="k">def</span><span class="w"> </span><span class="nf">finalize</span><span class="p">(</span>
-</span><span data-line="139">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="140">        <span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="141">        <span class="n">backend</span><span class="p">:</span> <span class="n">ExportBackend</span> <span class="o">=</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">,</span>
-</span><span data-line="142">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
-</span><span data-line="143"><span class="w">        </span><span class="sd">"""Finalize the model to be lowered to the target backend.</span>
-</span><span data-line="144">
-</span><span data-line="145"><span class="sd">        Args:</span>
-</span><span data-line="146"><span class="sd">            model (torch.nn.Module | None): Model to finalize. Uses the model</span>
-</span><span data-line="147"><span class="sd">                passed at construction time when ``None``.</span>
-</span><span data-line="148"><span class="sd">            backend (ExportBackend): Target export backend.</span>
-</span><span data-line="149">
-</span><span data-line="150"><span class="sd">        Returns:</span>
-</span><span data-line="151"><span class="sd">            torch.nn.Module: The finalized model ready for the target backend.</span>
-</span><span data-line="152">
-</span><span data-line="153"><span class="sd">        Raises:</span>
-</span><span data-line="154"><span class="sd">            RuntimeError: If the model has not been prepared.</span>
-</span><span data-line="155"><span class="sd">        """</span>
-</span><span data-line="156">        <span class="n">update_internal</span> <span class="o">=</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span>
-</span><span data-line="157">        <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="158">            <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
-</span><span data-line="159">
-</span><span data-line="160">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_model_prepared</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
-</span><span data-line="161">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Model must be prepared before finalization. Call prepare() first."</span><span class="p">)</span>
-</span><span data-line="162">
-</span><span data-line="163">        <span class="k">match</span> <span class="n">backend</span><span class="p">:</span>
-</span><span data-line="164">            <span class="k">case</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">_TORCH</span><span class="p">:</span>
-</span><span data-line="165">                <span class="k">pass</span>
-</span><span data-line="166">
-</span><span data-line="167">            <span class="k">case</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">:</span>
-</span><span data-line="168">                <span class="n">model</span> <span class="o">=</span> <span class="n">_prepare_for_mlir_export</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-</span><span data-line="169">
-</span><span data-line="170">            <span class="k">case</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreML</span><span class="p">:</span>
-</span><span data-line="171">                <span class="n">model</span> <span class="o">=</span> <span class="n">_prepare_for_mil_export</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-</span><span data-line="172">
-</span><span data-line="173">            <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
-</span><span data-line="174">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported backend: </span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="175">
-</span><span data-line="176">        <span class="k">if</span> <span class="n">update_internal</span><span class="p">:</span>
-</span><span data-line="177">            <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
-</span><span data-line="178">        <span class="k">return</span> <span class="n">model</span></div>
+</span><span data-line="171">    <span class="k">def</span><span class="w"> </span><span class="nf">finalize</span><span class="p">(</span>
+</span><span data-line="172">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="173">        <span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="174">        <span class="n">backend</span><span class="p">:</span> <span class="n">ExportBackend</span> <span class="o">=</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">,</span>
+</span><span data-line="175">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
+</span><span data-line="176"><span class="w">        </span><span class="sd">"""Finalize the model to be lowered to the target backend.</span>
+</span><span data-line="177">
+</span><span data-line="178"><span class="sd">        Use ``backend=ExportBackend.Torch`` for fast torch inference (e.g. running</span>
+</span><span data-line="179"><span class="sd">        evals): pruned weights are folded into dense weights.</span>
+</span><span data-line="180">
+</span><span data-line="181"><span class="sd">        Args:</span>
+</span><span data-line="182"><span class="sd">            model (torch.nn.Module | None): Model to finalize. Uses the model</span>
+</span><span data-line="183"><span class="sd">                passed at construction time when ``None``.</span>
+</span><span data-line="184"><span class="sd">            backend (ExportBackend): Target backend. Supports CoreAI (default),</span>
+</span><span data-line="185"><span class="sd">                CoreML and Torch backends.</span>
+</span><span data-line="186">
+</span><span data-line="187"><span class="sd">        Returns:</span>
+</span><span data-line="188"><span class="sd">            torch.nn.Module: The finalized model ready for the target backend.</span>
+</span><span data-line="189">
+</span><span data-line="190"><span class="sd">        Raises:</span>
+</span><span data-line="191"><span class="sd">            RuntimeError: If the model has not been prepared.</span>
+</span><span data-line="192"><span class="sd">        """</span>
+</span><span data-line="193">        <span class="n">update_internal</span> <span class="o">=</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span>
+</span><span data-line="194">        <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="195">            <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
+</span><span data-line="196">
+</span><span data-line="197">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_model_prepared</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+</span><span data-line="198">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Model must be prepared before finalization. Call prepare() first."</span><span class="p">)</span>
+</span><span data-line="199">
+</span><span data-line="200">        <span class="k">match</span> <span class="n">backend</span><span class="p">:</span>
+</span><span data-line="201">            <span class="k">case</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">Torch</span><span class="p">:</span>
+</span><span data-line="202">                <span class="n">_fold_compression_parametrizations</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">PruneImplBase</span><span class="p">)</span>
+</span><span data-line="203">
+</span><span data-line="204">            <span class="k">case</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreAI</span><span class="p">:</span>
+</span><span data-line="205">                <span class="n">model</span> <span class="o">=</span> <span class="n">_prepare_for_mlir_export</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span><span data-line="206">
+</span><span data-line="207">            <span class="k">case</span> <span class="n">ExportBackend</span><span class="o">.</span><span class="n">CoreML</span><span class="p">:</span>
+</span><span data-line="208">                <span class="n">model</span> <span class="o">=</span> <span class="n">_prepare_for_mil_export</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span><span data-line="209">
+</span><span data-line="210">            <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
+</span><span data-line="211">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported backend: </span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="212">
+</span><span data-line="213">        <span class="bp">self</span><span class="o">.</span><span class="n">_unmark_model_as_prepared</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span><span data-line="214">        <span class="k">if</span> <span class="n">update_internal</span><span class="p">:</span>
+</span><span data-line="215">            <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
+</span><span data-line="216">        <span class="k">return</span> <span class="n">model</span></div>
 
-</span><span data-line="179">
-</span><span data-line="180">    <span class="k">def</span><span class="w"> </span><span class="nf">_build_scheduled_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="181"><span class="w">        </span><span class="sd">"""Attach schedules to each scheduled PruneImplBase and apply the step-0 state."""</span>
-</span><span data-line="182">        <span class="n">config_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">build_module_config_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">)</span>
-</span><span data-line="183">        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">module</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
-</span><span data-line="184">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">"parametrizations"</span><span class="p">):</span>
-</span><span data-line="185">                <span class="k">continue</span>
-</span><span data-line="186">            <span class="n">module_config</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="187">                <span class="n">config_dict</span><span class="p">[</span><span class="n">_ConfigLevel</span><span class="o">.</span><span class="n">MODULE_NAME</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="188">                <span class="ow">or</span> <span class="n">config_dict</span><span class="p">[</span><span class="n">_ConfigLevel</span><span class="o">.</span><span class="n">MODULE_TYPE</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="189">                <span class="ow">or</span> <span class="n">config_dict</span><span class="p">[</span><span class="n">_ConfigLevel</span><span class="o">.</span><span class="n">GLOBAL</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="190">            <span class="p">)</span>
-</span><span data-line="191">            <span class="k">if</span> <span class="n">module_config</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">module_config</span><span class="o">.</span><span class="n">sparsity_schedule</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="192">                <span class="k">continue</span>
-</span><span data-line="193">            <span class="k">for</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">parametrizations</span><span class="p">:</span>
-</span><span data-line="194">                <span class="n">impl</span> <span class="o">=</span> <span class="n">_find_parametrization_matching_cls</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">PruneImplBase</span><span class="p">)</span>
-</span><span data-line="195">                <span class="k">if</span> <span class="n">impl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="196">                    <span class="k">continue</span>
-</span><span data-line="197">                <span class="n">impl</span><span class="o">.</span><span class="n">schedule</span> <span class="o">=</span> <span class="n">module_config</span><span class="o">.</span><span class="n">sparsity_schedule</span>
-</span><span data-line="198">                <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span data-line="199">                    <span class="n">_ScheduledModule</span><span class="p">(</span><span class="n">impl</span><span class="o">=</span><span class="n">impl</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="n">module</span><span class="p">,</span> <span class="n">param_name</span><span class="o">=</span><span class="n">param_name</span><span class="p">)</span>
-</span><span data-line="200">                <span class="p">)</span>
-</span><span data-line="201">        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_schedule</span><span class="p">()</span>
-</span><span data-line="202">
-</span><span data-line="203">    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="204"><span class="w">        </span><span class="sd">"""For each scheduled impl, advance its sparsity and materialize the mask."""</span>
-</span><span data-line="205">        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_modules</span><span class="p">:</span>
-</span><span data-line="206">            <span class="n">entry</span><span class="o">.</span><span class="n">impl</span><span class="o">.</span><span class="n">update_sparsity</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span><span class="p">)</span>
-</span><span data-line="207">            <span class="n">original</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">parametrizations</span><span class="p">[</span><span class="n">entry</span><span class="o">.</span><span class="n">param_name</span><span class="p">]</span><span class="o">.</span><span class="n">original</span>
-</span><span data-line="208">            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-</span><span data-line="209">                <span class="n">entry</span><span class="o">.</span><span class="n">impl</span><span class="p">(</span><span class="n">original</span><span class="o">.</span><span class="n">detach</span><span class="p">())</span>
-</span><span data-line="210">
-</span><span data-line="211">    <span class="nd">@staticmethod</span>
-</span><span data-line="212">    <span class="k">def</span><span class="w"> </span><span class="nf">_spec_to_partial</span><span class="p">(</span>
-</span><span data-line="213">        <span class="n">spec</span><span class="p">:</span> <span class="n">CompressionSpec</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="214">        <span class="n">target</span><span class="p">:</span> <span class="n">CompressionTargetTensor</span><span class="p">,</span>
-</span><span data-line="215">        <span class="n">module_config</span><span class="p">:</span> <span class="n">ModuleCompressionConfig</span><span class="p">,</span>
-</span><span data-line="216">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_PartialConstructor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="217">        <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="218">            <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="219">
-</span><span data-line="220">        <span class="k">return</span> <span class="n">spec</span><span class="o">.</span><span class="n">pruning_algo</span><span class="o">.</span><span class="n">with_args</span><span class="p">(</span>
-</span><span data-line="221">            <span class="n">target_sparsity</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">target_sparsity</span><span class="p">,</span>
-</span><span data-line="222">            <span class="n">pruning_scheme</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">pruning_scheme</span><span class="p">,</span>
-</span><span data-line="223">        <span class="p">)</span></div>
+</span><span data-line="217">
+</span><span data-line="218">    <span class="k">def</span><span class="w"> </span><span class="nf">_build_scheduled_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="219"><span class="w">        </span><span class="sd">"""Attach schedules to each scheduled PruneImplBase."""</span>
+</span><span data-line="220">        <span class="n">config_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">build_module_config_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">)</span>
+</span><span data-line="221">        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">module</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+</span><span data-line="222">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">"parametrizations"</span><span class="p">):</span>
+</span><span data-line="223">                <span class="k">continue</span>
+</span><span data-line="224">            <span class="n">module_config</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="225">                <span class="n">config_dict</span><span class="p">[</span><span class="n">_ConfigLevel</span><span class="o">.</span><span class="n">MODULE_NAME</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="226">                <span class="ow">or</span> <span class="n">config_dict</span><span class="p">[</span><span class="n">_ConfigLevel</span><span class="o">.</span><span class="n">MODULE_TYPE</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="227">                <span class="ow">or</span> <span class="n">config_dict</span><span class="p">[</span><span class="n">_ConfigLevel</span><span class="o">.</span><span class="n">GLOBAL</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="228">            <span class="p">)</span>
+</span><span data-line="229">            <span class="k">if</span> <span class="n">module_config</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">module_config</span><span class="o">.</span><span class="n">sparsity_schedule</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="230">                <span class="k">continue</span>
+</span><span data-line="231">            <span class="k">for</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">parametrizations</span><span class="p">:</span>
+</span><span data-line="232">                <span class="n">impl</span> <span class="o">=</span> <span class="n">_find_parametrization_matching_cls</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">param_name</span><span class="p">,</span> <span class="n">PruneImplBase</span><span class="p">)</span>
+</span><span data-line="233">                <span class="k">if</span> <span class="n">impl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="234">                    <span class="k">continue</span>
+</span><span data-line="235">                <span class="n">impl</span><span class="o">.</span><span class="n">schedule</span> <span class="o">=</span> <span class="n">module_config</span><span class="o">.</span><span class="n">sparsity_schedule</span>
+</span><span data-line="236">                <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="237">                    <span class="n">_ScheduledModule</span><span class="p">(</span><span class="n">impl</span><span class="o">=</span><span class="n">impl</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="n">module</span><span class="p">,</span> <span class="n">param_name</span><span class="o">=</span><span class="n">param_name</span><span class="p">)</span>
+</span><span data-line="238">                <span class="p">)</span>
+</span><span data-line="239">
+</span><span data-line="240">    <span class="nd">@staticmethod</span>
+</span><span data-line="241">    <span class="k">def</span><span class="w"> </span><span class="nf">_check_step_counts_match</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">incompatible_keys</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="242"><span class="w">        </span><span class="sd">"""Raise if a loaded state dict leaves the pruning modules with different step counts."""</span>
+</span><span data-line="243">        <span class="n">step_counts</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">step_count</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">modules</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">PruneImplBase</span><span class="p">)}</span>
+</span><span data-line="244">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">step_counts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="245">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+</span><span data-line="246">                <span class="s2">"All pruning modules must have the same step_count, but the loaded state dict "</span>
+</span><span data-line="247">                <span class="sa">f</span><span class="s2">"has </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">step_counts</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+</span><span data-line="248">            <span class="p">)</span>
+</span><span data-line="249">
+</span><span data-line="250">    <span class="k">def</span><span class="w"> </span><span class="nf">_uninitialized_compression_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span data-line="251"><span class="w">        </span><span class="sd">"""Return the pruning modules whose mask is still empty."""</span>
+</span><span data-line="252">        <span class="k">return</span> <span class="p">[</span>
+</span><span data-line="253">            <span class="n">name</span>
+</span><span data-line="254">            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_modules</span><span class="p">()</span>
+</span><span data-line="255">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">PruneImplBase</span><span class="p">)</span> <span class="ow">and</span> <span class="n">module</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span>
+</span><span data-line="256">        <span class="p">]</span>
+</span><span data-line="257">
+</span><span data-line="258">    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="259"><span class="w">        </span><span class="sd">"""For each scheduled impl, advance its sparsity and materialize the mask."""</span>
+</span><span data-line="260">        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_modules</span><span class="p">:</span>
+</span><span data-line="261">            <span class="n">entry</span><span class="o">.</span><span class="n">impl</span><span class="o">.</span><span class="n">update_sparsity</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step_count</span><span class="p">)</span>
+</span><span data-line="262">            <span class="n">original</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">module</span><span class="o">.</span><span class="n">parametrizations</span><span class="p">[</span><span class="n">entry</span><span class="o">.</span><span class="n">param_name</span><span class="p">]</span><span class="o">.</span><span class="n">original</span>
+</span><span data-line="263">            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+</span><span data-line="264">                <span class="n">entry</span><span class="o">.</span><span class="n">impl</span><span class="p">(</span><span class="n">original</span><span class="o">.</span><span class="n">detach</span><span class="p">())</span>
+</span><span data-line="265">
+</span><span data-line="266">    <span class="nd">@staticmethod</span>
+</span><span data-line="267">    <span class="k">def</span><span class="w"> </span><span class="nf">_spec_to_partial</span><span class="p">(</span>
+</span><span data-line="268">        <span class="n">spec</span><span class="p">:</span> <span class="n">CompressionSpec</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="269">        <span class="n">target</span><span class="p">:</span> <span class="n">CompressionTargetTensor</span><span class="p">,</span>
+</span><span data-line="270">        <span class="n">module_config</span><span class="p">:</span> <span class="n">ModuleCompressionConfig</span><span class="p">,</span>
+</span><span data-line="271">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_PartialConstructor</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="272">        <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="273">            <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="274">
+</span><span data-line="275">        <span class="k">return</span> <span class="n">spec</span><span class="o">.</span><span class="n">pruning_algo</span><span class="o">.</span><span class="n">with_args</span><span class="p">(</span>
+</span><span data-line="276">            <span class="n">target_sparsity</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">target_sparsity</span><span class="p">,</span>
+</span><span data-line="277">            <span class="n">pruning_scheme</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">pruning_scheme</span><span class="p">,</span>
+</span><span data-line="278">        <span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

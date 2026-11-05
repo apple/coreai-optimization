@@ -33,22 +33,26 @@ Initialize the model compressor.
 
 ### Methods
 
-| `calibration_mode`([model])                                                  | Context manager for calibration data-based compression workflow.                                                |
-|------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
-| [`finalize`](#coreai_opt.pruning.MagnitudePruner.finalize)([model, backend]) | Finalize the model to be lowered to the target backend.                                                         |
-| [`prepare`](#coreai_opt.pruning.MagnitudePruner.prepare)(example_inputs)     | Prepare the model for pruning.                                                                                  |
-| [`step`](#coreai_opt.pruning.MagnitudePruner.step)()                         | Advance the sparsity schedule by one step.                                                                      |
-| `supported_modules`()                                                        | Returns types of modules that are supported for compression with for a particular model optimization technique. |
-| `training_mode`([model])                                                     | Context manager for training time compression workflow.                                                         |
+| `calibration_mode`([model])                                                                | Context manager for calibration data-based compression workflow.                                                |
+|--------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| [`finalize`](#coreai_opt.pruning.MagnitudePruner.finalize)([model, backend])               | Finalize the model to be lowered to the target backend.                                                         |
+| [`prepare`](#coreai_opt.pruning.MagnitudePruner.prepare)(example_inputs, \*[, state_dict]) | Prepare the model for pruning.                                                                                  |
+| [`step`](#coreai_opt.pruning.MagnitudePruner.step)()                                       | Advance the sparsity schedule by one step.                                                                      |
+| `supported_modules`()                                                                      | Returns types of modules that are supported for compression with for a particular model optimization technique. |
+| `training_mode`([model])                                                                   | Context manager for training time compression workflow.                                                         |
 
 #### finalize(model=None, backend=ExportBackend.CoreAI)
 
 Finalize the model to be lowered to the target backend.
 
+Use `backend=ExportBackend.Torch` for fast torch inference (e.g. running
+evals): pruned weights are folded into dense weights.
+
 * **Parameters:**
   * **model** (*torch.nn.Module* *|* *None*) – Model to finalize. Uses the model
     passed at construction time when `None`.
-  * **backend** ([*ExportBackend*](coreai_opt.ExportBackend.md#coreai_opt.ExportBackend)) – Target export backend.
+  * **backend** ([*ExportBackend*](coreai_opt.ExportBackend.md#coreai_opt.ExportBackend)) – Target backend. Supports CoreAI (default),
+    CoreML and Torch backends.
 * **Returns:**
   The finalized model ready for the target backend.
 * **Return type:**
@@ -56,19 +60,24 @@ Finalize the model to be lowered to the target backend.
 * **Raises:**
   **RuntimeError** – If the model has not been prepared.
 
-#### prepare(example_inputs)
+#### prepare(example_inputs, \*, state_dict=None)
 
 Prepare the model for pruning.
 
 * **Parameters:**
-  **example_inputs** (*tuple* *[**torch.Tensor* *]*) – Sample inputs to trace the
-  model and configure pruning parametrizations.
+  * **example_inputs** (*tuple* *[**Any* *,*  *...* *]*) – Sample inputs to trace the
+    model and configure pruning parametrizations.
+  * **state_dict** (*Mapping* *[**str* *,* *torch.Tensor* *]*  *|* *None*) – Optional state dict of a
+    model previously prepared with the same config. When provided, its
+    pruning masks and step count are loaded instead of computing the masks,
+    so a model saved mid-schedule resumes from the saved step.
 * **Returns:**
   The prepared model with pruning parametrizations.
 * **Return type:**
   torch.nn.Module
 * **Raises:**
-  **RuntimeError** – If the model has already been prepared.
+  * **RuntimeError** – If the model has already been prepared.
+  * **RuntimeError** – If `state_dict` does not match the prepared model.
 
 #### step()
 
@@ -78,5 +87,7 @@ Increments the step count, then recomputes and applies the mask for
 every parametrization with a configured `sparsity_schedule`. Safe to
 call when no schedule is configured (no-op).
 
+* **Raises:**
+  **RuntimeError** – If the model has not been prepared.
 * **Return type:**
   None

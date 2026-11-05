@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -263,19 +267,26 @@ data-aria-dark="Switch to auto color mode">
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#id1">0.3.0 - 2026-09-25</a><ul>
+<li><a class="reference internal" href="#id1">0.4.0 - 2026-11-05</a><ul>
 <li><a class="reference internal" href="#added">Added</a></li>
 <li><a class="reference internal" href="#changed">Changed</a></li>
+<li><a class="reference internal" href="#removed">Removed</a></li>
 <li><a class="reference internal" href="#fixed">Fixed</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id2">0.2.1 - 2026-07-02</a><ul>
+<li><a class="reference internal" href="#id2">0.3.0 - 2026-09-25</a><ul>
 <li><a class="reference internal" href="#id3">Added</a></li>
-<li><a class="reference internal" href="#id4">Fixed</a></li>
+<li><a class="reference internal" href="#id4">Changed</a></li>
+<li><a class="reference internal" href="#id5">Fixed</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#id5">0.2.0 - 2026-06-08</a><ul>
-<li><a class="reference internal" href="#id6">Added</a></li>
+<li><a class="reference internal" href="#id6">0.2.1 - 2026-07-02</a><ul>
+<li><a class="reference internal" href="#id7">Added</a></li>
+<li><a class="reference internal" href="#id8">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id9">0.2.0 - 2026-06-08</a><ul>
+<li><a class="reference internal" href="#id10">Added</a></li>
 </ul>
 </li>
 </ul>
@@ -347,9 +358,47 @@ data-aria-dark="Switch to auto color mode">
 and this project adheres to <a class="reference external" href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <!-- towncrier release notes start -->
 <section id="id1">
-<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/compare/v0.2.1...v0.3.0/">0.3.0</a> - 2026-09-25<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/compare/v0.3.0...v0.4.0/">0.4.0</a> - 2026-11-05<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
 <section id="added">
 <h3>Added<a class="headerlink" href="#added" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Added support for Python 3.14.</p></li>
+<li><p>Added the public <code class="docutils literal notranslate"><span class="pre">ExportBackend.Torch</span></code> backend for fast torch inference, e.g. running evals. <code class="docutils literal notranslate"><span class="pre">finalize(backend=ExportBackend.Torch)</span></code> folds weight compression (palettization, weight quantization, pruning) into dense weights and keeps activation fake quantization.</p></li>
+<li><p>Added a <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> argument to <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> for <code class="docutils literal notranslate"><span class="pre">Quantizer</span></code> (eager and graph mode) and <code class="docutils literal notranslate"><span class="pre">MagnitudePruner</span></code>, matching <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code>. It reloads a previously prepared model’s compression state (calibrated qparams, pruning masks and step count, centroids), validates it against the config, and leaves the model in the same state as a regular <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> call.</p></li>
+<li><p>Added MXINT8 quantization (<code class="docutils literal notranslate"><span class="pre">int8</span></code> with <code class="docutils literal notranslate"><span class="pre">float8_e8m0fnu</span></code> scales) in <code class="docutils literal notranslate"><span class="pre">QuantizationSpec</span></code>, supported in eager and graph mode. It is only supported for <code class="docutils literal notranslate"><span class="pre">ExportBackend.Torch</span></code> for now.</p></li>
+<li><p>Added the <code class="docutils literal notranslate"><span class="pre">torch.int6</span></code> and <code class="docutils literal notranslate"><span class="pre">torch.uint6</span></code> quantization dtypes. They are only supported for <code class="docutils literal notranslate"><span class="pre">ExportBackend.Torch</span></code> for now: <code class="docutils literal notranslate"><span class="pre">finalize</span></code> raises <code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code> for the Core AI and Core ML backends.</p></li>
+<li><p>Added <code class="docutils literal notranslate"><span class="pre">VectorKMeansConfig</span></code> (<code class="docutils literal notranslate"><span class="pre">vector_kmeans_config</span></code> on <code class="docutils literal notranslate"><span class="pre">ModuleKMeansPalettizerConfig</span></code>) to set the k-means++ candidates per seeding step (<code class="docutils literal notranslate"><span class="pre">n_local_trials</span></code>), restarts, iteration cap and convergence tolerance of vector palettization (<code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>). Vector k-means now clusters on a CUDA GPU, with flash-kmeans when it is installed and a batched PyTorch loop otherwise or for sensitivity-weighted clustering, and on CPU with scikit-learn, falling back to the PyTorch loop with a warning when scikit-learn is not installed.</p></li>
+<li><p>K-means palettization detects weights that are already palettized for their spec (at most <code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">**</span> <span class="pre">n_bits</span></code> distinct values or vectors per block, e.g. a fake-palettized checkpoint) and uses those unique values as the centroids instead of running k-means. Other weights fall back to k-means after one small probe.</p></li>
+<li><p>Added the <code class="docutils literal notranslate"><span class="pre">sparsity_detection_threshold</span></code> option to <code class="docutils literal notranslate"><span class="pre">PalettizationSpec</span></code>. A weight with at least that fraction of exact zeros is treated as already sparse and palettized jointly with its sparsity: only its nonzero values are palettized, the zeros stay exactly zero, and the exported model stores the weight in a sparse representation together with the palettized ops for the nonzero values. Supports per-tensor and per-group-channel granularity, per-channel scales and, on Core AI, quantized LUTs and vector palettization.</p></li>
+</ul>
+</section>
+<section id="changed">
+<h3>Changed<a class="headerlink" href="#changed" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Graph-mode <code class="docutils literal notranslate"><span class="pre">Quantizer</span></code> now skips activations and states with at most one element (e.g. the 0-d output of <code class="docutils literal notranslate"><span class="pre">x.sum()</span></code>), matching eager mode. This also fixes <code class="docutils literal notranslate"><span class="pre">prepare</span></code> failing on 0-d parameters under a per-channel weight spec.</p></li>
+<li><p>Vector palettization (<code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>) now seeds with greedy k-means++ instead of farthest-point initialization, stops each block once its clustering error stops improving instead of running a fixed number of iterations, and is reproducible without manual seeding, including with <code class="docutils literal notranslate"><span class="pre">num_workers</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>. It is much faster on GPU. With <code class="docutils literal notranslate"><span class="pre">num_workers</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>, tensors that cluster on the GPU run in the main process while the worker processes handle the others.</p></li>
+<li><p>Pruning modules now store their step count in a <code class="docutils literal notranslate"><span class="pre">step_count</span></code> buffer, so a <code class="docutils literal notranslate"><span class="pre">MagnitudePruner</span></code> state dict saved before this change cannot be reloaded with <code class="docutils literal notranslate"><span class="pre">prepare(state_dict=...)</span></code>.</p></li>
+</ul>
+</section>
+<section id="removed">
+<h3>Removed<a class="headerlink" href="#removed" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Removed the deprecated <code class="docutils literal notranslate"><span class="pre">ExportBackend._TORCH</span></code> alias. Use <code class="docutils literal notranslate"><span class="pre">ExportBackend.Torch</span></code> instead.</p></li>
+<li><p>Removed the <code class="docutils literal notranslate"><span class="pre">prev_sparsity</span></code> argument from <code class="docutils literal notranslate"><span class="pre">SparsityScheduleBase.compute_sparsity</span></code> and its subclasses. Schedules are now pure functions of the step count; <code class="docutils literal notranslate"><span class="pre">PolynomialDecaySchedule</span></code> returns the last update’s sparsity for steps between updates instead of passing through <code class="docutils literal notranslate"><span class="pre">prev_sparsity</span></code> or raising <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> when it is omitted.</p></li>
+</ul>
+</section>
+<section id="fixed">
+<h3>Fixed<a class="headerlink" href="#fixed" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Fixed <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer.prepare(state_dict=...)</span></code> failing for configs with a quantized LUT, and <code class="docutils literal notranslate"><span class="pre">MagnitudePruner</span></code> restarting its sparsity schedule from step 0 after a model saved mid-schedule was reloaded.</p></li>
+<li><p>Preserve original floating-point casts that lose precision or range when cleaning up cast chains.</p></li>
+</ul>
+</section>
+</section>
+<section id="id2">
+<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/compare/v0.2.1...v0.3.0/">0.3.0</a> - 2026-09-25<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<section id="id3">
+<h3>Added<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Support <code class="docutils literal notranslate"><span class="pre">ignored_ops</span></code> in <code class="docutils literal notranslate"><span class="pre">cast_fp32_to_fp16</span></code> and <code class="docutils literal notranslate"><span class="pre">cast_to_16_bit_precision</span></code> to allow users to exclude sensitive operations (e.g. operations causing activation-level overflow like <code class="docutils literal notranslate"><span class="pre">exp</span></code> or <code class="docutils literal notranslate"><span class="pre">softplus</span></code>) from FP16 casting, keeping them in FP32 with appropriate boundary casts.</p></li>
 <li><p>Add training-aware palettization to <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code> via a <code class="docutils literal notranslate"><span class="pre">training_mode()</span></code> context manager and <code class="docutils literal notranslate"><span class="pre">step()</span></code> method, with a <code class="docutils literal notranslate"><span class="pre">PATSchedule</span></code> (<code class="docutils literal notranslate"><span class="pre">pat_schedule</span></code> on the module config) controlling when palettization activates during a training loop. <code class="docutils literal notranslate"><span class="pre">PalettizationSpec</span></code> gains a <code class="docutils literal notranslate"><span class="pre">training_strategy_spec</span></code> field for selecting pluggable training-time strategies.</p></li>
@@ -361,8 +410,8 @@ and this project adheres to <a class="reference external" href="https://semver.o
 <li><p>Support new coreai-torch and coreai-core releases</p></li>
 </ul>
 </section>
-<section id="changed">
-<h3>Changed<a class="headerlink" href="#changed" title="Link to this heading">¶</a></h3>
+<section id="id4">
+<h3>Changed<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Replace the coremltools-based 1D k-means used by palettization with a vendored C++ core that is JIT-compiled at runtime via <code class="docutils literal notranslate"><span class="pre">torch.utils.cpp_extension</span></code>. <code class="docutils literal notranslate"><span class="pre">coremltools</span></code> is no longer a runtime dependency (it is now an optional dependency, installable via the <code class="docutils literal notranslate"><span class="pre">coreml</span></code> extra). This requires a C++ compiler to be available on the host at runtime.</p></li>
 <li><p>Carry the next planned release with a <code class="docutils literal notranslate"><span class="pre">.dev0</span></code> suffix on <code class="docutils literal notranslate"><span class="pre">main</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">0.2.2.dev0</span></code>). <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build</span></code> strips the suffix for a clean release and <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">build-dev</span></code> builds a unique, timestamped dev wheel (<code class="docutils literal notranslate"><span class="pre">0.2.2.dev&lt;timestamp&gt;+&lt;shortsha&gt;</span></code>). A repo that vendors this one can insert one extra release segment via the <code class="docutils literal notranslate"><span class="pre">COREAI_OPT_VERSION_EXTENSION</span></code> environment variable to extend the version scheme.</p></li>
@@ -371,8 +420,8 @@ and this project adheres to <a class="reference external" href="https://semver.o
 <li><p>Remove upper bound on torch, torchao. Add untested message for untested versions on coreai-opt</p></li>
 </ul>
 </section>
-<section id="fixed">
-<h3>Fixed<a class="headerlink" href="#fixed" title="Link to this heading">¶</a></h3>
+<section id="id5">
+<h3>Fixed<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Fix setting of qscheme and float_range for fixed output range ops.</p></li>
 <li><p>Fix graph-mode <code class="docutils literal notranslate"><span class="pre">Quantizer</span></code> resolving a tied weight’s QAT schedule from a different module than its dtype. A shared fake-quantize module’s owning module is now picked by the same config priority that decides its <code class="docutils literal notranslate"><span class="pre">dtype</span></code>, instead of by graph order, so the schedule and dtype for a shared weight always come from one consistent module.</p></li>
@@ -384,27 +433,27 @@ and this project adheres to <a class="reference external" href="https://semver.o
 </ul>
 </section>
 </section>
-<section id="id2">
-<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/compare/v0.2.0...v0.2.1/">0.2.1</a> - 2026-07-02<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
-<section id="id3">
-<h3>Added<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<section id="id6">
+<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/compare/v0.2.0...v0.2.1/">0.2.1</a> - 2026-07-02<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<section id="id7">
+<h3>Added<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Support palettization of <code class="docutils literal notranslate"><span class="pre">ConvTranspose1d</span></code>/<code class="docutils literal notranslate"><span class="pre">ConvTranspose2d</span></code>/<code class="docutils literal notranslate"><span class="pre">ConvTranspose3d</span></code> layers via <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code></p></li>
 <li><p>Support for <code class="docutils literal notranslate"><span class="pre">EAGER</span></code> execution mode in model inspection utility</p></li>
 </ul>
 </section>
-<section id="id4">
-<h3>Fixed<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<section id="id8">
+<h3>Fixed<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Fixed pruning mask <code class="docutils literal notranslate"><span class="pre">dtype</span></code> to match that of the weight being pruned</p></li>
 <li><p>Fixes to allow better support for <code class="docutils literal notranslate"><span class="pre">bfloat16</span></code> <code class="docutils literal notranslate"><span class="pre">dtype</span></code> in palettization and quantization</p></li>
 </ul>
 </section>
 </section>
-<section id="id5">
-<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/commits/v0.2.0/">0.2.0</a> - 2026-06-08<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
-<section id="id6">
-<h3>Added<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<section id="id9">
+<h2><a class="reference external" href="https://github.com/apple/coreai-optimization/commits/v0.2.0/">0.2.0</a> - 2026-06-08<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h2>
+<section id="id10">
+<h3>Added<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p>Initial release of <code class="docutils literal notranslate"><span class="pre">coreai-opt</span></code>. See the <a class="reference external" href="https://github.com/apple/coreai-optimization/releases/">GitHub Releases</a> page for release notes.</p></li>
 </ul>

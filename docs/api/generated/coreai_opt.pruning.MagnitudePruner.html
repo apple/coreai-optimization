@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul class="current">
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -394,7 +398,7 @@ during the compression process.</p></li>
 <tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.pruning.MagnitudePruner.finalize" title="coreai_opt.pruning.MagnitudePruner.finalize"><code class="xref py py-obj docutils literal notranslate"><span class="pre">finalize</span></code></a>([model, backend])</p></td>
 <td><p>Finalize the model to be lowered to the target backend.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.pruning.MagnitudePruner.prepare" title="coreai_opt.pruning.MagnitudePruner.prepare"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prepare</span></code></a>(example_inputs)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.pruning.MagnitudePruner.prepare" title="coreai_opt.pruning.MagnitudePruner.prepare"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prepare</span></code></a>(example_inputs, *[, state_dict])</p></td>
 <td><p>Prepare the model for pruning.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.pruning.MagnitudePruner.step" title="coreai_opt.pruning.MagnitudePruner.step"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code></a>()</p></td>
@@ -413,12 +417,15 @@ during the compression process.</p></li>
 <dt class="sig sig-object py" id="coreai_opt.pruning.MagnitudePruner.finalize">
 <span class="sig-name descname"><span class="pre">finalize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">ExportBackend.CoreAI</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/pruning/magnitude_pruner.html#MagnitudePruner.finalize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.pruning.MagnitudePruner.finalize" title="Link to this definition">¶</a></dt>
 <dd><p>Finalize the model to be lowered to the target backend.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">backend=ExportBackend.Torch</span></code> for fast torch inference (e.g. running
+evals): pruned weights are folded into dense weights.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>model</strong> (<em>torch.nn.Module</em><em> | </em><em>None</em>) – Model to finalize. Uses the model
 passed at construction time when <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
-<li><p><strong>backend</strong> (<a class="reference internal" href="coreai_opt.ExportBackend.html#coreai_opt.ExportBackend" title="coreai_opt.ExportBackend"><em>ExportBackend</em></a>) – Target export backend.</p></li>
+<li><p><strong>backend</strong> (<a class="reference internal" href="coreai_opt.ExportBackend.html#coreai_opt.ExportBackend" title="coreai_opt.ExportBackend"><em>ExportBackend</em></a>) – Target backend. Supports CoreAI (default),
+CoreML and Torch backends.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -435,12 +442,18 @@ passed at construction time when <code class="docutils literal notranslate"><spa
 
 <dl class="py method">
 <dt class="sig sig-object py" id="coreai_opt.pruning.MagnitudePruner.prepare">
-<span class="sig-name descname"><span class="pre">prepare</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">example_inputs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/pruning/magnitude_pruner.html#MagnitudePruner.prepare"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.pruning.MagnitudePruner.prepare" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">prepare</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">example_inputs</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/pruning/magnitude_pruner.html#MagnitudePruner.prepare"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.pruning.MagnitudePruner.prepare" title="Link to this definition">¶</a></dt>
 <dd><p>Prepare the model for pruning.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>example_inputs</strong> (<em>tuple</em><em>[</em><em>torch.Tensor</em><em>]</em>) – Sample inputs to trace the
-model and configure pruning parametrizations.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>example_inputs</strong> (<em>tuple</em><em>[</em><em>Any</em><em>, </em><em>...</em><em>]</em>) – Sample inputs to trace the
+model and configure pruning parametrizations.</p></li>
+<li><p><strong>state_dict</strong> (<em>Mapping</em><em>[</em><em>str</em><em>, </em><em>torch.Tensor</em><em>] </em><em>| </em><em>None</em>) – Optional state dict of a
+model previously prepared with the same config. When provided, its
+pruning masks and step count are loaded instead of computing the masks,
+so a model saved mid-schedule resumes from the saved step.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The prepared model with pruning parametrizations.</p>
@@ -449,7 +462,10 @@ model and configure pruning parametrizations.</p>
 <dd class="field-odd"><p>torch.nn.Module</p>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>RuntimeError</strong> – If the model has already been prepared.</p>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>RuntimeError</strong> – If the model has already been prepared.</p></li>
+<li><p><strong>RuntimeError</strong> – If <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> does not match the prepared model.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>
@@ -462,8 +478,11 @@ model and configure pruning parametrizations.</p>
 every parametrization with a configured <code class="docutils literal notranslate"><span class="pre">sparsity_schedule</span></code>. Safe to
 call when no schedule is configured (no-op).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>None</p>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>RuntimeError</strong> – If the model has not been prepared.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
 </dd>
 </dl>
 </dd></dl>

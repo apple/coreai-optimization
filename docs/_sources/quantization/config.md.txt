@@ -23,7 +23,7 @@ We will first take a look at the {class}`~coreai_opt.quantization.spec.Quantizat
 
 {class}`~coreai_opt.quantization.spec.QuantizationSpec` defines the following key properties, among others (for full list see API reference):
 
-- `dtype`: dtype of quantized data, e.g. `int8`, `int4`, `uint2`, `float8_e4m3fn`, `float4_e2m1fn_x2` etc (default: torch.int8)
+- `dtype`: dtype of quantized data, e.g. `int8`, `int6`, `int4`, `uint2`, `uint6`, `float8_e4m3fn`, `float4_e2m1fn_x2` etc (default: torch.int8). `int6` and `uint6` are only supported for the Torch backend for now.
 - `qscheme`: symmetric or asymmetric quantization scheme (default: {class}`~coreai_opt.quantization.spec.QuantizationScheme`.SYMMETRIC). See [Symmetric vs asymmetric quantization](advanced.md#symmetric-vs-asymmetric-quantization) for how these schemes differ.
 - `granularity`: granularity for quantization scales/zp, per-block, per-channel, per-tensor (default: {class}`~coreai_opt.quantization.spec.PerTensorGranularity()`)
 - `qparam_calculator_cls`: algorithm used for calculating scales/zp, e.g. static, global min/max, moving average min/max etc. (defaults: {class}`~coreai_opt.quantization.spec.MovingAverageQParamsCalculator` for activations)

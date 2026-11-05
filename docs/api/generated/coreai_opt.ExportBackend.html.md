@@ -15,6 +15,12 @@ Each member is a string value representing the backend format.
 * **Return type:**
   Any
 
+#### Torch
+
+Plain PyTorch model for fast inference (e.g. running evals). Weight
+compression is folded into dense weights; activation fake quantization
+is kept.
+
 #### CoreML
 
 Core ML format with compression metadata buffers.

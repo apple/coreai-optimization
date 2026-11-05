@@ -2,12 +2,12 @@
 <html lang="en" data-accent-color="indigo" data-content_root="../../">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>coreai_opt.coreai_utils.common.QScheme - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="coreai_opt.inspection.BitsPerWeightResult" href="coreai_opt.inspection.BitsPerWeightResult.html" /><link rel="prev" title="coreai_opt.coreai_utils.sparsify_weights" href="coreai_opt.coreai_utils.sparsify_weights.html" /><script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>coreai_opt.palettization.config.VectorKMeansConfig - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="coreai_opt.palettization.spec.DefaultTrainingSpec" href="coreai_opt.palettization.spec.DefaultTrainingSpec.html" /><link rel="prev" title="coreai_opt.palettization.config.PATSchedule" href="coreai_opt.palettization.config.PATSchedule.html" /><script>
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
@@ -21,7 +21,7 @@
 }
 </style>
     
-  <meta property="og:type" content="website"/><meta property="og:title" content="coreai_opt.coreai_utils.common.QScheme"/>
+  <meta property="og:type" content="website"/><meta property="og:title" content="coreai_opt.palettization.config.VectorKMeansConfig"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul class="current">
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -263,10 +267,11 @@ data-aria-dark="Switch to auto color mode">
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#coreai_opt.coreai_utils.common.QScheme"><code class="docutils literal notranslate"><span class="pre">QScheme</span></code></a><ul>
-<li><a class="reference internal" href="#coreai_opt.coreai_utils.common.QScheme.SYMMETRIC"><code class="docutils literal notranslate">SYMMETRIC</span></code></a></li>
-<li><a class="reference internal" href="#coreai_opt.coreai_utils.common.QScheme.ASYMMETRIC"><code class="docutils literal notranslate">ASYMMETRIC</span></code></a></li>
-<li><a class="reference internal" href="#coreai_opt.coreai_utils.common.QScheme.__init__"><code class="docutils literal notranslate">__init__()</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.palettization.config.VectorKMeansConfig"><code class="docutils literal notranslate"><span class="pre">VectorKMeansConfig</span></code></a><ul>
+<li><a class="reference internal" href="#coreai_opt.palettization.config.VectorKMeansConfig.n_local_trials"><code class="docutils literal notranslate">n_local_trials</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.palettization.config.VectorKMeansConfig.n_init"><code class="docutils literal notranslate">n_init</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.palettization.config.VectorKMeansConfig.max_iter"><code class="docutils literal notranslate">max_iter</span></code></a></li>
+<li><a class="reference internal" href="#coreai_opt.palettization.config.VectorKMeansConfig.tol"><code class="docutils literal notranslate">tol</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -290,7 +295,7 @@ data-aria-dark="Switch to auto color mode">
         <span>/</span>
         <meta itemprop="position" content="2" />
       </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <strong itemprop="name">coreai_opt.coreai_utils.common.QScheme</strong>
+        <strong itemprop="name">coreai_opt.palettization.config.VectorKMeansConfig</strong>
         <meta itemprop="position" content="3" />
       </li></ol>
     <div class="xl:hidden ml-1">
@@ -305,7 +310,7 @@ data-aria-dark="Switch to auto color mode">
   <div id="copy-page-trigger"><button
       type="button"
       class="js-copy px-3 py-1 inline-flex items-center gap-1"
-      data-url="coreai_opt.coreai_utils.common.QScheme.html.md"
+      data-url="coreai_opt.palettization.config.VectorKMeansConfig.html.md"
     >
       <i class="i-lucide" data-icon="copy"></i>
       <span>Copy page</span>
@@ -318,13 +323,13 @@ data-aria-dark="Switch to auto color mode">
   <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
     <div role="presentation">
       <div class="flex flex-col" role="group">
-        <button class="js-copy" type="button" role="menuitem" data-url="coreai_opt.coreai_utils.common.QScheme.html.md">
+        <button class="js-copy" type="button" role="menuitem" data-url="coreai_opt.palettization.config.VectorKMeansConfig.html.md">
           <span class="iconify-icon">
             <i class="i-lucide" data-icon="copy"></i>
           </span>
           <span>Copy page</span>
         </button>
-        <a role="menuitem" href="coreai_opt.coreai_utils.common.QScheme.html.md" target="_blank" rel="nofollow">
+        <a role="menuitem" href="coreai_opt.palettization.config.VectorKMeansConfig.html.md" target="_blank" rel="nofollow">
           <span class="iconify-icon">
             <img src="../../_static/icons/markdown.svg" alt="" width="14" height="14">
           </span>
@@ -334,30 +339,97 @@ data-aria-dark="Switch to auto color mode">
     </div>
   </div>
 </div><article class="yue" role="main">
-          <section id="coreai-opt-coreai-utils-common-qscheme">
-<h1>coreai_opt.coreai_utils.common.QScheme<a class="headerlink" href="#coreai-opt-coreai-utils-common-qscheme" title="Link to this heading">¶</a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="coreai_opt.coreai_utils.common.QScheme">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">coreai_opt.coreai_utils.common.</span></span><span class="sig-name descname"><span class="pre">QScheme</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">module</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/coreai_utils/common.html#QScheme"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.coreai_utils.common.QScheme" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">StrEnum</span></code></p>
-<p>Enum representing the quantization scheme.</p>
+          <section id="coreai-opt-palettization-config-vectorkmeansconfig">
+<h1>coreai_opt.palettization.config.VectorKMeansConfig<a class="headerlink" href="#coreai-opt-palettization-config-vectorkmeansconfig" title="Link to this heading">¶</a></h1>
+<dl class="py class pydantic_model">
+<dt class="sig sig-object py" id="coreai_opt.palettization.config.VectorKMeansConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">coreai_opt.palettization.config.</span></span><span class="sig-name descname"><span class="pre">VectorKMeansConfig</span></span><a class="reference internal" href="../../_modules/coreai_opt/palettization/config/palettization_config.html#VectorKMeansConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.palettization.config.VectorKMeansConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
+<p>K-means settings for vector palettization (<code class="docutils literal notranslate"><span class="pre">cluster_dim</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>).</p>
+<p>Vector palettization clusters each palettization block’s <code class="docutils literal notranslate"><span class="pre">cluster_dim</span></code>-long weight
+vectors into <code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">**</span> <span class="pre">n_bits</span></code> centroids with k-means. Each run seeds the
+centroids with k-means++, then runs Lloyd iterations (assign every vector to its
+nearest centroid, move each centroid to the mean of its vectors) until the block
+converges. These settings trade clustering quality for speed.</p>
+<p>Where clustering runs:</p>
+<ul class="simple">
+<li><p><strong>CUDA GPU</strong>: all blocks of a weight tensor are clustered together in one batch.
+Unweighted clustering (post-training palettization) uses flash-kmeans for the
+Lloyd iterations when it is installed, and otherwise a batched PyTorch loop.
+Sensitivity-weighted clustering (<code class="docutils literal notranslate"><span class="pre">calibration_mode()</span></code>) always uses the PyTorch
+loop, because flash-kmeans has no per-point weights.</p></li>
+<li><p><strong>CPU</strong>: scikit-learn, one block at a time. If scikit-learn is not installed, the
+batched PyTorch loop runs on CPU instead and a warning is issued; it gives the
+same results but is several times slower.</p></li>
+</ul>
+<p>Every backend uses the same seeding, the same stopping rule, and a seed derived
+from each tensor’s contents, so results are reproducible across runs.</p>
 <dl class="py attribute">
-<dt class="sig sig-object py" id="coreai_opt.coreai_utils.common.QScheme.SYMMETRIC">
-<span class="sig-name descname"><span class="pre">SYMMETRIC</span></span><a class="headerlink" href="#coreai_opt.coreai_utils.common.QScheme.SYMMETRIC" title="Link to this definition">¶</a></dt>
-<dd><p>Symmetric quantization (zero-point is fixed at zero).</p>
+<dt class="sig sig-object py" id="coreai_opt.palettization.config.VectorKMeansConfig.n_local_trials">
+<span class="sig-name descname"><span class="pre">n_local_trials</span></span><a class="headerlink" href="#coreai_opt.palettization.config.VectorKMeansConfig.n_local_trials" title="Link to this definition">¶</a></dt>
+<dd><p>Number of candidate centroids sampled at each
+k-means++ seeding step. The candidate that most reduces the clustering
+error is kept. <code class="docutils literal notranslate"><span class="pre">1</span></code> is standard k-means++. Larger values (“greedy”
+k-means++) usually give lower clustering error, and seeding time grows
+roughly in proportion. <code class="docutils literal notranslate"><span class="pre">None</span></code> uses scikit-learn’s default,
+<code class="docutils literal notranslate"><span class="pre">2</span> <span class="pre">+</span> <span class="pre">int(log(n_clusters))</span></code>. Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int | None</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="coreai_opt.coreai_utils.common.QScheme.ASYMMETRIC">
-<span class="sig-name descname"><span class="pre">ASYMMETRIC</span></span><a class="headerlink" href="#coreai_opt.coreai_utils.common.QScheme.ASYMMETRIC" title="Link to this definition">¶</a></dt>
-<dd><p>Asymmetric quantization (zero-point is non-zero).</p>
+<dt class="sig sig-object py" id="coreai_opt.palettization.config.VectorKMeansConfig.n_init">
+<span class="sig-name descname"><span class="pre">n_init</span></span><a class="headerlink" href="#coreai_opt.palettization.config.VectorKMeansConfig.n_init" title="Link to this definition">¶</a></dt>
+<dd><p>How many times k-means is run from scratch on each block, each
+time starting from a different set of initial centroids. Because the result
+depends on where k-means starts, more runs make it likelier to find a good
+one; the run with the lowest clustering error is kept. Time grows linearly
+with <code class="docutils literal notranslate"><span class="pre">n_init</span></code>. Default: 5.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="py method">
-<dt class="sig sig-object py" id="coreai_opt.coreai_utils.common.QScheme.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwds</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#coreai_opt.coreai_utils.common.QScheme.__init__" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.palettization.config.VectorKMeansConfig.max_iter">
+<span class="sig-name descname"><span class="pre">max_iter</span></span><a class="headerlink" href="#coreai_opt.palettization.config.VectorKMeansConfig.max_iter" title="Link to this definition">¶</a></dt>
+<dd><p>Maximum number of Lloyd iterations per run. Default: 300.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="coreai_opt.palettization.config.VectorKMeansConfig.tol">
+<span class="sig-name descname"><span class="pre">tol</span></span><a class="headerlink" href="#coreai_opt.palettization.config.VectorKMeansConfig.tol" title="Link to this definition">¶</a></dt>
+<dd><p>Convergence tolerance. A block stops iterating once its clustering
+error (inertia) improves by less than <code class="docutils literal notranslate"><span class="pre">tol</span></code>, or when <code class="docutils literal notranslate"><span class="pre">max_iter</span></code> is
+reached. Default: <code class="docutils literal notranslate"><span class="pre">1e-4</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="admonition-example admonition">
+<p class="admonition-title">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Defaults: greedy k-means++, 5 runs, convergence-based stopping.</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">default</span> <span class="o">=</span> <span class="n">VectorKMeansConfig</span><span class="p">()</span>
+</span><span data-line="3"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Fast, approximate clustering, e.g. to check that a model exports.</span>
+</span><span data-line="4"><span class="gp">&gt;&gt;&gt; </span><span class="n">fast</span> <span class="o">=</span> <span class="n">VectorKMeansConfig</span><span class="p">(</span><span class="n">n_local_trials</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="5"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># More runs for a sensitive model.</span>
+</span><span data-line="6"><span class="gp">&gt;&gt;&gt; </span><span class="n">thorough</span> <span class="o">=</span> <span class="n">VectorKMeansConfig</span><span class="p">(</span><span class="n">n_init</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</div>
 </dd></dl>
 
 </section>
@@ -368,16 +440,16 @@ data-aria-dark="Switch to auto color mode">
   </svg>
   <span>Back to top</span>
 </button><div class="navigation flex print:hidden"><div class="navigation-prev">
-    <a href="coreai_opt.coreai_utils.sparsify_weights.html">
+    <a href="coreai_opt.palettization.config.PATSchedule.html">
       <i class="i-lucide chevron-left"></i>
       <div class="page-info">
-        <span>Previous</span><div class="title">coreai_opt.coreai_utils.sparsify_weights</div></div>
+        <span>Previous</span><div class="title">coreai_opt.palettization.config.PATSchedule</div></div>
     </a>
   </div><div class="navigation-next">
-    <a href="coreai_opt.inspection.BitsPerWeightResult.html">
+    <a href="coreai_opt.palettization.spec.DefaultTrainingSpec.html">
       <div class="page-info">
         <span>Next</span>
-        <div class="title">coreai_opt.inspection.BitsPerWeightResult</div>
+        <div class="title">coreai_opt.palettization.spec.DefaultTrainingSpec</div>
       </div>
       <i class="i-lucide chevron-right"></i>
     </a>

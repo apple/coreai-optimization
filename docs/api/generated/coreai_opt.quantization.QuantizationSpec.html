@@ -7,7 +7,7 @@
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d88b86f9" />
     <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=9454f7d5" />
-    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css" />
     <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=2d1dc041" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul class="current">
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -360,7 +364,8 @@ quantization, quantization parameter calculation, and range calculation.</p>
 <dd><p>Target data type for quantization.
 Valid inputs:</p>
 <ul class="simple">
-<li><p>Integer dtypes: torch.int8, torch.uint8, torch.int4, torch.uint4, etc.</p></li>
+<li><p>Integer dtypes: torch.int8, torch.uint8, torch.int4, torch.uint4, etc.
+torch.int6 and torch.uint6 are only supported for the Torch backend for now.</p></li>
 <li><p>Floating-point dtypes: torch.float8_e4m3fn, torch.float8_e5m2,
 torch.float4_e2m1fn_x2.
 For FP8 dtypes, the notation specifies the format (e.g., in
@@ -412,9 +417,9 @@ Valid inputs:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">x</span></code>: unquantized data.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">q</span></code>: quantized data (dtype as specified by <code class="docutils literal notranslate"><span class="pre">QuantizationSpec.dtype</span></code>).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">x'</span></code>: dequantized data (same dtype as <code class="docutils literal notranslate"><span class="pre">x</span></code>).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">scale</span></code>: for INT quantization, defaults to the same dtype as
-<code class="docutils literal notranslate"><span class="pre">x</span></code>. For FP quantization, see the <code class="docutils literal notranslate"><span class="pre">scale_dtype</span></code> description
-below.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scale</span></code>: for INT quantization without an e8m0 <code class="docutils literal notranslate"><span class="pre">scale_dtype</span></code>,
+defaults to the same dtype as <code class="docutils literal notranslate"><span class="pre">x</span></code>. Otherwise, see the
+<code class="docutils literal notranslate"><span class="pre">scale_dtype</span></code> description below.</p></li>
 </ul>
 <p>Formulae:</p>
 <ul class="simple">
@@ -505,16 +510,19 @@ min_val_neg/scale), 0, 255)</p></td>
 </tbody>
 </table>
 </div>
-<p>And for FP4/FP8 dtypes, zero-point is always set to 0 (FP supports only the
-symmetric qscheme). The scale formula depends on <code class="docutils literal notranslate"><span class="pre">scale_dtype</span></code>:</p>
+<p>And for FP4/FP8 dtypes, and INT8 with an e8m0 <code class="docutils literal notranslate"><span class="pre">scale_dtype</span></code>, zero-point is
+always set to 0 (both support only the symmetric qscheme). The scale formula
+depends on <code class="docutils literal notranslate"><span class="pre">scale_dtype</span></code>:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">scale_dtype=None</span></code> (FP8 only): <code class="docutils literal notranslate"><span class="pre">scale</span> <span class="pre">=</span> <span class="pre">max_abs</span> <span class="pre">/</span> <span class="pre">fp_max</span></code>, where
 <code class="docutils literal notranslate"><span class="pre">fp_max</span></code> is the largest representable value for the target FP dtype
 (448.0 for FP8 E4M3, 57344.0 for FP8 E5M2).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">scale_dtype=torch.float8_e8m0fnu</span></code> (FP4 and FP8):
+<li><p><code class="docutils literal notranslate"><span class="pre">scale_dtype=torch.float8_e8m0fnu</span></code> (FP4, FP8 and INT8):
 power-of-2 scale per OCP MX spec —
 <code class="docutils literal notranslate"><span class="pre">scale</span> <span class="pre">=</span> <span class="pre">2^(floor(log2(max_abs))</span> <span class="pre">-</span> <span class="pre">target_max_pow2)</span></code>, with
-<code class="docutils literal notranslate"><span class="pre">target_max_pow2</span></code> of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2.</p></li>
+<code class="docutils literal notranslate"><span class="pre">target_max_pow2</span></code> of 2 for FP4 E2M1, 8 for FP8 E4M3, 15 for FP8 E5M2,
+and 6 for INT8. OCP MXINT8 keeps a <code class="docutils literal notranslate"><span class="pre">2^-6</span></code> factor in each element and a
+shared scale 64x larger; here that factor is folded into <code class="docutils literal notranslate"><span class="pre">scale</span></code>.</p></li>
 </ul>
 <p><strong>MINVAL formulation</strong>, e.g. with 8 bit signed and unsigned fixed point types:</p>
 <div class="table-wrapper docutils container">
@@ -759,15 +767,16 @@ Valid inputs:</p>
 choose_qparams_affine_with_min_max (integer and FP8 dtypes).
 For FP4, None is resolved to torch.float8_e8m0fnu automatically.</p></li>
 <li><p>torch.float8_e8m0fnu: Power-of-2 scales following OCP Microscaling (MX)
-spec. Required for FP4 quantization, optional for FP8.</p></li>
+spec. Required for FP4 quantization, optional for FP8 and int8.</p></li>
 </ul>
 <p>Constraints:</p>
 <ul class="simple">
 <li><p>FP4 (float4_e2m1fn_x2): scale_dtype must be torch.float8_e8m0fnu or None
 (defaults to e8m0)</p></li>
-<li><p>FP8 (float8_e4m3fn, float8_e5m2): scale_dtype must be
+<li><p>FP8 (float8_e4m3fn, float8_e5m2) and int8: scale_dtype must be
 torch.float8_e8m0fnu or None (defaults to None)</p></li>
-<li><p>Integer dtypes: scale_dtype must be None (defaults to None)</p></li>
+<li><p>Other integer dtypes: scale_dtype must be None (defaults to None)</p></li>
+<li><p>torch.float8_e8m0fnu requires qscheme=”symmetric” and qformulation=”zp”</p></li>
 </ul>
 <p>Default: None</p>
 <dl class="field-list simple">

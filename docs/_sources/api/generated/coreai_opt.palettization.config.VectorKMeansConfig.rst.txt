@@ -1,0 +1,14 @@
+﻿coreai\_opt.palettization.config.VectorKMeansConfig
+===================================================
+
+.. currentmodule:: coreai_opt.palettization.config
+
+.. autopydantic_model:: VectorKMeansConfig
+
+   
+   
+   
+
+   
+   
+   

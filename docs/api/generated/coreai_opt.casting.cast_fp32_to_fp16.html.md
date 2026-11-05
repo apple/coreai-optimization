@@ -1,6 +1,6 @@
 # coreai_opt.casting.cast_fp32_to_fp16
 
-### coreai_opt.casting.cast_fp32_to_fp16(exported_program, ignored_ops=None)
+### coreai_opt.casting.cast_fp32_to_fp16(exported_program, ignored_ops=None, calibration_data=None)
 
 Convert a torch exported program from FP32 to FP16 where applicable.
 
@@ -15,6 +15,11 @@ casts only where values would overflow FP16 range.
     a single op instance, or a predicate callable taking a `torch.fx.Node`
     and returning a boolean (e.g. `lambda node: node.name == "exp_1"`).
     Ignored ops are kept in FP32 with boundary casts inserted.
+  * **calibration_data** (*Iterable* *[**Tensor* *|* *tuple* *[**Any* *,*  *...* *]*  *|* *list* *[**Any* *]*  *|* *dict* *[**str* *,* *Any* *]* *]*  *|* *None*) – Optional iterable yielding sample inputs (each sample a Tensor,
+    tuple/list of Tensors, or dict of kwargs) for dynamic activation range observation.
+    If provided, operations whose intermediate activations overflow the FP16 representable
+    range (> 65504) are automatically identified and excluded from FP16 casting,
+    remaining in FP32 precision with boundary casts.
 * **Returns:**
   The modified exported program.
 * **Return type:**

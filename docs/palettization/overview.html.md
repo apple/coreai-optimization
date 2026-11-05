@@ -32,7 +32,11 @@ val_metric = validate(prepared_model, val_dataset)
 finalized_model_for_coreai = palettizer.finalize(backend=opt.ExportBackend.CoreAI)
 # OR
 finalized_model_for_coreml = palettizer.finalize(backend=opt.ExportBackend.CoreML)
+# OR, to run evaluations in PyTorch
+finalized_model_for_torch = palettizer.finalize(backend=opt.ExportBackend.Torch)
 ```
+
+See [Running PyTorch evaluations with compressed models](../introduction/torch_backend.md) for when to use the Torch backend, and [Checkpoints and workflows](../introduction/checkpoints.md) for how to reload a prepared model to finalize it for more than one backend.
 
 ## Sensitive K-means API
 
@@ -93,6 +97,24 @@ val_metric = validate(prepared_model, val_dataset)
 Note that `Sensitive K-means` shares the same `KMeansPalettizer` and `KMeansPalettizerConfig` as `Vanilla K-means`. `Sensitive K-means` is achieved simply by passing representative data samples through the model while inside the `calibration_mode` context.
 
 For more details on how to use `KMeansPalettizerConfig`, `ModuleKMeansPalettizerConfig` to apply different settings to different weights in the model, see [Palettization Config](config.md).
+
+## Loading a Prepared Model
+
+Preparing a model runs k-means clustering to compute each layer’s codebook, which can be expensive for large models. If you have already prepared a model and saved its `state_dict`, reload it into a fresh palettizer with `prepare(..., state_dict=...)` to skip clustering:
+
+```python
+# ---- first run: prepare and save ----
+palettizer = KMeansPalettizer(model, config)
+prepared_model = palettizer.prepare(example_inputs)
+torch.save(prepared_model.state_dict(), "palettized_state.pt")
+
+# ---- later run: reload without re-clustering ----
+state_dict = torch.load("palettized_state.pt", weights_only=True)
+palettizer = KMeansPalettizer(MyModel().eval(), config)  # same config as the saved run
+prepared_model = palettizer.prepare(example_inputs, state_dict=state_dict)
+```
+
+The `config` and model architecture must match the run that produced the state dict; a mismatch raises an error rather than loading a wrong codebook. Sensitivities are not part of the state dict — reload them separately via `prepare(..., sensitivity_path=...)` if a later re-clustering step needs them.
 
 ## Training a Palettized model
 

@@ -60,6 +60,18 @@ by subclassing `TrainingStrategySpec` (registered via
 `_strategy_cls` at a `TrainingStrategy` subclass. Default:
 DefaultTrainingSpec().
 
+#### sparsity_detection_threshold
+
+Minimum fraction of exact zeros, in [0, 1], at which an
+already-sparse weight (for example, from a pruned model) is palettized jointly with
+its sparsity. The nonzero mask is detected on the first forward pass and kept fixed.
+Only the nonzero values are palettized: k-means fits the palette on them alone, and
+the zeros stay exactly zero. In the final model, the weight uses a sparse
+representation (a mask plus the nonzero values), with the palettized ops applied to
+the nonzero values only, so the zeros take no indices. A weight needs at least one
+exact zero to be detected. If None, no sparsity is detected and the weight is
+palettized densely. Default: None.
+
 #### model_dump_preserve_objects()
 
 Custom model dump that preserves Pydantic BaseModel instances as objects

@@ -60,15 +60,15 @@ palettization.
 
 Convert palettized model to backend-specific representations.
 
-Only call `finalize` when exporting to a target backend. For torch-based
-evaluation, use the model returned by `prepare()` directly rather than
-calling `finalize`.
+Use `backend=ExportBackend.Torch` for fast torch inference (e.g. running
+evals): palettized weights are folded into dense weights, so the model no
+longer reconstructs them from the LUT on every forward pass.
 
 * **Parameters:**
   * **model** (*nn.Module* *|* *None*) – Model to finalize. If None, uses the
     internal prepared model.
-  * **backend** ([*ExportBackend*](coreai_opt.ExportBackend.md#coreai_opt.ExportBackend)) – Target export backend for the palettized
-    model. Supports CoreAI (default) and CoreML backends.
+  * **backend** ([*ExportBackend*](coreai_opt.ExportBackend.md#coreai_opt.ExportBackend)) – Target backend for the palettized model.
+    Supports CoreAI (default), CoreML and Torch backends.
   * **mmap_dir** (*str* *|* *None*) – If provided, finalized palettized weights are
     written under this directory and re-loaded as mmap-backed
     tensors so they don’t have to be held in RAM. Only supported
@@ -94,12 +94,12 @@ Return a function that maps a torch function to its palettizable op type.
 * **Return type:**
   *Callable*[[*Callable*], str | None]
 
-#### prepare(example_inputs, sensitivity_path=None, num_workers=1)
+#### prepare(example_inputs, sensitivity_path=None, num_workers=1, state_dict=None)
 
 Prepare the model for palettization.
 
 * **Parameters:**
-  * **example_inputs** (*tuple* *[**Tensor* *]*) – Sample inputs to trace the model and configure
+  * **example_inputs** (*tuple* *[**Any* *,*  *...* *]*) – Sample inputs to trace the model and configure
     palettizers
   * **sensitivity_path** (*str* *|* *None*) – Optional path to precomputed sensitivity values for
     weighted k-means clustering. These sensitivity values indicate the
@@ -109,14 +109,20 @@ Prepare the model for palettization.
     vanilla (non-weighted) k-means clustering is used.
   * **num_workers** (*int*) – `1` runs clustering sequentially. Values greater than
     `1` use `torch.multiprocessing` to parallelize clustering
-    across layers. It is recommended to use more than one worker
-    process to parallelize the clustering, especially when multiple
-    CPUs are available. Defaults to `1`.
+    across layers. It is recommended to use more than one worker process to parallelize
+    the clustering, especially when multiple CPUs are available. Vector
+    palettization (`cluster_dim > 1`) that clusters on a GPU runs in the
+    main process instead, concurrently with the workers. Defaults to `1`.
+  * **state_dict** (*Mapping* *[**str* *,* *Tensor* *]*  *|* *None*) – Optional state dict from a model previously prepared
+    with the same config. When provided, buffers are loaded from it
+    instead of running k-means clustering. Fake palettization is left
+    enabled, as a regular `prepare` leaves it.
 * **Returns:**
   The prepared nn.Module with fake palettization
   modules inserted. This is a data-free PTP compressed model.
 * **Raises:**
   * **RuntimeError** – If the model has already been prepared.
+  * **RuntimeError** – If `state_dict` does not match the prepared model.
   * **ValueError** – If `num_workers` is less than 1.
 * **Return type:**
   *Module*

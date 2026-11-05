@@ -49,16 +49,10 @@ Core AI MLIR-level compression transforms.
 | [`coreai_opt.coreai_utils.CompressionGranularity`](generated/coreai_opt.coreai_utils.CompressionGranularity.md#coreai_opt.coreai_utils.CompressionGranularity)(value)   | Enum representing the granularity of quantization for Core AI weight compression.   |
 |-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | [`coreai_opt.coreai_utils.DType`](generated/coreai_opt.coreai_utils.DType.md#coreai_opt.coreai_utils.DType)(value[, ...])                                               | Enum representing data types for Core AI weight compression.                        |
+| [`coreai_opt.coreai_utils.QScheme`](generated/coreai_opt.coreai_utils.QScheme.md#coreai_opt.coreai_utils.QScheme)(value[, ...])                                         | Enum representing the quantization scheme.                                          |
 | [`coreai_opt.coreai_utils.palettize_weights`](generated/coreai_opt.coreai_utils.palettize_weights.md#coreai_opt.coreai_utils.palettize_weights)(...)                    | Palettize weights in a Core AI AIProgram (MLIR<CoreAI> IR) by using Core AI ops.    |
 | [`coreai_opt.coreai_utils.quantize_weights`](generated/coreai_opt.coreai_utils.quantize_weights.md#coreai_opt.coreai_utils.quantize_weights)(...)                       | Quantize weights in a Core AI AIProgram (MLIR<CoreAI> IR) by using Core AI ops.     |
 | [`coreai_opt.coreai_utils.sparsify_weights`](generated/coreai_opt.coreai_utils.sparsify_weights.md#coreai_opt.coreai_utils.sparsify_weights)(...)                       | Sparsify weights in a Core AI AIProgram (MLIR<CoreAI> IR) by using Core AI ops.     |
-
-### coreai_opt.coreai_utils.common
-
-Common enums and constants for coreai_opt.coreai_utils.
-
-| [`coreai_opt.coreai_utils.common.QScheme`](generated/coreai_opt.coreai_utils.common.QScheme.md#coreai_opt.coreai_utils.common.QScheme)(value)   | Enum representing the quantization scheme.   |
-|-------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------|
 
 ## coreai_opt.inspection
 
@@ -93,6 +87,7 @@ Palettization configuration classes.
 | [`coreai_opt.palettization.config.OpKMeansPalettizerConfig`](generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.md#coreai_opt.palettization.config.OpKMeansPalettizerConfig)   | Configuration class for palettization at the operation level.   |
 |------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
 | [`coreai_opt.palettization.config.PATSchedule`](generated/coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule)                                          | Schedule for enabling palettization-aware training (PAT).       |
+| [`coreai_opt.palettization.config.VectorKMeansConfig`](generated/coreai_opt.palettization.config.VectorKMeansConfig.md#coreai_opt.palettization.config.VectorKMeansConfig)                     | K-means settings for vector palettization (`cluster_dim > 1`).  |
 
 ### coreai_opt.palettization.spec
 

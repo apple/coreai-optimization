@@ -66,6 +66,8 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../../../introduction/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../introduction/checkpoints.html">Checkpoints and workflows</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
 <ul>
@@ -118,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
 <ul>
@@ -142,10 +145,10 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.coreai_utils.common.QScheme.html">coreai_opt.coreai_utils.common.QScheme</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
@@ -178,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -338,181 +342,199 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span data-line="10">    <span class="n">BaseModel</span><span class="p">,</span>
 </span><span data-line="11">    <span class="n">BeforeValidator</span><span class="p">,</span>
-</span><span data-line="12">    <span class="n">PositiveInt</span><span class="p">,</span>
-</span><span data-line="13">    <span class="n">PrivateAttr</span><span class="p">,</span>
-</span><span data-line="14">    <span class="n">model_validator</span><span class="p">,</span>
-</span><span data-line="15"><span class="p">)</span>
-</span><span data-line="16">
-</span><span data-line="17"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionType</span>
-</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSpec</span>
-</span><span data-line="19"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.spec</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="20">    <span class="n">PerTensorGranularity</span> <span class="k">as</span> <span class="n">QuantPerTensorGranularity</span><span class="p">,</span>
-</span><span data-line="21">    <span class="n">QuantizationFormulation</span><span class="p">,</span>
-</span><span data-line="22">    <span class="n">QuantizationSpec</span><span class="p">,</span>
-</span><span data-line="23"><span class="p">)</span>
-</span><span data-line="24">
-</span><span data-line="25"><span class="kn">from</span><span class="w"> </span><span class="nn">.granularity</span><span class="w"> </span><span class="kn">import</span> <span class="n">PalettizationGranularity</span><span class="p">,</span> <span class="n">PerTensorGranularity</span>
-</span><span data-line="26"><span class="kn">from</span><span class="w"> </span><span class="nn">.training_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultTrainingSpec</span><span class="p">,</span> <span class="n">TrainingStrategySpec</span>
-</span><span data-line="27">
-</span><span data-line="28"><span class="n">_SUPPORTED_LUT_DTYPES</span> <span class="o">=</span> <span class="p">{</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">float8_e4m3fn</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">float8_e5m2</span><span class="p">}</span>
-</span><span data-line="29">
+</span><span data-line="12">    <span class="n">Field</span><span class="p">,</span>
+</span><span data-line="13">    <span class="n">PositiveInt</span><span class="p">,</span>
+</span><span data-line="14">    <span class="n">PrivateAttr</span><span class="p">,</span>
+</span><span data-line="15">    <span class="n">model_validator</span><span class="p">,</span>
+</span><span data-line="16"><span class="p">)</span>
+</span><span data-line="17">
+</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionType</span>
+</span><span data-line="19"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.config.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompressionSpec</span>
+</span><span data-line="20"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization.spec</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="21">    <span class="n">PerTensorGranularity</span> <span class="k">as</span> <span class="n">QuantPerTensorGranularity</span><span class="p">,</span>
+</span><span data-line="22">    <span class="n">QuantizationFormulation</span><span class="p">,</span>
+</span><span data-line="23">    <span class="n">QuantizationSpec</span><span class="p">,</span>
+</span><span data-line="24"><span class="p">)</span>
+</span><span data-line="25">
+</span><span data-line="26"><span class="kn">from</span><span class="w"> </span><span class="nn">.granularity</span><span class="w"> </span><span class="kn">import</span> <span class="n">PalettizationGranularity</span><span class="p">,</span> <span class="n">PerTensorGranularity</span>
+</span><span data-line="27"><span class="kn">from</span><span class="w"> </span><span class="nn">.training_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">DefaultTrainingSpec</span><span class="p">,</span> <span class="n">TrainingStrategySpec</span>
+</span><span data-line="28">
+</span><span data-line="29"><span class="n">_SUPPORTED_LUT_DTYPES</span> <span class="o">=</span> <span class="p">{</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">uint8</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">float8_e4m3fn</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">float8_e5m2</span><span class="p">}</span>
 </span><span data-line="30">
+</span><span data-line="31">
 <div class="viewcode-block" id="PalettizationSpec">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html#coreai_opt.palettization.PalettizationSpec">[docs]</a>
-</span><span data-line="31"><span class="k">class</span><span class="w"> </span><span class="nc">PalettizationSpec</span><span class="p">(</span><span class="n">CompressionSpec</span><span class="p">):</span>
-</span><span data-line="32"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="33"><span class="sd">    Specification for palettization compression of neural network weights.</span>
-</span><span data-line="34">
-</span><span data-line="35"><span class="sd">    Palettization is a compression technique that reduces memory usage by representing</span>
-</span><span data-line="36"><span class="sd">    weights using a lookup table (LUT) instead of storing full precision values.</span>
-</span><span data-line="37"><span class="sd">    Weights are clustered into a small number of representative values (the palette),</span>
-</span><span data-line="38"><span class="sd">    and each weight is replaced with an index into this palette.</span>
-</span><span data-line="39">
-</span><span data-line="40"><span class="sd">    This specification configures all aspects of the palettization process including</span>
-</span><span data-line="41"><span class="sd">    the number of bits for indices, the quantization of the lookup table,</span>
-</span><span data-line="42"><span class="sd">    and the granularity at which palettization is applied.</span>
-</span><span data-line="43">
-</span><span data-line="44"><span class="sd">    Attributes:</span>
-</span><span data-line="45"><span class="sd">        n_bits: Number of bits used for palette indices. Determines palette size</span>
-</span><span data-line="46"><span class="sd">            (2^n_bits entries). Must be one of {1, 2, 3, 4, 6, 8}. Default: 4.</span>
-</span><span data-line="47"><span class="sd">        lut_qspec: Quantization specification for the lookup table values.</span>
-</span><span data-line="48"><span class="sd">            If None, no quantization is applied to the LUT. When specified,</span>
-</span><span data-line="49"><span class="sd">            only ``torch.int8``, ``torch.uint8``, ``torch.float8_e4m3fn``, and</span>
-</span><span data-line="50"><span class="sd">            ``torch.float8_e5m2`` dtypes are supported, and granularity must be</span>
-</span><span data-line="51"><span class="sd">            ``PerTensorGranularity``. FP8 dtypes require symmetric quantization.</span>
-</span><span data-line="52"><span class="sd">            Default: None.</span>
-</span><span data-line="53"><span class="sd">        granularity: Defines how palettization is applied - per-tensor applies a</span>
-</span><span data-line="54"><span class="sd">            single palette to the entire tensor, per-channel applies separate</span>
-</span><span data-line="55"><span class="sd">            palettes to each channel. Default: PerTensorGranularity().</span>
-</span><span data-line="56"><span class="sd">        cluster_dim: The dimension of centroids for each lookup table.</span>
-</span><span data-line="57"><span class="sd">            The centroid is a scalar by default. When cluster_dim &gt; 1, it indicates 2-D</span>
-</span><span data-line="58"><span class="sd">            clustering, and each cluster_dim length of weight vectors along the output</span>
-</span><span data-line="59"><span class="sd">            channel are palettized using the same 2-D centroid. The length of each entry</span>
-</span><span data-line="60"><span class="sd">            in the lookup tables is equal to cluster_dim. Default: 1.</span>
-</span><span data-line="61"><span class="sd">        enable_per_channel_scale: When set to True, weights are normalized along the</span>
-</span><span data-line="62"><span class="sd">            output channels using per-channel scales before being palettized.</span>
-</span><span data-line="63"><span class="sd">            Default: False.</span>
-</span><span data-line="64"><span class="sd">        training_strategy_spec: Which training-time behavior this weight's</span>
-</span><span data-line="65"><span class="sd">            fake-palettize module uses, and that strategy's settings.</span>
-</span><span data-line="66"><span class="sd">            ``DefaultTrainingSpec()`` is post-training, one-shot k-means</span>
-</span><span data-line="67"><span class="sd">            (today's KMeansPalettizer behavior). Additional strategies are added</span>
-</span><span data-line="68"><span class="sd">            by subclassing ``TrainingStrategySpec`` (registered via</span>
-</span><span data-line="69"><span class="sd">            ``TrainingStrategySpec.register()``) and pointing its</span>
-</span><span data-line="70"><span class="sd">            ``_strategy_cls`` at a ``TrainingStrategy`` subclass. Default:</span>
-</span><span data-line="71"><span class="sd">            DefaultTrainingSpec().</span>
-</span><span data-line="72">
-</span><span data-line="73"><span class="sd">    Example:</span>
-</span><span data-line="74"><span class="sd">        &gt;&gt;&gt; # Basic 4-bit palettization</span>
-</span><span data-line="75"><span class="sd">        &gt;&gt;&gt; spec = PalettizationSpec()</span>
-</span><span data-line="76">
-</span><span data-line="77"><span class="sd">        &gt;&gt;&gt; # 2-bit palettization with quantized int8 lookup table</span>
-</span><span data-line="78"><span class="sd">        &gt;&gt;&gt; from coreai_opt.quantization.spec import QuantizationSpec, QuantizationScheme</span>
-</span><span data-line="79"><span class="sd">        &gt;&gt;&gt; spec = PalettizationSpec(</span>
-</span><span data-line="80"><span class="sd">        ...     n_bits=2,</span>
-</span><span data-line="81"><span class="sd">        ...     lut_qspec=QuantizationSpec(</span>
-</span><span data-line="82"><span class="sd">        ...         dtype=torch.int8,</span>
-</span><span data-line="83"><span class="sd">        ...         qscheme=QuantizationScheme.SYMMETRIC,</span>
-</span><span data-line="84"><span class="sd">        ...     ),</span>
-</span><span data-line="85"><span class="sd">        ... )</span>
+</span><span data-line="32"><span class="k">class</span><span class="w"> </span><span class="nc">PalettizationSpec</span><span class="p">(</span><span class="n">CompressionSpec</span><span class="p">):</span>
+</span><span data-line="33"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="34"><span class="sd">    Specification for palettization compression of neural network weights.</span>
+</span><span data-line="35">
+</span><span data-line="36"><span class="sd">    Palettization is a compression technique that reduces memory usage by representing</span>
+</span><span data-line="37"><span class="sd">    weights using a lookup table (LUT) instead of storing full precision values.</span>
+</span><span data-line="38"><span class="sd">    Weights are clustered into a small number of representative values (the palette),</span>
+</span><span data-line="39"><span class="sd">    and each weight is replaced with an index into this palette.</span>
+</span><span data-line="40">
+</span><span data-line="41"><span class="sd">    This specification configures all aspects of the palettization process including</span>
+</span><span data-line="42"><span class="sd">    the number of bits for indices, the quantization of the lookup table,</span>
+</span><span data-line="43"><span class="sd">    and the granularity at which palettization is applied.</span>
+</span><span data-line="44">
+</span><span data-line="45"><span class="sd">    Attributes:</span>
+</span><span data-line="46"><span class="sd">        n_bits: Number of bits used for palette indices. Determines palette size</span>
+</span><span data-line="47"><span class="sd">            (2^n_bits entries). Must be one of {1, 2, 3, 4, 6, 8}. Default: 4.</span>
+</span><span data-line="48"><span class="sd">        lut_qspec: Quantization specification for the lookup table values.</span>
+</span><span data-line="49"><span class="sd">            If None, no quantization is applied to the LUT. When specified,</span>
+</span><span data-line="50"><span class="sd">            only ``torch.int8``, ``torch.uint8``, ``torch.float8_e4m3fn``, and</span>
+</span><span data-line="51"><span class="sd">            ``torch.float8_e5m2`` dtypes are supported, and granularity must be</span>
+</span><span data-line="52"><span class="sd">            ``PerTensorGranularity``. FP8 dtypes require symmetric quantization.</span>
+</span><span data-line="53"><span class="sd">            Default: None.</span>
+</span><span data-line="54"><span class="sd">        granularity: Defines how palettization is applied - per-tensor applies a</span>
+</span><span data-line="55"><span class="sd">            single palette to the entire tensor, per-channel applies separate</span>
+</span><span data-line="56"><span class="sd">            palettes to each channel. Default: PerTensorGranularity().</span>
+</span><span data-line="57"><span class="sd">        cluster_dim: The dimension of centroids for each lookup table.</span>
+</span><span data-line="58"><span class="sd">            The centroid is a scalar by default. When cluster_dim &gt; 1, it indicates 2-D</span>
+</span><span data-line="59"><span class="sd">            clustering, and each cluster_dim length of weight vectors along the output</span>
+</span><span data-line="60"><span class="sd">            channel are palettized using the same 2-D centroid. The length of each entry</span>
+</span><span data-line="61"><span class="sd">            in the lookup tables is equal to cluster_dim. Default: 1.</span>
+</span><span data-line="62"><span class="sd">        enable_per_channel_scale: When set to True, weights are normalized along the</span>
+</span><span data-line="63"><span class="sd">            output channels using per-channel scales before being palettized.</span>
+</span><span data-line="64"><span class="sd">            Default: False.</span>
+</span><span data-line="65"><span class="sd">        training_strategy_spec: Which training-time behavior this weight's</span>
+</span><span data-line="66"><span class="sd">            fake-palettize module uses, and that strategy's settings.</span>
+</span><span data-line="67"><span class="sd">            ``DefaultTrainingSpec()`` is post-training, one-shot k-means</span>
+</span><span data-line="68"><span class="sd">            (today's KMeansPalettizer behavior). Additional strategies are added</span>
+</span><span data-line="69"><span class="sd">            by subclassing ``TrainingStrategySpec`` (registered via</span>
+</span><span data-line="70"><span class="sd">            ``TrainingStrategySpec.register()``) and pointing its</span>
+</span><span data-line="71"><span class="sd">            ``_strategy_cls`` at a ``TrainingStrategy`` subclass. Default:</span>
+</span><span data-line="72"><span class="sd">            DefaultTrainingSpec().</span>
+</span><span data-line="73"><span class="sd">        sparsity_detection_threshold: Minimum fraction of exact zeros, in [0, 1], at which an</span>
+</span><span data-line="74"><span class="sd">            already-sparse weight (for example, from a pruned model) is palettized jointly with</span>
+</span><span data-line="75"><span class="sd">            its sparsity. The nonzero mask is detected on the first forward pass and kept fixed.</span>
+</span><span data-line="76"><span class="sd">            Only the nonzero values are palettized: k-means fits the palette on them alone, and</span>
+</span><span data-line="77"><span class="sd">            the zeros stay exactly zero. In the final model, the weight uses a sparse</span>
+</span><span data-line="78"><span class="sd">            representation (a mask plus the nonzero values), with the palettized ops applied to</span>
+</span><span data-line="79"><span class="sd">            the nonzero values only, so the zeros take no indices. A weight needs at least one</span>
+</span><span data-line="80"><span class="sd">            exact zero to be detected. If None, no sparsity is detected and the weight is</span>
+</span><span data-line="81"><span class="sd">            palettized densely. Default: None.</span>
+</span><span data-line="82">
+</span><span data-line="83"><span class="sd">    Example:</span>
+</span><span data-line="84"><span class="sd">        &gt;&gt;&gt; # Basic 4-bit palettization</span>
+</span><span data-line="85"><span class="sd">        &gt;&gt;&gt; spec = PalettizationSpec()</span>
 </span><span data-line="86">
-</span><span data-line="87"><span class="sd">        &gt;&gt;&gt; # Per-channel palettization with scaling</span>
-</span><span data-line="88"><span class="sd">        &gt;&gt;&gt; from coreai_opt.palettization.spec import PerGroupedChannelGranularity</span>
+</span><span data-line="87"><span class="sd">        &gt;&gt;&gt; # 2-bit palettization with quantized int8 lookup table</span>
+</span><span data-line="88"><span class="sd">        &gt;&gt;&gt; from coreai_opt.quantization.spec import QuantizationSpec, QuantizationScheme</span>
 </span><span data-line="89"><span class="sd">        &gt;&gt;&gt; spec = PalettizationSpec(</span>
-</span><span data-line="90"><span class="sd">        ...     granularity=PerGroupedChannelGranularity(axis=0, group_size=32),</span>
-</span><span data-line="91"><span class="sd">        ...     enable_per_channel_scale=True</span>
-</span><span data-line="92"><span class="sd">        ... )</span>
-</span><span data-line="93"><span class="sd">    """</span>
-</span><span data-line="94">
-</span><span data-line="95">    <span class="n">n_bits</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">]</span> <span class="o">=</span> <span class="mi">4</span>
-</span><span data-line="96">    <span class="n">lut_qspec</span><span class="p">:</span> <span class="n">QuantizationSpec</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="97">    <span class="n">granularity</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
-</span><span data-line="98">        <span class="n">PalettizationGranularity</span><span class="p">,</span>
-</span><span data-line="99">        <span class="n">BeforeValidator</span><span class="p">(</span><span class="n">PalettizationGranularity</span><span class="o">.</span><span class="n">maybe_build_from_dict</span><span class="p">),</span>
-</span><span data-line="100">    <span class="p">]</span> <span class="o">=</span> <span class="n">PerTensorGranularity</span><span class="p">()</span>
-</span><span data-line="101">    <span class="n">cluster_dim</span><span class="p">:</span> <span class="n">PositiveInt</span> <span class="o">=</span> <span class="mi">1</span>
-</span><span data-line="102">    <span class="n">enable_per_channel_scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="103">    <span class="n">training_strategy_spec</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
-</span><span data-line="104">        <span class="n">TrainingStrategySpec</span><span class="p">,</span>
-</span><span data-line="105">        <span class="n">BeforeValidator</span><span class="p">(</span><span class="n">TrainingStrategySpec</span><span class="o">.</span><span class="n">maybe_build_from_dict</span><span class="p">),</span>
-</span><span data-line="106">    <span class="p">]</span> <span class="o">=</span> <span class="n">DefaultTrainingSpec</span><span class="p">()</span>
-</span><span data-line="107">
-</span><span data-line="108">    <span class="c1"># Private attribute for compression type</span>
-</span><span data-line="109">    <span class="n">_compression_type</span><span class="p">:</span> <span class="n">CompressionType</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">CompressionType</span><span class="o">.</span><span class="n">PALETTIZATION</span><span class="p">)</span>
-</span><span data-line="110">
-</span><span data-line="111">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"after"</span><span class="p">)</span>
-</span><span data-line="112">    <span class="k">def</span><span class="w"> </span><span class="nf">validate_lut_qspec</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"PalettizationSpec"</span><span class="p">:</span>
-</span><span data-line="113"><span class="w">        </span><span class="sd">"""Validate that lut_qspec only uses supported configurations."""</span>
-</span><span data-line="114">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="115">            <span class="k">return</span> <span class="bp">self</span>
-</span><span data-line="116">
-</span><span data-line="117">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_SUPPORTED_LUT_DTYPES</span><span class="p">:</span>
-</span><span data-line="118">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="119">                <span class="sa">f</span><span class="s2">"lut_qspec.dtype must be one of </span><span class="si">{</span><span class="n">_SUPPORTED_LUT_DTYPES</span><span class="si">}</span><span class="s2">, "</span>
-</span><span data-line="120">                <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">"</span>
-</span><span data-line="121">            <span class="p">)</span>
-</span><span data-line="122">
-</span><span data-line="123">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">granularity</span><span class="p">,</span> <span class="n">QuantPerTensorGranularity</span><span class="p">):</span>
-</span><span data-line="124">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="125">                <span class="sa">f</span><span class="s2">"lut_qspec.granularity must be PerTensorGranularity, "</span>
-</span><span data-line="126">                <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">granularity</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span>
-</span><span data-line="127">            <span class="p">)</span>
-</span><span data-line="128">
-</span><span data-line="129">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">qformulation</span> <span class="o">==</span> <span class="n">QuantizationFormulation</span><span class="o">.</span><span class="n">MINVAL</span><span class="p">:</span>
-</span><span data-line="130">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="131">                <span class="s2">"lut_qspec.qformulation=MINVAL is not supported for palettization. "</span>
-</span><span data-line="132">                <span class="s2">"Use lut_qspec.qformulation=ZP instead."</span>
-</span><span data-line="133">            <span class="p">)</span>
-</span><span data-line="134">
-</span><span data-line="135">        <span class="k">return</span> <span class="bp">self</span>
-</span><span data-line="136">
+</span><span data-line="90"><span class="sd">        ...     n_bits=2,</span>
+</span><span data-line="91"><span class="sd">        ...     lut_qspec=QuantizationSpec(</span>
+</span><span data-line="92"><span class="sd">        ...         dtype=torch.int8,</span>
+</span><span data-line="93"><span class="sd">        ...         qscheme=QuantizationScheme.SYMMETRIC,</span>
+</span><span data-line="94"><span class="sd">        ...     ),</span>
+</span><span data-line="95"><span class="sd">        ... )</span>
+</span><span data-line="96">
+</span><span data-line="97"><span class="sd">        &gt;&gt;&gt; # Per-channel palettization with scaling</span>
+</span><span data-line="98"><span class="sd">        &gt;&gt;&gt; from coreai_opt.palettization.spec import PerGroupedChannelGranularity</span>
+</span><span data-line="99"><span class="sd">        &gt;&gt;&gt; spec = PalettizationSpec(</span>
+</span><span data-line="100"><span class="sd">        ...     granularity=PerGroupedChannelGranularity(axis=0, group_size=32),</span>
+</span><span data-line="101"><span class="sd">        ...     enable_per_channel_scale=True</span>
+</span><span data-line="102"><span class="sd">        ... )</span>
+</span><span data-line="103"><span class="sd">    """</span>
+</span><span data-line="104">
+</span><span data-line="105">    <span class="n">n_bits</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">]</span> <span class="o">=</span> <span class="mi">4</span>
+</span><span data-line="106">    <span class="n">lut_qspec</span><span class="p">:</span> <span class="n">QuantizationSpec</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="107">    <span class="n">granularity</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+</span><span data-line="108">        <span class="n">PalettizationGranularity</span><span class="p">,</span>
+</span><span data-line="109">        <span class="n">BeforeValidator</span><span class="p">(</span><span class="n">PalettizationGranularity</span><span class="o">.</span><span class="n">maybe_build_from_dict</span><span class="p">),</span>
+</span><span data-line="110">    <span class="p">]</span> <span class="o">=</span> <span class="n">PerTensorGranularity</span><span class="p">()</span>
+</span><span data-line="111">    <span class="n">cluster_dim</span><span class="p">:</span> <span class="n">PositiveInt</span> <span class="o">=</span> <span class="mi">1</span>
+</span><span data-line="112">    <span class="n">enable_per_channel_scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="113">    <span class="n">training_strategy_spec</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span>
+</span><span data-line="114">        <span class="n">TrainingStrategySpec</span><span class="p">,</span>
+</span><span data-line="115">        <span class="n">BeforeValidator</span><span class="p">(</span><span class="n">TrainingStrategySpec</span><span class="o">.</span><span class="n">maybe_build_from_dict</span><span class="p">),</span>
+</span><span data-line="116">    <span class="p">]</span> <span class="o">=</span> <span class="n">DefaultTrainingSpec</span><span class="p">()</span>
+</span><span data-line="117">    <span class="n">sparsity_detection_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="118">
+</span><span data-line="119">    <span class="c1"># Private attribute for compression type</span>
+</span><span data-line="120">    <span class="n">_compression_type</span><span class="p">:</span> <span class="n">CompressionType</span> <span class="o">=</span> <span class="n">PrivateAttr</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">CompressionType</span><span class="o">.</span><span class="n">PALETTIZATION</span><span class="p">)</span>
+</span><span data-line="121">
+</span><span data-line="122">    <span class="nd">@model_validator</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"after"</span><span class="p">)</span>
+</span><span data-line="123">    <span class="k">def</span><span class="w"> </span><span class="nf">validate_lut_qspec</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"PalettizationSpec"</span><span class="p">:</span>
+</span><span data-line="124"><span class="w">        </span><span class="sd">"""Validate that lut_qspec only uses supported configurations."""</span>
+</span><span data-line="125">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="126">            <span class="k">return</span> <span class="bp">self</span>
+</span><span data-line="127">
+</span><span data-line="128">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_SUPPORTED_LUT_DTYPES</span><span class="p">:</span>
+</span><span data-line="129">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="130">                <span class="sa">f</span><span class="s2">"lut_qspec.dtype must be one of </span><span class="si">{</span><span class="n">_SUPPORTED_LUT_DTYPES</span><span class="si">}</span><span class="s2">, "</span>
+</span><span data-line="131">                <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">"</span>
+</span><span data-line="132">            <span class="p">)</span>
+</span><span data-line="133">
+</span><span data-line="134">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">granularity</span><span class="p">,</span> <span class="n">QuantPerTensorGranularity</span><span class="p">):</span>
+</span><span data-line="135">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="136">                <span class="sa">f</span><span class="s2">"lut_qspec.granularity must be PerTensorGranularity, "</span>
+</span><span data-line="137">                <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">granularity</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span>
+</span><span data-line="138">            <span class="p">)</span>
+</span><span data-line="139">
+</span><span data-line="140">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">qformulation</span> <span class="o">==</span> <span class="n">QuantizationFormulation</span><span class="o">.</span><span class="n">MINVAL</span><span class="p">:</span>
+</span><span data-line="141">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="142">                <span class="s2">"lut_qspec.qformulation=MINVAL is not supported for palettization. "</span>
+</span><span data-line="143">                <span class="s2">"Use lut_qspec.qformulation=ZP instead."</span>
+</span><span data-line="144">            <span class="p">)</span>
+</span><span data-line="145">
+</span><span data-line="146">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">is_floating_point</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">scale_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="147">            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="148">                <span class="s2">"lut_qspec.scale_dtype must be None for integer lut_qspec.dtype, "</span>
+</span><span data-line="149">                <span class="sa">f</span><span class="s2">"got scale_dtype=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lut_qspec</span><span class="o">.</span><span class="n">scale_dtype</span><span class="si">}</span><span class="s2">"</span>
+</span><span data-line="150">            <span class="p">)</span>
+</span><span data-line="151">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</span><span data-line="152">
+</span><span data-line="153">        <span class="k">return</span> <span class="bp">self</span>
+</span><span data-line="154">
 <div class="viewcode-block" id="PalettizationSpec.model_dump_preserve_objects">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html#coreai_opt.palettization.PalettizationSpec.model_dump_preserve_objects">[docs]</a>
-</span><span data-line="137">    <span class="k">def</span><span class="w"> </span><span class="nf">model_dump_preserve_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-</span><span data-line="138"><span class="w">        </span><span class="sd">"""</span>
-</span><span data-line="139"><span class="sd">        Custom model dump that preserves Pydantic BaseModel instances as objects</span>
-</span><span data-line="140"><span class="sd">        instead of serializing them.</span>
-</span><span data-line="141">
-</span><span data-line="142"><span class="sd">        This method creates a dictionary representation of the spec while keeping</span>
-</span><span data-line="143"><span class="sd">        all Pydantic BaseModel fields as the original Python objects rather than</span>
-</span><span data-line="144"><span class="sd">        serializing them to dictionaries. Non-Pydantic model fields are serialized</span>
-</span><span data-line="145"><span class="sd">        normally. This is useful when you want to work with actual object instances</span>
-</span><span data-line="146"><span class="sd">        programmatically.</span>
-</span><span data-line="147">
-</span><span data-line="148"><span class="sd">        Returns:</span>
-</span><span data-line="149"><span class="sd">            Dictionary with serialized non-Pydantic fields and preserved Pydantic objs.</span>
-</span><span data-line="150"><span class="sd">        """</span>
-</span><span data-line="151">
-</span><span data-line="152">        <span class="c1"># Find all fields that contain Pydantic BaseModel instances</span>
-</span><span data-line="153">        <span class="n">exclude_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="154">        <span class="n">pydantic_fields</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="155">
-</span><span data-line="156">        <span class="k">for</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_fields</span><span class="p">:</span>
-</span><span data-line="157">            <span class="n">field_value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field_name</span><span class="p">)</span>
-</span><span data-line="158">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field_value</span><span class="p">,</span> <span class="n">BaseModel</span><span class="p">):</span>
-</span><span data-line="159">                <span class="n">exclude_set</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">field_name</span><span class="p">)</span>
-</span><span data-line="160">                <span class="n">pydantic_fields</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">field_value</span>
-</span><span data-line="161">
-</span><span data-line="162">        <span class="c1"># Get regular model dump but exclude Pydantic model fields</span>
-</span><span data-line="163">        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="n">exclude_set</span><span class="p">)</span>
-</span><span data-line="164">
-</span><span data-line="165">        <span class="c1"># Add back the Pydantic model fields as original objects</span>
-</span><span data-line="166">        <span class="n">data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">pydantic_fields</span><span class="p">)</span>
-</span><span data-line="167">
-</span><span data-line="168">        <span class="k">return</span> <span class="n">data</span></div>
+</span><span data-line="155">    <span class="k">def</span><span class="w"> </span><span class="nf">model_dump_preserve_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+</span><span data-line="156"><span class="w">        </span><span class="sd">"""</span>
+</span><span data-line="157"><span class="sd">        Custom model dump that preserves Pydantic BaseModel instances as objects</span>
+</span><span data-line="158"><span class="sd">        instead of serializing them.</span>
+</span><span data-line="159">
+</span><span data-line="160"><span class="sd">        This method creates a dictionary representation of the spec while keeping</span>
+</span><span data-line="161"><span class="sd">        all Pydantic BaseModel fields as the original Python objects rather than</span>
+</span><span data-line="162"><span class="sd">        serializing them to dictionaries. Non-Pydantic model fields are serialized</span>
+</span><span data-line="163"><span class="sd">        normally. This is useful when you want to work with actual object instances</span>
+</span><span data-line="164"><span class="sd">        programmatically.</span>
+</span><span data-line="165">
+</span><span data-line="166"><span class="sd">        Returns:</span>
+</span><span data-line="167"><span class="sd">            Dictionary with serialized non-Pydantic fields and preserved Pydantic objs.</span>
+</span><span data-line="168"><span class="sd">        """</span>
+</span><span data-line="169">
+</span><span data-line="170">        <span class="c1"># Find all fields that contain Pydantic BaseModel instances</span>
+</span><span data-line="171">        <span class="n">exclude_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="172">        <span class="n">pydantic_fields</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="173">
+</span><span data-line="174">        <span class="k">for</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_fields</span><span class="p">:</span>
+</span><span data-line="175">            <span class="n">field_value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field_name</span><span class="p">)</span>
+</span><span data-line="176">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field_value</span><span class="p">,</span> <span class="n">BaseModel</span><span class="p">):</span>
+</span><span data-line="177">                <span class="n">exclude_set</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">field_name</span><span class="p">)</span>
+</span><span data-line="178">                <span class="n">pydantic_fields</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">field_value</span>
+</span><span data-line="179">
+</span><span data-line="180">        <span class="c1"># Get regular model dump but exclude Pydantic model fields</span>
+</span><span data-line="181">        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="n">exclude_set</span><span class="p">)</span>
+</span><span data-line="182">
+</span><span data-line="183">        <span class="c1"># Add back the Pydantic model fields as original objects</span>
+</span><span data-line="184">        <span class="n">data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">pydantic_fields</span><span class="p">)</span>
+</span><span data-line="185">
+</span><span data-line="186">        <span class="k">return</span> <span class="n">data</span></div>
 </div>
 
-</span><span data-line="169">
-</span><span data-line="170">
+</span><span data-line="187">
+</span><span data-line="188">
 <div class="viewcode-block" id="default_weight_palettization_spec">
 <a class="viewcode-back" href="../../../../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html#coreai_opt.palettization.default_weight_palettization_spec">[docs]</a>
-</span><span data-line="171"><span class="k">def</span><span class="w"> </span><span class="nf">default_weight_palettization_spec</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">PalettizationSpec</span><span class="p">:</span>
-</span><span data-line="172">    <span class="k">return</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
-</span><span data-line="173">        <span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-</span><span data-line="174">        <span class="n">lut_qspec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span data-line="175">        <span class="n">granularity</span><span class="o">=</span><span class="n">PerTensorGranularity</span><span class="p">(),</span>
-</span><span data-line="176">        <span class="n">cluster_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-</span><span data-line="177">        <span class="n">enable_per_channel_scale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span data-line="178">    <span class="p">)</span></div>
+</span><span data-line="189"><span class="k">def</span><span class="w"> </span><span class="nf">default_weight_palettization_spec</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">PalettizationSpec</span><span class="p">:</span>
+</span><span data-line="190">    <span class="k">return</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
+</span><span data-line="191">        <span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span data-line="192">        <span class="n">lut_qspec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span data-line="193">        <span class="n">granularity</span><span class="o">=</span><span class="n">PerTensorGranularity</span><span class="p">(),</span>
+</span><span data-line="194">        <span class="n">cluster_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+</span><span data-line="195">        <span class="n">enable_per_channel_scale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span data-line="196">    <span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

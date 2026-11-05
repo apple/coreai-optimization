@@ -17,6 +17,7 @@
       ~FakeQuantizeImplBase.convert
       ~FakeQuantizeImplBase.dequantize
       ~FakeQuantizeImplBase.disable_observer
+      ~FakeQuantizeImplBase.enable_fake_quant
       ~FakeQuantizeImplBase.enable_observer
       ~FakeQuantizeImplBase.extra_repr
       ~FakeQuantizeImplBase.forward

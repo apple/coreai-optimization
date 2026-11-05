@@ -127,8 +127,6 @@ Enable observers on the model or a specific module.
 Convert quantized model to backend-specific representations.
 
 Converts fake quantization modules into backend-specific quantization ops.
-Only call `finalize` when exporting to a target backend. For torch-based evaluation, use
-the model returned by `prepare()` directly rather than calling `finalize`.
 
 Backend-specific processing:
 
@@ -136,12 +134,15 @@ Backend-specific processing:
   with Core AI specific PyTorch custom ops.
 - CoreML: Prepares for CoreML export by registering compression metadata
   as buffers and removes fake quantization modules.
+- Torch: Prepares for fast torch inference (e.g. running evals) by folding
+  weight fake quantization into dense weights. Activation fake quantization
+  is kept.
 
 * **Parameters:**
   * **model** (*Module* *|* *GraphModule* *|* *None*) – Optional model to finalize. If None, uses the internal
     prepared model.
   * **backend** ([*ExportBackend*](coreai_opt.ExportBackend.md#coreai_opt.ExportBackend)) – Target export backend for the quantized model. Supports
-    CoreAI (default), CoreML, and \_TORCH backends.
+    CoreAI (default), CoreML, and Torch backends.
   * **mmap_dir** (*str* *|* *None*) – If provided, serialize finalized quantized
     weights to safetensors files under this directory and re-load
     them via mmap, one file per weight. Supported in both execution
@@ -151,6 +152,10 @@ Backend-specific processing:
     the mmap-backed weights.
 * **Returns:**
   The finalized quantized model ready for deployment on the target backend.
+* **Raises:**
+  **NotImplementedError** – If `backend` is CoreAI or CoreML and a quantization
+      spec uses `torch.int6` or `torch.uint6`, which are only supported for
+      `ExportBackend.Torch`.
 * **Return type:**
   *Module* | *GraphModule*
 
@@ -165,7 +170,7 @@ mode-dependent behavior are not affected.
 When `backend=ExportBackend.CoreAI` in execution_mode=ExecutionMode.EAGER,
 finalize frees the original dense weights.
 
-#### prepare(example_inputs, dynamic_shapes=None, export_with_no_grad=True)
+#### prepare(example_inputs, dynamic_shapes=None, export_with_no_grad=True, \*, state_dict=None)
 
 Prepare the model for quantization by inserting fake quantization modules.
 
@@ -193,9 +198,17 @@ during the forward pass. Returns an nn.Module.
     Ignored in EAGER mode.
   * **export_with_no_grad** (*bool*) – Whether to export with no_grad (graph mode
     only). Ignored in EAGER mode.
+  * **state_dict** (*Mapping* *[**str* *,* *Tensor* *]*  *|* *None*) – Optional state dict of a model previously prepared with the
+    same config (and, in graph mode, the same example inputs, dynamic
+    shapes and torch version), e.g. after calibration or QAT. When
+    provided, its quantization state is loaded after preparing, and fake
+    quantization and observers are left as a regular `prepare` leaves them.
 * **Returns:**
   The prepared model with fake quantization modules inserted, ready for
   calibration or training. This is a data-free PTQ compressed model.
+* **Raises:**
+  * **RuntimeError** – If the model has already been prepared.
+  * **RuntimeError** – If `state_dict` does not match the prepared model.
 * **Return type:**
   *Module* | *GraphModule*
 

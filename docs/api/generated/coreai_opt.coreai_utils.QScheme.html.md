@@ -1,6 +1,6 @@
-# coreai_opt.coreai_utils.common.QScheme
+# coreai_opt.coreai_utils.QScheme
 
-### *class* coreai_opt.coreai_utils.common.QScheme(value, names=None, \*, module=None, qualname=None, type=None, start=1, boundary=None)
+### *class* coreai_opt.coreai_utils.QScheme(value, names=None, \*, module=None, qualname=None, type=None, start=1, boundary=None)
 
 Bases: `StrEnum`
 

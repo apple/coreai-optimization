@@ -7,6 +7,7 @@
 * [API Overview](overview.md)
   * [Vanilla K-means API](overview.md#vanilla-k-means-api)
   * [Sensitive K-means API](overview.md#sensitive-k-means-api)
+  * [Loading a Prepared Model](overview.md#loading-a-prepared-model)
   * [Training a Palettized model](overview.md#training-a-palettized-model)
 * [Config API](config.md)
   * [PalettizationSpec](config.md#palettizationspec)
