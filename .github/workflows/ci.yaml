@@ -20,6 +20,36 @@ concurrency:
 
 jobs:
 
+  # ── Release-only PRs skip the long tests. ──
+  # If a PR changes only src/coreai_opt/_about.py, CHANGELOG.md, or files in
+  # changelog.d/, the tutorial tests and the full macOS and Linux test runs are
+  # skipped. `make check` and `make test-smoke` still run, and they already
+  # check these files. Every other PR, and every push to main, runs all tests.
+  changes:
+    name: Detect release-only PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      release_only: ${{ steps.classify.outputs.release_only }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Classify changed files
+        id: classify
+        run: |
+          # List the files this PR changes. If every one is a release file, tell
+          # the later jobs to skip their long tests. In every other case,
+          # including a push to main or any error here, they run all tests.
+          if [ "${GITHUB_EVENT_NAME}" = pull_request ] &&
+            files="$(git diff --name-only --no-renames HEAD^1 HEAD)" && [ -n "${files}" ] &&
+            ! grep -qvE '^(src/coreai_opt/_about\.py|CHANGELOG\.md|changelog\.d/[^/]+)$' <<<"${files}"; then
+            echo "Only release files changed; skipping the tutorial tests and the full test runs."
+            echo "release_only=true" >> "${GITHUB_OUTPUT}"
+          fi
+
   # ── Stage 1: cheap correctness gate (ubuntu-latest, ungated). ──
   check:
     name: Linux / make check
@@ -73,6 +103,10 @@ jobs:
 
   test-tutorials:
     name: Linux / make test-tutorials
+    needs: changes
+    # Skipping this job also skips the macOS and Linux test jobs, which wait
+    # for it.
+    if: needs.changes.outputs.release_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -140,3 +174,39 @@ jobs:
         with:
           name: test-results-linux-${{ matrix.torch }}-${{ matrix.speed }}
           path: test-results/
+
+  # ── The only check the branch rule requires. ──
+  # Passes only if every job in `needs` succeeded, apart from the skips the
+  # script allows. A new job must be added to `needs`, or this check won't wait
+  # for it.
+  ci-gate:
+    name: All required checks passed
+    # Run even when a job failed or the run was cancelled: if this job were
+    # skipped, the branch rule would count it as passed.
+    if: always()
+    needs: [changes, check, test-smoke, test-tutorials, macos-tests, linux-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check required CI results
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          RELEASE_ONLY: ${{ needs.changes.outputs.release_only }}
+        run: |
+          # Jobs allowed to be skipped: the long tests on a release-only PR, and
+          # the macOS tests in any repository other than apple/coreai-optimization,
+          # where that job never runs. Any other skip, failure, or cancel fails
+          # this check.
+          if [ "${RELEASE_ONLY}" = true ]; then
+            may_skip='["test-tutorials", "macos-tests", "linux-tests"]'
+          elif [ "${GITHUB_REPOSITORY}" != apple/coreai-optimization ]; then
+            may_skip='["macos-tests"]'
+          else
+            may_skip='[]'
+          fi
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"${NEEDS_JSON}"
+          jq -e --argjson may_skip "${may_skip}" '
+            length > 0 and all(to_entries[];
+              .value.result == "success"
+              or (.value.result == "skipped" and (.key | IN($may_skip[]))))
+          ' <<<"${NEEDS_JSON}"
