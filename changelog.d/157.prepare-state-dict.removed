@@ -1,1 +1,0 @@
-Removed the `prev_sparsity` argument from `SparsityScheduleBase.compute_sparsity` and its subclasses. Schedules are now pure functions of the step count; `PolynomialDecaySchedule` returns the last update's sparsity for steps between updates instead of passing through `prev_sparsity` or raising `ValueError` when it is omitted.
