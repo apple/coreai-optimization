@@ -228,6 +228,7 @@ class TestWeightAxisDefaults:
         )
         assert isinstance(_get_weight_fqs(prepared)[0].granularity, PerTensorGranularity)
 
+    @pytest.mark.requires_coreai
     @pytest.mark.parametrize("include_activation", _INCLUDE_ACTIVATION_PARAMS)
     @pytest.mark.parametrize("execution_mode", _EXECUTION_MODE_PARAMS)
     @pytest.mark.parametrize("granularity", _GRANULARITY_NONE_PARAMS)

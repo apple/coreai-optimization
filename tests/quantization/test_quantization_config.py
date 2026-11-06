@@ -313,6 +313,7 @@ def test_from_yaml_unexpected_key(tmp_path):
         _ = QuantizerConfig.from_yaml(config_file)
 
 
+@pytest.mark.requires_coreai
 def test_from_yaml_digit_string_keys_e2e(simple_linear_model, simple_linear_model_input):
     """Config with both bare int and quoted digit-string keys quantizes a model end-to-end."""
     config_content = """\

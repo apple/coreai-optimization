@@ -625,7 +625,13 @@ class TestPerBlockActivationQuantization:
             f"Expected weight scale shape {expected_weight_scale_shape}, got {weight_scale_shapes}"
         )
 
-    @pytest.mark.parametrize("backend", [ExportBackend.CoreAI, ExportBackend.CoreML])
+    @pytest.mark.parametrize(
+        "backend",
+        [
+            pytest.param(ExportBackend.CoreAI, marks=pytest.mark.requires_coreai),
+            ExportBackend.CoreML,
+        ],
+    )
     def test_finalize_rejects_per_block_activation(self, execution_mode, backend):
         config = self._make_per_block_activation_config(execution_mode)
         quantizer = Quantizer(SimpleLinearModel(), config)

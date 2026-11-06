@@ -35,6 +35,12 @@ from coreai_opt.quantization.spec.fake_quantize import (
 from coreai_opt.quantization.spec.qparams_calculator import StaticQParamsCalculator
 from coreai_opt.quantization.spec.range_calculator import MinMaxRangeCalculator
 
+# torch.compile raises on a Python that torch doesn't support yet.
+_requires_torch_compile = pytest.mark.skipif(
+    not torch._dynamo.is_dynamo_supported(),
+    reason="torch.compile is not supported on this Python",
+)
+
 
 @pytest.mark.parametrize(
     "granularity",
@@ -591,6 +597,7 @@ def _activation_fake_quantizer(qparam_calculator_cls: str = "dynamic"):
     )
 
 
+@_requires_torch_compile
 def test_forward_compiles_without_graph_break():
     fq = _activation_fake_quantizer()
     x = torch.randn(4, 16)
@@ -631,6 +638,7 @@ def test_unpickling_module_without_flag_mirrors():
     assert torch.equal(restored(x), x)
 
 
+@_requires_torch_compile
 @pytest.mark.parametrize("qparam_calculator_cls", ["static", "moving_average"])
 def test_compiled_observer_toggle_controls_stats_collection(qparam_calculator_cls):
     """A compiled stateful quantizer updates its qparams only while the observer is enabled."""
@@ -656,6 +664,7 @@ def test_compiled_observer_toggle_controls_stats_collection(qparam_calculator_cl
     assert not torch.equal(scale(), frozen), "re-enabled observer should update the qparams again"
 
 
+@_requires_torch_compile
 def test_compiled_dynamic_quantizer_ignores_observer_toggle():
     """A dynamic quantizer recomputes qparams every call, so toggling the observer is a no-op."""
     torch.manual_seed(0)

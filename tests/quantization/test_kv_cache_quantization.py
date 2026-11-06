@@ -433,6 +433,7 @@ class TestKVCacheQuantization:
         ):
             self._prepare_model_with_kv_cache(config)
 
+    @pytest.mark.requires_coreai
     def test_kv_cache_lifecycle(self):
         """End-to-end prepare → calibrate → finalize with two cache ops, each
         configured with a different dtype (key=int8, value=uint8) to prove

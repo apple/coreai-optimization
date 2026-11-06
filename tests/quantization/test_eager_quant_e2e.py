@@ -55,6 +55,7 @@ def test_eager_quantizer():
     assert prepared_model is not None
 
 
+@pytest.mark.requires_coreai
 def test_eager_quantizer_export_non_strict():
     model = nn.Sequential(
         OrderedDict(
@@ -373,6 +374,7 @@ def test_weight_and_activation_qat_mnist(mnist_pretrained_model, mnist_dataset, 
     assert post_qat_accuracy == finalized_accuracy
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.parametrize("param_dtype", [torch.float16, torch.bfloat16, torch.float32])
 def test_weight_scale_consistent_with_export_dtype(param_dtype):
     """

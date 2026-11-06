@@ -15,7 +15,6 @@ import pytest
 import torch
 
 from coreai_opt._utils.fx_utils import is_coreai_compressed_state_node
-from tests.test_utils.general import COREAI_AVAILABLE
 
 
 def _make_node(
@@ -114,7 +113,7 @@ def _find_coreai_nodes(gm: torch.fx.GraphModule, op_name: str) -> list[torch.fx.
     ]
 
 
-@pytest.mark.skipif(not COREAI_AVAILABLE, reason="Requires coreai")
+@pytest.mark.requires_coreai
 class TestIsCoreAICompressedStateNodeIntegration:
     @pytest.mark.seed
     def test_joint_compression_lut_to_dense_not_quantized(
