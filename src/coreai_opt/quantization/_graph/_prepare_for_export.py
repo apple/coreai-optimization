@@ -809,6 +809,14 @@ def _move_cache_dequant_to_output(
     The cache state's dtype (placeholder ``meta['val']`` and op ``meta['val']``) is
     also retyped to the quantized dtype.
 
+    A cache op whose update input is empty (zero-size) is a read-only fetch, e.g. a
+    KV-shared layer reading the slot another layer writes. Prepare leaves its empty
+    update unquantized, so there is no quantize/dequantize to move; instead its empty
+    update is replaced by one in the quantized dtype and its output gets a dequantize
+    with the params of the op writing the same slot. A writer and its readers share
+    their non-tensor args (e.g. ``layer_idx``), which identify the slot; the writer
+    must come before its readers in the graph.
+
     Precondition: the cache op must commute with quantize/dequantize — i.e.
     a pure data-movement op (slicing, narrowing, copy). Arithmetic on cached
     values would silently produce a numerically wrong model.
@@ -826,7 +834,9 @@ def _move_cache_dequant_to_output(
             are not supported), or the cache state cannot be located as a single
             placeholder among the op's args.
         RuntimeError: If the expected ``coreai.quantize`` -> ``coreai.dequantize``
-            chain is not present on the op's input edge.
+            chain is not present on a writing op's input edge, a read-only fetch's
+            slot has no quantized writer before it, or two quantized ops write the
+            same slot.
     """
 
     def _import_coreai_custom_ops():
@@ -836,6 +846,78 @@ def _move_cache_dequant_to_output(
         return coreai
 
     coreai = lazy_import_coreai_torch(_import_coreai_custom_ops)
+
+    def _cache_placeholder(op_node: Node) -> Node:
+        cache_placeholders = [
+            a for a in op_node.args if isinstance(a, Node) and a.op == "placeholder"
+        ]
+        if len(cache_placeholders) != 1:
+            raise NotImplementedError(
+                f"Expected exactly one placeholder among {op_node.name}'s args; "
+                f"found {len(cache_placeholders)}. Cannot determine which input "
+                "is the cache state."
+            )
+        return cache_placeholders[0]
+
+    def _slot_key(op_node: Node, cache_placeholder: Node) -> tuple:
+        # The non-tensor args (e.g. layer_idx) select the slot a cache op reads and writes.
+        return (cache_placeholder, tuple(a for a in op_node.args if not isinstance(a, Node)))
+
+    def _is_empty_update(node: Node) -> bool:
+        val = node.meta.get("val")
+        return isinstance(val, torch.Tensor) and any(
+            isinstance(d, int) and d == 0 for d in val.shape
+        )
+
+    def _dequantize_output(
+        op_node: Node, dq_args: tuple, dq_kwargs: dict, quantized_dtype: torch.dtype
+    ) -> None:
+        original_consumers = list(op_node.users)
+        with model.graph.inserting_after(op_node):
+            new_dq = model.graph.call_function(coreai.dequantize, (op_node, *dq_args), dq_kwargs)
+        # new_dq outputs the original compute dtype — which is what
+        # op_node.meta["val"] still holds at this point. Clone so any later
+        # in-place mutation of one meta["val"] doesn't bleed into the other.
+        if "val" in op_node.meta:
+            new_dq.meta["val"] = op_node.meta["val"].clone()
+            op_node.meta["val"] = op_node.meta["val"].to(quantized_dtype)
+        for consumer in original_consumers:
+            consumer.replace_input_with(op_node, new_dq)
+
+    # Dequantize params of the op writing each slot, for read-only fetches of that slot.
+    writer_dequant: dict[tuple, tuple[tuple, dict, torch.dtype]] = {}
+
+    def _rewrite_read_only_fetch(op_node: Node, empty_update: Node) -> None:
+        # Nodes are in execution order and the cache op mutates the cache in place,
+        # so the slot's writer was already seen.
+        key = _slot_key(op_node, _cache_placeholder(op_node))
+        if key not in writer_dequant:
+            raise RuntimeError(
+                f"{op_node.name} is a read-only fetch of slot {key[1]}, but no quantized "
+                f"{op_type} op writes that slot before it; its output cannot be dequantized."
+            )
+        dq_args, dq_kwargs, quantized_dtype = writer_dequant[key]
+        # The cache is now in the quantized dtype; the empty update must match it.
+        # Build it directly in that dtype: casting or reshaping a zero-size
+        # quantized tensor fails to lower. Symbolic dims are read off the original
+        # empty update.
+        shape: list[int | Node] = []
+        with model.graph.inserting_before(op_node):
+            for dim, size in enumerate(empty_update.meta["val"].shape):
+                if isinstance(size, int):
+                    shape.append(size)
+                    continue
+                size_node = model.graph.call_function(
+                    torch.ops.aten.sym_size.int, (empty_update, dim)
+                )
+                size_node.meta["val"] = size
+                shape.append(size_node)
+            new_update = model.graph.call_function(
+                torch.ops.aten.empty.memory_format, (shape,), {"dtype": quantized_dtype}
+            )
+        new_update.meta["val"] = empty_update.meta["val"].to(quantized_dtype)
+        op_node.replace_input_with(empty_update, new_update)
+        _dequantize_output(op_node, dq_args, dq_kwargs, quantized_dtype)
 
     rewrites = 0
     for op_node in model.graph.nodes:
@@ -849,18 +931,6 @@ def _move_cache_dequant_to_output(
                 f"Op {op_node.name} has {len(op_node.all_input_nodes)} input nodes; "
                 f"quant_input_idx={quant_input_idx} is out of range."
             )
-        dq_node = op_node.all_input_nodes[quant_input_idx]
-        if not (isinstance(dq_node, Node) and dq_node.target is coreai.dequantize):
-            raise RuntimeError(
-                f"Expected coreai.dequantize on input {quant_input_idx} of "
-                f"{op_node.name}, found {dq_node!r} "
-                f"(target={getattr(dq_node, 'target', None)!r})."
-            )
-        q_node = dq_node.args[0]
-        if not (isinstance(q_node, Node) and q_node.target is coreai.quantize):
-            raise RuntimeError(
-                f"Expected coreai.quantize feeding {dq_node.name}, found {q_node!r}."
-            )
 
         getitem_users = [
             u for u in op_node.users if u.op == "call_function" and u.target is operator.getitem
@@ -872,7 +942,23 @@ def _move_cache_dequant_to_output(
                 "Relocation for multi-output cache ops is not implemented yet."
             )
 
-        original_consumers = list(op_node.users)
+        dq_node = op_node.all_input_nodes[quant_input_idx]
+        if not (isinstance(dq_node, Node) and dq_node.target is coreai.dequantize):
+            if _is_empty_update(dq_node):
+                _rewrite_read_only_fetch(op_node, dq_node)
+                rewrites += 1
+                continue
+            raise RuntimeError(
+                f"Expected coreai.dequantize on input {quant_input_idx} of "
+                f"{op_node.name}, found {dq_node!r} "
+                f"(target={getattr(dq_node, 'target', None)!r})."
+            )
+        q_node = dq_node.args[0]
+        if not (isinstance(q_node, Node) and q_node.target is coreai.quantize):
+            raise RuntimeError(
+                f"Expected coreai.quantize feeding {dq_node.name}, found {q_node!r}."
+            )
+
         quantized_dtype = q_node.args[2]
         if not isinstance(quantized_dtype, torch.dtype):
             raise RuntimeError(
@@ -880,31 +966,18 @@ def _move_cache_dequant_to_output(
                 f"got {type(quantized_dtype).__name__}: {quantized_dtype!r}."
             )
 
-        # Find the cache placeholder among the op's args.
-        cache_placeholders = [
-            a for a in op_node.args if isinstance(a, Node) and a.op == "placeholder"
-        ]
-        if len(cache_placeholders) != 1:
-            raise NotImplementedError(
-                f"Expected exactly one placeholder among {op_node.name}'s args; "
-                f"found {len(cache_placeholders)}. Cannot determine which input "
-                "is the cache state."
+        cache_placeholder = _cache_placeholder(op_node)
+        key = _slot_key(op_node, cache_placeholder)
+        if key in writer_dequant:
+            raise RuntimeError(
+                f"Two quantized {op_type} ops write slot {key[1]} of {cache_placeholder.name}; "
+                "cannot tell which one's params a read-only fetch of that slot should use."
             )
-        cache_placeholder = cache_placeholders[0]
+        dq_args, dq_kwargs = dq_node.args[1:], dict(dq_node.kwargs)
+        writer_dequant[key] = (dq_args, dq_kwargs, quantized_dtype)
 
         op_node.replace_input_with(dq_node, q_node)
-        with model.graph.inserting_after(op_node):
-            new_dq = model.graph.call_function(
-                coreai.dequantize, (op_node, *dq_node.args[1:]), dict(dq_node.kwargs)
-            )
-        # new_dq outputs the original compute dtype — which is what
-        # op_node.meta["val"] still holds at this point. Clone so any later
-        # in-place mutation of one meta["val"] doesn't bleed into the other.
-        if "val" in op_node.meta:
-            new_dq.meta["val"] = op_node.meta["val"].clone()
-            op_node.meta["val"] = op_node.meta["val"].to(quantized_dtype)
-        for consumer in original_consumers:
-            consumer.replace_input_with(op_node, new_dq)
+        _dequantize_output(op_node, dq_args, dq_kwargs, quantized_dtype)
 
         if "val" in cache_placeholder.meta:
             cache_placeholder.meta["val"] = cache_placeholder.meta["val"].to(quantized_dtype)

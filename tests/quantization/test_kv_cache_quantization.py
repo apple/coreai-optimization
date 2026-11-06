@@ -593,3 +593,131 @@ class TestKVCacheQuantization:
                 f"{op_short_name}'s cache-state input should not be observed; "
                 f"got {cache_input.op}/{cache_input.target}"
             )
+
+
+class _SharedKVCacheModel(nn.Module):
+    """A key-cache write of slot 0 plus a read-only fetch (empty update) of ``read_slot``.
+
+    The empty update is what a KV-shared layer passes: it reads another layer's slot
+    without writing one of its own.
+    """
+
+    def __init__(self, read_slot: int):
+        super().__init__()
+        self.read_slot = read_slot
+        self.k_proj = nn.Linear(8, 32)
+
+    def forward(self, k_cache, v_cache, q, k_new, v_new):
+        begin = torch.zeros(5, dtype=torch.int32)
+        end = torch.zeros(5, dtype=torch.int32)
+        ops = torch.ops.coreai_opt_test_kv_cache
+        k = ops.key_cache_update(k_cache, self.k_proj(k_new).unsqueeze(0), begin, end, 0, 4)
+        empty = k_cache.new_empty((1, 1, 8, 0, 32))
+        k_shared = ops.key_cache_update(k_cache, empty, begin, end, self.read_slot, 4)
+        sdpa = torch.nn.functional.scaled_dot_product_attention
+        return sdpa(q, k, k) + sdpa(q, k_shared, k_shared)
+
+
+def _prepared_shared_cache_quantizer(read_slot: int) -> Quantizer:
+    config = _build_quantizer_config(
+        kv_cache_quant_configs={
+            "key_cache_update": _default_cache_config(_make_act_spec(torch.int8))
+        },
+    )
+    quantizer = Quantizer(_SharedKVCacheModel(read_slot).eval(), config)
+    quantizer.prepare(_kv_cache_attention_example_inputs())
+    return quantizer
+
+
+class TestReadOnlyCacheFetch:
+    def test_read_only_fetch_reuses_writer_dequant(self):
+        """The fetch's output is dequantized with the params of the op writing its slot."""
+        finalized = _prepared_shared_cache_quantizer(read_slot=0).finalize(
+            backend=ExportBackend.CoreAI
+        )
+        cache_ops = [
+            n
+            for n in finalized.graph.nodes
+            if n.op == "call_function" and "key_cache_update" in str(n.target)
+        ]
+        assert len(cache_ops) == 2, f"expected a writer and a reader; got {cache_ops}"
+        quantize = torch.ops.coreai.quantize
+        (writer,) = [n for n in cache_ops if n.all_input_nodes[1].target is quantize]
+        (reader,) = [n for n in cache_ops if n is not writer]
+
+        writer_dq, reader_dq = list(writer.users), list(reader.users)
+        assert len(writer_dq) == 1 and len(reader_dq) == 1
+        assert reader_dq[0].target is torch.ops.coreai.dequantize, (
+            f"read-only fetch output should be dequantized; got {reader_dq[0].target}"
+        )
+        assert reader_dq[0].args[1:] == writer_dq[0].args[1:], (
+            "read-only fetch should dequantize with its slot writer's scale / zero-point"
+        )
+        assert reader.meta["val"].dtype == torch.int8
+        reader_update = reader.all_input_nodes[1]
+        assert reader_update.meta["val"].dtype == torch.int8, (
+            "read-only fetch's empty update should match the quantized cache dtype"
+        )
+
+    def test_read_only_fetch_without_writer_raises(self):
+        """A fetch of a slot no quantized op writes cannot be dequantized."""
+        quantizer = _prepared_shared_cache_quantizer(read_slot=1)
+        with pytest.raises(RuntimeError, match="read-only fetch of slot"):
+            quantizer.finalize(backend=ExportBackend.CoreAI)
+
+    def test_read_only_fetch_with_symbolic_empty_update(self):
+        """An empty update with a dynamic dim is rebuilt in the quantized dtype with that dim."""
+
+        class _DynamicSharedKVCacheModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.k_proj = nn.Linear(8, 32)
+
+            def forward(self, k_cache, v_cache, q, k_new, v_new):
+                begin = torch.zeros(5, dtype=torch.int32)
+                end = torch.zeros(5, dtype=torch.int32)
+                ops = torch.ops.coreai_opt_test_kv_cache
+                k = ops.key_cache_update(k_cache, self.k_proj(k_new).unsqueeze(0), begin, end, 0, 4)
+                # The empty update's dim 1 follows q's dynamic batch.
+                empty = k_cache.new_empty((1, q.shape[0], 8, 0, 32))
+                k_shared = ops.key_cache_update(k_cache, empty, begin, end, 0, 4)
+                return k + k_shared + q.sum()
+
+        config = _build_quantizer_config(
+            kv_cache_quant_configs={
+                "key_cache_update": _default_cache_config(_make_act_spec(torch.int8))
+            },
+        )
+        k_cache, v_cache, q, k_new, v_new = _kv_cache_attention_example_inputs()
+        q = torch.randn(3, *q.shape[1:])
+        quantizer = Quantizer(_DynamicSharedKVCacheModel().eval(), config)
+        quantizer.prepare(
+            (k_cache, v_cache, q, k_new, v_new),
+            dynamic_shapes={
+                "k_cache": None,
+                "v_cache": None,
+                "q": {0: torch.export.Dim("batch", min=2, max=8)},
+                "k_new": None,
+                "v_new": None,
+            },
+        )
+        finalized = quantizer.finalize(backend=ExportBackend.CoreAI)
+
+        (reader,) = [
+            n
+            for n in finalized.graph.nodes
+            if n.op == "call_function"
+            and "key_cache_update" in str(n.target)
+            and n.all_input_nodes[1].target is torch.ops.aten.empty.memory_format
+        ]
+        new_update = reader.all_input_nodes[1]
+        assert new_update.meta["val"].dtype == torch.int8
+        batch_size = new_update.args[0][1]
+        assert isinstance(batch_size, torch.fx.Node), (
+            f"dynamic dim should come from a size node; got {batch_size!r}"
+        )
+        assert batch_size.target is torch.ops.aten.sym_size.int
+
+        k_cache_q, v_cache_q = k_cache.to(torch.int8), v_cache.to(torch.int8)
+        for batch in (3, 5):
+            finalized(k_cache_q, v_cache_q, torch.randn(batch, *q.shape[1:]), k_new, v_new)
