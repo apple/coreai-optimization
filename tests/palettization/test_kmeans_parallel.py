@@ -9,6 +9,7 @@ import pytest
 import torch
 from torch.nn.utils.parametrize import is_parametrized
 
+from coreai_opt import ExportBackend
 from coreai_opt.palettization import (
     KMeansPalettizer,
     KMeansPalettizerConfig,
@@ -148,6 +149,34 @@ class TestCrossLayerParallel:
 
         assert is_parametrized(prepared_model.conv)
         assert not is_parametrized(prepared_model.linear)
+
+    @pytest.mark.parametrize("num_workers", [1, 2])
+    def test_buffers_and_finalized_model_stay_on_weight_device(
+        self, num_workers, accelerator_device
+    ):
+        """Centroids end up on the weight's device (workers cluster on CPU), and so does the
+        finalized model."""
+        device = accelerator_device
+        model = torch.nn.Sequential(torch.nn.Linear(64, 64), torch.nn.Linear(64, 64)).to(device)
+        spec = PalettizationSpec(
+            n_bits=4,
+            granularity=PerGroupedChannelGranularity(group_size=32, axis=0),
+            cluster_dim=1,
+        )
+        palettizer = KMeansPalettizer(model, _make_config(spec))
+        prepared = palettizer.prepare((torch.randn(1, 64, device=device),), num_workers=num_workers)
+
+        fps = _collect_fake_palettize_modules(prepared)
+        assert len(fps) == 2
+        for fp in fps:
+            assert fp.centroids.device.type == device
+            assert fp.indices.device.type == "cpu"
+
+        finalized = palettizer.finalize(prepared, backend=ExportBackend.Torch)
+
+        tensors = [*finalized.parameters(), *finalized.buffers()]
+        assert tensors
+        assert all(t.device.type == device for t in tensors)
 
     def test_parallel_with_no_palettize_modules_is_noop(
         self, simple_conv_linear_model, simple_model_input
