@@ -1,0 +1,1 @@
+Fix device mismatch error in the forward pass of a model prepared by `KMeansPalettizer.prepare()` with `num_workers > 1` on CUDA/MPS.

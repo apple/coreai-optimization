@@ -650,10 +650,20 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
         parametrization registration. In the parallel path ``results`` holds the
         workers' returned copies; in-process they are the same live objects
         (mutated in place), so the assignment is a harmless no-op there.
+
+        Workers cluster on CPU, so each module is moved to its weight's device here;
+        ``indices`` stay CPU-resident.
         """
         for info, new_fp in zip(fp_info, results, strict=True):
             if new_fp.is_disabled():
                 logger.warning("Disabling palettization for weight '%s'", new_fp.tensor_fqn)
+
+            # Set new_fp contents to the correct device except for indices (which remains on cpu).
+            # Temporarily set new_fp.indices to None to prevent moving it to the device before it
+            # is set back to cpu.
+            indices, new_fp.indices = new_fp.indices, None
+            new_fp.to(info.weight.device)
+            new_fp.indices = indices
             info.module.parametrizations[info.attr_name][info.idx] = new_fp
 
     @staticmethod
