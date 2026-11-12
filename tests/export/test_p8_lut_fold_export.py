@@ -222,6 +222,25 @@ def test_quantized_lut_export_half_precision_model(model_dtype: torch.dtype) -> 
     )
 
 
+def test_p8_lut_fold_small_values_stay_8bit() -> None:
+    """Folded 8-bit values that fit in fewer bits keep their 8-bit zero point."""
+
+    def make_layer() -> nn.Module:
+        layer = nn.Linear(64, 32)
+        nn.init.constant_(layer.weight, -0.05)
+        return layer
+
+    model, input_data, prepared_model_output = _palettize(make_layer, (4, 64), 8, torch.uint8)
+
+    export_utils.convert_and_verify(
+        finalized_model=model,
+        input_data=input_data,
+        expected_ops={"lut_to_dense": 0, "constexpr_blockwise_shift_scale": 1},
+        export_backend=ExportBackend.CoreAI,
+        prepared_model_output=prepared_model_output,
+    )
+
+
 @_INT8_LUT_DTYPES_AND_QSCHEMES
 @_GRANULARITIES
 @_LAYERS
