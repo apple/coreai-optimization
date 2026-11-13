@@ -819,3 +819,36 @@ class TestFusedAssignAccumulate:
         ek._EPOCH_GRAPHS.clear()  # a graph captured with the kernel must not be reused
         plain = ek._emeans_batched_centroids(x, seeds)
         torch.testing.assert_close(fused, plain, rtol=1e-3, atol=1e-3)
+
+
+@pytest.mark.cuda
+class TestHostTransfers:
+    """Blocks go to the GPU and results come back through pinned memory, with the same values."""
+
+    @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+    def test_stacking_blocks_to_the_gpu_equals_a_plain_stack(self, dtype):
+        base = torch.randn(7, 300, 2).to(dtype)
+        for blocks in (
+            list(base),
+            [base[i, ::2] for i in range(7)],
+        ):  # contiguous rows, strided rows
+            expected = torch.stack(blocks).to("cuda").float()
+            got = ek._stack_to_device(blocks, "cuda")
+            assert got.is_contiguous() and got.dtype == torch.float32
+            assert torch.equal(got, expected)
+
+    def test_blocks_already_on_the_gpu_are_stacked_as_before(self):
+        blocks = list(torch.randn(3, 50, 2, device="cuda"))
+        assert torch.equal(ek._stack_to_device(blocks, "cuda"), torch.stack(blocks))
+
+    def test_results_come_back_equal_and_one_blocks_slice_cannot_touch_another(self):
+        labels = torch.randint(0, 9, (5, 40), device="cuda")
+        host = ek._to_cpu(labels)
+        assert host.device.type == "cpu" and torch.equal(host, labels.cpu())
+        before = host[1].clone()
+        host[0].fill_(-1)
+        assert torch.equal(host[1], before)
+
+    def test_cpu_tensors_pass_through(self):
+        x = torch.randn(3, 4)
+        assert ek._to_cpu(x) is x

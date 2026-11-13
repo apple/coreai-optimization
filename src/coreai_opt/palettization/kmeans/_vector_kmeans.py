@@ -841,6 +841,36 @@ def _cluster_emeans_batched(
     return batched_cluster_avg(x, labels, n_clusters), labels
 
 
+def _stack_to_device(blocks: list[torch.Tensor], device: str) -> torch.Tensor:
+    """Stack ``blocks`` into one contiguous fp32 tensor on ``device``.
+
+    CPU blocks bound for CUDA are stacked into a pinned staging buffer, so the copy to the GPU is
+    one transfer from page-locked memory. Torch caches pinned buffers by size, so after the first
+    call of a shape the allocation is free.
+    """
+    if device == "cuda" and blocks[0].device.type == "cpu":
+        staging = torch.empty(
+            (len(blocks), *blocks[0].shape), dtype=blocks[0].dtype, pin_memory=True
+        )
+        torch.stack(blocks, out=staging)
+        return staging.to(device, non_blocking=True).float().contiguous()
+    return torch.stack(blocks).to(device).float().contiguous()
+
+
+def _to_cpu(tensor: torch.Tensor) -> torch.Tensor:
+    """``tensor`` on the CPU: one transfer into pinned memory when it comes from CUDA.
+
+    Slicing the result per block then costs nothing, where a ``.cpu()`` per block is a transfer
+    and a synchronization each.
+    """
+    if not tensor.is_cuda:
+        return tensor.cpu()
+    host = torch.empty(tensor.shape, dtype=tensor.dtype, pin_memory=True)
+    host.copy_(tensor, non_blocking=True)
+    torch.cuda.current_stream(tensor.device).synchronize()
+    return host
+
+
 def cluster_vectors(
     blocks: list[torch.Tensor],
     sensitivities: list[torch.Tensor] | None,
@@ -890,7 +920,7 @@ def cluster_vectors(
         by_shape.setdefault(tuple(block.shape), []).append(i)
     results: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
     for idxs in by_shape.values():
-        x = torch.stack([blocks[i] for i in idxs]).to(device).float().contiguous()
+        x = _stack_to_device([blocks[i] for i in idxs], device)
         s = (
             None
             if sensitivities is None
@@ -913,8 +943,9 @@ def cluster_vectors(
                 tol,
                 use_flash=backend == "flash_kmeans",
             )
+        centroids, labels = _to_cpu(centroids), _to_cpu(labels)
         for j, i in enumerate(idxs):
-            results[i] = (centroids[j].cpu(), labels[j].cpu())
+            results[i] = (centroids[j], labels[j])
     logger.info(
         "cluster_vectors: backend=%s blocks=%d k=%d seconds=%.3f",
         backend,
