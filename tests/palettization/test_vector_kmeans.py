@@ -852,3 +852,50 @@ class TestHostTransfers:
     def test_cpu_tensors_pass_through(self):
         x = torch.randn(3, 4)
         assert ek._to_cpu(x) is x
+
+
+@pytest.mark.cuda
+class TestFusedAssignLabels:
+    """The final exact assignment is the fused kernel on CUDA, and equals the torch path."""
+
+    @pytest.mark.parametrize(
+        ("blocks", "n", "k"), [(6, 5000, 4), (5, 3001, 100), (3, 4096, 256), (2, 100, 7)]
+    )
+    def test_labels_equal_the_torch_assignment(self, blocks, n, k):
+        from coreai_opt.palettization.kmeans import _emeans_triton  # noqa: PLC0415
+
+        gen = torch.Generator(device="cuda").manual_seed(blocks + k)
+        x = torch.randn(blocks, n, 2, device="cuda", generator=gen).contiguous()
+        centroids = torch.randn(blocks, k, 2, device="cuda", generator=gen).contiguous()
+        got = _emeans_triton.assign_labels(x, centroids)
+        assert got.dtype == torch.long and got.shape == (blocks, n)
+        assert torch.equal(got, ek._assign_nearest_torch(x, centroids))
+
+    def test_ties_go_to_the_lowest_index_across_tiles(self):
+        from coreai_opt.palettization.kmeans import _emeans_triton  # noqa: PLC0415
+
+        x = torch.zeros(2, 300, 2, device="cuda")
+        centroids = torch.ones(2, 70, 2, device="cuda")  # equidistant, more than one tile
+        assert (_emeans_triton.assign_labels(x, centroids) == 0).all()
+
+    def test_assign_nearest_uses_the_kernel_on_cuda_and_torch_elsewhere(self, monkeypatch):
+        from coreai_opt.palettization.kmeans import _emeans_triton  # noqa: PLC0415
+
+        x, _ = _clustered_blocks(num_blocks=2, points_per_center=40, n_clusters=16)
+        centroids = torch.randn(2, 16, 2)
+        expected = torch.cdist(x, centroids).argmin(-1)
+        assert torch.equal(ek._assign_nearest(x.cuda(), centroids.cuda()).cpu(), expected)
+        monkeypatch.setattr(_emeans_triton, "available", lambda _: False)
+        assert torch.equal(ek._assign_nearest(x.cuda(), centroids.cuda()).cpu(), expected)
+
+    def test_emeans_batched_on_the_gpu_recovers_clusters_with_exact_means(self, monkeypatch):
+        pytest.importorskip("faiss.contrib.e_means")
+        monkeypatch.setattr(ek, "vector_kmeans_backend", lambda has_sensitivities: "emeans_batched")
+        x, centers = _clustered_blocks(num_blocks=4, points_per_center=40, n_clusters=16)
+        results = ek.cluster_vectors(
+            list(x), None, 16, n_local_trials=None, n_init=5, max_iter=300, tol=1e-4
+        )
+        for (centroids, labels), block, true_centers in zip(results, x, centers, strict=True):
+            assert torch.cdist(true_centers, centroids).min(-1).values.max() < 0.1
+            expected = ek.batched_cluster_avg(block[None], labels[None], 16)[0]
+            torch.testing.assert_close(centroids, expected)

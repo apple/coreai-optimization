@@ -510,9 +510,20 @@ def _cluster_emeans(
 def _assign_nearest(x: torch.Tensor, centroids: torch.Tensor) -> torch.Tensor:
     """``(B, N)`` index of the nearest centroid for every point, in float32.
 
-    The norm trick, chunked over ``N`` so the ``(B, chunk, K)`` distance tile stays near the
-    size the torch Lloyd loop uses. The point's own squared norm does not change the argmin.
+    On CUDA with two-number vectors this is the fused kernel the training step uses; elsewhere
+    :func:`_assign_nearest_torch`, whose arithmetic the kernel reproduces.
     """
+    from . import _emeans_triton  # noqa: PLC0415 - Triton is optional
+
+    if _emeans_triton.available(x):
+        return _emeans_triton.assign_labels(x, centroids)
+    return _assign_nearest_torch(x, centroids)
+
+
+def _assign_nearest_torch(x: torch.Tensor, centroids: torch.Tensor) -> torch.Tensor:
+    """:func:`_assign_nearest` in torch: the norm trick, chunked over ``N`` so the
+    ``(B, chunk, K)`` distance tile stays near the size the torch Lloyd loop uses. The point's own
+    squared norm does not change the argmin."""
     b, n, _ = x.shape
     k = centroids.shape[1]
     chunk = max(1, min(n, _TORCH_DIST_ELEMENTS // max(1, b * k)))
