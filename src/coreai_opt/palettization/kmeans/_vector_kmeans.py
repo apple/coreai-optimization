@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 #: starts from e-means' random rows, "emeans_kmeanspp" from this module's greedy
 #: k-means++ seeds. Unset or "flash" keeps the default backends.
 _BACKEND_ENV = "COREAI_OPT_VECTOR_KMEANS_BACKEND"
-_EMEANS_BACKENDS = ("emeans", "emeans_kmeanspp")
+_EMEANS_BACKENDS = ("emeans", "emeans_kmeanspp", "emeans_batched")
 
 
 def _requested_backend() -> str:
@@ -563,7 +563,7 @@ def cluster_vectors(
         )
         if backend in _EMEANS_BACKENDS:
             centroids, labels = _cluster_emeans(
-                x, n_clusters, n_local_trials, kmeanspp=backend == "emeans_kmeanspp"
+                x, n_clusters, n_local_trials, kmeanspp=backend != "emeans"
             )
         else:
             centroids, labels = _cluster_torch(
