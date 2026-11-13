@@ -699,14 +699,6 @@ class _EmeansEpochGraph:
         self.centroids = torch.zeros(b, k, d, device=device)
         self.usage = torch.ones(b, k, device=device)
         self.pass_stats = torch.zeros(b, k, d + 1, device=device)
-        side = torch.cuda.Stream(device)
-        side.wait_stream(torch.cuda.current_stream(device))
-        with torch.cuda.stream(side):
-            # Outside the capture, once per distinct step shape (the full batch and the
-            # remainder): a kernel is compiled and loaded the first time it is launched.
-            for step in {0, self.steps - 1}:
-                self._step(step)
-        torch.cuda.current_stream(device).wait_stream(side)
         self.graph = torch.cuda.CUDAGraph()
         with torch.cuda.graph(self.graph):
             for step in range(self.steps):
