@@ -20,8 +20,9 @@ try:
 except ImportError:  # pragma: no cover - no Triton: the caller keeps the torch loop
     triton = None
 
-#: Most candidates per step the kernel handles (the recipe uses ``2 + int(log(k))``).
-MAX_TRIALS = 16
+# Candidates per step are unrolled into the kernel, so compile time grows with the count. The
+# recipe uses ``2 + int(log(k))``, which is under 16 for any realistic ``k``.
+_MAX_TRIALS = 16
 _BLOCK = 1024
 
 
@@ -32,7 +33,7 @@ def available(x: torch.Tensor, n_trials: int) -> bool:
         and x.is_cuda
         and x.shape[-1] == 2
         and x.dtype == torch.float32
-        and n_trials <= MAX_TRIALS
+        and n_trials <= _MAX_TRIALS
     )
 
 

@@ -36,6 +36,8 @@ import warnings
 import numpy as np
 import torch
 
+from . import _emeans_triton, _kmeanspp_triton
+
 #: Lloyd iterations between convergence checks.
 _CHECK_EVERY = 5
 
@@ -514,8 +516,6 @@ def _assign_nearest(x: torch.Tensor, centroids: torch.Tensor) -> torch.Tensor:
     On CUDA with two-number vectors this is the fused kernel the training step uses; elsewhere
     :func:`_assign_nearest_torch`, whose arithmetic the kernel reproduces.
     """
-    from . import _emeans_triton  # noqa: PLC0415 - Triton is optional
-
     if _emeans_triton.available(x):
         return _emeans_triton.assign_labels(x, centroids)
     return _assign_nearest_torch(x, centroids)
@@ -570,8 +570,6 @@ def _emeans_step(
     CUDA graph. ``replace_usage`` is faiss' ``alpha == 1`` case: the old mass is discarded.
     Sums and counts live in one ``(B, K, D + 1)`` buffer, ``pass_stats`` being the same layout.
     """
-    from . import _emeans_triton  # noqa: PLC0415 - Triton is optional
-
     b, _, d = x.shape
     k = centroids.shape[1]
     stats = torch.zeros(b, k, d + 1, device=x.device)
@@ -605,7 +603,7 @@ def _ema_update(
         from faiss.contrib.e_means.triton_assignment import ema_update  # noqa: PLC0415
 
         b, k, d = centroids.shape
-        if ema_update(
+        updated = ema_update(
             sums.view(b * k, d),
             counts.view(b * k),
             centroids.view(b * k, d),
@@ -613,8 +611,11 @@ def _ema_update(
             alpha,
             decay,
             replace_usage,
-        ):
-            return
+        )
+        assert updated, (
+            "faiss' EMA kernel declined statistics laid out as this module lays them out"
+        )
+        return
     touched = counts > 0
     if replace_usage:
         retained = torch.zeros_like(usage)
@@ -810,8 +811,6 @@ def _kmeanspp_seeds_fused(
     within float rounding of a tie can go the other way: the seeds can differ from the unfused
     loop's, and so can every draw after the first difference.
     """
-    from . import _kmeanspp_triton as fused  # noqa: PLC0415 - Triton is optional
-
     b, n, d = x.shape
     if n_clusters > n:
         raise ValueError(f"n_clusters {n_clusters} exceeds {n} points per block")
@@ -827,9 +826,9 @@ def _kmeanspp_seeds_fused(
         potential = torch.where((total <= 0).unsqueeze(1), 1.0, closest)
         cand = torch.multinomial(potential, n_local_trials, replacement=True, generator=generator)
         cand_pts = torch.gather(x, 1, cand.unsqueeze(-1).expand(-1, -1, d))
-        best = fused.candidate_potentials(x, closest, cand_pts).argmin(dim=1)
+        best = _kmeanspp_triton.candidate_potentials(x, closest, cand_pts).argmin(dim=1)
         seeds[:, i] = cand_pts[rows, best]
-        total = fused.update_closest(x, closest, seeds[:, i])
+        total = _kmeanspp_triton.update_closest(x, closest, seeds[:, i])
     return seeds
 
 
@@ -848,9 +847,7 @@ def _cluster_emeans_batched(
     generator = torch.Generator(device=x.device)
     generator.manual_seed(_tensor_seed(x))
     trials = _resolve_n_local_trials(n_local_trials, n_clusters)
-    from . import _kmeanspp_triton as fused  # noqa: PLC0415 - Triton is optional
-
-    if fused.available(x, trials):
+    if _kmeanspp_triton.available(x, trials):
         seeds = _kmeanspp_seeds_fused(x, n_clusters, trials, generator)
     else:
         seeds = batched_kmeanspp_init(x, n_clusters, trials, generator)
@@ -935,12 +932,16 @@ def cluster_vectors(
     # torch backend runs on the GPU, or on the CPU when scikit-learn is unavailable.
     start = time.perf_counter()
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    pinned = backend == "emeans_batched"  # the other backends keep their own transfers
     by_shape: dict[tuple[int, ...], list[int]] = {}
     for i, block in enumerate(blocks):
         by_shape.setdefault(tuple(block.shape), []).append(i)
     results: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
     for idxs in by_shape.values():
-        x = _stack_to_device([blocks[i] for i in idxs], device)
+        if pinned:
+            x = _stack_to_device([blocks[i] for i in idxs], device)
+        else:
+            x = torch.stack([blocks[i] for i in idxs]).to(device).float().contiguous()
         s = (
             None
             if sensitivities is None
@@ -963,9 +964,13 @@ def cluster_vectors(
                 tol,
                 use_flash=backend == "flash_kmeans",
             )
-        centroids, labels = _to_cpu(centroids), _to_cpu(labels)
-        for j, i in enumerate(idxs):
-            results[i] = (centroids[j], labels[j])
+        if pinned:
+            centroids, labels = _to_cpu(centroids), _to_cpu(labels)
+            for j, i in enumerate(idxs):
+                results[i] = (centroids[j], labels[j])
+        else:
+            for j, i in enumerate(idxs):
+                results[i] = (centroids[j].cpu(), labels[j].cpu())
     logger.info(
         "cluster_vectors: backend=%s blocks=%d k=%d seconds=%.3f",
         backend,
