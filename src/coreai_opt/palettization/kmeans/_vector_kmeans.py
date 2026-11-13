@@ -46,6 +46,10 @@ _TORCH_DIST_ELEMENTS = 2**27
 
 logger = logging.getLogger(__name__)
 
+#: faiss e-means' default ``seed``; every per-block run uses it, so the batched epochs do too. The
+#: private helpers imported from ``faiss.contrib.e_means`` below exist in faiss-cpu 1.16.0.
+_EMEANS_SEED = 1234
+
 #: Picks faiss e-means for unweighted GPU clustering, an experimental backend: "emeans"
 #: starts from e-means' random rows, "emeans_kmeanspp" from this module's greedy
 #: k-means++ seeds, and "emeans_batched" is "emeans_kmeanspp" with all blocks of a tensor
@@ -659,7 +663,7 @@ def _centroids_eager(
     pass_stats = torch.zeros(b, k, d + 1, device=x.device)
     step = 0
     for epoch, rows in enumerate(rows_per_epoch):
-        seed = _epoch_seed(1234, epoch)  # faiss' default seed, as every per-block run uses
+        seed = _epoch_seed(_EMEANS_SEED, epoch)
         order = torch.randperm(n, generator=_torch_generator(x.device, seed), device=x.device)
         last = epoch == len(rows_per_epoch) - 1
         for begin in range(0, rows, batch):
@@ -761,7 +765,7 @@ def _centroids_graphed(
     graph.usage.fill_(_INIT_USAGE)
     rates = torch.tensor([(a, 1.0 - a) for a in alphas], dtype=torch.float32, device=x.device)
     for epoch in range(nepochs):
-        seed = _epoch_seed(1234, epoch)
+        seed = _epoch_seed(_EMEANS_SEED, epoch)
         graph.order.copy_(
             torch.randperm(n, generator=_torch_generator(x.device, seed), device=x.device)
         )
@@ -947,9 +951,16 @@ def cluster_vectors(
             if sensitivities is None
             else torch.stack([sensitivities[i] for i in idxs]).to(device).float()
         )
-        if backend == "emeans_batched" and x.shape[-1] <= 2:
+        if backend == "emeans_batched" and x.shape[-1] == 2:
             centroids, labels = _cluster_emeans_batched(x, n_clusters, n_local_trials)
         elif backend in _EMEANS_BACKENDS:
+            if backend == "emeans_batched":
+                warnings.warn(
+                    f"{_BACKEND_ENV}=emeans_batched batches two-number vectors only; "
+                    f"these are {x.shape[-1]}-number vectors, so each block runs on its own",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
             centroids, labels = _cluster_emeans(
                 x, n_clusters, n_local_trials, kmeanspp=backend != "emeans"
             )

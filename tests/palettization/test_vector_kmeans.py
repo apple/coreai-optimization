@@ -628,6 +628,33 @@ class TestEmeansBatched:
             assert torch.equal(labels, per_block_labels)
             assert torch.cdist(true_centers, batched).min(-1).values.max() < 0.1
 
+    @pytest.mark.parametrize("n", [32768, 40960, 65536, 98304, 155648])
+    @pytest.mark.parametrize("k", [4, 8, 16, 64, 256])
+    def test_every_qwen3_block_length_at_every_width_takes_the_graph_path(self, n, k):
+        # The block lengths of Qwen3-1.7B and Qwen3-4B projections (32 rows of cluster_dim 2). The
+        # CUDA graph needs a step size below 1 and every epoch to be a full pass; otherwise the
+        # eager loop runs on CUDA too.
+        pytest.importorskip("faiss.contrib.e_means")
+        from faiss.contrib.e_means.e_means_torch import _epoch_rows, _resolve_recipe  # noqa: PLC0415
+
+        _, alpha0 = _resolve_recipe(n, k, 5, "quality", None, None)
+        assert alpha0 < 1
+        assert _epoch_rows(n, 5) == [n] * 5
+
+    def test_faiss_turns_revival_off_for_two_number_vectors(self):
+        # The batched epochs do not revive empty clusters; faiss' default must agree for D <= 2.
+        pytest.importorskip("faiss.contrib.e_means")
+        from faiss.contrib.e_means import base  # noqa: PLC0415
+
+        assert base._NO_REVIVAL_MAX_D >= 2
+
+    def test_the_cpu_assignment_chunks_over_points_and_changes_nothing(self, monkeypatch):
+        x, _ = _clustered_blocks(num_blocks=2, points_per_center=40, n_clusters=16)
+        centroids = torch.randn(2, 16, 2)
+        whole = ek._assign_nearest_torch(x, centroids)
+        monkeypatch.setattr(ek, "_TORCH_DIST_ELEMENTS", 2 * 16 * 100)  # chunk of 100 < n
+        assert torch.equal(ek._assign_nearest_torch(x, centroids), whole)
+
     def test_assign_nearest_is_the_exact_nearest_centroid(self):
         x, _ = _clustered_blocks(num_blocks=2, points_per_center=40, n_clusters=16)
         centroids = torch.randn(2, 16, 2)
@@ -639,7 +666,10 @@ class TestEmeansBatched:
         monkeypatch.setattr(ek.torch.cuda, "is_available", lambda: False)
         monkeypatch.setattr(ek, "vector_kmeans_backend", lambda has_sensitivities: "emeans_batched")
         x = torch.randn(2, 600, 4)
-        with caplog.at_level(logging.INFO, logger=ek.__name__):
+        with (
+            caplog.at_level(logging.INFO, logger=ek.__name__),
+            pytest.warns(RuntimeWarning, match="two-number vectors only"),
+        ):
             results = ek.cluster_vectors(
                 list(x), None, 8, n_local_trials=None, n_init=5, max_iter=300, tol=1e-4
             )
