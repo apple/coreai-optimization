@@ -13,6 +13,7 @@ the flash-kmeans and weighted GPU paths.
 
 from __future__ import annotations
 
+import logging
 import warnings
 from unittest import mock
 
@@ -526,3 +527,51 @@ class TestGPUPaths:
             assert torch.cdist(true_centers, centroids).min(-1).values.max() < 0.1
             expected = ek.batched_cluster_avg(block[None], labels[None], 16, s[None])[0]
             torch.testing.assert_close(centroids, expected)
+
+
+class TestEmeansBackend:
+    """The experimental faiss e-means backend, picked with COREAI_OPT_VECTOR_KMEANS_BACKEND."""
+
+    def test_env_var_picks_emeans_only_for_unweighted_gpu_clustering(self, monkeypatch):
+        monkeypatch.setattr(ek.torch.cuda, "is_available", lambda: True)
+        monkeypatch.setenv("COREAI_OPT_VECTOR_KMEANS_BACKEND", "emeans_kmeanspp")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            assert ek.vector_kmeans_backend(has_sensitivities=False) == "emeans_kmeanspp"
+        assert ek.vector_kmeans_backend(has_sensitivities=True) == "torch"
+
+    def test_misspelled_backend_is_rejected(self, monkeypatch):
+        monkeypatch.setenv("COREAI_OPT_VECTOR_KMEANS_BACKEND", "emean")
+        with pytest.raises(ValueError, match="'emean'"):
+            ek.vector_kmeans_backend(has_sensitivities=False)
+
+    def test_cluster_vectors_runs_kmeanspp_seeded_emeans(self, monkeypatch, caplog):
+        pytest.importorskip("faiss.contrib.e_means")
+        monkeypatch.setattr(ek.torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(
+            ek, "vector_kmeans_backend", lambda has_sensitivities: "emeans_kmeanspp"
+        )
+        x, centers = _clustered_blocks(num_blocks=3, points_per_center=40, n_clusters=16)
+        with caplog.at_level(logging.INFO, logger=ek.__name__):
+            results = ek.cluster_vectors(
+                list(x), None, 16, n_local_trials=None, n_init=5, max_iter=300, tol=1e-4
+            )
+        assert "e-means: 3 blocks" in caplog.text
+        for (centroids, labels), true_centers in zip(results, centers, strict=True):
+            assert labels.shape == (x.shape[1],)
+            assert torch.cdist(true_centers, centroids).min(-1).values.max() < 0.1
+
+    def test_labels_come_from_assign_not_from_train(self, monkeypatch):
+        e_means = pytest.importorskip("faiss.contrib.e_means")
+        real_train = e_means.QuantizedEmeans.train
+
+        def train_returning_unusable_labels(self, x, init_centroids=None):
+            centroids, _ = real_train(self, x, init_centroids)
+            return centroids, torch.full((len(x),), -1)
+
+        monkeypatch.setattr(e_means.QuantizedEmeans, "train", train_returning_unusable_labels)
+        x, _ = _clustered_blocks(num_blocks=2, points_per_center=40, n_clusters=16)
+        _, labels = ek._cluster_emeans(x, 16, None, kmeanspp=True)
+        assert labels.shape == x.shape[:2]
+        assert labels.min() >= 0
+        assert labels.max() < 16

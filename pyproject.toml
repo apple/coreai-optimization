@@ -69,6 +69,11 @@ coreml = [
 flash-kmeans = [
     "flash-kmeans>=0.3.1; sys_platform=='linux'",
 ]
+# Experimental faiss e-means GPU clustering for vector palettization, picked with
+# COREAI_OPT_VECTOR_KMEANS_BACKEND=emeans or emeans_kmeanspp.
+e-means = [
+    "faiss-cpu>=1.16.0",
+]
 [project.urls]
 Changelog = "https://github.com/apple/coreai-optimization/blob/main/CHANGELOG.md"
 Repository = "https://github.com/apple/coreai-optimization"
@@ -312,6 +317,7 @@ overrides = [
     # Optional vector k-means backends, imported lazily where used.
     { module = "flash_kmeans.*", ignore_missing_imports = true },
     { module = "sklearn.*", ignore_missing_imports = true },
+    { module = "faiss.*", ignore_missing_imports = true },
 ]
 no_implicit_optional = true
 

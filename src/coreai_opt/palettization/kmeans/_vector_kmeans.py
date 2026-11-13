@@ -25,8 +25,11 @@ are always the exact (sensitivity-weighted) means of the final clusters.
 """
 
 import functools
+import logging
 import math
 import multiprocessing
+import os
+import time
 import warnings
 
 import numpy as np
@@ -37,6 +40,44 @@ _CHECK_EVERY = 5
 
 #: Keeps the torch Lloyd loop's ``(B, chunk, K)`` distance tile near 0.5 GB.
 _TORCH_DIST_ELEMENTS = 2**27
+
+logger = logging.getLogger(__name__)
+
+#: Picks faiss e-means for unweighted GPU clustering, an experimental backend: "emeans"
+#: starts from e-means' random rows, "emeans_kmeanspp" from this module's greedy
+#: k-means++ seeds. Unset or "flash" keeps the default backends.
+_BACKEND_ENV = "COREAI_OPT_VECTOR_KMEANS_BACKEND"
+_EMEANS_BACKENDS = ("emeans", "emeans_kmeanspp")
+
+
+def _requested_backend() -> str:
+    """The backend ``COREAI_OPT_VECTOR_KMEANS_BACKEND`` names; ``"flash"`` when unset.
+
+    Raises:
+        ValueError: If it names no backend, so a typo cannot silently run the default.
+    """
+    requested = os.environ.get(_BACKEND_ENV) or "flash"
+    if requested not in ("flash", *_EMEANS_BACKENDS):
+        raise ValueError(
+            f"{_BACKEND_ENV}={requested!r} names no backend; "
+            f"use flash, {', '.join(_EMEANS_BACKENDS)}"
+        )
+    return requested
+
+
+@functools.cache
+def _warn_emeans(backend: str) -> None:
+    """Warn, once per process and backend, that GPU vector k-means runs faiss e-means.
+
+    A warning rather than a log line, so it shows at any log level: it is the record, in
+    a run's output, of which backend the run used.
+    """
+    warnings.warn(
+        f"{_BACKEND_ENV}={backend}: vector palettization's GPU k-means runs faiss "
+        "e-means, an experimental backend",
+        RuntimeWarning,
+        stacklevel=3,
+    )
 
 
 @functools.cache
@@ -67,10 +108,18 @@ def vector_kmeans_backend(has_sensitivities: bool) -> str:
 
     Returns:
         str: On a CUDA GPU, ``"flash_kmeans"`` (unweighted, flash-kmeans installed) or
-        ``"torch"``. Without a GPU, ``"sklearn"``, or ``"torch"`` (on CPU, with a
-        one-time warning) if scikit-learn is not installed.
+        ``"torch"``; for unweighted clustering, ``COREAI_OPT_VECTOR_KMEANS_BACKEND`` can
+        pick ``"emeans"`` or ``"emeans_kmeanspp"`` instead. Without a GPU, ``"sklearn"``,
+        or ``"torch"`` (on CPU, with a one-time warning) if scikit-learn is not installed.
+
+    Raises:
+        ValueError: If ``COREAI_OPT_VECTOR_KMEANS_BACKEND`` names no backend.
     """
+    requested = _requested_backend()
     if torch.cuda.is_available():
+        if not has_sensitivities and requested in _EMEANS_BACKENDS:
+            _warn_emeans(requested)
+            return requested
         return "flash_kmeans" if not has_sensitivities and _flash_kmeans_available() else "torch"
     if _sklearn_available():
         return "sklearn"
@@ -406,6 +455,57 @@ def _cluster_sklearn(
     return centroids[0], labels
 
 
+def _clock(device: torch.device) -> float:
+    """``time.perf_counter()`` once the work queued on ``device`` has finished."""
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    return time.perf_counter()
+
+
+def _cluster_emeans(
+    x: torch.Tensor, n_clusters: int, n_local_trials: int | None, kmeanspp: bool
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """faiss e-means on each ``(N, D)`` block of ``x``; returns ``(centroids, labels)``.
+
+    e-means solves one k-means problem per ``train`` call, so the blocks run one after
+    another, each once for e-means' default 5 epochs: ``n_init``, ``max_iter`` and ``tol``
+    do not apply. Assignment stays in float32 (``quantizer=None``), as the e-means README
+    recommends for ``D <= 3``. With ``kmeanspp``, each block starts from this module's
+    greedy k-means++ seeds instead of e-means' random rows. Labels come from e-means'
+    ``assign`` against its final centroids, because the labels ``train`` returns were
+    computed while the centroids were still moving. Final centroids are the exact means
+    of those labels, as on the other backends.
+    """
+    from faiss.contrib.e_means import QuantizedEmeans  # noqa: PLC0415 - optional dependency
+
+    seeds = None
+    if kmeanspp:
+        generator = torch.Generator(device=x.device)
+        generator.manual_seed(_tensor_seed(x))
+        trials = _resolve_n_local_trials(n_local_trials, n_clusters)
+        seeds = batched_kmeanspp_init(x, n_clusters, trials, generator)
+    labels, train_s, epoch_s, assign_s = [], 0.0, 0.0, 0.0
+    for i, block in enumerate(x):
+        em = QuantizedEmeans(x.shape[-1], n_clusters, quantizer=None)
+        t0 = _clock(x.device)
+        em.train(block, None if seeds is None else seeds[i])
+        t1 = _clock(x.device)
+        _, block_labels = em.assign(block)
+        t2 = _clock(x.device)
+        train_s, assign_s = train_s + t1 - t0, assign_s + t2 - t1
+        epoch_s += em.iteration_stats[-1]["time"]
+        labels.append(block_labels)
+    logger.info(
+        "e-means: %d blocks, %.3f s in train(), %.3f s of it in e-means epochs, %.3f s in assign()",
+        len(x),
+        train_s,
+        epoch_s,
+        assign_s,
+    )
+    stacked = torch.stack(labels)
+    return batched_cluster_avg(x, stacked, n_clusters), stacked
+
+
 def cluster_vectors(
     blocks: list[torch.Tensor],
     sensitivities: list[torch.Tensor] | None,
@@ -448,6 +548,7 @@ def cluster_vectors(
 
     # One batch per distinct block shape; all blocks of a tensor normally share one. The
     # torch backend runs on the GPU, or on the CPU when scikit-learn is unavailable.
+    start = time.perf_counter()
     device = "cuda" if torch.cuda.is_available() else "cpu"
     by_shape: dict[tuple[int, ...], list[int]] = {}
     for i, block in enumerate(blocks):
@@ -460,16 +561,28 @@ def cluster_vectors(
             if sensitivities is None
             else torch.stack([sensitivities[i] for i in idxs]).to(device).float()
         )
-        centroids, labels = _cluster_torch(
-            x,
-            s,
-            n_clusters,
-            n_local_trials,
-            n_init,
-            max_iter,
-            tol,
-            use_flash=backend == "flash_kmeans",
-        )
+        if backend in _EMEANS_BACKENDS:
+            centroids, labels = _cluster_emeans(
+                x, n_clusters, n_local_trials, kmeanspp=backend == "emeans_kmeanspp"
+            )
+        else:
+            centroids, labels = _cluster_torch(
+                x,
+                s,
+                n_clusters,
+                n_local_trials,
+                n_init,
+                max_iter,
+                tol,
+                use_flash=backend == "flash_kmeans",
+            )
         for j, i in enumerate(idxs):
             results[i] = (centroids[j].cpu(), labels[j].cpu())
+    logger.info(
+        "cluster_vectors: backend=%s blocks=%d k=%d seconds=%.3f",
+        backend,
+        len(blocks),
+        n_clusters,
+        time.perf_counter() - start,
+    )
     return [results[i] for i in range(len(blocks))]
