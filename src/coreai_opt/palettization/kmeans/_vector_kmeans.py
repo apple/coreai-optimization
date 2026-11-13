@@ -46,7 +46,8 @@ logger = logging.getLogger(__name__)
 
 #: Picks faiss e-means for unweighted GPU clustering, an experimental backend: "emeans"
 #: starts from e-means' random rows, "emeans_kmeanspp" from this module's greedy
-#: k-means++ seeds. Unset or "flash" keeps the default backends.
+#: k-means++ seeds, and "emeans_batched" is "emeans_kmeanspp" with all blocks of a tensor
+#: in one step (two-number vectors). Unset or "flash" keeps the default backends.
 _BACKEND_ENV = "COREAI_OPT_VECTOR_KMEANS_BACKEND"
 _EMEANS_BACKENDS = ("emeans", "emeans_kmeanspp", "emeans_batched")
 
@@ -68,10 +69,9 @@ def _requested_backend() -> str:
 
 @functools.cache
 def _warn_emeans(backend: str) -> None:
-    """Warn, once per process and backend, that GPU vector k-means runs faiss e-means.
+    """Warn, on the first use in a process of each backend, that GPU vector k-means runs e-means.
 
-    A warning rather than a log line, so it shows at any log level: it is the record, in
-    a run's output, of which backend the run used.
+    A warning rather than a log line, so it shows at any log level.
     """
     warnings.warn(
         f"{_BACKEND_ENV}={backend}: vector palettization's GPU k-means runs faiss "
@@ -109,9 +109,10 @@ def vector_kmeans_backend(has_sensitivities: bool) -> str:
 
     Returns:
         str: On a CUDA GPU, ``"flash_kmeans"`` (unweighted, flash-kmeans installed) or
-        ``"torch"``; for unweighted clustering, ``COREAI_OPT_VECTOR_KMEANS_BACKEND`` can
-        pick ``"emeans"`` or ``"emeans_kmeanspp"`` instead. Without a GPU, ``"sklearn"``,
-        or ``"torch"`` (on CPU, with a one-time warning) if scikit-learn is not installed.
+        ``"torch"``; for unweighted clustering, ``COREAI_OPT_VECTOR_KMEANS_BACKEND`` can pick
+        ``"emeans"``, ``"emeans_kmeanspp"`` or ``"emeans_batched"`` instead. Without a GPU,
+        ``"sklearn"``, or ``"torch"`` (on CPU, with a one-time warning) if scikit-learn is not
+        installed.
 
     Raises:
         ValueError: If ``COREAI_OPT_VECTOR_KMEANS_BACKEND`` names no backend.
@@ -681,8 +682,7 @@ class _EmeansEpochGraph:
 
     The epoch reads and writes only the static buffers below. A caller refills them before each
     replay: the data, the epoch's permutation and step sizes, the state and the pass totals.
-    Capturing removes the launch overhead of the epoch's ~30 tiny kernels per step; the
-    arithmetic is :func:`_emeans_step`'s, unchanged.
+    The arithmetic is :func:`_emeans_step`'s, unchanged.
     """
 
     def __init__(self, b: int, n: int, k: int, d: int, batch: int, device: torch.device):
@@ -697,8 +697,8 @@ class _EmeansEpochGraph:
         side = torch.cuda.Stream(device)
         side.wait_stream(torch.cuda.current_stream(device))
         with torch.cuda.stream(side):
-            # Outside the capture, once per distinct step shape (the full batch, and the
-            # remainder), so cuBLAS has its handles and workspace before the capture starts.
+            # Outside the capture, once per distinct step shape (the full batch and the
+            # remainder): a kernel is compiled and loaded the first time it is launched.
             for step in {0, self.steps - 1}:
                 self._step(step)
         torch.cuda.current_stream(device).wait_stream(side)
@@ -723,11 +723,14 @@ class _EmeansEpochGraph:
 
 #: Captured epochs, least recently used first. A graph is a function of shape only: every
 #: buffer it reads is refilled per call, so a cache hit and a fresh capture give equal results.
-_EPOCH_GRAPHS: collections.OrderedDict = collections.OrderedDict()
+_EPOCH_GRAPHS: collections.OrderedDict[tuple, _EmeansEpochGraph] = collections.OrderedDict()
 _MAX_EPOCH_GRAPHS = 32
 
 
-def _epoch_graph(b: int, n: int, k: int, d: int, batch: int, device: torch.device):
+def _epoch_graph(
+    b: int, n: int, k: int, d: int, batch: int, device: torch.device
+) -> _EmeansEpochGraph:
+    """The captured epoch for this shape, capturing it on first use."""
     key = (device, b, n, k, d, batch)
     graph = _EPOCH_GRAPHS.pop(key, None) or _EmeansEpochGraph(b, n, k, d, batch, device)
     _EPOCH_GRAPHS[key] = graph
@@ -741,8 +744,7 @@ def _centroids_graphed(
 ) -> torch.Tensor:
     """The same epochs as :func:`_centroids_eager`, replayed from a captured graph (CUDA).
 
-    Needs every epoch to be a full pass and the step never to be 1, which holds for the recipe
-    at any realistic size; the caller checks.
+    Needs every epoch to be a full pass and the step never to be 1; the caller checks.
     """
     from faiss.contrib.e_means.base import _INIT_USAGE  # noqa: PLC0415 - optional dependency
     from faiss.contrib.e_means.e_means_torch import (  # noqa: PLC0415 - optional dependency
@@ -777,7 +779,8 @@ def _emeans_batched_centroids(
     per-epoch permutation and mass-weighted EMA update, with the closing centroids taken as the
     means of the last pass. Only the loop is batched, so one step updates every block. All
     blocks share each epoch's permutation, as faiss' per-block runs do (one fixed seed).
-    Valid for ``D <= 2``, where e-means does not revive empty clusters. On CUDA the epochs are
+    Valid for ``D <= 2``, where e-means' default turns revival of empty clusters off
+    (``_NO_REVIVAL_MAX_D`` in ``faiss.contrib.e_means.base``). On CUDA the epochs are
     replayed from a captured graph when the recipe allows it, and run as a plain loop otherwise.
     """
     from faiss.contrib.e_means.e_means_torch import (  # noqa: PLC0415 - optional dependency
@@ -801,11 +804,11 @@ def _kmeanspp_seeds_fused(
 ) -> torch.Tensor:
     """:func:`batched_kmeanspp_init` for unweighted ``(B, N, 2)`` blocks, with fused Triton steps.
 
-    The draws are the same ``torch.multinomial`` calls in the same order, so the random stream
-    is unchanged. Each step's candidate scores and nearest-seed update come from two kernels that
-    read the points once, instead of a batched matmul and ~15 passes over ``(B, N, trials)``.
-    Distances are ``(x - c)^2`` summed directly, not the norm trick, so seeds can differ from the
-    unfused loop's where two candidates or draws are within float rounding of each other.
+    The generator is called the same way, in the same order. Each step's candidate scores and
+    nearest-seed update come from two kernels that read the points once. Distances are
+    ``(x - c)^2`` summed directly, not the norm trick, so a draw or a candidate comparison that is
+    within float rounding of a tie can go the other way: the seeds can differ from the unfused
+    loop's, and so can every draw after the first difference.
     """
     from . import _kmeanspp_triton as fused  # noqa: PLC0415 - Triton is optional
 
@@ -835,11 +838,12 @@ def _cluster_emeans_batched(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """k-means++-seeded e-means on every ``(N, D)`` block of ``x`` at once.
 
-    Same result as :func:`_cluster_emeans` with ``kmeanspp=True`` (to floating-point order), but
-    one step updates all blocks instead of one block at a time. Labels are an exact assignment
-    against the closing centroids, and the returned centroids are the exact means of those labels.
-    The labels are ``uint8`` when every index fits one (the caller stores them as ``uint8``), so a
-    transfer to the host moves an eighth of the bytes; otherwise they are ``int64``.
+    One step updates all blocks, where :func:`_cluster_emeans` with ``kmeanspp=True`` updates
+    one block at a time; on the CPU the two agree to floating-point order. Labels are an exact
+    assignment against the closing centroids, and the returned centroids are the exact means of
+    those labels.
+    The labels are ``uint8`` when every index fits one, as the palettizer stores them, and
+    ``int64`` otherwise.
     """
     generator = torch.Generator(device=x.device)
     generator.manual_seed(_tensor_seed(x))

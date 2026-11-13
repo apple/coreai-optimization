@@ -5,15 +5,11 @@
 
 """Fused k-means++ seeding steps for two-number vectors on a CUDA GPU (Triton).
 
-:func:`batched_kmeanspp_init` spends 44% of its time in a batched matrix product whose inner
-size is 2, and most of the rest writing and re-reading ``(B, N, trials)`` intermediates. A step
-needs only two things per block: the weighted potential each candidate would leave, and the
+A step needs two things per block: the weighted potential each candidate would leave, and the
 nearest-seed distances once one candidate is chosen. Two kernels compute exactly those, reading
-the points once and writing nothing the size of ``(B, N, trials)``.
-
-The random draws are untouched (they stay ``torch.multinomial`` in the caller), so the stream is
-the same as the unfused loop's. Only the squared distances are computed directly, as
-``(x0 - c0)^2 + (x1 - c1)^2``, instead of by the norm trick: equal up to float rounding.
+the points once and writing nothing the size of ``(B, N, trials)``. The random draws stay
+``torch.multinomial`` in the caller. Squared distances are computed directly, as
+``(x0 - c0)^2 + (x1 - c1)^2``, instead of by the norm trick.
 """
 
 import torch

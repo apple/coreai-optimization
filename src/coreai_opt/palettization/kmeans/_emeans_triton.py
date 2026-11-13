@@ -5,21 +5,16 @@
 
 """Fused nearest-centroid kernels for batched e-means on two-number vectors (Triton).
 
-A step of e-means takes a batch of points per block, finds each point's nearest centroid, and
-adds the point to that centroid's running ``(x, y)`` sums and count. The unfused torch step does
-this with a gather, a batched matrix product whose inner size is 2, a ``(B, batch, K)`` distance
-tile written to memory and read back by ``argmin``, and two ``scatter_add`` calls with their
-zero-fills. This kernel keeps the distances in registers: it reads each point once, scans the
-centroids in tiles keeping a running minimum, and adds the point to the packed statistics
-buffer with atomics.
+A step of e-means finds each picked point's nearest centroid and adds the point to that
+centroid's running ``(x, y)`` sums and count. :func:`assign_accumulate` does that for one step,
+keeping the distances in registers and adding to a packed ``(B, K, 3)`` statistics buffer with
+atomics. :func:`assign_labels` is the final exact assignment: it only stores each point's index.
+Both call one scan of the centroids, so they cannot disagree on a point.
 
-The scores are ``|c|^2 - 2 x.c`` (the point's own ``|x|^2`` does not change the argmin), rounded
-the way the torch step rounds them: products and sums are separate operations with no fusing, the
-dot product accumulating ``x0*c0`` first. Ties go to the lowest index, as ``torch.argmin`` does.
-
-Two entry points share one scan of the centroids, so they cannot disagree on a point:
-:func:`assign_accumulate` is the training step, and :func:`assign_labels` the final exact
-assignment, which only stores each point's index.
+The score is ``|c|^2 - 2 x.c`` (the point's own ``|x|^2`` does not change the argmin), with the dot
+product taken as ``fma(x1, c1, x0 * c0)`` and no automatic fusing, which is how ``torch.bmm``
+rounds these shapes in the tests that compare labels with the torch path. Ties go to the lowest
+index, as ``torch.argmin`` does.
 """
 
 import torch
@@ -30,7 +25,7 @@ try:
 except ImportError:  # pragma: no cover - no Triton: the caller keeps the torch step
     triton = None
 
-# Centroids scanned per loop step: the fastest of the tile shapes tried, on random points.
+# Tile width of the centroid scan.
 _MAX_BLOCK_K = 16
 
 
@@ -68,7 +63,6 @@ if triton is not None:
             c1 = tl.load(centroids_ptr + c_base + 1, mask=mask_k, other=0.0)
             # a lane past the last centroid scores infinity, so it never wins
             c_sq = tl.where(mask_k, c0 * c0 + c1 * c1, float("inf"))
-            # separate multiplies and adds, as torch's bmm and elementwise ops round them
             dot = x0[:, None] * c0[None, :]
             dot = tl.fma(x1[:, None], c1[None, :], dot)
             score = tl.fma(dot, -2.0, c_sq[None, :])  # c_sq - 2 * dot; doubling is exact
