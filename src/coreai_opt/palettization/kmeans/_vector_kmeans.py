@@ -557,6 +557,40 @@ def _emeans_step(
     if pass_sums is not None and pass_counts is not None:
         pass_sums += sums
         pass_counts += counts
+    _ema_update(sums, counts, centroids, usage, alpha, decay, replace_usage)
+
+
+def _ema_update(
+    sums: torch.Tensor,
+    counts: torch.Tensor,
+    centroids: torch.Tensor,
+    usage: torch.Tensor,
+    alpha: float | torch.Tensor,
+    decay: float | torch.Tensor,
+    replace_usage: bool,
+) -> None:
+    """Fold a batch's per-cluster ``sums`` and ``counts`` into ``centroids`` and ``usage``.
+
+    Algorithm 1, line 8 (Equation 2): ``usage`` is the running mass, updated to
+    ``decay * usage + alpha * counts`` (just ``alpha * counts`` when ``replace_usage``), and an
+    occupied cluster moves towards its batch mean by ``alpha * counts / mass``. On CUDA this is
+    faiss' own Triton kernel, which every block's rows can share (the update is independent per
+    cluster); elsewhere it is the same arithmetic in torch.
+    """
+    if centroids.is_cuda:
+        from faiss.contrib.e_means.triton_assignment import ema_update  # noqa: PLC0415
+
+        b, k, d = centroids.shape
+        if ema_update(
+            sums.view(b * k, d),
+            counts.view(b * k),
+            centroids.view(b * k, d),
+            usage.view(b * k),
+            alpha,
+            decay,
+            replace_usage,
+        ):
+            return
     touched = counts > 0
     if replace_usage:
         retained = torch.zeros_like(usage)

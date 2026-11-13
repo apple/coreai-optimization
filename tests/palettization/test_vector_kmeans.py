@@ -736,3 +736,39 @@ class TestFusedKMeansPlusPlus:
         x[1, :, 0] = torch.arange(64, device="cuda") % 3  # three distinct points, ten seeds asked
         seeds = ek._kmeanspp_seeds_fused(x, 10, 3, torch.Generator(device="cuda").manual_seed(0))
         assert seeds.shape == (2, 10, 2) and torch.isfinite(seeds).all()
+
+
+@pytest.mark.cuda
+class TestEmeansUpdate:
+    """On CUDA the EMA update is faiss' Triton kernel; it must equal the torch arithmetic."""
+
+    @staticmethod
+    def _state(blocks, k, seed):
+        gen = torch.Generator(device="cuda").manual_seed(seed)
+        counts = (torch.rand(blocks, k, device="cuda", generator=gen) * 12).floor()  # some empty
+        sums = torch.randn(blocks, k, 2, device="cuda", generator=gen) * counts.unsqueeze(-1)
+        centroids = torch.randn(blocks, k, 2, device="cuda", generator=gen)
+        usage = torch.rand(blocks, k, device="cuda", generator=gen) + 0.1
+        return sums, counts, centroids, usage
+
+    @pytest.mark.parametrize(("blocks", "k"), [(6, 16), (5, 7), (304, 256)])
+    @pytest.mark.parametrize(
+        ("alpha", "replace_usage"), [(0.37, False), (0.05, False), (1.0, True)]
+    )
+    def test_triton_update_equals_torch_update_with_host_and_device_rates(
+        self, blocks, k, alpha, replace_usage
+    ):
+        pytest.importorskip("faiss.contrib.e_means")
+        sums, counts, centroids, usage = self._state(blocks, k, seed=blocks + k)
+        expected_c, expected_u = centroids.clone(), usage.clone()
+        # The torch branch, forced by hiding CUDA from `_ema_update`'s check.
+        cpu_c, cpu_u = expected_c.cpu(), expected_u.cpu()
+        ek._ema_update(sums.cpu(), counts.cpu(), cpu_c, cpu_u, alpha, 1.0 - alpha, replace_usage)
+        for rate in (
+            (alpha, 1.0 - alpha),
+            tuple(torch.tensor([alpha, 1.0 - alpha], dtype=torch.float32, device="cuda")),
+        ):
+            got_c, got_u = centroids.clone(), usage.clone()
+            ek._ema_update(sums.clone(), counts.clone(), got_c, got_u, *rate, replace_usage)
+            torch.testing.assert_close(got_c.cpu(), cpu_c, rtol=0, atol=0)
+            torch.testing.assert_close(got_u.cpu(), cpu_u, rtol=0, atol=0)
