@@ -15,6 +15,7 @@ import operator
 from collections.abc import Iterable, Mapping
 from os import PathLike
 from pathlib import Path
+from typing import NamedTuple
 
 import torch
 from torch.fx import Node
@@ -24,7 +25,7 @@ from coreai_opt._utils.export_utils import (
     prepare_mmap_dir,
     validate_coreml_compatibility,
 )
-from coreai_opt._utils.fx_utils import get_node_type
+from coreai_opt._utils.fx_utils import get_node_type, is_empty_tensor
 from coreai_opt._utils.import_utils import lazy_import_coreai_torch
 from coreai_opt._utils.metadata_utils import CompressionType, MILCompressionMetadata
 from coreai_opt._utils.torch_utils import (
@@ -791,6 +792,37 @@ def prepare_for_mlir_export(
     return model
 
 
+class _SlotKey(NamedTuple):
+    """The cache slot a cache op reads and writes."""
+
+    cache: Node  # The cache-state placeholder.
+    args: tuple[object, ...]  # The op's non-tensor args (e.g. ``layer_idx``); select the slot.
+
+
+class _WriterDequant(NamedTuple):
+    """How the op writing a slot dequantizes it, reused for read-only fetches of that slot."""
+
+    args: tuple  # ``coreai.dequantize`` args after the input (the scale).
+    kwargs: dict  # ``coreai.dequantize`` kwargs (zero point, dtypes).
+    quantized_dtype: torch.dtype
+
+
+class _Writer(NamedTuple):
+    """A cache op writing a quantized update into its slot."""
+
+    op: Node
+    dequantize: Node  # The ``coreai.dequantize`` on the op's update input.
+    params: _WriterDequant
+
+
+class _Reader(NamedTuple):
+    """A cache op reading its slot with an empty update (a read-only fetch)."""
+
+    op: Node
+    empty_update: Node
+    slot: _SlotKey
+
+
 def _move_cache_dequant_to_output(
     model: torch.fx.GraphModule,
     op_type: str,
@@ -809,6 +841,14 @@ def _move_cache_dequant_to_output(
     The cache state's dtype (placeholder ``meta['val']`` and op ``meta['val']``) is
     also retyped to the quantized dtype.
 
+    A cache op whose update input is empty (zero-size) is a read-only fetch, e.g. a
+    KV-shared layer reading the slot another layer writes. Prepare leaves its empty
+    update unquantized, so there is no quantize/dequantize to move; instead its empty
+    update is replaced by one in the quantized dtype and its output gets a dequantize
+    with the params of the op writing the same slot. A writer and its readers share
+    their non-tensor args (e.g. ``layer_idx``), which identify the slot. The cache ops
+    are classified before any is rewritten, so a reader may come before its writer.
+
     Precondition: the cache op must commute with quantize/dequantize — i.e.
     a pure data-movement op (slicing, narrowing, copy). Arithmetic on cached
     values would silently produce a numerically wrong model.
@@ -826,7 +866,8 @@ def _move_cache_dequant_to_output(
             are not supported), or the cache state cannot be located as a single
             placeholder among the op's args.
         RuntimeError: If the expected ``coreai.quantize`` -> ``coreai.dequantize``
-            chain is not present on the op's input edge.
+            chain is not present on a writing op's input edge, a read-only fetch's
+            slot has no quantized writer, or two quantized ops write the same slot.
     """
 
     def _import_coreai_custom_ops():
@@ -837,7 +878,89 @@ def _move_cache_dequant_to_output(
 
     coreai = lazy_import_coreai_torch(_import_coreai_custom_ops)
 
-    rewrites = 0
+    def _cache_placeholder(op_node: Node) -> Node:
+        cache_placeholders = [
+            a for a in op_node.args if isinstance(a, Node) and a.op == "placeholder"
+        ]
+        if len(cache_placeholders) != 1:
+            raise NotImplementedError(
+                f"Expected exactly one placeholder among {op_node.name}'s args; "
+                f"found {len(cache_placeholders)}. Cannot determine which input "
+                "is the cache state."
+            )
+        return cache_placeholders[0]
+
+    def _slot_key(op_node: Node) -> _SlotKey:
+        return _SlotKey(
+            _cache_placeholder(op_node),
+            tuple(a for a in op_node.args if not isinstance(a, Node)),
+        )
+
+    def _dequantize_output(op_node: Node, dequant: _WriterDequant) -> None:
+        original_consumers = list(op_node.users)
+        with model.graph.inserting_after(op_node):
+            new_dq = model.graph.call_function(
+                coreai.dequantize, (op_node, *dequant.args), dequant.kwargs
+            )
+        # new_dq outputs the original compute dtype — which is what
+        # op_node.meta["val"] still holds at this point. Clone so any later
+        # in-place mutation of one meta["val"] doesn't bleed into the other.
+        if "val" in op_node.meta:
+            new_dq.meta["val"] = op_node.meta["val"].clone()
+            op_node.meta["val"] = op_node.meta["val"].to(dequant.quantized_dtype)
+        for consumer in original_consumers:
+            consumer.replace_input_with(op_node, new_dq)
+
+    def _rewrite_writer(op_node: Node, dq_node: Node, dequant: _WriterDequant) -> None:
+        op_node.replace_input_with(dq_node, dq_node.args[0])
+        _dequantize_output(op_node, dequant)
+        cache_placeholder = _cache_placeholder(op_node)
+        if "val" in cache_placeholder.meta:
+            cache_placeholder.meta["val"] = cache_placeholder.meta["val"].to(
+                dequant.quantized_dtype
+            )
+
+    def _rewrite_read_only_fetch(
+        op_node: Node, empty_update: Node, dequant: _WriterDequant
+    ) -> None:
+        # The cache is now in the quantized dtype; the empty update must match it.
+        # Build it directly in that dtype (keeping its shape and device): casting or
+        # reshaping a zero-size quantized tensor fails to lower. Contiguous, because the
+        # default preserve_format decomposes to aten.empty_permuted, which does not lower.
+        with model.graph.inserting_before(op_node):
+            new_update = model.graph.call_function(
+                torch.ops.aten.empty_like.default,
+                (empty_update,),
+                {"dtype": dequant.quantized_dtype, "memory_format": torch.contiguous_format},
+            )
+        new_update.meta["val"] = empty_update.meta["val"].to(dequant.quantized_dtype)
+        op_node.replace_input_with(empty_update, new_update)
+        _dequantize_output(op_node, _params_read_before(op_node, dequant))
+
+    def _params_read_before(op_node: Node, dequant: _WriterDequant) -> _WriterDequant:
+        """``dequant`` with its ``get_attr`` params read again ahead of ``op_node``.
+
+        The writer's params are read next to the writer, which a reader may precede; a
+        ``get_attr`` only reads a buffer, so reading it again is free of side effects.
+        """
+
+        def read_before(arg: object) -> object:
+            if not (isinstance(arg, Node) and arg.op == "get_attr"):
+                return arg
+            with model.graph.inserting_before(op_node):
+                node = model.graph.get_attr(arg.target)
+            node.meta = dict(arg.meta)
+            return node
+
+        return dequant._replace(
+            args=tuple(read_before(a) for a in dequant.args),
+            kwargs={k: read_before(v) for k, v in dequant.kwargs.items()},
+        )
+
+    # Pass 1: classify every cache op as a writer or a read-only fetch, and record the
+    # dequantize params of each slot's writer.
+    writers: dict[_SlotKey, _Writer] = {}
+    readers: list[_Reader] = []
     for op_node in model.graph.nodes:
         if op_node.op != "call_function":
             continue
@@ -848,18 +971,6 @@ def _move_cache_dequant_to_output(
             raise RuntimeError(
                 f"Op {op_node.name} has {len(op_node.all_input_nodes)} input nodes; "
                 f"quant_input_idx={quant_input_idx} is out of range."
-            )
-        dq_node = op_node.all_input_nodes[quant_input_idx]
-        if not (isinstance(dq_node, Node) and dq_node.target is coreai.dequantize):
-            raise RuntimeError(
-                f"Expected coreai.dequantize on input {quant_input_idx} of "
-                f"{op_node.name}, found {dq_node!r} "
-                f"(target={getattr(dq_node, 'target', None)!r})."
-            )
-        q_node = dq_node.args[0]
-        if not (isinstance(q_node, Node) and q_node.target is coreai.quantize):
-            raise RuntimeError(
-                f"Expected coreai.quantize feeding {dq_node.name}, found {q_node!r}."
             )
 
         getitem_users = [
@@ -872,7 +983,23 @@ def _move_cache_dequant_to_output(
                 "Relocation for multi-output cache ops is not implemented yet."
             )
 
-        original_consumers = list(op_node.users)
+        dq_node = op_node.all_input_nodes[quant_input_idx]
+        key = _slot_key(op_node)
+        if not (isinstance(dq_node, Node) and dq_node.target is coreai.dequantize):
+            if is_empty_tensor(dq_node):
+                readers.append(_Reader(op_node, dq_node, key))
+                continue
+            raise RuntimeError(
+                f"Expected coreai.dequantize on input {quant_input_idx} of "
+                f"{op_node.name}, found {dq_node!r} "
+                f"(target={getattr(dq_node, 'target', None)!r})."
+            )
+        q_node = dq_node.args[0]
+        if not (isinstance(q_node, Node) and q_node.target is coreai.quantize):
+            raise RuntimeError(
+                f"Expected coreai.quantize feeding {dq_node.name}, found {q_node!r}."
+            )
+
         quantized_dtype = q_node.args[2]
         if not isinstance(quantized_dtype, torch.dtype):
             raise RuntimeError(
@@ -880,38 +1007,26 @@ def _move_cache_dequant_to_output(
                 f"got {type(quantized_dtype).__name__}: {quantized_dtype!r}."
             )
 
-        # Find the cache placeholder among the op's args.
-        cache_placeholders = [
-            a for a in op_node.args if isinstance(a, Node) and a.op == "placeholder"
-        ]
-        if len(cache_placeholders) != 1:
-            raise NotImplementedError(
-                f"Expected exactly one placeholder among {op_node.name}'s args; "
-                f"found {len(cache_placeholders)}. Cannot determine which input "
-                "is the cache state."
+        if key in writers:
+            raise RuntimeError(
+                f"Two quantized {op_type} ops write slot {key.args} of {key.cache.name}; "
+                "cannot tell which one's params a read-only fetch of that slot should use."
             )
-        cache_placeholder = cache_placeholders[0]
+        dequant = _WriterDequant(dq_node.args[1:], dict(dq_node.kwargs), quantized_dtype)
+        writers[key] = _Writer(op_node, dq_node, dequant)
 
-        op_node.replace_input_with(dq_node, q_node)
-        with model.graph.inserting_after(op_node):
-            new_dq = model.graph.call_function(
-                coreai.dequantize, (op_node, *dq_node.args[1:]), dict(dq_node.kwargs)
+    # Pass 2: rewrite. Every writer is known by now, so a reader may precede its writer.
+    for writer in writers.values():
+        _rewrite_writer(writer.op, writer.dequantize, writer.params)
+    for reader in readers:
+        if reader.slot not in writers:
+            raise RuntimeError(
+                f"{reader.op.name} is a read-only fetch of slot {reader.slot.args}, but no "
+                f"quantized {op_type} op writes that slot; its output cannot be dequantized."
             )
-        # new_dq outputs the original compute dtype — which is what
-        # op_node.meta["val"] still holds at this point. Clone so any later
-        # in-place mutation of one meta["val"] doesn't bleed into the other.
-        if "val" in op_node.meta:
-            new_dq.meta["val"] = op_node.meta["val"].clone()
-            op_node.meta["val"] = op_node.meta["val"].to(quantized_dtype)
-        for consumer in original_consumers:
-            consumer.replace_input_with(op_node, new_dq)
+        _rewrite_read_only_fetch(reader.op, reader.empty_update, writers[reader.slot].params)
 
-        if "val" in cache_placeholder.meta:
-            cache_placeholder.meta["val"] = cache_placeholder.meta["val"].to(quantized_dtype)
-
-        rewrites += 1
-
-    if rewrites == 0:
+    if not writers and not readers:
         raise RuntimeError(
             f"_move_cache_dequant_to_output found no nodes matching {op_type!r}; "
             "the dequantize was not relocated to the cache-op output and the "

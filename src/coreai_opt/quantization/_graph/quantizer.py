@@ -41,7 +41,7 @@ from torchao.quantization.pt2e.quantizer import (
 from torchao.quantization.pt2e.quantizer.quantizer import Q_ANNOTATION_KEY
 
 from coreai_opt._utils.config_utils import ALL_TENSORS, ConfigLevel
-from coreai_opt._utils.fx_utils import get_node_type, normalize_module_fqn
+from coreai_opt._utils.fx_utils import get_node_type, is_empty_tensor, normalize_module_fqn
 from coreai_opt._utils.metadata_utils import STATE_DICT_METADATA_BUFFER_PREFIX
 from coreai_opt._utils.torch_utils import (
     export_model,
@@ -387,6 +387,13 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             if kc is None:
                 continue
             ann_config = AnnotationConfig.from_quantizer_config(kc.op_quantizer_config)
+            # A read-only fetch (e.g. a KV-shared layer) passes an empty update, which has
+            # nothing to quantize. Drop its spec so it is skipped without the warning about
+            # a spec set on a non-quantizable tensor: that spec is needed by the writers.
+            # ann_config is built fresh for this node, so editing it in place is safe.
+            for idx, input_node in enumerate(node.all_input_nodes):
+                if idx in ann_config.op_input_spec and is_empty_tensor(input_node):
+                    del ann_config.op_input_spec[idx]
             input_qspec_map = _get_input_qspec_map(node.all_input_nodes, ann_config, context)
             node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
                 input_qspec_map=input_qspec_map,

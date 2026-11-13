@@ -10,6 +10,7 @@ import re
 
 import torch
 from torch.fx import Node
+from torch.fx.experimental.symbolic_shapes import statically_known_true
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,12 @@ def get_node_type(node: Node, warn_on_failure: bool = True) -> str | None:
             warning_msg = f"Unable to determine node type for node {node.name}. Skipping the node."
             logger.warning(warning_msg)
     return None
+
+
+def is_empty_tensor(node: Node) -> bool:
+    """Whether ``node`` is a tensor known to have no elements (e.g. a dim of size 0)."""
+    val = node.meta.get("val")
+    return isinstance(val, torch.Tensor) and bool(statically_known_true(val.numel() == 0))
 
 
 def normalize_module_fqn(path: str) -> str:
