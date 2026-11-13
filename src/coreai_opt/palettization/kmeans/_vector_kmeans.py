@@ -24,6 +24,7 @@ On every backend a block stops iterating once its inertia improves by less than 
 are always the exact (sensitivity-weighted) means of the final clusters.
 """
 
+import collections
 import functools
 import logging
 import math
@@ -525,6 +526,197 @@ def _assign_nearest(x: torch.Tensor, centroids: torch.Tensor) -> torch.Tensor:
     return labels
 
 
+def _emeans_step(
+    x: torch.Tensor,
+    picked: torch.Tensor,
+    centroids: torch.Tensor,
+    usage: torch.Tensor,
+    alpha: float | torch.Tensor,
+    decay: float | torch.Tensor,
+    replace_usage: bool,
+    pass_sums: torch.Tensor | None,
+    pass_counts: torch.Tensor | None,
+) -> None:
+    """One e-means update of every block's centroids from the rows ``picked``, in place.
+
+    Algorithm 1 as faiss' torch backend applies it: assign the batch to the current centroids,
+    take per-cluster counts and sums, fold them into the running mass (``usage``) and position
+    with step ``alpha`` (``decay`` is ``1 - alpha``), and add them to the pass totals when those
+    are kept. ``alpha`` and ``decay`` are Python floats, or 0-dim tensors when captured in a
+    CUDA graph. ``replace_usage`` is faiss' ``alpha == 1`` case: the old mass is discarded.
+    """
+    b, _, d = x.shape
+    k = centroids.shape[1]
+    points = x[:, picked]
+    c_sq = (centroids * centroids).sum(-1)
+    labels = (c_sq.unsqueeze(1) - 2.0 * torch.bmm(points, centroids.transpose(1, 2))).argmin(-1)
+    ones = torch.ones_like(labels, dtype=torch.float32)
+    counts = torch.zeros(b, k, device=x.device).scatter_add_(1, labels, ones)
+    index = labels.unsqueeze(-1).expand(-1, -1, d)
+    sums = torch.zeros(b, k, d, device=x.device).scatter_add_(1, index, points)
+    if pass_sums is not None and pass_counts is not None:
+        pass_sums += sums
+        pass_counts += counts
+    touched = counts > 0
+    if replace_usage:
+        retained = torch.zeros_like(usage)
+    else:
+        usage.mul_(decay)
+        retained = usage
+    mass = retained + alpha * counts
+    weight = alpha * counts / torch.where(touched, mass, torch.ones_like(mass))
+    mean = sums / torch.where(touched, counts, torch.ones_like(counts)).unsqueeze(-1)
+    position = (mean - centroids) * weight.unsqueeze(-1) + centroids
+    position = torch.where((weight == 1).unsqueeze(-1), mean, position)
+    torch.where(touched.unsqueeze(-1), position, centroids, out=centroids)
+    torch.where(touched, mass, usage, out=usage)
+
+
+def _closing_centroids(
+    pass_sums: torch.Tensor, pass_counts: torch.Tensor, centroids: torch.Tensor
+) -> torch.Tensor:
+    """e-means' closing centroids: the means of the last pass, or the moving centroid if empty."""
+    closing = pass_sums / pass_counts.clamp_min(1).unsqueeze(-1)
+    return torch.where((pass_counts > 0).unsqueeze(-1), closing, centroids)
+
+
+def _centroids_eager(
+    x: torch.Tensor,
+    seeds: torch.Tensor,
+    batch: int,
+    alphas: list[float],
+    rows_per_epoch: list[int],
+) -> torch.Tensor:
+    """The e-means epochs as a plain loop: one launch per op, every step."""
+    from faiss.contrib.e_means.base import _INIT_USAGE  # noqa: PLC0415 - optional dependency
+    from faiss.contrib.e_means.e_means_torch import (  # noqa: PLC0415 - optional dependency
+        _epoch_seed,
+        _torch_generator,
+    )
+
+    b, n, d = x.shape
+    k = seeds.shape[1]
+    centroids = seeds.float().clone()
+    usage = torch.full((b, k), _INIT_USAGE, device=x.device)
+    pass_sums = torch.zeros(b, k, d, device=x.device)
+    pass_counts = torch.zeros(b, k, device=x.device)
+    step = 0
+    for epoch, rows in enumerate(rows_per_epoch):
+        seed = _epoch_seed(1234, epoch)  # faiss' default seed, as every per-block run uses
+        order = torch.randperm(n, generator=_torch_generator(x.device, seed), device=x.device)
+        last = epoch == len(rows_per_epoch) - 1
+        for begin in range(0, rows, batch):
+            alpha = alphas[step]
+            _emeans_step(
+                x,
+                order[begin : min(begin + batch, rows)],
+                centroids,
+                usage,
+                alpha,
+                1.0 - alpha,
+                alpha == 1,
+                pass_sums if last else None,
+                pass_counts if last else None,
+            )
+            step += 1
+    return _closing_centroids(pass_sums, pass_counts, centroids)
+
+
+class _EmeansEpochGraph:
+    """One epoch of batched e-means steps, captured once per shape and replayed with new inputs.
+
+    The epoch reads and writes only the static buffers below. A caller refills them before each
+    replay: the data, the epoch's permutation and step sizes, the state and the pass totals.
+    Capturing removes the launch overhead of the epoch's ~30 tiny kernels per step; the
+    arithmetic is :func:`_emeans_step`'s, unchanged.
+    """
+
+    def __init__(self, b: int, n: int, k: int, d: int, batch: int, device: torch.device):
+        self.batch = batch
+        self.steps = (n + batch - 1) // batch
+        self.x = torch.zeros(b, n, d, device=device)
+        self.order = torch.arange(n, device=device)
+        self.rates = torch.full((self.steps, 2), 0.5, device=device)
+        self.centroids = torch.zeros(b, k, d, device=device)
+        self.usage = torch.ones(b, k, device=device)
+        self.pass_sums = torch.zeros(b, k, d, device=device)
+        self.pass_counts = torch.zeros(b, k, device=device)
+        side = torch.cuda.Stream(device)
+        side.wait_stream(torch.cuda.current_stream(device))
+        with torch.cuda.stream(side):
+            # Outside the capture, once per distinct step shape (the full batch, and the
+            # remainder), so cuBLAS has its handles and workspace before the capture starts.
+            for step in {0, self.steps - 1}:
+                self._step(step)
+        torch.cuda.current_stream(device).wait_stream(side)
+        self.graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(self.graph):
+            for step in range(self.steps):
+                self._step(step)
+
+    def _step(self, step: int) -> None:
+        begin = step * self.batch
+        _emeans_step(
+            self.x,
+            self.order[begin : begin + self.batch],
+            self.centroids,
+            self.usage,
+            self.rates[step, 0],
+            self.rates[step, 1],
+            False,
+            self.pass_sums,
+            self.pass_counts,
+        )
+
+
+#: Captured epochs, least recently used first. A graph is a function of shape only: every
+#: buffer it reads is refilled per call, so a cache hit and a fresh capture give equal results.
+_EPOCH_GRAPHS: collections.OrderedDict = collections.OrderedDict()
+_MAX_EPOCH_GRAPHS = 32
+
+
+def _epoch_graph(b: int, n: int, k: int, d: int, batch: int, device: torch.device):
+    key = (device, b, n, k, d, batch)
+    graph = _EPOCH_GRAPHS.pop(key, None) or _EmeansEpochGraph(b, n, k, d, batch, device)
+    _EPOCH_GRAPHS[key] = graph
+    while len(_EPOCH_GRAPHS) > _MAX_EPOCH_GRAPHS:
+        _EPOCH_GRAPHS.popitem(last=False)
+    return graph
+
+
+def _centroids_graphed(
+    x: torch.Tensor, seeds: torch.Tensor, batch: int, alphas: list[float], nepochs: int
+) -> torch.Tensor:
+    """The same epochs as :func:`_centroids_eager`, replayed from a captured graph (CUDA).
+
+    Needs every epoch to be a full pass and the step never to be 1, which holds for the recipe
+    at any realistic size; the caller checks.
+    """
+    from faiss.contrib.e_means.base import _INIT_USAGE  # noqa: PLC0415 - optional dependency
+    from faiss.contrib.e_means.e_means_torch import (  # noqa: PLC0415 - optional dependency
+        _epoch_seed,
+        _torch_generator,
+    )
+
+    b, n, d = x.shape
+    k = seeds.shape[1]
+    graph = _epoch_graph(b, n, k, d, batch, x.device)
+    graph.x.copy_(x)
+    graph.centroids.copy_(seeds)
+    graph.usage.fill_(_INIT_USAGE)
+    rates = torch.tensor([(a, 1.0 - a) for a in alphas], dtype=torch.float32, device=x.device)
+    for epoch in range(nepochs):
+        seed = _epoch_seed(1234, epoch)
+        graph.order.copy_(
+            torch.randperm(n, generator=_torch_generator(x.device, seed), device=x.device)
+        )
+        graph.rates.copy_(rates[epoch * graph.steps : (epoch + 1) * graph.steps])
+        graph.pass_sums.zero_()
+        graph.pass_counts.zero_()
+        graph.graph.replay()
+    return _closing_centroids(graph.pass_sums, graph.pass_counts, graph.centroids)
+
+
 def _emeans_batched_centroids(
     x: torch.Tensor, seeds: torch.Tensor, nepochs: int = 5
 ) -> torch.Tensor:
@@ -534,62 +726,23 @@ def _emeans_batched_centroids(
     per-epoch permutation and mass-weighted EMA update, with the closing centroids taken as the
     means of the last pass. Only the loop is batched, so one step updates every block. All
     blocks share each epoch's permutation, as faiss' per-block runs do (one fixed seed).
-    Valid for ``D <= 2``, where e-means does not revive empty clusters.
+    Valid for ``D <= 2``, where e-means does not revive empty clusters. On CUDA the epochs are
+    replayed from a captured graph when the recipe allows it, and run as a plain loop otherwise.
     """
-    from faiss.contrib.e_means.base import _INIT_USAGE  # noqa: PLC0415 - optional dependency
     from faiss.contrib.e_means.e_means_torch import (  # noqa: PLC0415 - optional dependency
         _epoch_rows,
-        _epoch_seed,
         _resolve_recipe,
         _scheduled_alpha,
-        _torch_generator,
     )
 
-    b, n, d = x.shape
-    k = seeds.shape[1]
+    n, k = x.shape[1], seeds.shape[1]
     batch, alpha0 = _resolve_recipe(n, k, nepochs, "quality", None, None)
     rows_per_epoch = _epoch_rows(n, nepochs)
     total_steps = sum((rows + batch - 1) // batch for rows in rows_per_epoch)
-    centroids = seeds.float().clone()
-    usage = torch.full((b, k), _INIT_USAGE, device=x.device)
-    step = 0
-    for epoch, rows in enumerate(rows_per_epoch):
-        seed = _epoch_seed(1234, epoch)  # faiss' default seed, as every per-block run uses
-        order = torch.randperm(n, generator=_torch_generator(x.device, seed), device=x.device)
-        last = epoch == len(rows_per_epoch) - 1
-        if last:
-            pass_sums = torch.zeros(b, k, d, device=x.device)
-            pass_counts = torch.zeros(b, k, device=x.device)
-        for begin in range(0, rows, batch):
-            points = x[:, order[begin : min(begin + batch, rows)]]
-            c_sq = (centroids * centroids).sum(-1)
-            labels = (
-                c_sq.unsqueeze(1) - 2.0 * torch.bmm(points, centroids.transpose(1, 2))
-            ).argmin(-1)
-            ones = torch.ones_like(labels, dtype=torch.float32)
-            counts = torch.zeros(b, k, device=x.device).scatter_add_(1, labels, ones)
-            index = labels.unsqueeze(-1).expand(-1, -1, d)
-            sums = torch.zeros(b, k, d, device=x.device).scatter_add_(1, index, points)
-            if last:
-                pass_sums += sums
-                pass_counts += counts
-            alpha = _scheduled_alpha(alpha0, step, total_steps)
-            touched = counts > 0
-            if alpha == 1:
-                retained = torch.zeros_like(usage)
-            else:
-                usage = usage * (1.0 - alpha)
-                retained = usage
-            mass = retained + alpha * counts
-            weight = alpha * counts / torch.where(touched, mass, torch.ones_like(mass))
-            mean = sums / torch.where(touched, counts, torch.ones_like(counts)).unsqueeze(-1)
-            position = (mean - centroids) * weight.unsqueeze(-1) + centroids
-            position = torch.where((weight == 1).unsqueeze(-1), mean, position)
-            centroids = torch.where(touched.unsqueeze(-1), position, centroids)
-            usage = torch.where(touched, mass, usage)
-            step += 1
-    closing = pass_sums / pass_counts.clamp_min(1).unsqueeze(-1)
-    return torch.where((pass_counts > 0).unsqueeze(-1), closing, centroids)
+    alphas = [_scheduled_alpha(alpha0, step, total_steps) for step in range(total_steps)]
+    if x.is_cuda and alpha0 < 1 and rows_per_epoch == [n] * nepochs:
+        return _centroids_graphed(x, seeds, batch, alphas, nepochs)
+    return _centroids_eager(x, seeds, batch, alphas, rows_per_epoch)
 
 
 def _cluster_emeans_batched(

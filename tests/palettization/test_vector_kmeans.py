@@ -645,3 +645,50 @@ class TestEmeansBatched:
             )
         assert "e-means: 2 blocks" in caplog.text
         assert results[0][0].shape == (8, 4)
+
+
+@pytest.mark.cuda
+class TestEmeansEpochGraph:
+    """The CUDA-graph replay of e-means' epochs computes what the plain loop computes."""
+
+    @staticmethod
+    def _plan(n, k):
+        from faiss.contrib.e_means.e_means_torch import (  # noqa: PLC0415 - optional dependency
+            _epoch_rows,
+            _resolve_recipe,
+            _scheduled_alpha,
+        )
+
+        batch, alpha0 = _resolve_recipe(n, k, 5, "quality", None, None)
+        rows = _epoch_rows(n, 5)
+        total = sum((r + batch - 1) // batch for r in rows)
+        return batch, [_scheduled_alpha(alpha0, step, total) for step in range(total)], rows
+
+    @pytest.mark.parametrize(("blocks", "n", "k"), [(6, 4096, 16), (3, 5000, 64), (7, 2500, 33)])
+    def test_replay_matches_the_eager_loop_including_a_remainder_step(self, blocks, n, k):
+        pytest.importorskip("faiss.contrib.e_means")
+        gen = torch.Generator(device="cuda").manual_seed(blocks)
+        batch, alphas, rows = self._plan(n, k)
+        # Atomic scatter_add makes two runs of the *same* path differ by float ulps, so equal
+        # means within that noise, not bit-identical.
+        for _ in range(2):  # the second call replays the cached graph on different data
+            x = torch.randn(blocks, n, 2, device="cuda", generator=gen).contiguous()
+            seeds = ek.batched_kmeanspp_init(x, k, ek._resolve_n_local_trials(None, k), gen)
+            eager = ek._centroids_eager(x, seeds, batch, alphas, rows)
+            replayed = ek._centroids_graphed(x, seeds, batch, alphas, 5)
+            torch.testing.assert_close(replayed, eager, rtol=1e-4, atol=1e-5)
+
+    def test_a_cached_graph_carries_nothing_between_calls(self):
+        pytest.importorskip("faiss.contrib.e_means")
+        gen = torch.Generator(device="cuda").manual_seed(0)
+        batch, alphas, _ = self._plan(2048, 8)
+        first = torch.randn(4, 2048, 2, device="cuda", generator=gen).contiguous()
+        second = torch.randn(4, 2048, 2, device="cuda", generator=gen).contiguous()
+        seeds = [ek.batched_kmeanspp_init(v, 8, 3, gen) for v in (first, second)]
+        fresh = ek._centroids_graphed(second, seeds[1], batch, alphas, 5)
+        ek._EPOCH_GRAPHS.clear()
+        ek._centroids_graphed(
+            first, seeds[0], batch, alphas, 5
+        )  # captures, then dirties the buffers
+        reused = ek._centroids_graphed(second, seeds[1], batch, alphas, 5)
+        torch.testing.assert_close(reused, fresh, rtol=1e-4, atol=1e-5)
