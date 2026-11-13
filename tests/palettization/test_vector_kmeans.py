@@ -915,5 +915,22 @@ class TestFusedAssignLabels:
         )
         for (centroids, labels), block, true_centers in zip(results, x, centers, strict=True):
             assert torch.cdist(true_centers, centroids).min(-1).values.max() < 0.1
-            expected = ek.batched_cluster_avg(block[None], labels[None], 16)[0]
+            expected = ek.batched_cluster_avg(block[None], labels[None].long(), 16)[0]
             torch.testing.assert_close(centroids, expected)
+
+    @pytest.mark.parametrize(
+        ("n_clusters", "dtype"), [(16, torch.uint8), (256, torch.uint8), (300, torch.long)]
+    )
+    def test_labels_are_narrowed_to_uint8_only_when_every_index_fits(self, n_clusters, dtype):
+        x = torch.randn(3, 1200, 2, device="cuda").contiguous()
+        wide = {}
+        real = ek._assign_nearest
+
+        def spy(*args):
+            wide["labels"] = real(*args)
+            return wide["labels"]
+
+        with mock.patch.object(ek, "_assign_nearest", spy):
+            _, labels = ek._cluster_emeans_batched(x, n_clusters, None)
+        assert labels.dtype == dtype
+        assert torch.equal(labels.long(), wide["labels"])  # narrowing changed no value

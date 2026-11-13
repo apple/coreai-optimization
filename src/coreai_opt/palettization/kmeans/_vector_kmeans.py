@@ -838,6 +838,8 @@ def _cluster_emeans_batched(
     Same result as :func:`_cluster_emeans` with ``kmeanspp=True`` (to floating-point order), but
     one step updates all blocks instead of one block at a time. Labels are an exact assignment
     against the closing centroids, and the returned centroids are the exact means of those labels.
+    The labels are ``uint8`` when every index fits one (the caller stores them as ``uint8``), so a
+    transfer to the host moves an eighth of the bytes; otherwise they are ``int64``.
     """
     generator = torch.Generator(device=x.device)
     generator.manual_seed(_tensor_seed(x))
@@ -849,7 +851,10 @@ def _cluster_emeans_batched(
     else:
         seeds = batched_kmeanspp_init(x, n_clusters, trials, generator)
     labels = _assign_nearest(x, _emeans_batched_centroids(x, seeds))
-    return batched_cluster_avg(x, labels, n_clusters), labels
+    centroids = batched_cluster_avg(x, labels, n_clusters)
+    if n_clusters <= torch.iinfo(torch.uint8).max + 1:
+        labels = labels.to(torch.uint8)
+    return centroids, labels
 
 
 def _stack_to_device(blocks: list[torch.Tensor], device: str) -> torch.Tensor:
