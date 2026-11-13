@@ -692,3 +692,47 @@ class TestEmeansEpochGraph:
         )  # captures, then dirties the buffers
         reused = ek._centroids_graphed(second, seeds[1], batch, alphas, 5)
         torch.testing.assert_close(reused, fresh, rtol=1e-4, atol=1e-5)
+
+
+@pytest.mark.cuda
+class TestFusedKMeansPlusPlus:
+    """The fused seeding steps draw what the unfused loop draws, up to float rounding."""
+
+    def test_the_first_seed_matches_and_every_seed_is_exactly_a_point_of_its_block(self):
+        gen = torch.Generator(device="cuda").manual_seed(0)
+        scale = torch.tensor([4.0, 1.0], device="cuda")
+        x = (torch.randn(6, 3000, 2, device="cuda", generator=gen) * scale).contiguous()
+        for k in (2, 5, 16):
+            trials = ek._resolve_n_local_trials(None, k)
+            fused = ek._kmeanspp_seeds_fused(
+                x, k, trials, torch.Generator(device="cuda").manual_seed(3)
+            )
+            unfused = ek.batched_kmeanspp_init(
+                x, k, trials, torch.Generator(device="cuda").manual_seed(3)
+            )
+            # The first seed is a plain uniform draw from the same stream, so it is the same one.
+            assert torch.equal(fused[:, 0], unfused[:, 0])
+            assert (fused.unsqueeze(2) == x.unsqueeze(1)).all(-1).any(-1).all()
+
+    def test_seeding_quality_matches_the_unfused_loop(self):
+        x, _ = _clustered_blocks(num_blocks=8, points_per_center=60, n_clusters=24)
+        x = x.cuda()
+        trials = ek._resolve_n_local_trials(None, 24)
+        fused = ek._kmeanspp_seeds_fused(
+            x, 24, trials, torch.Generator(device="cuda").manual_seed(1)
+        )
+        unfused = ek.batched_kmeanspp_init(
+            x, 24, trials, torch.Generator(device="cuda").manual_seed(1)
+        )
+        # Seeds can differ where a draw is within rounding of a tie, but the potential they leave
+        # is the same to a few percent; a broken step would leave a missed cluster, ~100x more.
+        torch.testing.assert_close(
+            _potential(x, fused).median(), _potential(x, unfused).median(), rtol=0.05, atol=0
+        )
+        assert _potential(x, fused).max() < 3 * _potential(x, unfused).max()
+
+    def test_blocks_that_run_out_of_distinct_points_still_get_seeds(self):
+        x = torch.zeros(2, 64, 2, device="cuda")
+        x[1, :, 0] = torch.arange(64, device="cuda") % 3  # three distinct points, ten seeds asked
+        seeds = ek._kmeanspp_seeds_fused(x, 10, 3, torch.Generator(device="cuda").manual_seed(0))
+        assert seeds.shape == (2, 10, 2) and torch.isfinite(seeds).all()

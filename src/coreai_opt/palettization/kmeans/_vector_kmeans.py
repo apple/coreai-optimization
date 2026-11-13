@@ -745,6 +745,40 @@ def _emeans_batched_centroids(
     return _centroids_eager(x, seeds, batch, alphas, rows_per_epoch)
 
 
+def _kmeanspp_seeds_fused(
+    x: torch.Tensor, n_clusters: int, n_local_trials: int, generator: torch.Generator
+) -> torch.Tensor:
+    """:func:`batched_kmeanspp_init` for unweighted ``(B, N, 2)`` blocks, with fused Triton steps.
+
+    The draws are the same ``torch.multinomial`` calls in the same order, so the random stream
+    is unchanged. Each step's candidate scores and nearest-seed update come from two kernels that
+    read the points once, instead of a batched matmul and ~15 passes over ``(B, N, trials)``.
+    Distances are ``(x - c)^2`` summed directly, not the norm trick, so seeds can differ from the
+    unfused loop's where two candidates or draws are within float rounding of each other.
+    """
+    from . import _kmeanspp_triton as fused  # noqa: PLC0415 - Triton is optional
+
+    b, n, d = x.shape
+    if n_clusters > n:
+        raise ValueError(f"n_clusters {n_clusters} exceeds {n} points per block")
+    rows = torch.arange(b, device=x.device)
+    seeds = torch.empty(b, n_clusters, d, device=x.device, dtype=x.dtype)
+    first = torch.multinomial(torch.ones(b, n, device=x.device), 1, generator=generator)
+    seeds[:, 0] = x[rows, first.squeeze(1)]
+    closest = ((x - seeds[:, 0:1]) ** 2).sum(-1)
+    total = closest.sum(dim=1)
+    for i in range(1, n_clusters):
+        # Once every point of a block coincides with a seed its potential is zero and it cannot
+        # be sampled from; draw uniformly for that block instead, as the unfused loop does.
+        potential = torch.where((total <= 0).unsqueeze(1), 1.0, closest)
+        cand = torch.multinomial(potential, n_local_trials, replacement=True, generator=generator)
+        cand_pts = torch.gather(x, 1, cand.unsqueeze(-1).expand(-1, -1, d))
+        best = fused.candidate_potentials(x, closest, cand_pts).argmin(dim=1)
+        seeds[:, i] = cand_pts[rows, best]
+        total = fused.update_closest(x, closest, seeds[:, i])
+    return seeds
+
+
 def _cluster_emeans_batched(
     x: torch.Tensor, n_clusters: int, n_local_trials: int | None
 ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -757,7 +791,12 @@ def _cluster_emeans_batched(
     generator = torch.Generator(device=x.device)
     generator.manual_seed(_tensor_seed(x))
     trials = _resolve_n_local_trials(n_local_trials, n_clusters)
-    seeds = batched_kmeanspp_init(x, n_clusters, trials, generator)
+    from . import _kmeanspp_triton as fused  # noqa: PLC0415 - Triton is optional
+
+    if fused.available(x, trials):
+        seeds = _kmeanspp_seeds_fused(x, n_clusters, trials, generator)
+    else:
+        seeds = batched_kmeanspp_init(x, n_clusters, trials, generator)
     labels = _assign_nearest(x, _emeans_batched_centroids(x, seeds))
     return batched_cluster_avg(x, labels, n_clusters), labels
 
