@@ -13,7 +13,6 @@ the flash-kmeans and weighted GPU paths.
 
 from __future__ import annotations
 
-import logging
 import warnings
 from unittest import mock
 
@@ -540,26 +539,43 @@ class TestEmeansBackend:
             assert ek.vector_kmeans_backend(has_sensitivities=False) == "emeans_kmeanspp"
         assert ek.vector_kmeans_backend(has_sensitivities=True) == "torch"
 
+    def test_selecting_emeans_warns_once_per_process(self, monkeypatch):
+        monkeypatch.setattr(ek.torch.cuda, "is_available", lambda: True)
+        monkeypatch.setenv("COREAI_OPT_VECTOR_KMEANS_BACKEND", "emeans")
+        ek._warn_emeans.cache_clear()
+        with pytest.warns(RuntimeWarning, match="runs faiss e-means") as record:
+            ek.vector_kmeans_backend(has_sensitivities=False)
+            ek.vector_kmeans_backend(has_sensitivities=False)
+        assert len(record) == 1
+
     def test_misspelled_backend_is_rejected(self, monkeypatch):
         monkeypatch.setenv("COREAI_OPT_VECTOR_KMEANS_BACKEND", "emean")
         with pytest.raises(ValueError, match="'emean'"):
             ek.vector_kmeans_backend(has_sensitivities=False)
 
-    def test_cluster_vectors_runs_kmeanspp_seeded_emeans(self, monkeypatch, caplog):
-        pytest.importorskip("faiss.contrib.e_means")
+    @pytest.mark.parametrize(("backend", "seeded"), [("emeans", False), ("emeans_kmeanspp", True)])
+    def test_cluster_vectors_seeds_emeans_only_for_kmeanspp(self, monkeypatch, backend, seeded):
+        e_means = pytest.importorskip("faiss.contrib.e_means")
+        real_train = e_means.QuantizedEmeans.train
+        inits = []
+
+        def recording_train(self, x, init_centroids=None):
+            inits.append(init_centroids)
+            return real_train(self, x, init_centroids)
+
+        monkeypatch.setattr(e_means.QuantizedEmeans, "train", recording_train)
         monkeypatch.setattr(ek.torch.cuda, "is_available", lambda: False)
-        monkeypatch.setattr(
-            ek, "vector_kmeans_backend", lambda has_sensitivities: "emeans_kmeanspp"
-        )
+        monkeypatch.setattr(ek, "vector_kmeans_backend", lambda has_sensitivities: backend)
+        x, _ = _clustered_blocks(num_blocks=3, points_per_center=40, n_clusters=16)
+        ek.cluster_vectors(list(x), None, 16, n_local_trials=None, n_init=5, max_iter=300, tol=1e-4)
+        assert [init is not None for init in inits] == [seeded] * 3
+
+    def test_kmeanspp_seeded_emeans_recovers_well_separated_clusters(self):
+        pytest.importorskip("faiss.contrib.e_means")
         x, centers = _clustered_blocks(num_blocks=3, points_per_center=40, n_clusters=16)
-        with caplog.at_level(logging.INFO, logger=ek.__name__):
-            results = ek.cluster_vectors(
-                list(x), None, 16, n_local_trials=None, n_init=5, max_iter=300, tol=1e-4
-            )
-        assert "e-means: 3 blocks" in caplog.text
-        for (centroids, labels), true_centers in zip(results, centers, strict=True):
-            assert labels.shape == (x.shape[1],)
-            assert torch.cdist(true_centers, centroids).min(-1).values.max() < 0.1
+        centroids, _ = ek._cluster_emeans(x, 16, None, kmeanspp=True)
+        for block_centroids, true_centers in zip(centroids, centers, strict=True):
+            assert torch.cdist(true_centers, block_centroids).min(-1).values.max() < 0.1
 
     def test_labels_come_from_assign_not_from_train(self, monkeypatch):
         e_means = pytest.importorskip("faiss.contrib.e_means")
