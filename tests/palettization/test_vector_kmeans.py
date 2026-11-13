@@ -878,6 +878,24 @@ class TestFusedAssignLabels:
         centroids = torch.ones(2, 70, 2, device="cuda")  # equidistant, more than one tile
         assert (_emeans_triton.assign_labels(x, centroids) == 0).all()
 
+    @pytest.mark.parametrize(
+        "twins",
+        [(3, 19), (20, 40), (37, 5), (69, 2, 33), (15, 16), (63, 64), (0, 69)],
+    )
+    def test_equal_scores_in_different_lanes_and_tiles_pick_the_lowest_index(self, twins):
+        from coreai_opt.palettization.kmeans import _emeans_triton  # noqa: PLC0415
+
+        gen = torch.Generator(device="cuda").manual_seed(sum(twins))
+        x = torch.randn(3, 200, 2, device="cuda", generator=gen).contiguous()
+        centroids = (50.0 + torch.arange(70, device="cuda").float()).expand(3, 70).unsqueeze(-1)
+        centroids = centroids.repeat(1, 1, 2).contiguous()  # far away, all distinct
+        centroids[:, list(twins)] = 0.25  # the same nearest centroid at several indices
+        labels = _emeans_triton.assign_labels(x, centroids)
+        assert (labels == min(twins)).all()
+        stats = torch.zeros(3, 70, 3, device="cuda")
+        _emeans_triton.assign_accumulate(x, torch.arange(200, device="cuda"), centroids, stats)
+        assert (stats[..., 2][:, min(twins)] == 200).all() and stats[..., 2].sum() == 3 * 200
+
     def test_assign_nearest_uses_the_kernel_on_cuda_and_torch_elsewhere(self, monkeypatch):
         from coreai_opt.palettization.kmeans import _emeans_triton  # noqa: PLC0415
 

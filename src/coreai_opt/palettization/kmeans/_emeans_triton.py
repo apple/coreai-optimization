@@ -30,7 +30,8 @@ try:
 except ImportError:  # pragma: no cover - no Triton: the caller keeps the torch step
     triton = None
 
-_MAX_BLOCK_K = 64
+# Centroids scanned per loop step: the fastest of the tile shapes tried, on random points.
+_MAX_BLOCK_K = 16
 
 
 def available(x: torch.Tensor) -> bool:
@@ -50,27 +51,32 @@ if triton is not None:
         BLOCK_M: tl.constexpr,
         BLOCK_K: tl.constexpr,
     ):
-        """Index of the centroid of ``block`` nearest to each of the points ``(x0, x1)``."""
-        best = tl.full([BLOCK_M], float("inf"), tl.float32)
-        best_idx = tl.zeros([BLOCK_M], tl.int32)
+        """Index of the centroid of ``block`` nearest to each of the points ``(x0, x1)``.
+
+        Lane ``j`` of the ``(BLOCK_M, BLOCK_K)`` tile keeps the best score over the centroids
+        ``j, j + BLOCK_K, ...`` while the loop runs, using elementwise operations only. One
+        reduction across lanes at the end takes the best score, then the lowest centroid index
+        among the lanes that reached it: ``torch.argmin``'s tie rule.
+        """
+        best = tl.full([BLOCK_M, BLOCK_K], float("inf"), tl.float32)
+        best_idx = tl.zeros([BLOCK_M, BLOCK_K], tl.int32)
         for start in range(0, k, BLOCK_K):
             offs_k = start + tl.arange(0, BLOCK_K)
             mask_k = offs_k < k
             c_base = (block * k + offs_k) * 2
             c0 = tl.load(centroids_ptr + c_base, mask=mask_k, other=0.0)
             c1 = tl.load(centroids_ptr + c_base + 1, mask=mask_k, other=0.0)
-            c_sq = c0 * c0 + c1 * c1
+            # a lane past the last centroid scores infinity, so it never wins
+            c_sq = tl.where(mask_k, c0 * c0 + c1 * c1, float("inf"))
             # separate multiplies and adds, as torch's bmm and elementwise ops round them
             dot = x0[:, None] * c0[None, :]
             dot = tl.fma(x1[:, None], c1[None, :], dot)
-            score = c_sq[None, :] - 2.0 * dot
-            score = tl.where(mask_k[None, :], score, float("inf"))
-            tile_best = tl.min(score, axis=1)
-            tile_idx = tl.argmin(score, axis=1).to(tl.int32) + start
-            better = tile_best < best
-            best = tl.where(better, tile_best, best)
-            best_idx = tl.where(better, tile_idx, best_idx)
-        return best_idx
+            score = tl.fma(dot, -2.0, c_sq[None, :])  # c_sq - 2 * dot; doubling is exact
+            better = score < best
+            best = tl.where(better, score, best)
+            best_idx = tl.where(better, offs_k[None, :], best_idx)
+        row_best = tl.min(best, axis=1)
+        return tl.min(tl.where(best == row_best[:, None], best_idx, 2147483647), axis=1)
 
     @triton.jit
     def _assign_accumulate_kernel(
