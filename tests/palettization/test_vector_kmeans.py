@@ -13,6 +13,7 @@ the flash-kmeans and weighted GPU paths.
 
 from __future__ import annotations
 
+import logging
 import warnings
 from unittest import mock
 
@@ -591,3 +592,56 @@ class TestEmeansBackend:
         assert labels.shape == x.shape[:2]
         assert labels.min() >= 0
         assert labels.max() < 16
+
+
+class TestEmeansBatched:
+    """``emeans_batched`` runs e-means' recipe for every block of a tensor in one step."""
+
+    @pytest.mark.parametrize(("n", "k"), [(640, 16), (1000, 7), (4096, 64), (300, 4)])
+    def test_centroids_equal_faiss_per_block_on_cpu(self, n, k):
+        e_means = pytest.importorskip("faiss.contrib.e_means")
+        gen = torch.Generator().manual_seed(n + k)
+        x = (torch.randn(3, n, 2, generator=gen) * torch.tensor([3.0, 1.0])).contiguous()
+        seeds = ek.batched_kmeanspp_init(x, k, ek._resolve_n_local_trials(None, k), gen)
+        expected = []
+        for block, block_seeds in zip(x, seeds, strict=True):
+            em = e_means.QuantizedEmeans(2, k, quantizer=None)
+            em.train(block, block_seeds)
+            expected.append(em.centroids)
+        torch.testing.assert_close(
+            ek._emeans_batched_centroids(x, seeds), torch.stack(expected), rtol=0, atol=0
+        )
+
+    def test_cluster_vectors_matches_the_per_block_path_and_recovers_clusters(self, monkeypatch):
+        pytest.importorskip("faiss.contrib.e_means")
+        monkeypatch.setattr(ek.torch.cuda, "is_available", lambda: False)
+        x, centers = _clustered_blocks(num_blocks=3, points_per_center=40, n_clusters=16)
+        settings = {"n_local_trials": None, "n_init": 5, "max_iter": 300, "tol": 1e-4}
+        results = {}
+        for backend in ("emeans_batched", "emeans_kmeanspp"):
+            monkeypatch.setattr(ek, "vector_kmeans_backend", lambda has_sensitivities, b=backend: b)
+            results[backend] = ek.cluster_vectors(list(x), None, 16, **settings)
+        for (batched, labels), (per_block, per_block_labels), true_centers in zip(
+            results["emeans_batched"], results["emeans_kmeanspp"], centers, strict=True
+        ):
+            torch.testing.assert_close(batched, per_block)
+            assert torch.equal(labels, per_block_labels)
+            assert torch.cdist(true_centers, batched).min(-1).values.max() < 0.1
+
+    def test_assign_nearest_is_the_exact_nearest_centroid(self):
+        x, _ = _clustered_blocks(num_blocks=2, points_per_center=40, n_clusters=16)
+        centroids = torch.randn(2, 16, 2)
+        expected = torch.cdist(x, centroids).argmin(-1)
+        assert torch.equal(ek._assign_nearest(x, centroids), expected)
+
+    def test_more_than_two_dimensions_use_the_per_block_path(self, monkeypatch, caplog):
+        pytest.importorskip("faiss.contrib.e_means")
+        monkeypatch.setattr(ek.torch.cuda, "is_available", lambda: False)
+        monkeypatch.setattr(ek, "vector_kmeans_backend", lambda has_sensitivities: "emeans_batched")
+        x = torch.randn(2, 600, 4)
+        with caplog.at_level(logging.INFO, logger=ek.__name__):
+            results = ek.cluster_vectors(
+                list(x), None, 8, n_local_trials=None, n_init=5, max_iter=300, tol=1e-4
+            )
+        assert "e-means: 2 blocks" in caplog.text
+        assert results[0][0].shape == (8, 4)

@@ -506,6 +506,109 @@ def _cluster_emeans(
     return batched_cluster_avg(x, stacked, n_clusters), stacked
 
 
+def _assign_nearest(x: torch.Tensor, centroids: torch.Tensor) -> torch.Tensor:
+    """``(B, N)`` index of the nearest centroid for every point, in float32.
+
+    The norm trick, chunked over ``N`` so the ``(B, chunk, K)`` distance tile stays near the
+    size the torch Lloyd loop uses. The point's own squared norm does not change the argmin.
+    """
+    b, n, _ = x.shape
+    k = centroids.shape[1]
+    chunk = max(1, min(n, _TORCH_DIST_ELEMENTS // max(1, b * k)))
+    c_sq = (centroids * centroids).sum(-1).unsqueeze(1)
+    labels = torch.empty(b, n, dtype=torch.long, device=x.device)
+    for start in range(0, n, chunk):
+        part = x[:, start : start + chunk]
+        labels[:, start : start + chunk] = (
+            c_sq - 2.0 * torch.bmm(part, centroids.transpose(1, 2))
+        ).argmin(-1)
+    return labels
+
+
+def _emeans_batched_centroids(
+    x: torch.Tensor, seeds: torch.Tensor, nepochs: int = 5
+) -> torch.Tensor:
+    """e-means' closing centroids ``(B, K, D)`` for ``(B, N, D)`` blocks started at ``seeds``.
+
+    The recipe is faiss e-means': its batch law, step law, epoch schedule, cosine step,
+    per-epoch permutation and mass-weighted EMA update, with the closing centroids taken as the
+    means of the last pass. Only the loop is batched, so one step updates every block. All
+    blocks share each epoch's permutation, as faiss' per-block runs do (one fixed seed).
+    Valid for ``D <= 2``, where e-means does not revive empty clusters.
+    """
+    from faiss.contrib.e_means.base import _INIT_USAGE  # noqa: PLC0415 - optional dependency
+    from faiss.contrib.e_means.e_means_torch import (  # noqa: PLC0415 - optional dependency
+        _epoch_rows,
+        _epoch_seed,
+        _resolve_recipe,
+        _scheduled_alpha,
+        _torch_generator,
+    )
+
+    b, n, d = x.shape
+    k = seeds.shape[1]
+    batch, alpha0 = _resolve_recipe(n, k, nepochs, "quality", None, None)
+    rows_per_epoch = _epoch_rows(n, nepochs)
+    total_steps = sum((rows + batch - 1) // batch for rows in rows_per_epoch)
+    centroids = seeds.float().clone()
+    usage = torch.full((b, k), _INIT_USAGE, device=x.device)
+    step = 0
+    for epoch, rows in enumerate(rows_per_epoch):
+        seed = _epoch_seed(1234, epoch)  # faiss' default seed, as every per-block run uses
+        order = torch.randperm(n, generator=_torch_generator(x.device, seed), device=x.device)
+        last = epoch == len(rows_per_epoch) - 1
+        if last:
+            pass_sums = torch.zeros(b, k, d, device=x.device)
+            pass_counts = torch.zeros(b, k, device=x.device)
+        for begin in range(0, rows, batch):
+            points = x[:, order[begin : min(begin + batch, rows)]]
+            c_sq = (centroids * centroids).sum(-1)
+            labels = (
+                c_sq.unsqueeze(1) - 2.0 * torch.bmm(points, centroids.transpose(1, 2))
+            ).argmin(-1)
+            ones = torch.ones_like(labels, dtype=torch.float32)
+            counts = torch.zeros(b, k, device=x.device).scatter_add_(1, labels, ones)
+            index = labels.unsqueeze(-1).expand(-1, -1, d)
+            sums = torch.zeros(b, k, d, device=x.device).scatter_add_(1, index, points)
+            if last:
+                pass_sums += sums
+                pass_counts += counts
+            alpha = _scheduled_alpha(alpha0, step, total_steps)
+            touched = counts > 0
+            if alpha == 1:
+                retained = torch.zeros_like(usage)
+            else:
+                usage = usage * (1.0 - alpha)
+                retained = usage
+            mass = retained + alpha * counts
+            weight = alpha * counts / torch.where(touched, mass, torch.ones_like(mass))
+            mean = sums / torch.where(touched, counts, torch.ones_like(counts)).unsqueeze(-1)
+            position = (mean - centroids) * weight.unsqueeze(-1) + centroids
+            position = torch.where((weight == 1).unsqueeze(-1), mean, position)
+            centroids = torch.where(touched.unsqueeze(-1), position, centroids)
+            usage = torch.where(touched, mass, usage)
+            step += 1
+    closing = pass_sums / pass_counts.clamp_min(1).unsqueeze(-1)
+    return torch.where((pass_counts > 0).unsqueeze(-1), closing, centroids)
+
+
+def _cluster_emeans_batched(
+    x: torch.Tensor, n_clusters: int, n_local_trials: int | None
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """k-means++-seeded e-means on every ``(N, D)`` block of ``x`` at once.
+
+    Same result as :func:`_cluster_emeans` with ``kmeanspp=True`` (to floating-point order), but
+    one step updates all blocks instead of one block at a time. Labels are an exact assignment
+    against the closing centroids, and the returned centroids are the exact means of those labels.
+    """
+    generator = torch.Generator(device=x.device)
+    generator.manual_seed(_tensor_seed(x))
+    trials = _resolve_n_local_trials(n_local_trials, n_clusters)
+    seeds = batched_kmeanspp_init(x, n_clusters, trials, generator)
+    labels = _assign_nearest(x, _emeans_batched_centroids(x, seeds))
+    return batched_cluster_avg(x, labels, n_clusters), labels
+
+
 def cluster_vectors(
     blocks: list[torch.Tensor],
     sensitivities: list[torch.Tensor] | None,
@@ -561,7 +664,9 @@ def cluster_vectors(
             if sensitivities is None
             else torch.stack([sensitivities[i] for i in idxs]).to(device).float()
         )
-        if backend in _EMEANS_BACKENDS:
+        if backend == "emeans_batched" and x.shape[-1] <= 2:
+            centroids, labels = _cluster_emeans_batched(x, n_clusters, n_local_trials)
+        elif backend in _EMEANS_BACKENDS:
             centroids, labels = _cluster_emeans(
                 x, n_clusters, n_local_trials, kmeanspp=backend != "emeans"
             )
