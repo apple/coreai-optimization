@@ -526,6 +526,19 @@ def _assign_nearest(x: torch.Tensor, centroids: torch.Tensor) -> torch.Tensor:
     return labels
 
 
+def _accumulate_batch_torch(
+    x: torch.Tensor, picked: torch.Tensor, centroids: torch.Tensor, stats: torch.Tensor
+) -> None:
+    """Add the rows ``picked`` of every block to ``stats[b, j] = (sum x, sum y, count)`` of its
+    nearest centroid ``j``: the reference for the fused kernel, and the path off CUDA."""
+    d = x.shape[-1]
+    points = x[:, picked]
+    c_sq = (centroids * centroids).sum(-1)
+    labels = (c_sq.unsqueeze(1) - 2.0 * torch.bmm(points, centroids.transpose(1, 2))).argmin(-1)
+    stats[..., d].scatter_add_(1, labels, torch.ones_like(labels, dtype=torch.float32))
+    stats[..., :d].scatter_add_(1, labels.unsqueeze(-1).expand(-1, -1, d), points)
+
+
 def _emeans_step(
     x: torch.Tensor,
     picked: torch.Tensor,
@@ -534,8 +547,7 @@ def _emeans_step(
     alpha: float | torch.Tensor,
     decay: float | torch.Tensor,
     replace_usage: bool,
-    pass_sums: torch.Tensor | None,
-    pass_counts: torch.Tensor | None,
+    pass_stats: torch.Tensor | None,
 ) -> None:
     """One e-means update of every block's centroids from the rows ``picked``, in place.
 
@@ -544,20 +556,20 @@ def _emeans_step(
     with step ``alpha`` (``decay`` is ``1 - alpha``), and add them to the pass totals when those
     are kept. ``alpha`` and ``decay`` are Python floats, or 0-dim tensors when captured in a
     CUDA graph. ``replace_usage`` is faiss' ``alpha == 1`` case: the old mass is discarded.
+    Sums and counts live in one ``(B, K, D + 1)`` buffer, ``pass_stats`` being the same layout.
     """
+    from . import _emeans_triton  # noqa: PLC0415 - Triton is optional
+
     b, _, d = x.shape
     k = centroids.shape[1]
-    points = x[:, picked]
-    c_sq = (centroids * centroids).sum(-1)
-    labels = (c_sq.unsqueeze(1) - 2.0 * torch.bmm(points, centroids.transpose(1, 2))).argmin(-1)
-    ones = torch.ones_like(labels, dtype=torch.float32)
-    counts = torch.zeros(b, k, device=x.device).scatter_add_(1, labels, ones)
-    index = labels.unsqueeze(-1).expand(-1, -1, d)
-    sums = torch.zeros(b, k, d, device=x.device).scatter_add_(1, index, points)
-    if pass_sums is not None and pass_counts is not None:
-        pass_sums += sums
-        pass_counts += counts
-    _ema_update(sums, counts, centroids, usage, alpha, decay, replace_usage)
+    stats = torch.zeros(b, k, d + 1, device=x.device)
+    if _emeans_triton.available(x):
+        _emeans_triton.assign_accumulate(x, picked, centroids, stats)
+    else:
+        _accumulate_batch_torch(x, picked, centroids, stats)
+    if pass_stats is not None:
+        pass_stats += stats
+    _ema_update(stats[..., :d], stats[..., d], centroids, usage, alpha, decay, replace_usage)
 
 
 def _ema_update(
@@ -606,12 +618,11 @@ def _ema_update(
     torch.where(touched, mass, usage, out=usage)
 
 
-def _closing_centroids(
-    pass_sums: torch.Tensor, pass_counts: torch.Tensor, centroids: torch.Tensor
-) -> torch.Tensor:
+def _closing_centroids(pass_stats: torch.Tensor, centroids: torch.Tensor) -> torch.Tensor:
     """e-means' closing centroids: the means of the last pass, or the moving centroid if empty."""
-    closing = pass_sums / pass_counts.clamp_min(1).unsqueeze(-1)
-    return torch.where((pass_counts > 0).unsqueeze(-1), closing, centroids)
+    sums, counts = pass_stats[..., :-1], pass_stats[..., -1]
+    closing = sums / counts.clamp_min(1).unsqueeze(-1)
+    return torch.where((counts > 0).unsqueeze(-1), closing, centroids)
 
 
 def _centroids_eager(
@@ -632,8 +643,7 @@ def _centroids_eager(
     k = seeds.shape[1]
     centroids = seeds.float().clone()
     usage = torch.full((b, k), _INIT_USAGE, device=x.device)
-    pass_sums = torch.zeros(b, k, d, device=x.device)
-    pass_counts = torch.zeros(b, k, device=x.device)
+    pass_stats = torch.zeros(b, k, d + 1, device=x.device)
     step = 0
     for epoch, rows in enumerate(rows_per_epoch):
         seed = _epoch_seed(1234, epoch)  # faiss' default seed, as every per-block run uses
@@ -649,11 +659,10 @@ def _centroids_eager(
                 alpha,
                 1.0 - alpha,
                 alpha == 1,
-                pass_sums if last else None,
-                pass_counts if last else None,
+                pass_stats if last else None,
             )
             step += 1
-    return _closing_centroids(pass_sums, pass_counts, centroids)
+    return _closing_centroids(pass_stats, centroids)
 
 
 class _EmeansEpochGraph:
@@ -673,8 +682,7 @@ class _EmeansEpochGraph:
         self.rates = torch.full((self.steps, 2), 0.5, device=device)
         self.centroids = torch.zeros(b, k, d, device=device)
         self.usage = torch.ones(b, k, device=device)
-        self.pass_sums = torch.zeros(b, k, d, device=device)
-        self.pass_counts = torch.zeros(b, k, device=device)
+        self.pass_stats = torch.zeros(b, k, d + 1, device=device)
         side = torch.cuda.Stream(device)
         side.wait_stream(torch.cuda.current_stream(device))
         with torch.cuda.stream(side):
@@ -698,8 +706,7 @@ class _EmeansEpochGraph:
             self.rates[step, 0],
             self.rates[step, 1],
             False,
-            self.pass_sums,
-            self.pass_counts,
+            self.pass_stats,
         )
 
 
@@ -745,10 +752,9 @@ def _centroids_graphed(
             torch.randperm(n, generator=_torch_generator(x.device, seed), device=x.device)
         )
         graph.rates.copy_(rates[epoch * graph.steps : (epoch + 1) * graph.steps])
-        graph.pass_sums.zero_()
-        graph.pass_counts.zero_()
+        graph.pass_stats.zero_()
         graph.graph.replay()
-    return _closing_centroids(graph.pass_sums, graph.pass_counts, graph.centroids)
+    return _closing_centroids(graph.pass_stats, graph.centroids)
 
 
 def _emeans_batched_centroids(

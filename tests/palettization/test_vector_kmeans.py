@@ -772,3 +772,50 @@ class TestEmeansUpdate:
             ek._ema_update(sums.clone(), counts.clone(), got_c, got_u, *rate, replace_usage)
             torch.testing.assert_close(got_c.cpu(), cpu_c, rtol=0, atol=0)
             torch.testing.assert_close(got_u.cpu(), cpu_u, rtol=0, atol=0)
+
+
+@pytest.mark.cuda
+class TestFusedAssignAccumulate:
+    """The fused assign-and-accumulate kernel adds each point to its nearest centroid's stats."""
+
+    @pytest.mark.parametrize(
+        ("blocks", "n", "k", "m"), [(6, 800, 4, 64), (5, 1500, 100, 33), (3, 900, 256, 128)]
+    )
+    def test_matches_the_torch_step(self, blocks, n, k, m):
+        from coreai_opt.palettization.kmeans import _emeans_triton  # noqa: PLC0415
+
+        gen = torch.Generator(device="cuda").manual_seed(blocks + k)
+        x = torch.randn(blocks, n, 2, device="cuda", generator=gen).contiguous()
+        centroids = (
+            x[:, :k] + 0.05 * torch.randn(blocks, k, 2, device="cuda", generator=gen)
+        ).contiguous()
+        picked = torch.randperm(n, device="cuda", generator=gen)[:m].contiguous()
+        expected = torch.zeros(blocks, k, 3, device="cuda")
+        ek._accumulate_batch_torch(x, picked, centroids, expected)
+        got = torch.zeros(blocks, k, 3, device="cuda")
+        _emeans_triton.assign_accumulate(x, picked, centroids, got)
+        # Counts are exact (a point either lands in a cluster or does not); sums differ only by
+        # the order of the atomic float adds.
+        assert torch.equal(got[..., 2], expected[..., 2])
+        torch.testing.assert_close(got[..., :2], expected[..., :2], rtol=1e-5, atol=1e-5)
+
+    def test_ties_go_to_the_lowest_index_like_argmin(self):
+        from coreai_opt.palettization.kmeans import _emeans_triton  # noqa: PLC0415
+
+        x = torch.zeros(2, 8, 2, device="cuda")
+        centroids = torch.ones(2, 70, 2, device="cuda")  # all equidistant, more than one tile
+        got = torch.zeros(2, 70, 3, device="cuda")
+        _emeans_triton.assign_accumulate(x, torch.arange(8, device="cuda"), centroids, got)
+        assert (got[..., 2][:, 0] == 8).all() and got[..., 2][:, 1:].sum() == 0
+
+    def test_an_epoch_is_the_same_with_the_fused_kernel_and_without_it(self, monkeypatch):
+        from coreai_opt.palettization.kmeans import _emeans_triton  # noqa: PLC0415
+
+        gen = torch.Generator(device="cuda").manual_seed(2)
+        x = torch.randn(5, 3000, 2, device="cuda", generator=gen).contiguous()
+        seeds = ek.batched_kmeanspp_init(x, 24, 5, gen)
+        fused = ek._emeans_batched_centroids(x, seeds)
+        monkeypatch.setattr(_emeans_triton, "available", lambda _: False)
+        ek._EPOCH_GRAPHS.clear()  # a graph captured with the kernel must not be reused
+        plain = ek._emeans_batched_centroids(x, seeds)
+        torch.testing.assert_close(fused, plain, rtol=1e-3, atol=1e-3)
