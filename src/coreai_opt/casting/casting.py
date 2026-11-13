@@ -28,6 +28,7 @@ from typing import Any
 import torch
 
 from coreai_opt._utils.casting_utils import (
+    ANE_UNSAFE_FP16_OPS as _ANE_UNSAFE_FP16_OPS,
     CAST_OPS as _CAST_OPS,
     CREATION_OPS as _CREATION_OPS,
     FLOAT_DTYPES as _FLOAT_DTYPES,
@@ -57,6 +58,8 @@ from coreai_opt._utils.casting_utils import (
     store_converted_placeholder as _store_converted_placeholder,
     update_meta_dtype as _update_meta_dtype,
 )
+
+ANE_UNSAFE_FP16_OPS = _ANE_UNSAFE_FP16_OPS
 
 # =============================================================================
 # Base Class
@@ -212,10 +215,14 @@ class _FP16Casting(_CastPassBase):
             | None
         ) = None,
         calibration_data: _CalibrationDataType = None,
+        guard_ane_topk: bool = True,
     ) -> None:
         super().__init__(exported_program)
+        self._guard_ane_topk = guard_ane_topk
         if isinstance(ignored_ops, (torch._ops.OpOverload, torch._ops.OpOverloadPacket)):
-            self._ignored_ops: set[Any] | Callable[[torch.fx.Node], bool] | None = {ignored_ops}
+            self._ignored_ops: (
+                set[Any] | frozenset[Any] | Callable[[torch.fx.Node], bool] | None
+            ) = {ignored_ops}
         elif isinstance(ignored_ops, (set, frozenset)):
             self._ignored_ops = ignored_ops
         elif isinstance(ignored_ops, Iterable) and not callable(ignored_ops):
@@ -329,6 +336,15 @@ class _FP16Casting(_CastPassBase):
                 element = container_val[index]
                 if hasattr(element, "dtype"):
                     node.meta["val"] = element
+                    if (
+                        node not in self._overflowing_nodes
+                        and not _is_ignored_op(node, self._ignored_ops)
+                        and element.dtype in _FLOAT_DTYPES
+                        and element.dtype != torch.float16
+                    ):
+                        _insert_cast_after(
+                            self._ep.graph, node, torch.float16, pass_inserted=self._pass_inserted
+                        )
                 continue
 
             # --- assert nodes: update dtype to match input ---
@@ -337,7 +353,11 @@ class _FP16Casting(_CastPassBase):
                 continue
 
             # --- ignored ops or dynamic activation overflow: keep in FP32 ---
-            if node in self._overflowing_nodes or _is_ignored_op(node, self._ignored_ops):
+            if (
+                node in self._overflowing_nodes
+                or (self._guard_ane_topk and _is_ignored_op(node, _ANE_UNSAFE_FP16_OPS))
+                or _is_ignored_op(node, self._ignored_ops)
+            ):
                 self.handle_overflow_op(node)
                 continue
 
@@ -652,6 +672,7 @@ def cast_fp32_to_fp16(
         | None
     ) = None,
     calibration_data: _CalibrationDataType = None,
+    guard_ane_topk: bool = True,
 ) -> torch.export.ExportedProgram:
     """Convert a torch exported program from FP32 to FP16 where applicable.
 
@@ -671,12 +692,18 @@ def cast_fp32_to_fp16(
             If provided, operations whose intermediate activations overflow the FP16 representable
             range (> 65504) are automatically identified and excluded from FP16 casting,
             remaining in FP32 precision with boundary casts.
+        guard_ane_topk: Whether to keep ``torch.topk`` operations in FP32 precision with boundary
+            casts to protect against index packing corruption on Apple Neural Engine (ANE)
+            hardware (Apple Radar FB24904516 / apple/coreai-torch#115). Defaults to ``True``.
 
     Returns:
         The modified exported program.
     """
     return _FP16Casting(
-        exported_program, ignored_ops=ignored_ops, calibration_data=calibration_data
+        exported_program,
+        ignored_ops=ignored_ops,
+        calibration_data=calibration_data,
+        guard_ane_topk=guard_ane_topk,
     )()
 
 
@@ -701,6 +728,7 @@ def cast_to_16_bit_precision(
         | None
     ) = None,
     calibration_data: _CalibrationDataType = None,
+    guard_ane_topk: bool = True,
 ) -> torch.export.ExportedProgram:
     """Convert a torch exported program to 16-bit precision: FP32→FP16 and INT32/64→INT16.
 
@@ -714,10 +742,17 @@ def cast_to_16_bit_precision(
             Forwarded to :func:`cast_fp32_to_fp16`.
         calibration_data: Optional iterable yielding sample inputs for dynamic activation
             range observation. Forwarded to :func:`cast_fp32_to_fp16`.
+        guard_ane_topk: Whether to keep ``torch.topk`` in FP32 precision to protect against
+            ANE index packing corruption. Forwarded to :func:`cast_fp32_to_fp16`.
 
     Returns:
         The modified exported program.
     """
-    cast_fp32_to_fp16(exported_program, ignored_ops=ignored_ops, calibration_data=calibration_data)
+    cast_fp32_to_fp16(
+        exported_program,
+        ignored_ops=ignored_ops,
+        calibration_data=calibration_data,
+        guard_ane_topk=guard_ane_topk,
+    )
     cast_int32_to_int16(exported_program)
     return exported_program
