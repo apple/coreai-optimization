@@ -143,6 +143,7 @@ def test_w4_global_with_module_w8_linear_override():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 @pytest.mark.parametrize("preset_name", ["w4", "w6"])
 def test_demo_grouped_preset(preset_name, simple_linear_model, simple_linear_model_input):
@@ -156,6 +157,7 @@ def test_demo_grouped_preset(preset_name, simple_linear_model, simple_linear_mod
     finalized_model(simple_linear_model_input)
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.slow
 def test_demo_w8(simple_linear_model, simple_linear_model_input):
     """w8: 8-bit palettization, per-tensor (lossless baseline)."""

@@ -155,6 +155,7 @@ def test_centroid_count(group_size, presparse_group_size, small_model, small_inp
                 assert (kept_indices == 0).any(), (name, group)
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.parametrize("all_zero", ["group", "layer"])
 def test_all_zero_group_or_layer(all_zero, small_model, small_input, caplog):
     n_bits = 4
@@ -196,6 +197,7 @@ def test_all_zero_group_or_layer(all_zero, small_model, small_input, caplog):
         assert torch.equal(getattr(finalized, name).weight == 0, zeros_before[name]), name
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.parametrize(
     "group_size,presparse_group_size,uneven,n_bits",
     [
@@ -264,6 +266,7 @@ def _palettize_linear_weight(weight, **spec):
     return palettizer, palettizer.prepare((torch.randn(1, weight.shape[1]),))
 
 
+@pytest.mark.requires_coreai
 def test_vector_palettization_of_nonzeros():
     # In row-major order the nonzeros are 1 2 1 2 0.1 3 4 3 4 5 6. Their count is odd, so with
     # cluster_dim=2 the smallest one (0.1) is dropped, leaving the vectors (1,2) (1,2) (3,4)
@@ -297,6 +300,7 @@ def test_vector_palettization_of_nonzeros():
     assert torch.equal(finalized[0].weight, expected)
 
 
+@pytest.mark.requires_coreai
 def test_vector_palettization_of_nonzeros_grouped():
     # Two groups of two rows, one LUT each. Group 0 has 7 nonzeros, so its smallest (0.1) is
     # dropped to leave three whole vectors. Group 1 has 4, so it also stores its first two
@@ -335,6 +339,7 @@ def test_vector_palettization_of_nonzeros_grouped():
     assert torch.equal(finalized[0].weight, expected)
 
 
+@pytest.mark.requires_coreai
 def test_vector_palettization_of_nonzeros_edge_cases():
     # Only axis-0 groups are contiguous in the nonzero list, so a sparse layer with LUTs grouped
     # along another axis fails at detection.
@@ -369,6 +374,7 @@ _SCALE_FEATURES = {
 }
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.parametrize("feature", list(_SCALE_FEATURES))
 @pytest.mark.parametrize(
     "group_size,presparse_group_size",
@@ -392,6 +398,7 @@ def test_scale_variants_rebuild_prepared_weight(feature, group_size, presparse_g
     assert torch.equal(finalized[0].weight == 0, prepared_weight == 0)
 
 
+@pytest.mark.requires_coreai
 @pytest.mark.parametrize("group_size", [None, GROUP_SIZE], ids=["per_tensor", "grouped_uneven"])
 def test_already_palettized_sparse_weights_skip_kmeans(group_size, small_model, small_input):
     model = presparsify(small_model, SPARSITY)
@@ -489,7 +496,12 @@ _REJECTS = {
 @pytest.mark.parametrize(
     "backend,kwargs",
     [
-        pytest.param(backend, kwargs, id=f"{backend.name.lower()}-{name}")
+        pytest.param(
+            backend,
+            kwargs,
+            id=f"{backend.name.lower()}-{name}",
+            marks=pytest.mark.requires_coreai if backend == _COREAI else (),
+        )
         for backend, cases in _REJECTS.items()
         for name, kwargs in cases.items()
     ],

@@ -53,7 +53,8 @@ def lazy_import_coreai_torch(import_func: Callable[[], T]) -> T:
         >>> modules = lazy_import_coreai_torch(_import_custom_layers)
     """
     error_message = (
-        "coreai-torch package is required for MLIR export. "
-        "Install it with: pip install coreai-torch"
+        "Core AI export needs the optional coreai and coreai-torch packages; install them "
+        "with this package's `coreai` extra. To finalize without them, pass "
+        "backend=ExportBackend.Torch."
     )
     return lazy_import_module(import_func, error_message)

@@ -74,8 +74,9 @@ class TestMagnitudePruner:
         assert "weight" in linear_10x20_unique.parametrizations
         assert isinstance(linear_10x20_unique.parametrizations.weight[0], PruneImplBase)
 
-    def test_torch_finalize(self) -> None:
-        """Finalize with Torch backend is a no-op (parametrizations stay active)."""
+    @pytest.mark.requires_coreai
+    def test_coreai_finalize(self) -> None:
+        """CoreAI finalize keeps the weight parametrized, with the pruned values unchanged."""
         model = nn.Linear(100, 50, bias=False)
         with torch.no_grad():
             model.weight.copy_(torch.arange(1, 5001, dtype=torch.float32).reshape(50, 100))
@@ -85,7 +86,7 @@ class TestMagnitudePruner:
 
         prepared_weight = model.weight.detach().clone()
 
-        finalized = pruner.finalize()
+        finalized = pruner.finalize(backend=ExportBackend.CoreAI)
         assert not pruner._is_model_prepared(finalized)
         assert hasattr(finalized, "parametrizations")
         assert "weight" in finalized.parametrizations

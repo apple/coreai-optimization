@@ -7,7 +7,6 @@
 
 import pytest
 import torch
-from coreai_torch._compression._floatx import Float4Tensor
 from safetensors.torch import load_file
 from torch import nn
 from torch.nn.utils import parametrize as P
@@ -178,6 +177,7 @@ class TestNormalizeAxis:
         assert normalize_axis(axis, ndim) == expected
 
 
+@pytest.mark.requires_coreai
 class TestMmapModuleStateDict:
     """Test mmap_module_state_dict serialization and reload."""
 
@@ -196,6 +196,7 @@ class TestMmapModuleStateDict:
     @staticmethod
     def test_mixed_standard_and_float4(tmp_path):
         """Module with both standard and Float4Tensor parameters roundtrips."""
+        from coreai_torch._compression._floatx import Float4Tensor  # noqa: PLC0415
 
         module = nn.Module()
         module.register_buffer("normal", torch.randn(4, 4))
@@ -219,6 +220,7 @@ class TestMmapModuleStateDict:
             mmap_module_state_dict(model, tmp_path / "model.safetensors")
 
 
+@pytest.mark.requires_coreai
 class TestMmapNamedTensors:
     """Test mmap_named_tensors partial remapping of a module's tensors."""
 
@@ -250,6 +252,8 @@ class TestMmapNamedTensors:
     @staticmethod
     def test_float4_tensor_is_rewrapped(tmp_path):
         """A ``Float4Tensor`` buffer comes back as a ``Float4Tensor``, not a raw elem."""
+        from coreai_torch._compression._floatx import Float4Tensor  # noqa: PLC0415
+
         module = nn.Module()
         uint8_data = torch.randint(0, 255, (2, 8), dtype=torch.uint8)
         module.register_buffer("compressed", Float4Tensor(uint8_data))

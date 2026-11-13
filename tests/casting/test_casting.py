@@ -371,6 +371,7 @@ def quantized_ep_and_input(request):
     return ep, example_input
 
 
+@pytest.mark.requires_coreai
 class TestCastAfterQuantization:
     """Test that casting works correctly on quantized (weight-only int8) models."""
 
