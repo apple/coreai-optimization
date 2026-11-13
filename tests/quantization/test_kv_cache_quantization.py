@@ -599,42 +599,60 @@ class _SharedKVCacheModel(nn.Module):
     """A key-cache write of slot 0 plus a read-only fetch (empty update) of ``read_slot``.
 
     The empty update is what a KV-shared layer passes: it reads another layer's slot
-    without writing one of its own.
+    without writing one of its own. ``reader_first`` puts the fetch ahead of the write,
+    as when a model reads a prepopulated cache before updating it; ``second_writer``
+    adds another quantized write of slot 0.
     """
 
-    def __init__(self, read_slot: int):
+    def __init__(self, read_slot: int, reader_first: bool = False, second_writer: bool = False):
         super().__init__()
         self.read_slot = read_slot
+        self.reader_first = reader_first
+        self.second_writer = second_writer
         self.k_proj = nn.Linear(8, 32)
 
     def forward(self, k_cache, v_cache, q, k_new, v_new):
         begin = torch.zeros(5, dtype=torch.int32)
         end = torch.zeros(5, dtype=torch.int32)
         ops = torch.ops.coreai_opt_test_kv_cache
-        k = ops.key_cache_update(k_cache, self.k_proj(k_new).unsqueeze(0), begin, end, 0, 4)
-        empty = k_cache.new_empty((1, 1, 8, 0, 32))
-        k_shared = ops.key_cache_update(k_cache, empty, begin, end, self.read_slot, 4)
+
+        def write():
+            return ops.key_cache_update(k_cache, self.k_proj(k_new).unsqueeze(0), begin, end, 0, 4)
+
+        def read():
+            empty = k_cache.new_empty((1, 1, 8, 0, 32))
+            return ops.key_cache_update(k_cache, empty, begin, end, self.read_slot, 4)
+
+        if self.reader_first:
+            k_shared, k = read(), write()
+        else:
+            k, k_shared = write(), read()
         sdpa = torch.nn.functional.scaled_dot_product_attention
-        return sdpa(q, k, k) + sdpa(q, k_shared, k_shared)
+        out = sdpa(q, k, k) + sdpa(q, k_shared, k_shared)
+        if self.second_writer:
+            out = out + sdpa(q, write(), write())
+        return out
 
 
-def _prepared_shared_cache_quantizer(read_slot: int) -> Quantizer:
+def _prepared_shared_cache_quantizer(read_slot: int, **model_kwargs: bool) -> Quantizer:
     config = _build_quantizer_config(
         kv_cache_quant_configs={
             "key_cache_update": _default_cache_config(_make_act_spec(torch.int8))
         },
     )
-    quantizer = Quantizer(_SharedKVCacheModel(read_slot).eval(), config)
+    quantizer = Quantizer(_SharedKVCacheModel(read_slot, **model_kwargs).eval(), config)
     quantizer.prepare(_kv_cache_attention_example_inputs())
     return quantizer
 
 
 class TestReadOnlyCacheFetch:
-    def test_read_only_fetch_reuses_writer_dequant(self):
-        """The fetch's output is dequantized with the params of the op writing its slot."""
-        finalized = _prepared_shared_cache_quantizer(read_slot=0).finalize(
-            backend=ExportBackend.CoreAI
-        )
+    @pytest.mark.parametrize("reader_first", [False, True])
+    def test_read_only_fetch_reuses_writer_dequant(self, reader_first):
+        """The fetch's output is dequantized with the params of the op writing its slot,
+        whichever of the two comes first in the graph."""
+        finalized = _prepared_shared_cache_quantizer(
+            read_slot=0, reader_first=reader_first
+        ).finalize(backend=ExportBackend.CoreAI)
         cache_ops = [
             n
             for n in finalized.graph.nodes
@@ -644,13 +662,23 @@ class TestReadOnlyCacheFetch:
         quantize = torch.ops.coreai.quantize
         (writer,) = [n for n in cache_ops if n.all_input_nodes[1].target is quantize]
         (reader,) = [n for n in cache_ops if n is not writer]
+        assert (cache_ops.index(reader) < cache_ops.index(writer)) == reader_first
 
         writer_dq, reader_dq = list(writer.users), list(reader.users)
         assert len(writer_dq) == 1 and len(reader_dq) == 1
         assert reader_dq[0].target is torch.ops.coreai.dequantize, (
             f"read-only fetch output should be dequantized; got {reader_dq[0].target}"
         )
-        assert reader_dq[0].args[1:] == writer_dq[0].args[1:], (
+
+        # The scale is positional; the zero point and dtypes are kwargs. A reader reads the
+        # writer's params through its own get_attr nodes, so compare what they read.
+        def params(dq):
+            def read(arg):
+                return arg.target if isinstance(arg, torch.fx.Node) else arg
+
+            return [read(a) for a in dq.args[1:]], {k: read(v) for k, v in dq.kwargs.items()}
+
+        assert params(reader_dq[0]) == params(writer_dq[0]), (
             "read-only fetch should dequantize with its slot writer's scale / zero-point"
         )
         assert reader.meta["val"].dtype == torch.int8
@@ -658,6 +686,25 @@ class TestReadOnlyCacheFetch:
         assert reader_update.meta["val"].dtype == torch.int8, (
             "read-only fetch's empty update should match the quantized cache dtype"
         )
+        # Built like the original empty update, so it keeps that update's shape and device.
+        # Contiguous: the default preserve_format decomposes to an op that does not lower.
+        assert reader_update.target is torch.ops.aten.empty_like.default
+        assert reader_update.kwargs["memory_format"] == torch.contiguous_format
+
+    def test_two_writers_of_a_read_slot_raise(self):
+        """With two quantized writers of a slot, a fetch of it has no single set of params."""
+        quantizer = _prepared_shared_cache_quantizer(read_slot=0, second_writer=True)
+        with pytest.raises(RuntimeError, match="Two quantized key_cache_update ops write slot"):
+            quantizer.finalize(backend=ExportBackend.CoreAI)
+
+    def test_read_only_fetch_does_not_warn_at_prepare(self, caplog):
+        """The empty update has nothing to quantize, and the spec on its index is needed by
+        the writers, so prepare does not warn that the spec targets a non-quantizable tensor."""
+        with caplog.at_level(logging.WARNING):
+            _prepared_shared_cache_quantizer(read_slot=0)
+        assert not [
+            r for r in caplog.records if "not a quantizable floating point tensor" in r.message
+        ]
 
     def test_read_only_fetch_without_writer_raises(self):
         """A fetch of a slot no quantized op writes cannot be dequantized."""
@@ -708,15 +755,12 @@ class TestReadOnlyCacheFetch:
             for n in finalized.graph.nodes
             if n.op == "call_function"
             and "key_cache_update" in str(n.target)
-            and n.all_input_nodes[1].target is torch.ops.aten.empty.memory_format
+            and n.all_input_nodes[1].target is torch.ops.aten.empty_like.default
         ]
         new_update = reader.all_input_nodes[1]
         assert new_update.meta["val"].dtype == torch.int8
-        batch_size = new_update.args[0][1]
-        assert isinstance(batch_size, torch.fx.Node), (
-            f"dynamic dim should come from a size node; got {batch_size!r}"
-        )
-        assert batch_size.target is torch.ops.aten.sym_size.int
+        # The dynamic batch dim carries over from the original empty update.
+        assert not isinstance(new_update.meta["val"].shape[1], int), new_update.meta["val"].shape
 
         k_cache_q, v_cache_q = k_cache.to(torch.int8), v_cache.to(torch.int8)
         for batch in (3, 5):
