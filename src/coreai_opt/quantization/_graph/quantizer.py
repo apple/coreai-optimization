@@ -390,18 +390,10 @@ class _AnnotationHandler(TorchPT2EQuantizer):
             # A read-only fetch (e.g. a KV-shared layer) passes an empty update, which has
             # nothing to quantize. Drop its spec so it is skipped without the warning about
             # a spec set on a non-quantizable tensor: that spec is needed by the writers.
-            empty_inputs = {
-                idx
-                for idx, input_node in enumerate(node.all_input_nodes)
-                if idx in ann_config.op_input_spec and is_empty_tensor(input_node)
-            }
-            if empty_inputs:
-                ann_config = copy.copy(ann_config)
-                ann_config.op_input_spec = {
-                    idx: spec
-                    for idx, spec in ann_config.op_input_spec.items()
-                    if idx not in empty_inputs
-                }
+            # ann_config is built fresh for this node, so editing it in place is safe.
+            for idx, input_node in enumerate(node.all_input_nodes):
+                if idx in ann_config.op_input_spec and is_empty_tensor(input_node):
+                    del ann_config.op_input_spec[idx]
             input_qspec_map = _get_input_qspec_map(node.all_input_nodes, ann_config, context)
             node.meta[Q_ANNOTATION_KEY] = QuantizationAnnotation(
                 input_qspec_map=input_qspec_map,

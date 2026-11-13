@@ -796,7 +796,7 @@ class _SlotKey(NamedTuple):
     """The cache slot a cache op reads and writes."""
 
     cache: Node  # The cache-state placeholder.
-    args: tuple  # The op's non-tensor args (e.g. ``layer_idx``), which select the slot.
+    args: tuple[object, ...]  # The op's non-tensor args (e.g. ``layer_idx``); select the slot.
 
 
 class _WriterDequant(NamedTuple):
