@@ -1,0 +1,1 @@
+Fix Core AI export of 8-bit palettized weights with a quantized LUT giving wrong output when the stored values fit in fewer bits and the zero point does not.
