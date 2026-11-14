@@ -5,6 +5,8 @@
 
 """Helpers for toggling fake quantization by quantization target."""
 
+import warnings
+
 import torch
 
 from coreai_opt.config.spec import CompressionTargetTensor
@@ -72,3 +74,18 @@ def reset_activation_running_ranges(module: torch.nn.Module) -> None:
         and None in module.qparams_calculator.float_range
     ):
         module.qparams_calculator.reset_running_range()
+
+
+def warn_unquantized_tensors(num_tensors: int) -> None:
+    """Warn that ``prepare()`` left ``num_tensors`` tensors unquantized.
+
+    Each such tensor is already logged when its FakeQuantize module is disabled; this
+    one-line summary makes the outcome visible and points to those logs.
+    """
+    warnings.warn(
+        f"prepare() left {num_tensors} tensor(s) unquantized because their shapes are "
+        "incompatible with the block size configuration. See the WARNING logs of the "
+        "'coreai_opt' logger for the affected tensors.",
+        UserWarning,
+        stacklevel=2,
+    )

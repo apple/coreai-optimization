@@ -11,6 +11,8 @@ Tests are parametrized via the ``execution_mode`` fixture so every scenario
 runs for both graph and eager mode in a single test definition.
 """
 
+import warnings
+
 import pytest
 import torch
 import torch.nn as nn
@@ -769,6 +771,57 @@ class TestCalibrationAfterPrepare:
             assert calculator.scale.numel() > 0
         with torch.no_grad():
             assert torch.isfinite(prepared_model(example_input)).all()
+
+
+class TestSkippedTensorSummary:
+    """prepare() must summarize tensors left unquantized due to block size incompatibility."""
+
+    @staticmethod
+    def _make_model(depthwise: bool = True) -> nn.Module:
+        class ConvModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.conv = nn.Conv2d(128, 128, 1)
+                # Depthwise weight (128, 1, 3, 3) can't be blocked along axis 1.
+                self.dw = nn.Conv2d(128, 128, 3, padding=1, groups=128) if depthwise else None
+                self.pw = nn.Conv2d(128, 72, 1)
+                self.pw2 = nn.Conv2d(72, 128, 1)  # weight (128, 72, 1, 1)
+                self.fc = nn.Linear(128, 10)
+
+            def forward(self, x):
+                x = self.conv(x)
+                if self.dw is not None:
+                    x = self.dw(x)
+                x = self.pw2(self.pw(x))
+                return self.fc(x.mean((2, 3)))
+
+        return ConvModel().eval()
+
+    def test_summary_warning_counts_skipped_tensors(self, execution_mode, caplog):
+        config = QuantizerConfig.presets.w4_per_block(
+            block_size=128, axis=1, execution_mode=execution_mode
+        )
+        with pytest.warns(UserWarning, match=r"left 2 tensor\(s\) unquantized") as record:
+            Quantizer(self._make_model(), config).prepare((torch.randn(1, 128, 8, 8),))
+
+        assert len([w for w in record if "unquantized" in str(w.message)]) == 1
+        # The details the summary points to: one log record per skipped tensor.
+        skipped_logs = [
+            r.getMessage() for r in caplog.records if "Skipping quantization" in r.getMessage()
+        ]
+        assert len(skipped_logs) == 2
+        assert any("'dw.weight'" in message for message in skipped_logs)
+
+    def test_no_summary_when_nothing_skipped(self, execution_mode):
+        config = QuantizerConfig.presets.w4_per_block(
+            block_size=8, axis=1, execution_mode=execution_mode
+        )
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            Quantizer(self._make_model(depthwise=False), config).prepare(
+                (torch.randn(1, 128, 8, 8),)
+            )
+        assert not [w for w in record if "unquantized" in str(w.message)]
 
 
 class TestPerBlockActivationQuantization:

@@ -44,6 +44,7 @@ from coreai_opt.quantization._fake_quant_utils import (
     disable_activation_fake_quant,
     enable_weight_fake_quant,
     reset_activation_running_ranges,
+    warn_unquantized_tensors,
 )
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
@@ -405,6 +406,7 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
         }
         if not disabled_fq:
             return
+        warn_unquantized_tensors(len(disabled_fq))
 
         # Scrub stale activation optimizer names from the reference tracker
         # before removing the modules from the model.
