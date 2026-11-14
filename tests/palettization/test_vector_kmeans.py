@@ -630,10 +630,10 @@ class TestEmeansBatched:
             torch.testing.assert_close(batched, per_block)
             assert torch.equal(labels, per_block_labels)
 
-    @pytest.mark.parametrize("n", [32768, 40960, 65536, 98304, 155648])
+    @pytest.mark.parametrize("n", [16384, 32768, 40960, 65536, 98304, 155648])
     @pytest.mark.parametrize("k", [4, 8, 16, 64, 256])
     def test_every_qwen3_block_length_at_every_width_takes_the_graph_path(self, n, k):
-        # The block lengths of Qwen3-1.7B and Qwen3-4B projections (32 rows of cluster_dim 2). The
+        # The block lengths of Qwen3-0.6B, 1.7B and 4B projections (32 rows of cluster_dim 2). The
         # CUDA graph needs a step size below 1 and every epoch to be a full pass; otherwise the
         # eager loop runs on CUDA too.
         pytest.importorskip("faiss.contrib.e_means")
