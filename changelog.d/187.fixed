@@ -1,0 +1,1 @@
+Fix fp16 and bf16 palettized weights with a quantized LUT failing on the Core AI backend, in the finalized model's forward and in export of Linear layers with bias, because the LUT scale stayed float32.
