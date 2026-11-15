@@ -9,6 +9,7 @@ import torch
 
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
+from coreai_opt.quantization.spec.qparams_calculator import RunningRangeMixin
 
 
 def disable_activation_fake_quant(module: torch.nn.Module) -> None:
@@ -47,3 +48,23 @@ def enable_weight_fake_quant(module: torch.nn.Module) -> None:
         and module.quantization_target == CompressionTargetTensor.WEIGHT
     ):
         module.enable_fake_quant()
+
+
+def discard_activation_running_ranges(module: torch.nn.Module) -> None:
+    """Make activation running-range calculators drop their observed range on the next update.
+
+    ``prepare()`` observes ``example_inputs`` once to initialize qparams. Applied
+    right after that pass, this keeps the resulting qparams usable but stops
+    them from biasing the ranges later collected from calibration data.
+
+    Args:
+        module (torch.nn.Module): Module to (possibly) update. No-op for any
+            module that is not an activation ``FakeQuantizeImplBase`` with a
+            running-range qparams calculator.
+    """
+    if (
+        isinstance(module, FakeQuantizeImplBase)
+        and module.quantization_target == CompressionTargetTensor.ACTIVATION
+        and isinstance(module.qparams_calculator, RunningRangeMixin)
+    ):
+        module.qparams_calculator.discard_running_range()

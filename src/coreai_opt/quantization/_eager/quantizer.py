@@ -42,6 +42,7 @@ from coreai_opt.quantization._axis_defaults import (
 )
 from coreai_opt.quantization._fake_quant_utils import (
     disable_activation_fake_quant,
+    discard_activation_running_ranges,
     enable_weight_fake_quant,
 )
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
@@ -74,8 +75,6 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
         >>> model = nn.Sequential(nn.Linear(10, 5), nn.ReLU())
         >>> quantizer = EagerQuantizer(model)
         >>>
-        >>> # When activation quantization is in use, example_inputs should be
-        >>> # representative of the data the model would typically see.
         >>> example_inputs = ...
         >>>
         >>> # Prepare for QAT
@@ -186,8 +185,10 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
 
         Args:
             example_inputs: Sample inputs used to trace the model and configure
-                quantizers. When activation quantization is in use, these should
-                be representative of the data the model would typically see.
+                quantizers. With activation quantization, they also initialize the
+                activation ranges. Without ``state_dict``, the first batch observed
+                after ``prepare()`` (e.g. in ``calibration_mode()`` or
+                ``training_mode()``) replaces them.
             state_dict: Optional state dict of a model previously prepared with the
                 same config. When provided, its quantization state (e.g. calibrated
                 qparams) is loaded after preparing.
@@ -226,6 +227,8 @@ class EagerQuantizer(_BaseQuantizer, EagerCompressionComponentBuilderMixin):
 
         if state_dict is not None:
             self._load_prepared_state_dict(self._model, state_dict)
+        else:
+            self._model.apply(discard_activation_running_ranges)
         self._model.apply(enable_fake_quant)
         self._model.apply(disable_observer)
 

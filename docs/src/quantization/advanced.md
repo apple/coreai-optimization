@@ -21,9 +21,7 @@ from coreai_opt.quantization.config import QATSchedule
 import torch
 
 model = MyModel()
-example_inputs = (
-    ...
-)  # use a representative data sample when activation quantization is in use
+example_inputs = (...,)
 
 # default INT8_INT8 config
 config = QuantizerConfig(

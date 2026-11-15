@@ -59,6 +59,7 @@ from coreai_opt.quantization._axis_defaults import (
 )
 from coreai_opt.quantization._fake_quant_utils import (
     disable_activation_fake_quant,
+    discard_activation_running_ranges,
     enable_weight_fake_quant,
 )
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
@@ -988,8 +989,11 @@ class GraphQuantizer(_BaseQuantizer):
           to achieve good accuracy
 
         Args:
-            example_inputs: Tuple of example inputs for model tracing. These should
-                        be representative of the actual inputs the model will receive.
+            example_inputs: Tuple of example inputs for model tracing. With activation
+                        quantization, they also initialize the activation ranges.
+                        Without ``state_dict``, the first batch observed after
+                        ``prepare()`` (e.g. in ``calibration_mode()`` or
+                        ``training_mode()``) replaces them.
             dynamic_shapes: Optional dynamic shapes specification for torch.export.
                           Can be a dict mapping input names to dynamic dimensions,
                           a tuple/list of dynamic shapes per input, or None for
@@ -1113,6 +1117,8 @@ class GraphQuantizer(_BaseQuantizer):
         # Set up initial quantization state: fake quant enabled, observers disabled
         if state_dict is not None:
             self._load_prepared_state_dict(prepared_model, state_dict)
+        else:
+            prepared_model.apply(discard_activation_running_ranges)
         prepared_model.apply(enable_fake_quant)
         prepared_model.apply(disable_observer)
 

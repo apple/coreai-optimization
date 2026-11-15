@@ -1,0 +1,1 @@
+Fix calibrated activation ranges depending on the `example_inputs` passed to `Quantizer.prepare()`: the range observed during `prepare()` is now replaced by the first batch observed in `calibration_mode()` or `training_mode()` instead of being averaged into the running range.

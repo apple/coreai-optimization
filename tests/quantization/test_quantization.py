@@ -540,6 +540,164 @@ class TestDynamicActivationQuantization:
         assert dynamic_fq.observer_enabled.item() == 1
 
 
+class TestCalibrationAfterPrepare:
+    """Calibrated activation ranges must come from calibration data only.
+
+    ``prepare()`` runs one observed forward pass on ``example_inputs`` to
+    initialize qparams. Those statistics must not leak into the running range
+    that calibration builds, otherwise two builds with identical calibration
+    data but different (often random) example inputs produce different models.
+    Only the first observed batch after ``prepare()`` replaces the range; later
+    observing phases continue from it.
+    """
+
+    _OBSERVING_MODES = ["calibration_mode", "training_mode"]
+
+    @staticmethod
+    def _make_config(execution_mode: str, qparam_calculator_cls: str) -> QuantizerConfig:
+        """W8A8 config with the given activation qparams calculator."""
+        activation_spec = QuantizationSpec(
+            dtype=torch.int8,
+            qscheme=QuantizationScheme.SYMMETRIC,
+            granularity=PerTensorGranularity(),
+            qparam_calculator_cls=qparam_calculator_cls,
+        )
+        return QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={"weight": default_weight_quantization_spec()},
+                op_input_spec={"*": activation_spec},
+                op_output_spec=None,
+            )
+        ).set_execution_mode(execution_mode)
+
+    @staticmethod
+    def _prepare(
+        config: QuantizerConfig, example_input: torch.Tensor
+    ) -> tuple[Quantizer, nn.Module]:
+        torch.manual_seed(0)
+        quantizer = Quantizer(SimpleLinearModel().eval(), config)
+        return quantizer, quantizer.prepare((example_input,))
+
+    @staticmethod
+    def _observe(
+        quantizer: Quantizer,
+        prepared_model: nn.Module,
+        observing_mode: str,
+        batches: list[torch.Tensor],
+    ) -> None:
+        """Run ``batches`` through the model inside ``calibration_mode`` or ``training_mode``."""
+        with getattr(quantizer, observing_mode)(), torch.no_grad():
+            for batch in batches:
+                prepared_model(batch)
+
+    @staticmethod
+    def _activation_scales(prepared_model: nn.Module) -> list[torch.Tensor]:
+        return [
+            m.qparams_calculator.scale.clone()
+            for m in prepared_model.modules()
+            if isinstance(m, FakeQuantizeImplBase)
+            and m.quantization_target == CompressionTargetTensor.ACTIVATION
+        ]
+
+    @pytest.mark.parametrize("observing_mode", _OBSERVING_MODES)
+    @pytest.mark.parametrize("qparam_calculator_cls", ["moving_average", "global_minmax"])
+    def test_calibrated_scales_independent_of_example_inputs(
+        self, execution_mode, qparam_calculator_cls, observing_mode
+    ):
+        config = self._make_config(execution_mode, qparam_calculator_cls)
+        generator = torch.Generator().manual_seed(0)
+        calibration_data = [torch.rand(4, 64, generator=generator) for _ in range(5)]
+        small_example_input = torch.rand(4, 64, generator=generator)
+        large_example_input = 100 * torch.randn(4, 64, generator=generator)
+
+        scales = []
+        for example_input in (small_example_input, large_example_input):
+            quantizer, prepared_model = self._prepare(config, example_input)
+            self._observe(quantizer, prepared_model, observing_mode, calibration_data)
+            scales.append(self._activation_scales(prepared_model))
+        scales_small, scales_large = scales
+
+        assert len(scales_small) > 0
+        for scale_small, scale_large in zip(scales_small, scales_large, strict=True):
+            torch.testing.assert_close(scale_small, scale_large)
+
+    @pytest.mark.parametrize("second_observing_mode", _OBSERVING_MODES)
+    @pytest.mark.parametrize("qparam_calculator_cls", ["moving_average", "global_minmax"])
+    def test_second_observing_phase_continues_from_calibrated_range(
+        self, execution_mode, qparam_calculator_cls, second_observing_mode
+    ):
+        """A later calibration_mode or training_mode must update, not replace, calibrated ranges."""
+        config = self._make_config(execution_mode, qparam_calculator_cls)
+        generator = torch.Generator().manual_seed(0)
+        example_input = torch.rand(4, 64, generator=generator)
+        large_batch = 50 * torch.rand(4, 64, generator=generator)
+        small_batch = torch.rand(4, 64, generator=generator)
+
+        quantizer, prepared_model = self._prepare(config, example_input)
+        self._observe(quantizer, prepared_model, "calibration_mode", [large_batch])
+        calibrated_scales = self._activation_scales(prepared_model)
+
+        self._observe(quantizer, prepared_model, second_observing_mode, [small_batch])
+
+        continued_scales = self._activation_scales(prepared_model)
+        assert len(continued_scales) > 0
+        for calibrated, continued in zip(calibrated_scales, continued_scales, strict=True):
+            # Replacing the range with the small batch's would shrink the scale ~50x. Global
+            # min/max keeps it unchanged; the moving average moves it 1% towards the small batch.
+            torch.testing.assert_close(continued, calibrated, rtol=0.05, atol=0.0)
+
+    def test_loaded_state_dict_range_is_updated_not_replaced(self, execution_mode):
+        """Resuming calibration from a loaded state_dict must keep the loaded range."""
+        generator = torch.Generator().manual_seed(0)
+        example_input = torch.rand(4, 64, generator=generator)
+        large_batch = 50 * torch.rand(4, 64, generator=generator)
+        small_batch = torch.rand(4, 64, generator=generator)
+
+        def prepare() -> tuple[Quantizer, nn.Module]:
+            torch.manual_seed(0)
+            quantizer = Quantizer(SimpleLinearModel().eval(), _make_w8a8_config(execution_mode))
+            return quantizer, quantizer.prepare((example_input,))
+
+        quantizer, prepared_model = prepare()
+        with quantizer.calibration_mode(), torch.no_grad():
+            prepared_model(large_batch)
+        state_dict = prepared_model.state_dict()
+        calibrated_scales = self._activation_scales(prepared_model)
+
+        quantizer, prepared_model = prepare()
+        prepared_model.load_state_dict(state_dict)
+        with quantizer.calibration_mode(), torch.no_grad():
+            prepared_model(small_batch)
+
+        resumed_scales = self._activation_scales(prepared_model)
+        assert len(resumed_scales) > 0
+        for calibrated, resumed in zip(calibrated_scales, resumed_scales, strict=True):
+            # The moving average moves 1% towards the small batch, so the scale stays close.
+            torch.testing.assert_close(resumed, calibrated, rtol=0.05, atol=0.0)
+
+    def test_partial_load_without_ranges_does_not_keep_prepare_range(self, execution_mode):
+        """A ``strict=False`` load without range keys (e.g. weights only) must not keep the
+        range observed in ``prepare()``."""
+        config = _make_w8a8_config(execution_mode)
+        generator = torch.Generator().manual_seed(0)
+        calibration_data = [torch.rand(4, 64, generator=generator) for _ in range(5)]
+        small_example_input = torch.rand(4, 64, generator=generator)
+        large_example_input = 100 * torch.randn(4, 64, generator=generator)
+
+        quantizer, prepared_model = self._prepare(config, small_example_input)
+        self._observe(quantizer, prepared_model, "calibration_mode", calibration_data)
+        expected_scales = self._activation_scales(prepared_model)
+
+        quantizer, prepared_model = self._prepare(config, large_example_input)
+        prepared_model.load_state_dict(dict(prepared_model.named_parameters()), strict=False)
+        self._observe(quantizer, prepared_model, "calibration_mode", calibration_data)
+
+        scales = self._activation_scales(prepared_model)
+        assert len(scales) > 0
+        for expected, scale in zip(expected_scales, scales, strict=True):
+            torch.testing.assert_close(scale, expected)
+
+
 class TestPerBlockActivationQuantization:
     """Per-block activation quantization is supported for prepare/simulation but
     is not exportable."""

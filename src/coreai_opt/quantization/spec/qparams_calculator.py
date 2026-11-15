@@ -559,11 +559,34 @@ class RunningRangeMixin:
 
     running_min: torch.Tensor
     running_max: torch.Tensor
+    _replace_running_range: bool
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)
         self.register_buffer("running_min", torch.empty(0))  # type: ignore[attr-defined]
         self.register_buffer("running_max", torch.empty(0))  # type: ignore[attr-defined]
+        self._replace_running_range = False
+
+    def discard_running_range(self) -> None:
+        """Make the next observed range replace the running range instead of updating it.
+
+        The current qparams stay usable until then.
+        """
+        self._replace_running_range = True
+
+    def _load_from_state_dict(
+        self, state_dict: dict, prefix: str, *args: object, **kwargs: object
+    ) -> None:
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)  # type: ignore[misc]
+        # A loaded range (e.g. from a calibrated checkpoint) is real state to keep updating.
+        # Loads without this module's range (e.g. weights only, strict=False) leave the flag.
+        if f"{prefix}running_min" in state_dict:
+            self._replace_running_range = False
+
+    def __setstate__(self, state: dict) -> None:
+        super().__setstate__(state)  # type: ignore[misc]
+        if "_replace_running_range" not in state:  # pickled before the flag existed
+            self._replace_running_range = False
 
     def _initialize_state(
         self,
@@ -586,10 +609,11 @@ class RunningRangeMixin:
         max_val: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         """Update running range, persist to buffers, then compute qparams."""
-        if self._initialized:  # type: ignore[attr-defined]
+        if self._initialized and not self._replace_running_range:  # type: ignore[attr-defined]
             running_min, running_max = self.update_running_range(min_val, max_val)
         else:
             running_min, running_max = min_val, max_val
+        self._replace_running_range = False
 
         self.running_min.data.copy_(running_min)
         self.running_max.data.copy_(running_max)
