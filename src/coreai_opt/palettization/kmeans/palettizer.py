@@ -6,6 +6,7 @@
 import logging
 import os
 import tempfile
+import warnings
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -230,7 +231,16 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
             # Remove FakePalettize modules that were disabled during the forward
             # pass due to incompatible granularity or cluster dimensions.
-            self._remove_disabled_fake_palett_modules(self._model)
+            num_skipped = self._remove_disabled_fake_palett_modules(self._model)
+            if num_skipped:
+                # Each skipped tensor is already logged; this summary points to those logs.
+                warnings.warn(
+                    f"prepare() left {num_skipped} tensor(s) unpalettized because their shapes "
+                    "are incompatible with the configured granularity or cluster_dim. See the "
+                    "WARNING logs of the 'coreai_opt' logger for the affected tensors.",
+                    UserWarning,
+                    stacklevel=2,
+                )
         else:
             self._remove_incompatible_fake_palett_modules()
             self._load_prepared_state_dict(self._model, state_dict)
@@ -882,10 +892,15 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 os.unlink(checkpoint_path)
 
     @staticmethod
-    def _remove_disabled_fake_palett_modules(model: torch.nn.Module) -> None:
-        """Remove FakePalettize modules that were disabled during the forward pass."""
+    def _remove_disabled_fake_palett_modules(model: torch.nn.Module) -> int:
+        """Remove FakePalettize modules that were disabled during the forward pass.
+
+        Returns:
+            int: The number of removed modules.
+        """
         disabled_fp = {
             m for m in model.modules() if isinstance(m, _KMeansFakePalettize) and m.is_disabled()
         }
         if disabled_fp:
             _remove_compression_parametrizations(model, disabled_fp)
+        return len(disabled_fp)

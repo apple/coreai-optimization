@@ -6,6 +6,7 @@
 import copy
 import logging
 import os
+import warnings
 from typing import Any, ClassVar
 from unittest.mock import patch
 
@@ -401,6 +402,41 @@ class TestKMeansPalettizer:
             "palettization, the tensor shape along the specified axis must be divisible by "
             "group_size. Skipping palettization."
         )
+
+    @staticmethod
+    def _make_grouped_channel_config(group_size: int) -> KMeansPalettizerConfig:
+        spec = PalettizationSpec(
+            n_bits=2, granularity=PerGroupedChannelGranularity(axis=0, group_size=group_size)
+        )
+        return KMeansPalettizerConfig(
+            global_config=ModuleKMeansPalettizerConfig(op_state_spec={"weight": spec})
+        )
+
+    def test_summary_warning_counts_skipped_tensors(self, caplog):
+        """prepare() ends with one UserWarning counting the tensors it left unpalettized."""
+        # axis 0 is out_features: 100 % 32 != 0 for the first two layers, 128 % 32 == 0.
+        model = nn.Sequential(nn.Linear(64, 100), nn.Linear(100, 100), nn.Linear(100, 128))
+
+        with (
+            caplog.at_level(logging.WARNING),
+            pytest.warns(UserWarning, match=r"left 2 tensor\(s\) unpalettized") as record,
+        ):
+            KMeansPalettizer(model, self._make_grouped_channel_config(32)).prepare(
+                (torch.randn(1, 64),)
+            )
+
+        assert len([w for w in record if "unpalettized" in str(w.message)]) == 1
+        # The details the summary points to: one log record per skipped tensor.
+        assert len([m for m in caplog.messages if "Skipping palettization" in m]) == 2
+
+    def test_no_summary_when_nothing_skipped(self):
+        model = nn.Sequential(nn.Linear(64, 128), nn.Linear(128, 128))
+        with warnings.catch_warnings(record=True) as record:
+            warnings.simplefilter("always")
+            KMeansPalettizer(model, self._make_grouped_channel_config(32)).prepare(
+                (torch.randn(1, 64),)
+            )
+        assert not [w for w in record if "unpalettized" in str(w.message)]
 
     def test_prepared_model_supports_torch_inference(
         self, simple_conv_linear_model, simple_model_input
