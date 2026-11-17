@@ -574,7 +574,8 @@ class RunningRangeMixin:
 
         The buffers keep their shape, so this stays ``torch.compile``
         friendly and survives ``state_dict`` round trips. The current qparams (scale, zero
-        point) stay usable.
+        point) stay usable. Subclasses that keep extra running statistics should override this
+        (calling ``super()``) to clear them too.
         """
         self.running_min.fill_(float("inf"))
         self.running_max.fill_(float("-inf"))

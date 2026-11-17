@@ -732,9 +732,14 @@ class TestCalibrationAfterPrepare:
         for expected, scale in zip(expected_scales, scales, strict=True):
             torch.testing.assert_close(scale, expected)
 
-    def test_fixed_float_range_keeps_finite_running_range(self, execution_mode):
-        """With both ``float_range`` bounds fixed, the running range is not reset by prepare()."""
-        activation_spec = QuantizationSpec(dtype=torch.int8, float_range=[-1.0, 1.0])
+    @pytest.mark.parametrize("float_range", [[-1.0, 1.0], [None, 1.0]], ids=["both", "one_sided"])
+    def test_fixed_float_range_keeps_finite_running_range(self, execution_mode, float_range):
+        """With fixed ``float_range`` bounds, calibrated running ranges are finite.
+
+        Both bounds fixed: prepare() skips the reset. One bound fixed: the reset runs and the
+        first calibration batch replaces the marker.
+        """
+        activation_spec = QuantizationSpec(dtype=torch.int8, float_range=float_range)
         config = QuantizerConfig(
             global_config=ModuleQuantizerConfig(
                 op_state_spec={"weight": default_weight_quantization_spec()},
