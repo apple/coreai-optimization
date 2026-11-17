@@ -61,11 +61,14 @@ def reset_activation_running_ranges(module: torch.nn.Module) -> None:
     Args:
         module (torch.nn.Module): Module to (possibly) update. No-op for any
             module that is not an activation ``FakeQuantizeImplBase`` with a
-            running-range qparams calculator.
+            running-range qparams calculator, or whose ``float_range`` fixes both bounds.
     """
     if (
         isinstance(module, FakeQuantizeImplBase)
         and module.quantization_target == CompressionTargetTensor.ACTIVATION
         and isinstance(module.qparams_calculator, RunningRangeMixin)
+        # With both float_range bounds fixed, the range never depends on the data and forward()
+        # stops updating it once initialized, so a reset marker would never be cleared.
+        and None in module.qparams_calculator.float_range
     ):
         module.qparams_calculator.reset_running_range()

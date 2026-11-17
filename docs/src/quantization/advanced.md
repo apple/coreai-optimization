@@ -339,7 +339,7 @@ spec = QuantizationSpec(
 )
 ```
 
-The `RunningRangeMixin` provides `running_min`/`running_max` buffers and handles initialization on the first forward pass. After `prepare()`, these buffers hold the empty range `+inf`/`-inf` until the first observed batch replaces it, so `update_running_range()` may see these values and must not raise on them; the mixin discards those entries in favor of the observed range. `torch.minimum`/`torch.maximum`, as in the example above, already treat it as empty. Subclasses only need to implement `update_running_range()` to define how the running statistics are updated each batch. For stateless calculators that don't need running state, subclass `QParamsCalculatorBase` directly and override `compute_qparams()`.
+The `RunningRangeMixin` provides `running_min`/`running_max` buffers and handles initialization on the first forward pass. After `prepare()`, these buffers hold the empty range `+inf`/`-inf` until the first observed batch replaces it, so `update_running_range()` may see these values and must not raise on them; the mixin discards those entries in favor of the observed range. Subclasses that override `compute_qparams()` instead must handle these values themselves. `torch.minimum`/`torch.maximum`, as in the example above, already treat it as empty. Subclasses only need to implement `update_running_range()` to define how the running statistics are updated each batch. For stateless calculators that don't need running state, subclass `QParamsCalculatorBase` directly and override `compute_qparams()`.
 
 The same pattern applies to the other pluggable fields:
 

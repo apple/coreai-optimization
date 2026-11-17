@@ -732,6 +732,25 @@ class TestCalibrationAfterPrepare:
         for expected, scale in zip(expected_scales, scales, strict=True):
             torch.testing.assert_close(scale, expected)
 
+    def test_fixed_float_range_keeps_finite_running_range(self, execution_mode):
+        """With both ``float_range`` bounds fixed, the running range is not reset by prepare()."""
+        activation_spec = QuantizationSpec(dtype=torch.int8, float_range=[-1.0, 1.0])
+        config = QuantizerConfig(
+            global_config=ModuleQuantizerConfig(
+                op_state_spec={"weight": default_weight_quantization_spec()},
+                op_input_spec={"*": activation_spec},
+                op_output_spec=None,
+            )
+        ).set_execution_mode(execution_mode)
+        quantizer, prepared_model = self._prepare(config, torch.randn(4, 64))
+        self._observe(quantizer, prepared_model, "calibration_mode", [torch.rand(4, 64)])
+
+        calculators = self._activation_calculators(prepared_model)
+        assert len(calculators) > 0
+        for calculator in calculators:
+            assert torch.isfinite(calculator.running_min).all()
+            assert torch.isfinite(calculator.running_max).all()
+
     def test_prepared_model_runs_without_calibration(self, execution_mode):
         """prepare() unsets the running range but keeps the qparams from ``example_inputs``."""
         example_input = torch.rand(4, 64)
