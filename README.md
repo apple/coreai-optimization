@@ -6,7 +6,7 @@
 
 Jump to: [Getting Started](#getting-started) · [Documentation](#documentation) · [Contributing](#contributing) · [Support](#support) · [License](#license) · [Related projects](#related-projects)
 
-## Getting started
+## Getting Started
 
 ### Installation
 
