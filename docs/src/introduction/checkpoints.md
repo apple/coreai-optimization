@@ -44,7 +44,7 @@ quantizer = Quantizer(copy.deepcopy(model), config)
 prepared_model = quantizer.prepare(example_inputs, state_dict=state_dict)
 ```
 
-Reloading restores the saved compression state, such as palettization centroids, calibrated quantization parameters, and pruning masks, instead of redoing heavy computation such as k-means clustering. The reloaded model is in the same state as after a regular `prepare()` call, ready to evaluate, calibrate, train, or finalize for any backend. One exception applies to activation quantization: a checkpoint saved before any calibration or observed training keeps the activation ranges from its `example_inputs`, and later calibration starts from those ranges instead of replacing them. Save the checkpoint after calibrating to avoid this.
+Reloading restores the saved compression state, such as palettization centroids, calibrated quantization parameters, and pruning masks, instead of redoing heavy computation such as k-means clustering. The reloaded model is in the same state as after a regular `prepare()` call, ready to evaluate, calibrate, train, or finalize for any backend.
 
 When reloading, use the same config and model code as the run that produced the checkpoint. In graph mode, also use the same example inputs, dynamic shapes, and torch version. A mismatch raises an error rather than loading the wrong state.
 

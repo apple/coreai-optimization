@@ -591,12 +591,19 @@ class TestCalibrationAfterPrepare:
                 prepared_model(batch)
 
     @staticmethod
-    def _activation_scales(prepared_model: nn.Module) -> list[torch.Tensor]:
+    def _activation_calculators(prepared_model: nn.Module) -> list[nn.Module]:
         return [
-            m.qparams_calculator.scale.clone()
+            m.qparams_calculator
             for m in prepared_model.modules()
             if isinstance(m, FakeQuantizeImplBase)
             and m.quantization_target == CompressionTargetTensor.ACTIVATION
+        ]
+
+    @staticmethod
+    def _activation_scales(prepared_model: nn.Module) -> list[torch.Tensor]:
+        return [
+            calculator.scale.clone()
+            for calculator in TestCalibrationAfterPrepare._activation_calculators(prepared_model)
         ]
 
     @pytest.mark.parametrize("observing_mode", _OBSERVING_MODES)
@@ -614,6 +621,10 @@ class TestCalibrationAfterPrepare:
         for example_input in (small_example_input, large_example_input):
             quantizer, prepared_model = self._prepare(config, example_input)
             self._observe(quantizer, prepared_model, observing_mode, calibration_data)
+            # Calibration must replace the unset marker (+inf/-inf) with real ranges.
+            for calculator in self._activation_calculators(prepared_model):
+                assert torch.isfinite(calculator.running_min).all()
+                assert torch.isfinite(calculator.running_max).all()
             scales.append(self._activation_scales(prepared_model))
         scales_small, scales_large = scales
 
@@ -684,18 +695,56 @@ class TestCalibrationAfterPrepare:
         small_example_input = torch.rand(4, 64, generator=generator)
         large_example_input = 100 * torch.randn(4, 64, generator=generator)
 
-        quantizer, prepared_model = self._prepare(config, small_example_input)
-        self._observe(quantizer, prepared_model, "calibration_mode", calibration_data)
-        expected_scales = self._activation_scales(prepared_model)
+        quantizer, calibrated_model = self._prepare(config, small_example_input)
+        self._observe(quantizer, calibrated_model, "calibration_mode", calibration_data)
+        expected_scales = self._activation_scales(calibrated_model)
 
         quantizer, prepared_model = self._prepare(config, large_example_input)
-        prepared_model.load_state_dict(dict(prepared_model.named_parameters()), strict=False)
+        prepared_model.load_state_dict(dict(calibrated_model.named_parameters()), strict=False)
         self._observe(quantizer, prepared_model, "calibration_mode", calibration_data)
 
         scales = self._activation_scales(prepared_model)
         assert len(scales) > 0
         for expected, scale in zip(expected_scales, scales, strict=True):
             torch.testing.assert_close(scale, expected)
+
+    def test_uncalibrated_checkpoint_does_not_keep_prepare_range(self, execution_mode):
+        """Calibrating after reloading a checkpoint saved before calibration starts afresh."""
+        config = _make_w8a8_config(execution_mode)
+        generator = torch.Generator().manual_seed(0)
+        calibration_data = [torch.rand(4, 64, generator=generator) for _ in range(5)]
+        small_example_input = torch.rand(4, 64, generator=generator)
+        large_example_input = 100 * torch.randn(4, 64, generator=generator)
+
+        quantizer, prepared_model = self._prepare(config, small_example_input)
+        self._observe(quantizer, prepared_model, "calibration_mode", calibration_data)
+        expected_scales = self._activation_scales(prepared_model)
+
+        _, uncalibrated_model = self._prepare(config, large_example_input)
+        state_dict = uncalibrated_model.state_dict()
+        torch.manual_seed(0)
+        quantizer = Quantizer(SimpleLinearModel().eval(), config)
+        prepared_model = quantizer.prepare((large_example_input,), state_dict=state_dict)
+        self._observe(quantizer, prepared_model, "calibration_mode", calibration_data)
+
+        scales = self._activation_scales(prepared_model)
+        assert len(scales) > 0
+        for expected, scale in zip(expected_scales, scales, strict=True):
+            torch.testing.assert_close(scale, expected)
+
+    def test_prepared_model_runs_without_calibration(self, execution_mode):
+        """prepare() unsets the running range but keeps the qparams from ``example_inputs``."""
+        example_input = torch.rand(4, 64)
+        _, prepared_model = self._prepare(_make_w8a8_config(execution_mode), example_input)
+
+        calculators = self._activation_calculators(prepared_model)
+        assert len(calculators) > 0
+        for calculator in calculators:
+            assert torch.isposinf(calculator.running_min).all()
+            assert torch.isneginf(calculator.running_max).all()
+            assert calculator.scale.numel() > 0
+        with torch.no_grad():
+            assert torch.isfinite(prepared_model(example_input)).all()
 
 
 class TestPerBlockActivationQuantization:

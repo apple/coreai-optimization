@@ -559,34 +559,25 @@ class RunningRangeMixin:
 
     running_min: torch.Tensor
     running_max: torch.Tensor
-    _replace_running_range: bool
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)
         self.register_buffer("running_min", torch.empty(0))  # type: ignore[attr-defined]
         self.register_buffer("running_max", torch.empty(0))  # type: ignore[attr-defined]
-        self._replace_running_range = False
 
-    def discard_running_range(self) -> None:
-        """Make the next observed range replace the running range instead of updating it.
+    def reset_running_range(self) -> None:
+        """Mark the running range as unset so the next observed range starts it afresh.
 
-        The current qparams stay usable until then.
+        Sets ``running_min`` to ``+inf`` and ``running_max`` to ``-inf``: an empty range that
+        observed data can't produce, since observed minimums are clamped to ``<= 0`` and
+        maximums to ``>= 0``.
+
+        The buffers keep their shape, so this stays ``torch.compile``
+        friendly and survives ``state_dict`` round trips. The current qparams (scale, zero
+        point) stay usable.
         """
-        self._replace_running_range = True
-
-    def _load_from_state_dict(
-        self, state_dict: dict, prefix: str, *args: object, **kwargs: object
-    ) -> None:
-        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)  # type: ignore[misc]
-        # A loaded range (e.g. from a calibrated checkpoint) is real state to keep updating.
-        # Loads without this module's range (e.g. weights only, strict=False) leave the flag.
-        if f"{prefix}running_min" in state_dict:
-            self._replace_running_range = False
-
-    def __setstate__(self, state: dict) -> None:
-        super().__setstate__(state)  # type: ignore[misc]
-        if "_replace_running_range" not in state:  # pickled before the flag existed
-            self._replace_running_range = False
+        self.running_min.fill_(float("inf"))
+        self.running_max.fill_(float("-inf"))
 
     def _initialize_state(
         self,
@@ -609,11 +600,19 @@ class RunningRangeMixin:
         max_val: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None]:
         """Update running range, persist to buffers, then compute qparams."""
-        if self._initialized and not self._replace_running_range:  # type: ignore[attr-defined]
-            running_min, running_max = self.update_running_range(min_val, max_val)
+        if self._initialized:  # type: ignore[attr-defined]
+            # running_min = +inf / running_max = -inf (set by reset_running_range after prepare())
+            # mark the start of a fresh calibration, so use this batch's min_val / max_val there.
+            # torch.where picks per element without an `if` on tensor values (torch.compile).
+            # The masks are read first, in case a subclass updates the range in place.
+            unset_min = torch.isposinf(self.running_min)
+            unset_max = torch.isneginf(self.running_max)
+            updated_min, updated_max = self.update_running_range(min_val, max_val)
+            running_min = torch.where(unset_min, min_val, updated_min)
+            running_max = torch.where(unset_max, max_val, updated_max)
         else:
+            # First observed forward: the buffers were just sized and hold no history.
             running_min, running_max = min_val, max_val
-        self._replace_running_range = False
 
         self.running_min.data.copy_(running_min)
         self.running_max.data.copy_(running_max)
@@ -623,7 +622,12 @@ class RunningRangeMixin:
     def update_running_range(
         self, min_val: torch.Tensor, max_val: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return ``(updated_min, updated_max)`` using subclass-specific rule."""
+        """Return ``(updated_min, updated_max)`` using subclass-specific rule.
+
+        ``self.running_min`` / ``self.running_max`` may be ``+inf`` / ``-inf`` where the running
+        range is unset (see ``reset_running_range``). Implementations must not raise on these
+        values; ``compute_qparams`` discards those entries in favor of ``min_val`` / ``max_val``.
+        """
 
     def extra_repr(self) -> str:
         return super().extra_repr() + (  # type: ignore[misc, no-any-return]

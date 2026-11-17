@@ -59,8 +59,8 @@ from coreai_opt.quantization._axis_defaults import (
 )
 from coreai_opt.quantization._fake_quant_utils import (
     disable_activation_fake_quant,
-    discard_activation_running_ranges,
     enable_weight_fake_quant,
+    reset_activation_running_ranges,
 )
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
@@ -991,9 +991,9 @@ class GraphQuantizer(_BaseQuantizer):
         Args:
             example_inputs: Tuple of example inputs for model tracing. With activation
                         quantization, they also initialize the activation ranges.
-                        Without ``state_dict``, the first batch observed after
-                        ``prepare()`` (e.g. in ``calibration_mode()`` or
-                        ``training_mode()``) replaces them.
+                        The first batch observed after ``prepare()`` (e.g. in
+                        ``calibration_mode()`` or ``training_mode()``) replaces them,
+                        unless ``state_dict`` restores observed ranges.
             dynamic_shapes: Optional dynamic shapes specification for torch.export.
                           Can be a dict mapping input names to dynamic dimensions,
                           a tuple/list of dynamic shapes per input, or None for
@@ -1118,7 +1118,7 @@ class GraphQuantizer(_BaseQuantizer):
         if state_dict is not None:
             self._load_prepared_state_dict(prepared_model, state_dict)
         else:
-            prepared_model.apply(discard_activation_running_ranges)
+            prepared_model.apply(reset_activation_running_ranges)
         prepared_model.apply(enable_fake_quant)
         prepared_model.apply(disable_observer)
 

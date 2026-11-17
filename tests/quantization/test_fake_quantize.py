@@ -656,6 +656,29 @@ def test_compiled_observer_toggle_controls_stats_collection(qparam_calculator_cl
     assert not torch.equal(scale(), frozen), "re-enabled observer should update the qparams again"
 
 
+@pytest.mark.parametrize("qparam_calculator_cls", ["moving_average", "global_minmax"])
+def test_compiled_forward_after_range_reset(qparam_calculator_cls):
+    """Observing after ``prepare()``'s range reset works under ``torch.compile``.
+
+    ``prepare()`` runs one eager forward on ``example_inputs``, then marks each activation
+    running range as unset (``reset_running_range``). This test recreates that state and
+    checks two things:
+
+    - The first observed forward compiles without graph breaks: ``fullgraph=True`` raises on any.
+    - The next observed forward reuses that graph: ``fail_on_recompile`` raises on a recompile.
+    """
+    x = torch.randn(4, 16)
+    fq = _activation_fake_quantizer(qparam_calculator_cls)
+    fq(x)
+    fq.qparams_calculator.reset_running_range()
+
+    torch.compiler.reset()
+    compiled = torch.compile(fq, fullgraph=True, backend="aot_eager")
+    compiled(x)
+    with torch.compiler.set_stance("fail_on_recompile"):
+        compiled(x)
+
+
 def test_compiled_dynamic_quantizer_ignores_observer_toggle():
     """A dynamic quantizer recomputes qparams every call, so toggling the observer is a no-op."""
     torch.manual_seed(0)

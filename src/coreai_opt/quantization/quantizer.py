@@ -350,9 +350,9 @@ class Quantizer(_BaseQuantizer):
         Args:
             example_inputs: Tuple of example inputs for model tracing. With
                 activation quantization, they also initialize the activation
-                ranges. Without ``state_dict``, the first batch observed after
-                ``prepare()`` (e.g. in ``calibration_mode()`` or
-                ``training_mode()``) replaces them.
+                ranges. The first batch observed after ``prepare()`` (e.g. in
+                ``calibration_mode()`` or ``training_mode()``) replaces them,
+                unless ``state_dict`` restores observed ranges.
             dynamic_shapes: Dynamic shapes specification (graph mode only).
                 Ignored in EAGER mode.
             export_with_no_grad: Whether to export with no_grad (graph mode
