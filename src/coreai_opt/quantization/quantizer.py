@@ -147,6 +147,8 @@ class Quantizer(_BaseQuantizer):
         >>> quantized_model = quantizer.finalize()
     """
 
+    _config: QuantizerConfig  # __init__ replaces None with QuantizerConfig()
+
     def __init__(
         self,
         model: nn.Module,
@@ -407,7 +409,7 @@ class Quantizer(_BaseQuantizer):
             )
 
         # Reject a prepared model that breaks a requirement no single fake-quant can check.
-        _run_prepare_checks(prepared_model)
+        _run_prepare_checks(prepared_model, self._config)
 
         self._module_to_fqs = self._get_fake_quantize_modules()
         self._build_fq_to_schedule()
