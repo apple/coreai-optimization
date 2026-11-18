@@ -39,11 +39,15 @@ TORCH_GROUP = os.environ.get("TORCH_GROUP")
 # torch < 2.11 cannot run on 3.14+: torch 2.8 ships no cp314 wheels, and torch 2.9/2.10
 # fail on torchao import.
 # Remove a group from this set when that group is dropped.
+# Python 3.15 is supported only by torch_2_14 (see [tool.uv.dependency-groups] in pyproject.toml).
 PYTHON_VERSIONS = [
     v
     for v in get_supported_python_versions()
     if not (
         TORCH_GROUP in {"torch_2_8", "torch_2_9", "torch_2_10"} and Version(v) >= Version("3.14")
+    )
+    and not (
+        TORCH_GROUP in {"torch_2_11", "torch_2_12", "torch_2_13"} and Version(v) >= Version("3.15")
     )
 ]
 
