@@ -32,6 +32,7 @@ from coreai_opt.quantization._export_utils import (
     has_activation_export_handler as _has_activation_export_handler,
 )
 from coreai_opt.quantization._graph import GraphQuantizer as _GraphQuantizer
+from coreai_opt.quantization._prepare_checks import run_prepare_checks as _run_prepare_checks
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config.quantization_config import (
     ExecutionMode,
@@ -145,6 +146,8 @@ class Quantizer(_BaseQuantizer):
         ...         quantizer.step()
         >>> quantized_model = quantizer.finalize()
     """
+
+    _config: QuantizerConfig  # __init__ replaces None with QuantizerConfig()
 
     def __init__(
         self,
@@ -368,6 +371,8 @@ class Quantizer(_BaseQuantizer):
         Raises:
             RuntimeError: If the model has already been prepared.
             RuntimeError: If ``state_dict`` does not match the prepared model.
+            Exception: Whatever a registered post-prepare check raises to reject the prepared
+                model. In eager mode the model has then already been modified in place.
 
         Note:
             In graph mode, the returned ``fx.GraphModule`` supports calling
@@ -402,6 +407,9 @@ class Quantizer(_BaseQuantizer):
                 export_with_no_grad=export_with_no_grad,
                 state_dict=state_dict,
             )
+
+        # Reject a prepared model that breaks a requirement no single fake-quant can check.
+        _run_prepare_checks(prepared_model, self._config)
 
         self._module_to_fqs = self._get_fake_quantize_modules()
         self._build_fq_to_schedule()
