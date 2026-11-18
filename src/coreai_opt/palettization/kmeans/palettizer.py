@@ -6,6 +6,7 @@
 import logging
 import os
 import tempfile
+import warnings
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -109,6 +110,21 @@ def _calculate_centroids_for_module(
         ) from e
 
     return fp_module
+
+
+def _warn_unpalettized_tensors(num_tensors: int) -> None:
+    """Warn that ``prepare()`` left ``num_tensors`` tensors unpalettized.
+
+    Each such tensor is already logged when its FakePalettize module is disabled; this
+    one-line summary makes the outcome visible and points to those logs.
+    """
+    warnings.warn(
+        f"prepare() left {num_tensors} tensor(s) unpalettized because their shapes are "
+        "incompatible with the configured granularity or cluster_dim. See the WARNING logs "
+        "of the 'coreai_opt' logger for the affected tensors.",
+        UserWarning,
+        stacklevel=2,
+    )
 
 
 class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
@@ -230,10 +246,12 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
             # Remove FakePalettize modules that were disabled during the forward
             # pass due to incompatible granularity or cluster dimensions.
-            self._remove_disabled_fake_palett_modules(self._model)
+            num_skipped = self._remove_disabled_fake_palett_modules(self._model)
         else:
-            self._remove_incompatible_fake_palett_modules()
+            num_skipped = self._remove_incompatible_fake_palett_modules()
             self._load_prepared_state_dict(self._model, state_dict)
+        if num_skipped:
+            _warn_unpalettized_tensors(num_skipped)
 
         self._model.apply(_enable_fake_palett)
 
@@ -245,16 +263,27 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
 
         return self._model
 
-    def _remove_incompatible_fake_palett_modules(self) -> None:
+    def _remove_incompatible_fake_palett_modules(self) -> int:
         """Remove the modules a normal ``prepare()`` would remove, without clustering.
 
         Uses a shape-only (meta) compatibility probe, so the structure comes from the
-        config and weight shapes, never from a state dict.
+        config and weight shapes, never from a state dict. Logs each removed weight, as a
+        normal ``prepare()`` does.
+
+        Returns:
+            int: The number of removed modules.
         """
         for info in self._collect_fake_palett_info(to_cpu=False):
             compatible = info.fp_module.check_compatible(info.weight)
             info.fp_module._disabled = not compatible
-        self._remove_disabled_fake_palett_modules(self._model)
+            if not compatible:
+                logger.warning(
+                    "Tensor '%s' (shape: %s) incompatible with configured spec. "
+                    "Skipping palettization.",
+                    info.fp_module.tensor_fqn,
+                    tuple(info.weight.shape),
+                )
+        return self._remove_disabled_fake_palett_modules(self._model)
 
     def _uninitialized_compression_modules(self, model: torch.nn.Module) -> list[str]:
         """Return the palettized weights that have no centroids."""
@@ -882,10 +911,15 @@ class KMeansPalettizer(_BasePalettizer, _EagerCompressionComponentBuilderMixin):
                 os.unlink(checkpoint_path)
 
     @staticmethod
-    def _remove_disabled_fake_palett_modules(model: torch.nn.Module) -> None:
-        """Remove FakePalettize modules that were disabled during the forward pass."""
+    def _remove_disabled_fake_palett_modules(model: torch.nn.Module) -> int:
+        """Remove FakePalettize modules that were disabled during the forward pass.
+
+        Returns:
+            int: The number of removed modules.
+        """
         disabled_fp = {
             m for m in model.modules() if isinstance(m, _KMeansFakePalettize) and m.is_disabled()
         }
         if disabled_fp:
             _remove_compression_parametrizations(model, disabled_fp)
+        return len(disabled_fp)

@@ -61,6 +61,7 @@ from coreai_opt.quantization._fake_quant_utils import (
     disable_activation_fake_quant,
     enable_weight_fake_quant,
     reset_activation_running_ranges,
+    warn_unquantized_tensors,
 )
 from coreai_opt.quantization.base_quantizer import _BaseQuantizer
 from coreai_opt.quantization.config import (
@@ -1463,6 +1464,7 @@ class GraphQuantizer(_BaseQuantizer):
                 if isinstance(mod, FakeQuantizeImplBase) and mod.is_disabled():
                     disabled_fq_nodes.add(node)
         if disabled_fq_nodes:
+            warn_unquantized_tensors(len({modules[str(node.target)] for node in disabled_fq_nodes}))
             remove_fake_quant_nodes(model, disabled_fq_nodes)
 
     @staticmethod
