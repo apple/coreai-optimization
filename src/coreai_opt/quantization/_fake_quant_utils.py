@@ -9,6 +9,7 @@ import torch
 
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization.spec.fake_quantize import FakeQuantizeImplBase
+from coreai_opt.quantization.spec.qparams_calculator import RunningRangeMixin
 
 
 def disable_activation_fake_quant(module: torch.nn.Module) -> None:
@@ -47,3 +48,27 @@ def enable_weight_fake_quant(module: torch.nn.Module) -> None:
         and module.quantization_target == CompressionTargetTensor.WEIGHT
     ):
         module.enable_fake_quant()
+
+
+def reset_activation_running_ranges(module: torch.nn.Module) -> None:
+    """Mark the running range of activation running-range calculators as unset.
+
+    ``prepare()`` observes ``example_inputs`` once to initialize qparams. Applied
+    right after that pass, this keeps the resulting qparams usable but makes the
+    first batch observed afterwards start the running range afresh, so
+    ``example_inputs`` does not bias the ranges collected from calibration data.
+
+    Args:
+        module (torch.nn.Module): Module to (possibly) update. No-op for any
+            module that is not an activation ``FakeQuantizeImplBase`` with a
+            running-range qparams calculator, or whose ``float_range`` fixes both bounds.
+    """
+    if (
+        isinstance(module, FakeQuantizeImplBase)
+        and module.quantization_target == CompressionTargetTensor.ACTIVATION
+        and isinstance(module.qparams_calculator, RunningRangeMixin)
+        # With both float_range bounds fixed, the range never depends on the data and forward()
+        # stops updating it once initialized, so a reset marker would never be cleared.
+        and None in module.qparams_calculator.float_range
+    ):
+        module.qparams_calculator.reset_running_range()

@@ -21,9 +21,7 @@ from coreai_opt.quantization.config import QATSchedule
 import torch
 
 model = MyModel()
-example_inputs = (
-    ...
-)  # use a representative data sample when activation quantization is in use
+example_inputs = (...,)
 
 # default INT8_INT8 config
 config = QuantizerConfig(
@@ -314,11 +312,12 @@ import torch
 from coreai_opt.quantization.spec import (
     QParamsCalculatorBase,
     RunningRangeMixin,
+    StatefulQParamsCalculatorBase,
 )
 
 
 @QParamsCalculatorBase.register("max_range")
-class MaxRangeQParamsCalculator(RunningRangeMixin, QParamsCalculatorBase):
+class MaxRangeQParamsCalculator(RunningRangeMixin, StatefulQParamsCalculatorBase):
     """Track the widest observed min/max range across all calibration batches."""
 
     def update_running_range(
@@ -340,7 +339,7 @@ spec = QuantizationSpec(
 )
 ```
 
-The `RunningRangeMixin` provides `running_min`/`running_max` buffers and handles initialization on the first forward pass. Subclasses only need to implement `update_running_range()` to define how the running statistics are updated each batch. For stateless calculators that don't need running state, subclass `QParamsCalculatorBase` directly and override `compute_qparams()`.
+The `RunningRangeMixin` provides `running_min`/`running_max` buffers and handles initialization on the first forward pass. Subclasses only need to implement `update_running_range()` to define how the running statistics are updated each batch. After `prepare()`, these buffers hold the empty range `+inf`/`-inf` until the first observed batch replaces it, so `update_running_range()` may see these values and must not raise on them; the mixin discards those entries in favor of the observed range. `torch.minimum`/`torch.maximum`, as in the example above, already treat it as empty. Subclasses that override `compute_qparams()` instead must handle these values themselves, and subclasses that keep extra running statistics should override `reset_running_range()` (calling `super()`) to clear them as well. For calculators that don't need a running range, subclass `StatefulQParamsCalculatorBase` (cached, exportable qparams, like `StaticQParamsCalculator`) or `StatelessQParamsCalculatorBase` (recomputed every forward, like `DynamicQParamsCalculator`) and override `compute_qparams()`.
 
 The same pattern applies to the other pluggable fields:
 

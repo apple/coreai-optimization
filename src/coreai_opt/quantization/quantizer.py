@@ -351,9 +351,11 @@ class Quantizer(_BaseQuantizer):
           good accuracy.
 
         Args:
-            example_inputs: Tuple of example inputs for model tracing. When
-                activation quantization is in use, these should be
-                representative of the data the model would typically see.
+            example_inputs: Tuple of example inputs for model tracing. With
+                activation quantization, they also initialize the activation
+                ranges. The first batch observed after ``prepare()`` (e.g. in
+                ``calibration_mode()`` or ``training_mode()``) replaces them,
+                unless ``state_dict`` restores observed ranges.
             dynamic_shapes: Dynamic shapes specification (graph mode only).
                 Ignored in EAGER mode.
             export_with_no_grad: Whether to export with no_grad (graph mode
