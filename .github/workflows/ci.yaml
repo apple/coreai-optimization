@@ -90,7 +90,7 @@ jobs:
   # ── Stage 2: full test matrix, gated on Stage 1. ──
   macos-tests:
     name: macOS / make test-highest-pytorch / markers=not-slow
-    needs: [check, test-smoke, test-tutorials]
+    needs: [check, test-tutorials]
     if: github.repository == 'apple/coreai-optimization'
     runs-on: [self-hosted, macos, goldengate]
     timeout-minutes: 60
@@ -115,7 +115,7 @@ jobs:
 
   linux-tests:
     name: Linux / make test-${{ matrix.torch }}-pytorch / markers=${{ matrix.speed == 'slow' && 'slow' || 'not-slow' }}
-    needs: [check, test-smoke, test-tutorials]
+    needs: [check, test-tutorials]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
