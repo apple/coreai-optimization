@@ -21,7 +21,7 @@ _ROOT = find_repo_root(Path(__file__))
 _REPORT_LINE = re.compile(
     r"\[stuck-test\] worker gw\d+ \(pid \d+\) has been running \S+ for \d+\.\d min"
     r"|Timeout \([\d:.]+\)!"
-    r"|(Current thread|Thread) 0x[0-9a-f]+ \(most recent call first\):"
+    r"|(Current thread|Thread) 0x[0-9a-f]+( \[.*\])? \(most recent call first\):"
     r'|  File ".+", line \d+ in \S+'
     r"|  <no Python frame>"
     r"|"

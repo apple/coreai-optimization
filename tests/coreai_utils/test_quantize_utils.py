@@ -13,11 +13,6 @@ Outputs are compared against the equivalent coremltools functions:
 import ml_dtypes
 import numpy as np
 import pytest
-from coremltools.converters.mil.mil import types as cto_types
-from coremltools.optimize._utils import (
-    get_quant_range_by_dtype as cto_get_quantize_range_by_dtype,
-    quantize_weight_by_dtype as cto_quantize_data_by_dtype,
-)
 
 from coreai_opt.coreai_utils._coreai_imports import compression_types
 from coreai_opt.coreai_utils._utils.quantize_utils import (
@@ -26,6 +21,16 @@ from coreai_opt.coreai_utils._utils.quantize_utils import (
     _quantize_data_by_dtype,
 )
 from coreai_opt.coreai_utils.common import QScheme
+from tests.test_utils.markers import requires_coremltools
+
+try:
+    from coremltools.converters.mil.mil import types as cto_types
+    from coremltools.optimize._utils import (
+        get_quant_range_by_dtype as cto_get_quantize_range_by_dtype,
+        quantize_weight_by_dtype as cto_quantize_data_by_dtype,
+    )
+except ImportError:  # coremltools is optional (the `coreml` extra).
+    cto_types = None
 
 # Int dtypes supported by both coreai and coremltools — used for direct comparison.
 _SHARED_INT_DTYPES = ["int4", "uint4", "int8", "uint8"]
@@ -41,6 +46,7 @@ _CTO_MODE = {
 
 
 class TestGetQuantRangeByDtype:
+    @requires_coremltools
     @pytest.mark.parametrize("dtype_str", _SHARED_INT_DTYPES)
     @pytest.mark.parametrize("mode", _MODES)
     def test_matches_coremltools(self, dtype_str: str, mode: QScheme) -> None:
@@ -87,6 +93,7 @@ class TestGetQuantRangeByDtype:
 
 
 class TestQuantizeDataByDtype:
+    @requires_coremltools
     @pytest.mark.parametrize("dtype_str", _SHARED_INT_DTYPES)
     @pytest.mark.parametrize("mode", _MODES)
     def test_scale_close_to_coremltools(self, dtype_str: str, mode: QScheme) -> None:
@@ -188,6 +195,7 @@ class TestComputeQparamsByDtype:
         )
         assert result is None
 
+    @requires_coremltools
     @pytest.mark.parametrize("dtype_str", _SHARED_INT_DTYPES)
     @pytest.mark.parametrize("mode", _MODES)
     def test_per_tensor_close_to_coremltools(self, dtype_str: str, mode: QScheme) -> None:
