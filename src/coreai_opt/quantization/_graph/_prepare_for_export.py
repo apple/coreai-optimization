@@ -35,11 +35,15 @@ from coreai_opt._utils.torch_utils import (
 )
 from coreai_opt.config.spec import CompressionTargetTensor
 from coreai_opt.quantization._export_utils import (
+    CacheUpdateExportHandler,
+    CacheUpdateRead,
+    CacheUpdateWrite,
     convert_dtype_for_torch_quantize,
     create_mil_act_quant_seq,
     extract_export_qparams,
     extract_quantization_params,
     get_activation_export_handler,
+    get_cache_update_export_handler,
     pack_fp4_to_float4tensor,
     select_export_qparams_by_formulation,
     validate_activation_export_supported,
@@ -849,6 +853,12 @@ def _move_cache_dequant_to_output(
     their non-tensor args (e.g. ``layer_idx``), which identify the slot. The cache ops
     are classified before any is rewritten, so a reader may come before its writer.
 
+    A writer whose update is produced by an op with a registered cache-update export
+    handler (see :func:`register_cache_update_export_handler`) is not relocated here:
+    the handler is called once per such slot, with its write and the read-only fetches
+    of it, and rewrites them itself. This is the extension point for quantizations whose
+    qparams vary per update and so must be stored alongside the cache.
+
     Precondition: the cache op must commute with quantize/dequantize — i.e.
     a pure data-movement op (slicing, narrowing, copy). Arithmetic on cached
     values would silently produce a numerically wrong model.
@@ -958,8 +968,13 @@ def _move_cache_dequant_to_output(
         )
 
     # Pass 1: classify every cache op as a writer or a read-only fetch, and record the
-    # dequantize params of each slot's writer.
+    # dequantize params of each slot's writer. A writer whose update comes from an op with
+    # a registered cache-update export handler is set aside for that handler instead.
     writers: dict[_SlotKey, _Writer] = {}
+    # Per slot: its handler, its write, and the read-only fetches of it (filled in pass 2).
+    handled: dict[
+        _SlotKey, tuple[CacheUpdateExportHandler, CacheUpdateWrite, list[CacheUpdateRead]]
+    ] = {}
     readers: list[_Reader] = []
     for op_node in model.graph.nodes:
         if op_node.op != "call_function":
@@ -985,10 +1000,20 @@ def _move_cache_dequant_to_output(
 
         dq_node = op_node.all_input_nodes[quant_input_idx]
         key = _slot_key(op_node)
-        if not (isinstance(dq_node, Node) and dq_node.target is coreai.dequantize):
-            if is_empty_tensor(dq_node):
-                readers.append(_Reader(op_node, dq_node, key))
-                continue
+        handler = get_cache_update_export_handler(dq_node)
+        is_dequantize = isinstance(dq_node, Node) and dq_node.target is coreai.dequantize
+        if handler is None and not is_dequantize and is_empty_tensor(dq_node):
+            readers.append(_Reader(op_node, dq_node, key))
+            continue
+        if key in writers or key in handled:
+            raise RuntimeError(
+                f"Two quantized {op_type} ops write slot {key.args} of {key.cache.name}; "
+                "cannot tell which one's params a read-only fetch of that slot should use."
+            )
+        if handler is not None:
+            handled[key] = (handler, CacheUpdateWrite(op_node, dq_node), [])
+            continue
+        if not is_dequantize:
             raise RuntimeError(
                 f"Expected coreai.dequantize on input {quant_input_idx} of "
                 f"{op_node.name}, found {dq_node!r} "
@@ -1007,11 +1032,6 @@ def _move_cache_dequant_to_output(
                 f"got {type(quantized_dtype).__name__}: {quantized_dtype!r}."
             )
 
-        if key in writers:
-            raise RuntimeError(
-                f"Two quantized {op_type} ops write slot {key.args} of {key.cache.name}; "
-                "cannot tell which one's params a read-only fetch of that slot should use."
-            )
         dequant = _WriterDequant(dq_node.args[1:], dict(dq_node.kwargs), quantized_dtype)
         writers[key] = _Writer(op_node, dq_node, dequant)
 
@@ -1019,14 +1039,19 @@ def _move_cache_dequant_to_output(
     for writer in writers.values():
         _rewrite_writer(writer.op, writer.dequantize, writer.params)
     for reader in readers:
+        if reader.slot in handled:
+            handled[reader.slot][2].append(CacheUpdateRead(reader.op, reader.empty_update))
+            continue
         if reader.slot not in writers:
             raise RuntimeError(
                 f"{reader.op.name} is a read-only fetch of slot {reader.slot.args}, but no "
                 f"quantized {op_type} op writes that slot; its output cannot be dequantized."
             )
         _rewrite_read_only_fetch(reader.op, reader.empty_update, writers[reader.slot].params)
+    for handler, write, reads in handled.values():
+        handler(model, write, reads, quant_input_idx)
 
-    if not writers and not readers:
+    if not writers and not handled and not readers:
         raise RuntimeError(
             f"_move_cache_dequant_to_output found no nodes matching {op_type!r}; "
             "the dequantize was not relocated to the cache-op output and the "

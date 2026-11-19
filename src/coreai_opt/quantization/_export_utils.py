@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Callable
+from typing import NamedTuple
 
 import torch
 from torch import nn
@@ -394,6 +395,75 @@ def has_activation_export_handler(
         and fake_quant_mod.quantization_target == CompressionTargetTensor.ACTIVATION
         and get_activation_export_handler(fake_quant_mod.granularity, execution_mode) is not None
     )
+
+
+class CacheUpdateWrite(NamedTuple):
+    """A KV-cache op writing an update its export handler owns.
+
+    Attributes:
+        op (torch.fx.Node): The cache-update op.
+        update (torch.fx.Node): The node producing the op's quantized update input, whose
+            target selected the handler.
+    """
+
+    op: torch.fx.Node
+    update: torch.fx.Node
+
+
+class CacheUpdateRead(NamedTuple):
+    """A read-only fetch (empty update) of a slot whose write a handler owns.
+
+    Attributes:
+        op (torch.fx.Node): The cache-update op doing the read.
+        empty_update (torch.fx.Node): Its zero-size update input.
+    """
+
+    op: torch.fx.Node
+    empty_update: torch.fx.Node
+
+
+# Finalize (CoreAI backend): rewrite one cache slot's write and the read-only fetches of it.
+CacheUpdateExportHandler = Callable[
+    [torch.fx.GraphModule, CacheUpdateWrite, list[CacheUpdateRead], int],
+    None,
+]
+
+_CACHE_UPDATE_EXPORT_HANDLERS: dict[str, CacheUpdateExportHandler] = {}
+
+
+def register_cache_update_export_handler(update_op: str, handler: CacheUpdateExportHandler) -> None:
+    """Register how finalize exports a KV-cache update produced by ``update_op``.
+
+    The built-in KV-cache export relocates a static ``coreai.dequantize`` from a cache
+    op's update input to its output, so the cache is stored quantized. An update produced
+    by any other op raises, unless a handler is registered for that op: finalize then
+    calls it once per cache slot such an update writes, with that write and the
+    read-only fetches of the slot, and the handler rewrites them. This is how a
+    quantization whose qparams vary per update (and so must be stored next to the cache)
+    can be exported without the built-in pass knowing about it.
+
+    Args:
+        update_op (str): Qualified name of the op producing the update, as
+            ``torch.fx.Node.target.name()`` reports it (e.g. ``"namespace::op_name"``).
+        handler (CacheUpdateExportHandler): Called with ``(model, write, reads,
+            quant_input_idx)``. Must rewrite the write and every read it is given;
+            ``quant_input_idx`` is the update's index among each op's input nodes.
+    """
+    _CACHE_UPDATE_EXPORT_HANDLERS[update_op] = handler
+
+
+def get_cache_update_export_handler(update: torch.fx.Node) -> CacheUpdateExportHandler | None:
+    """Return the handler registered for the op producing ``update``, if any.
+
+    Args:
+        update (torch.fx.Node): The node feeding a cache op's quantized update input.
+
+    Returns:
+        CacheUpdateExportHandler | None: The handler, or None for the built-in export.
+    """
+    if update.op != "call_function" or not hasattr(update.target, "name"):
+        return None
+    return _CACHE_UPDATE_EXPORT_HANDLERS.get(update.target.name())
 
 
 def validate_activation_export_supported(fake_quant_mod: FakeQuantizeImplBase) -> None:
