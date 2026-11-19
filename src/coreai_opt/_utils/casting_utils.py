@@ -11,7 +11,7 @@ passes in ``casting``.
 
 import operator
 from collections.abc import Callable, Collection, Iterable
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 import torch
@@ -77,6 +77,16 @@ CAST_OPS = frozenset(
         torch.ops.aten._to_copy.default,
         torch.ops.aten.to.dtype,
         torch.ops.aten.to.dtype_layout,
+    }
+)
+
+# Operations that are unsafe to run in FP16 on the Apple Neural Engine (ANE)
+# due to silicon/compiler errata. On ANE, executing aten.topk in FP16 packs two
+# 16-bit indices into each 32-bit output word (Apple Radar FB24904516 / apple/coreai-torch#115).
+ANE_UNSAFE_FP16_OPS = frozenset(
+    {
+        torch.ops.aten.topk,
+        torch.ops.aten.topk.default,
     }
 )
 
@@ -666,6 +676,7 @@ def is_ignored_op(
     ):
         return bool(ignored_ops(node))
 
+    ignored_set: set[Any] | frozenset[Any]
     if isinstance(ignored_ops, (torch._ops.OpOverload, torch._ops.OpOverloadPacket)):
         ignored_set = {ignored_ops}
     elif isinstance(ignored_ops, (set, frozenset)):
@@ -887,8 +898,8 @@ def anchor_int16_reshape_inputs(graph: torch.fx.Graph, pass_inserted: set[torch.
 # =============================================================================
 # Dynamic Activation Range Calibration
 # =============================================================================
-CalibrationSample = torch.Tensor | tuple[Any, ...] | list[Any] | dict[str, Any]
-CalibrationDataType = Iterable[CalibrationSample] | None
+CalibrationSample: TypeAlias = torch.Tensor | tuple[Any, ...] | list[Any] | dict[str, Any]
+CalibrationDataType: TypeAlias = Iterable[CalibrationSample] | None
 
 
 def _iter_calibration_batches(
