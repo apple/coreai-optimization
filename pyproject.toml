@@ -17,7 +17,7 @@ keywords = [
     "quantization",
 ]
 license = "BSD-3-Clause"
-requires-python = ">=3.11,<3.15"
+requires-python = ">=3.11,<3.16"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -28,6 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dynamic = [ "version" ]
@@ -57,8 +58,8 @@ dependencies = [
 name = "Apple Core AI Optimization Team"
 [project.optional-dependencies]
 coreai = [
-    "coreai-core==1.0.0b3",
-    "coreai-torch==0.4.3",
+    "coreai-core==1.0.0",
+    "coreai-torch==0.4.4",
     "scikit-learn>=1.7.2",
 ]
 coreml = [
@@ -67,7 +68,7 @@ coreml = [
 ]
 # Faster GPU clustering for vector palettization (cluster_dim > 1). Needs Triton, hence Linux only.
 flash-kmeans = [
-    "flash-kmeans>=0.3.1; sys_platform=='linux'",
+    "flash-kmeans>=0.3.1; sys_platform=='linux' and python_version<'3.15'",
 ]
 [project.urls]
 Changelog = "https://github.com/apple/coreai-optimization/blob/main/CHANGELOG.md"
@@ -205,8 +206,10 @@ index = [
 ]
 # Only resolve for platforms where all dependencies (including coreai) exist
 environments = [
-    "sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64' and python_full_version < '3.15'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64' and python_full_version >= '3.15'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64' and python_full_version < '3.15'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64' and python_full_version >= '3.15'",
 ]
 # Security: only install distributions on PyPI for at least 3 days, giving
 # malicious uploads time to be detected and yanked before they reach CI.
@@ -225,6 +228,13 @@ conflicts = [
         { group = "torch_2_14" },
     ],
 ]
+[tool.uv.dependency-groups]
+torch_2_8 = { requires-python = "<3.15" }
+torch_2_9 = { requires-python = "<3.15" }
+torch_2_10 = { requires-python = "<3.15" }
+torch_2_11 = { requires-python = "<3.15" }
+torch_2_12 = { requires-python = "<3.15" }
+torch_2_13 = { requires-python = "<3.15" }
 [tool.uv.sources]
 torch = [
     { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
@@ -235,6 +245,7 @@ torch = [
     { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_12" },
     { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_13" },
     { index = "pytorch-cu130", marker = "sys_platform == 'linux'", group = "torch_2_14" },
+    { index = "pytorch-cu130", marker = "sys_platform == 'linux' and python_full_version >= '3.15'" },
 ]
 torchvision = [
     { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
@@ -245,6 +256,7 @@ torchvision = [
     { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_12" },
     { index = "pytorch-cu129", marker = "sys_platform == 'linux'", group = "torch_2_13" },
     { index = "pytorch-cu130", marker = "sys_platform == 'linux'", group = "torch_2_14" },
+    { index = "pytorch-cu130", marker = "sys_platform == 'linux' and python_full_version >= '3.15'" },
 ]
 
 [tool.ruff]

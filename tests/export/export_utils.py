@@ -5,6 +5,9 @@
 
 """Utilities for converting and verifying PyTorch models for export testing."""
 
+# Defers evaluating the `ct.*` annotations, since `ct` is None when coremltools is missing.
+from __future__ import annotations
+
 import asyncio
 import platform
 import sys
@@ -16,17 +19,21 @@ from pathlib import Path
 from typing import Any
 
 import coreai_torch
-import coremltools as ct
 import pytest
 import torch
 from coreai.authoring import AIProgram
 from coreai.runtime import NDArray
-from coremltools import ComputeUnit
 
 from coreai_opt import CoreMLExportError, ExportBackend
 from coreai_opt.quantization import Quantizer, QuantizerConfig
 from tests.config.env import get_compute_unit_kind
 from tests.test_utils.general import verify_snr_psnr as _verify_snr_psnr
+from tests.test_utils.markers import COREMLTOOLS_AVAILABLE, COREMLTOOLS_SKIP_REASON
+
+try:
+    import coremltools as ct
+except ImportError:  # coremltools is optional (the `coreml` extra).
+    ct = None
 
 if platform.system() == "Darwin":
     from coreai.runtime import ComputeUnitKind, SpecializationOptions
@@ -37,7 +44,7 @@ if platform.system() == "Darwin":
 COREML_REJECTION_MATCH = "CoreML export does not support"
 
 
-def _get_test_specialization_options() -> "SpecializationOptions | None":
+def _get_test_specialization_options() -> SpecializationOptions | None:
     """Translate the configured compute unit into ``SpecializationOptions`` (or None).
 
     The compute unit comes from the ``--compute-unit-kind`` pytest option (see
@@ -334,12 +341,14 @@ class MILConverter(ModelConverter):
         self,
         traced_model: torch.jit.ScriptModule,
         input_data: torch.Tensor,
-        compute_unit: ComputeUnit = ComputeUnit.CPU_ONLY,
+        compute_unit: ct.ComputeUnit | None = None,
         pass_pipeline: ct.PassPipeline | None = None,
-        minimum_deployment_target: ct.target = ct.target.iOS18,
+        minimum_deployment_target: ct.target | None = None,
         **kwargs: Any,
     ) -> ct.models.MLModel:
         _ = kwargs
+        compute_unit = compute_unit or ct.ComputeUnit.CPU_ONLY
+        minimum_deployment_target = minimum_deployment_target or ct.target.iOS18
         try:
             coreml_model = ct.convert(
                 traced_model,
@@ -547,6 +556,8 @@ class MLIRConverter(ModelConverter):
 
 def create_converter(backend: ExportBackend) -> ModelConverter:
     """Create the appropriate converter for the backend."""
+    if backend is ExportBackend.CoreML and not COREMLTOOLS_AVAILABLE:
+        pytest.skip(COREMLTOOLS_SKIP_REASON)
     converter_map: dict[ExportBackend, type[ModelConverter]] = {
         ExportBackend.CoreML: MILConverter,
         ExportBackend.CoreAI: MLIRConverter,

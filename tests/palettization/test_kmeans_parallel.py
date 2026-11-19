@@ -4,6 +4,7 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 import copy
+import sys
 
 import pytest
 import torch
@@ -41,6 +42,13 @@ def _make_config(spec: PalettizationSpec) -> KMeansPalettizerConfig:
     return KMeansPalettizerConfig(
         global_config=ModuleKMeansPalettizerConfig(op_state_spec={"weight": spec})
     )
+
+
+# torch 2.14 segfaults unpickling pool results on macOS with Python 3.15; root cause unknown.
+_MACOS_PYTHON_3_15 = sys.platform == "darwin" and sys.version_info >= (3, 15)
+skip_if_pool_crashes = pytest.mark.skipif(
+    _MACOS_PYTHON_3_15, reason="multiprocessing.Pool segfaults on macOS with Python 3.15"
+)
 
 
 class TestCrossLayerParallel:
@@ -83,6 +91,7 @@ class TestCrossLayerParallel:
             "per_channel_scale",
         ],
     )
+    @skip_if_pool_crashes
     def test_parallel_matches_sequential(self, simple_conv_linear_model, simple_model_input, spec):
         """``num_workers > 1`` must produce identical per-module state to ``num_workers=1``."""
         config = _make_config(spec)
@@ -127,6 +136,7 @@ class TestCrossLayerParallel:
             par_out = par_model(simple_model_input)
         torch.testing.assert_close(seq_out, par_out)
 
+    @skip_if_pool_crashes
     def test_parallel_disabled_module(self, simple_conv_linear_model, simple_model_input):
         """A layer incompatible with the granularity must be not have FakePalettize.
 
@@ -150,7 +160,7 @@ class TestCrossLayerParallel:
         assert is_parametrized(prepared_model.conv)
         assert not is_parametrized(prepared_model.linear)
 
-    @pytest.mark.parametrize("num_workers", [1, 2])
+    @pytest.mark.parametrize("num_workers", [1, pytest.param(2, marks=skip_if_pool_crashes)])
     def test_buffers_and_finalized_model_stay_on_weight_device(
         self, num_workers, accelerator_device
     ):
@@ -188,6 +198,7 @@ class TestCrossLayerParallel:
         # Should not raise; falls through with zero modules collected.
         palettizer.prepare((simple_model_input,), num_workers=2)
 
+    @skip_if_pool_crashes
     def test_parallel_vector_palettization_matches_sequential(self):
         """Vector palettization (``cluster_dim > 1``) matches sequential when clusters are obvious.
 
@@ -248,6 +259,7 @@ class TestCrossLayerParallel:
         with pytest.raises(ValueError, match="num_workers must be >= 1"):
             palettizer.prepare((simple_model_input,), num_workers=0)
 
+    @skip_if_pool_crashes
     def test_calibration_mode_respects_prepare_num_workers(
         self, simple_conv_linear_model, simple_model_input
     ):

@@ -1,0 +1,1 @@
+Bump `coreai-core` to 1.0.0 and `coreai-torch` to 0.4.4 in the `coreai` extra, and add support for Python 3.15.
