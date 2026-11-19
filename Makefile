@@ -86,7 +86,7 @@ DOCS_DIR ?= $(MAKEFILE_DIR)docs
 -include .coreai-opt-venv
 
 # Python version (can be overridden: make env PYTHON_VERSION=3.12)
-PYTHON_VERSION ?= 3.15
+PYTHON_VERSION ?= 3.11
 PYTHON_VERSION_BENCHMARKING ?= 3.11
 SHELL_RC ?=
 
