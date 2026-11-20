@@ -24,6 +24,9 @@ from coreai_opt.quantization.spec import (
 from tests.fixtures.quantization import make_quant_config
 from tests.models.simple import SharedParamsModel, SimpleLinearModel, WeightReadOutsideOp
 
+# Every test here checks what finalize(backend=ExportBackend.CoreAI) produces.
+pytestmark = pytest.mark.requires_coreai
+
 
 def weight_activation_quant_config(
     weight_dtype, activation_dtype, weight_qscheme, activation_qscheme, qformulation

@@ -307,6 +307,7 @@ class TestEagerQuantizer:
         with pytest.raises(RuntimeError, match="Model has not been prepared"):
             quantizer.finalize()
 
+    @pytest.mark.requires_coreai
     def test_finalize_basic(self, simple_model, basic_config, example_input):
         """
         Test basic functionality of finalize API
@@ -381,7 +382,11 @@ class TestEagerQuantizer:
 
     @pytest.mark.parametrize(
         "backend",
-        [ExportBackend.Torch, ExportBackend.CoreAI, ExportBackend.CoreML],
+        [
+            ExportBackend.Torch,
+            pytest.param(ExportBackend.CoreAI, marks=pytest.mark.requires_coreai),
+            ExportBackend.CoreML,
+        ],
     )
     def test_finalize_weight_parametrization_state_per_backend(
         self, backend, simple_model, basic_config, example_input
@@ -1655,6 +1660,7 @@ class TestEagerQuantizer:
                 f"Module '{module_name}': expected {expected}, got {result[module_name]}"
             )
 
+    @pytest.mark.requires_coreai
     def test_e2e_workflow(self, basic_config, simple_model, example_input):
         """Test complete quantization workflow."""
         base_model = copy.deepcopy(simple_model)
@@ -3028,7 +3034,7 @@ class TestEagerHalfPrecisionSupport:
         "backend",
         [
             pytest.param(ExportBackend.Torch, id="torch"),
-            pytest.param(ExportBackend.CoreAI, id="coreai"),
+            pytest.param(ExportBackend.CoreAI, id="coreai", marks=pytest.mark.requires_coreai),
             pytest.param(ExportBackend.CoreML, id="coreml"),
         ],
     )
@@ -3398,6 +3404,7 @@ class TestEagerQuantizationPatterns:
         assert self._count_output_act_quantizers(prepared_model) == expected_output_fq
 
 
+@pytest.mark.requires_coreai
 class TestFP4MLIRExportValidation:
     """Test that FP4 eager export validation rejects unsupported configurations."""
 

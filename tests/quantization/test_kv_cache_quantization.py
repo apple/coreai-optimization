@@ -433,6 +433,7 @@ class TestKVCacheQuantization:
         ):
             self._prepare_model_with_kv_cache(config)
 
+    @pytest.mark.requires_coreai
     def test_kv_cache_lifecycle(self):
         """End-to-end prepare → calibrate → finalize with two cache ops, each
         configured with a different dtype (key=int8, value=uint8) to prove
@@ -645,6 +646,7 @@ def _prepared_shared_cache_quantizer(read_slot: int, **model_kwargs: bool) -> Qu
     return quantizer
 
 
+@pytest.mark.requires_coreai
 class TestReadOnlyCacheFetch:
     @pytest.mark.parametrize("reader_first", [False, True])
     def test_read_only_fetch_reuses_writer_dequant(self, reader_first):

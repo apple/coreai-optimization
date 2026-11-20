@@ -188,6 +188,7 @@ class TestDKMSpecMatrix:
         finalized = palettizer.finalize(backend=ExportBackend.Torch)
         assert torch.equal(eval_out, finalized(x))
 
+    @pytest.mark.requires_coreai
     def test_finalize_coreai_backend_succeeds(self):
         palettizer, _, _ = _build_and_train({})
         finalized = palettizer.finalize(backend=ExportBackend.CoreAI)

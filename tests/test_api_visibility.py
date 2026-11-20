@@ -33,9 +33,13 @@ from coreai_opt._utils.api_visibility_utils import (
     find_public_packages,
     originating_public_names,
 )
+from tests.test_utils.general import COREAI_AVAILABLE
 
 _PUBLIC_PACKAGES = find_public_packages("coreai_opt")
 _PUBLIC_MODULES = find_public_modules("coreai_opt")
+if not COREAI_AVAILABLE:
+    # coreai_utils imports coreai when it loads, so walk_packages can't list its modules either.
+    _PUBLIC_PACKAGES.remove("coreai_opt.coreai_utils")
 
 
 def _has_private_origin(obj: object) -> bool:
