@@ -187,7 +187,7 @@ def _extract_palettization_params(
     lut_quantization = None
     if quantized_lut is not None:
         lut_quant_scale = fake_palett_mod.lut_quantization_scale
-        lut_quant_scale = _expand_rank(lut_quant_scale, lut_rank)
+        lut_quant_scale = _expand_rank(lut_quant_scale.to(lut.dtype), lut_rank)
         lut_quant_zp = fake_palett_mod.lut_quantization_zero_point
         if lut_quant_zp is not None:
             lut_quant_zp = _expand_rank(lut_quant_zp.to(quantized_lut.dtype), lut_rank)
