@@ -65,6 +65,9 @@ _GRANULARITIES = pytest.mark.parametrize(
 _PER_CHANNEL_SCALE = pytest.mark.parametrize(
     "enable_per_channel_scale", [False, True], ids=["nopcs", "pcs"]
 )
+_HALF_PRECISION_MODEL_DTYPES = pytest.mark.parametrize(
+    "model_dtype", [torch.float16, torch.bfloat16], ids=["fp16", "bf16"]
+)
 
 
 def _palettize(
@@ -77,6 +80,7 @@ def _palettize(
     cluster_dim: int = 1,
     granularity: PerTensorGranularity | PerGroupedChannelGranularity = PerTensorGranularity(),  # noqa: B008
     lut_qscheme: QuantizationScheme | None = None,
+    model_dtype: torch.dtype = torch.float32,
 ) -> tuple[nn.Module, torch.Tensor, torch.Tensor]:
     """Palettize a single layer and finalize it for ``backend``.
 
@@ -85,8 +89,8 @@ def _palettize(
             and the prepared (fake-palettized) model's output on that input.
     """
     torch.manual_seed(0)
-    model = nn.Sequential(make_layer()).eval()
-    input_data = torch.randn(input_shape)
+    model = nn.Sequential(make_layer()).to(model_dtype).eval()
+    input_data = torch.randn(input_shape, dtype=model_dtype)
     qscheme = lut_qscheme or (
         QuantizationScheme.ASYMMETRIC
         if lut_dtype in (torch.int8, torch.uint8)
@@ -197,6 +201,41 @@ def test_p4_fp8_lut_keeps_lut(
         finalized_model=model,
         input_data=input_data,
         expected_ops={"lut_to_dense": 1, "constexpr_blockwise_shift_scale": 1},
+        export_backend=ExportBackend.CoreAI,
+        prepared_model_output=prepared_model_output,
+    )
+
+
+@_HALF_PRECISION_MODEL_DTYPES
+def test_quantized_lut_export_half_precision_model(model_dtype: torch.dtype) -> None:
+    """The LUT scale follows the model dtype, so a half-precision model can be exported."""
+    model, input_data, prepared_model_output = _palettize(
+        lambda: nn.Linear(64, 32), (4, 64), 4, torch.int8, model_dtype=model_dtype
+    )
+
+    export_utils.convert_and_verify(
+        finalized_model=model,
+        input_data=input_data,
+        expected_ops={"lut_to_dense": 1, "constexpr_blockwise_shift_scale": 1},
+        export_backend=ExportBackend.CoreAI,
+        prepared_model_output=prepared_model_output,
+    )
+
+
+def test_p8_lut_fold_small_values_stay_8bit() -> None:
+    """Folded 8-bit values that fit in fewer bits keep their 8-bit zero point."""
+
+    def make_layer() -> nn.Module:
+        layer = nn.Linear(64, 32)
+        nn.init.constant_(layer.weight, -0.05)
+        return layer
+
+    model, input_data, prepared_model_output = _palettize(make_layer, (4, 64), 8, torch.uint8)
+
+    export_utils.convert_and_verify(
+        finalized_model=model,
+        input_data=input_data,
+        expected_ops={"lut_to_dense": 0, "constexpr_blockwise_shift_scale": 1},
         export_backend=ExportBackend.CoreAI,
         prepared_model_output=prepared_model_output,
     )
