@@ -190,6 +190,19 @@ Palettization configuration classes.
 | [`coreai_opt.palettization.config.PATSchedule`](generated/coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule)                                          | Schedule for enabling palettization-aware training (PAT).       |
 | [`coreai_opt.palettization.config.VectorKMeansConfig`](generated/coreai_opt.palettization.config.VectorKMeansConfig.md#coreai_opt.palettization.config.VectorKMeansConfig)                     | K-means settings for vector palettization (`cluster_dim > 1`).  |
 
+### coreai_opt.palettization.kmeans
+
+K-means palettization compressor.
+
+### coreai_opt.palettization.kmeans.dkm
+
+DKM (Differentiable K-Means) training-time palettization.
+
+| [`coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec`](generated/coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.md#coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec)                                                                     | DKM (Differentiable K-Means) training-strategy hyperparameters.                            |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| [`coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS`](generated/coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.md#coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS)                                                | set() -> new empty set object set(iterable) -> new set object                              |
+| [`coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec`](generated/coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.md#coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec)() | Return the default DKM weight-palettization spec (4-bit, per-tensor, no LUT quantization). |
+
 ### coreai_opt.palettization.spec
 
 Palettization specs, granularity classes, and factory functions.
@@ -303,10 +316,12 @@ Fake quantization implementation base class and default implementation.
   * [Sensitive K-means API](overview.md#sensitive-k-means-api)
   * [Loading a Prepared Model](overview.md#loading-a-prepared-model)
   * [Training a Palettized model](overview.md#training-a-palettized-model)
+  * [Differentiable K-Means (DKM) API](overview.md#differentiable-k-means-dkm-api)
 * [Config API](config.md)
   * [PalettizationSpec](config.md#palettizationspec)
   * [Config classes and their defaults](config.md#config-classes-and-their-defaults)
   * [Examples](config.md#examples)
+  * [Training strategy: DKM (`training_strategy_spec`)](config.md#training-strategy-dkm-training-strategy-spec)
 
 
 # activation_comparison.html.md
@@ -622,9 +637,7 @@ from coreai_opt.quantization.config import QATSchedule
 import torch
 
 model = MyModel()
-example_inputs = (
-    ...
-)  # use a representative data sample when activation quantization is in use
+example_inputs = (...,)
 
 # default INT8_INT8 config
 config = QuantizerConfig(
@@ -915,11 +928,12 @@ import torch
 from coreai_opt.quantization.spec import (
     QParamsCalculatorBase,
     RunningRangeMixin,
+    StatefulQParamsCalculatorBase,
 )
 
 
 @QParamsCalculatorBase.register("max_range")
-class MaxRangeQParamsCalculator(RunningRangeMixin, QParamsCalculatorBase):
+class MaxRangeQParamsCalculator(RunningRangeMixin, StatefulQParamsCalculatorBase):
     """Track the widest observed min/max range across all calibration batches."""
 
     def update_running_range(
@@ -941,7 +955,7 @@ spec = QuantizationSpec(
 )
 ```
 
-The `RunningRangeMixin` provides `running_min`/`running_max` buffers and handles initialization on the first forward pass. Subclasses only need to implement `update_running_range()` to define how the running statistics are updated each batch. For stateless calculators that don’t need running state, subclass `QParamsCalculatorBase` directly and override `compute_qparams()`.
+The `RunningRangeMixin` provides `running_min`/`running_max` buffers and handles initialization on the first forward pass. Subclasses only need to implement `update_running_range()` to define how the running statistics are updated each batch. After `prepare()`, these buffers hold the empty range `+inf`/`-inf` until the first observed batch replaces it, so `update_running_range()` may see these values and must not raise on them; the mixin discards those entries in favor of the observed range. `torch.minimum`/`torch.maximum`, as in the example above, already treat it as empty. Subclasses that override `compute_qparams()` instead must handle these values themselves, and subclasses that keep extra running statistics should override `reset_running_range()` (calling `super()`) to clear them as well. For calculators that don’t need a running range, subclass `StatefulQParamsCalculatorBase` (cached, exportable qparams, like `StaticQParamsCalculator`) or `StatelessQParamsCalculatorBase` (recomputed every forward, like `DynamicQParamsCalculator`) and override `compute_qparams()`.
 
 The same pattern applies to the other pluggable fields:
 
@@ -1248,6 +1262,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- towncrier release notes start -->
+
+## [0.5.0](https://github.com/apple/coreai-optimization/compare/v0.4.0...v0.5.0/) - 2026-11-19
+
+### Added
+
+- Added support for Python 3.15.
+- Added Differentiable K-Means (DKM) training-time palettization (`coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec`).
+
+### Changed
+
+- Upgrade `coreai-core` to 1.0.0 and `coreai-torch` to 0.4.4 in the `coreai` extra.
+
+### Fixed
+
+- Fix device mismatch error in the forward pass of a model prepared by `KMeansPalettizer.prepare()` with `num_workers > 1` on CUDA/MPS.
+- Fix calibrated activation ranges depending on the `example_inputs` passed to `Quantizer.prepare()`: the range observed during `prepare()` is now replaced by the first batch observed in `calibration_mode()` or `training_mode()` instead of being averaged into the running range. Until then, the running range buffers hold the empty range `running_min = +inf` / `running_max = -inf` to mark it as unset, so these values are expected in uncalibrated prepared models and checkpoints.
 
 ## [0.4.0](https://github.com/apple/coreai-optimization/compare/v0.3.0...v0.4.0/) - 2026-11-05
 
@@ -2978,6 +3008,117 @@ kmeans_palettization_config:
       n_init: 1
       max_iter: 1
 ```
+
+## Training strategy: DKM (`training_strategy_spec`)
+
+Each `PalettizationSpec` carries a `training_strategy_spec` field that selects the training-time behavior for that weight. It defaults to vanilla (frozen) k-means, where the codebook and index assignments computed at `prepare()` stay fixed during training. Setting it to a `DKMTrainingSpec` instead enables [Differentiable K-Means](overview.md#differentiable-k-means-dkm-api), so the codebook and assignments are learned through gradient-based fine-tuning.
+
+`DKMTrainingSpec` exposes the following settings:
+
+- `tau`: Softmax temperature for the soft centroid assignment (default `1e-4`). Smaller values sharpen toward hard k-means; larger values soften it. The loss-minimizing `tau` is model-dependent — **smaller models and lower bit-widths tend to prefer a larger `tau`**. A good starting point is `1e-5` for LLMs and the default `1e-4` for smaller models.
+- `kmeans_max_iter`: Number of soft-assignment EM iterations per DKM training forward pass (default `3`).
+- `enforce_zero`: If `True`, pins the centroid nearest the origin to exactly zero (default `False`). Useful for joint pruning and palettization.
+- `zero_threshold`: Numerical-stability floor applied to the softmax assignment weights and per-centroid mass at small `tau` (default `1e-7`).
+
+### Apply DKM to all modules
+
+Set `training_strategy_spec=DKMTrainingSpec()` on the `global_config` spec to enable DKM for every palettized weight in the model:
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.kmeans.dkm import DKMTrainingSpec
+
+config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={
+            "weight": PalettizationSpec(
+                n_bits=4,
+                training_strategy_spec=DKMTrainingSpec(),
+            )
+        },
+    )
+)
+```
+
+```yaml
+# yaml
+kmeans_palettization_config:
+  global_config:
+    op_state_spec:
+      weight:
+        n_bits: 4
+        training_strategy_spec:
+          type: dkm
+```
+
+### Apply DKM to a subset of modules, vanilla k-means to the rest
+
+Because `training_strategy_spec` lives on the per-weight `PalettizationSpec`, DKM can be enabled for selected modules while the rest keep the default vanilla k-means. Below, all layers are palettized 4-bit; two named modules train their palettization with DKM, and every other module (covered by `global_config`) uses vanilla k-means simply by not setting a `training_strategy_spec`.
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.kmeans.dkm import DKMTrainingSpec
+
+config = KMeansPalettizerConfig(
+    # Default for all layers: vanilla 4-bit k-means (no training_strategy_spec).
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={"weight": PalettizationSpec(n_bits=4)},
+    ),
+    module_name_configs={
+        "encoder.layer.0.attention": ModuleKMeansPalettizerConfig(
+            op_state_spec={
+                "weight": PalettizationSpec(
+                    n_bits=4,
+                    training_strategy_spec=DKMTrainingSpec(tau=1e-4, kmeans_max_iter=3),
+                )
+            },
+        ),
+        "encoder.layer.1.attention": ModuleKMeansPalettizerConfig(
+            op_state_spec={
+                "weight": PalettizationSpec(
+                    n_bits=4,
+                    training_strategy_spec=DKMTrainingSpec(tau=5e-5),
+                )
+            },
+        ),
+    },
+)
+```
+
+```yaml
+# yaml
+kmeans_palettization_config:
+  global_config:
+    op_state_spec:
+      weight:
+        n_bits: 4
+  module_name_configs:
+    encoder.layer.0.attention:
+      op_state_spec:
+        weight:
+          n_bits: 4
+          training_strategy_spec:
+            type: dkm
+            tau: 1.0e-4
+            kmeans_max_iter: 3
+    encoder.layer.1.attention:
+      op_state_spec:
+        weight:
+          n_bits: 4
+          training_strategy_spec:
+            type: dkm
+            tau: 5.0e-5
+```
+
+For a DKM spec with the defaults, the `default_dkm_weight_palettization_spec()` helper (importable from `coreai_opt.palettization.kmeans.dkm`) returns a ready-made 4-bit, per-tensor `PalettizationSpec` with `training_strategy_spec=DKMTrainingSpec()`.
 
 
 # coreai_compression.html.md
@@ -5784,6 +5925,63 @@ reached. Default: `1e-4`.
   float
 
 
+# coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.html.md
+
+# coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec
+
+### *class* coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec
+
+Bases: [`TrainingStrategySpec`](coreai_opt.palettization.spec.TrainingStrategySpec.md#coreai_opt.palettization.spec.TrainingStrategySpec)
+
+DKM (Differentiable K-Means) training-strategy hyperparameters.
+
+#### tau
+
+Softmax temperature for DKM’s soft centroid assignment. Smaller
+values sharpen toward hard k-means; larger values soften it.
+Typical range: 1e-5 to 1e-3.
+
+#### kmeans_max_iter
+
+Number of soft-assignment EM iterations per DKM
+training forward pass.
+
+#### enforce_zero
+
+If True, pins the centroid nearest the origin to
+exactly zero. Useful for joint pruning + palettization.
+
+#### zero_threshold
+
+Floor applied to the softmax assignment weights and the
+per-centroid mass (denominator) for numerical stability at small
+`tau`.
+
+
+# coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.html.md
+
+# coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS
+
+### coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS *= {1, 2, 4}*
+
+set() -> new empty set object
+set(iterable) -> new set object
+
+Build an unordered collection of unique elements.
+
+
+# coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.html.md
+
+# coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec
+
+### coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec()
+
+Return the default DKM weight-palettization spec (4-bit, per-tensor, no LUT quantization).
+
+* **Return type:**
+  [*PalettizationSpec*](coreai_opt.palettization.PalettizationSpec.md#coreai_opt.palettization.PalettizationSpec)
+
+
 # coreai_opt.palettization.spec.DefaultTrainingSpec.html.md
 
 # coreai_opt.palettization.spec.DefaultTrainingSpec
@@ -7436,9 +7634,11 @@ during the forward pass. Returns an nn.Module.
   good accuracy.
 
 * **Parameters:**
-  * **example_inputs** (*tuple* *[**Any* *,*  *...* *]*) – Tuple of example inputs for model tracing. When
-    activation quantization is in use, these should be
-    representative of the data the model would typically see.
+  * **example_inputs** (*tuple* *[**Any* *,*  *...* *]*) – Tuple of example inputs for model tracing. With
+    activation quantization, they also initialize the activation
+    ranges. The first batch observed after `prepare()` (e.g. in
+    `calibration_mode()` or `training_mode()`) replaces them,
+    unless `state_dict` restores observed ranges.
   * **dynamic_shapes** (*dict* *[**str* *,* *Any* *]*  *|* *tuple* *[**Any* *]*  *|* *list* *[**Any* *]*  *|* *None*) – Dynamic shapes specification (graph mode only).
     Ignored in EAGER mode.
   * **export_with_no_grad** (*bool*) – Whether to export with no_grad (graph mode
@@ -7454,6 +7654,8 @@ during the forward pass. Returns an nn.Module.
 * **Raises:**
   * **RuntimeError** – If the model has already been prepared.
   * **RuntimeError** – If `state_dict` does not match the prepared model.
+  * **Exception** – Whatever a registered post-prepare check raises to reject the prepared
+        model. In eager mode the model has then already been modified in place.
 * **Return type:**
   *Module* | *GraphModule*
 
@@ -7985,22 +8187,27 @@ forward pass via element-wise minimum and maximum:
 
 ### Methods
 
-| `compute_qparams`(tensor, min_val, max_val)                                                                                  | Update running range, persist to buffers, then compute qparams.   |
-|------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
-| `extra_repr`()                                                                                                               | Return the extra representation of the module.                    |
-| `forward`(tensor)                                                                                                            | Compute qparams from `tensor`; cache to buffers; return.          |
-| `get_class`(key)                                                                                                             |                                                                   |
-| `get_qparams`()                                                                                                              | Return the computed scale, zero point and minval.                 |
-| `list_registry_keys`()                                                                                                       |                                                                   |
-| `list_registry_values`()                                                                                                     |                                                                   |
-| `register`(key)                                                                                                              | Register a virtual subclass of an ABC.                            |
-| `resolve`(data)                                                                                                              | Resolve a string key or class type against this registry.         |
-| `set_export_mode`([enabled])                                                                                                 |                                                                   |
-| [`update_running_range`](#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule. |
+| `compute_qparams`(tensor, min_val, max_val)                                                                                  | Update running range, persist to buffers, then compute qparams.              |
+|------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| `extra_repr`()                                                                                                               | Return the extra representation of the module.                               |
+| `forward`(tensor)                                                                                                            | Compute qparams from `tensor`; cache to buffers; return.                     |
+| `get_class`(key)                                                                                                             |                                                                              |
+| `get_qparams`()                                                                                                              | Return the computed scale, zero point and minval.                            |
+| `list_registry_keys`()                                                                                                       |                                                                              |
+| `list_registry_values`()                                                                                                     |                                                                              |
+| `register`(key)                                                                                                              | Register a virtual subclass of an ABC.                                       |
+| `reset_running_range`()                                                                                                      | Mark the running range as unset so the next observed range starts it afresh. |
+| `resolve`(data)                                                                                                              | Resolve a string key or class type against this registry.                    |
+| `set_export_mode`([enabled])                                                                                                 |                                                                              |
+| [`update_running_range`](#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule.            |
 
 #### update_running_range(min_val, max_val)
 
 Return `(updated_min, updated_max)` using subclass-specific rule.
+
+`self.running_min` / `self.running_max` may be `+inf` / `-inf` where the running
+range is unset (see `reset_running_range`). Implementations must not raise on these
+values; `compute_qparams` discards those entries in favor of `min_val` / `max_val`.
 
 * **Parameters:**
   * **min_val** (*Tensor*)
@@ -8084,22 +8291,27 @@ where `c` is the `averaging_constant`.
 
 ### Methods
 
-| `compute_qparams`(tensor, min_val, max_val)                                                                                   | Update running range, persist to buffers, then compute qparams.   |
-|-------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
-| `extra_repr`()                                                                                                                | Return the extra representation of the module.                    |
-| `forward`(tensor)                                                                                                             | Compute qparams from `tensor`; cache to buffers; return.          |
-| `get_class`(key)                                                                                                              |                                                                   |
-| `get_qparams`()                                                                                                               | Return the computed scale, zero point and minval.                 |
-| `list_registry_keys`()                                                                                                        |                                                                   |
-| `list_registry_values`()                                                                                                      |                                                                   |
-| `register`(key)                                                                                                               | Register a virtual subclass of an ABC.                            |
-| `resolve`(data)                                                                                                               | Resolve a string key or class type against this registry.         |
-| `set_export_mode`([enabled])                                                                                                  |                                                                   |
-| [`update_running_range`](#coreai_opt.quantization.spec.MovingAverageQParamsCalculator.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule. |
+| `compute_qparams`(tensor, min_val, max_val)                                                                                   | Update running range, persist to buffers, then compute qparams.              |
+|-------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| `extra_repr`()                                                                                                                | Return the extra representation of the module.                               |
+| `forward`(tensor)                                                                                                             | Compute qparams from `tensor`; cache to buffers; return.                     |
+| `get_class`(key)                                                                                                              |                                                                              |
+| `get_qparams`()                                                                                                               | Return the computed scale, zero point and minval.                            |
+| `list_registry_keys`()                                                                                                        |                                                                              |
+| `list_registry_values`()                                                                                                      |                                                                              |
+| `register`(key)                                                                                                               | Register a virtual subclass of an ABC.                                       |
+| `reset_running_range`()                                                                                                       | Mark the running range as unset so the next observed range starts it afresh. |
+| `resolve`(data)                                                                                                               | Resolve a string key or class type against this registry.                    |
+| `set_export_mode`([enabled])                                                                                                  |                                                                              |
+| [`update_running_range`](#coreai_opt.quantization.spec.MovingAverageQParamsCalculator.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule.            |
 
 #### update_running_range(min_val, max_val)
 
 Return `(updated_min, updated_max)` using subclass-specific rule.
+
+`self.running_min` / `self.running_max` may be `+inf` / `-inf` where the running
+range is unset (see `reset_running_range`). Implementations must not raise on these
+values; `compute_qparams` discards those entries in favor of `min_val` / `max_val`.
 
 * **Parameters:**
   * **min_val** (*Tensor*)
@@ -8553,10 +8765,11 @@ take precedence over the base-class defaults.
 
 ### Methods
 
-| [`compute_qparams`](#coreai_opt.quantization.spec.RunningRangeMixin.compute_qparams)(tensor, min_val, max_val)   | Update running range, persist to buffers, then compute qparams.   |
-|------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
-| [`extra_repr`](#coreai_opt.quantization.spec.RunningRangeMixin.extra_repr)()                                     |                                                                   |
-| [`update_running_range`](#coreai_opt.quantization.spec.RunningRangeMixin.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule. |
+| [`compute_qparams`](#coreai_opt.quantization.spec.RunningRangeMixin.compute_qparams)(tensor, min_val, max_val)   | Update running range, persist to buffers, then compute qparams.              |
+|------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| [`extra_repr`](#coreai_opt.quantization.spec.RunningRangeMixin.extra_repr)()                                     |                                                                              |
+| [`reset_running_range`](#coreai_opt.quantization.spec.RunningRangeMixin.reset_running_range)()                   | Mark the running range as unset so the next observed range starts it afresh. |
+| [`update_running_range`](#coreai_opt.quantization.spec.RunningRangeMixin.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule.            |
 
 #### compute_qparams(tensor, min_val, max_val)
 
@@ -8574,9 +8787,29 @@ Update running range, persist to buffers, then compute qparams.
 * **Return type:**
   str
 
+#### reset_running_range()
+
+Mark the running range as unset so the next observed range starts it afresh.
+
+Sets `running_min` to `+inf` and `running_max` to `-inf`: an empty range that
+observed data can’t produce, since observed minimums are clamped to `<= 0` and
+maximums to `>= 0`.
+
+The buffers keep their shape, so this stays `torch.compile`
+friendly and survives `state_dict` round trips. The current qparams (scale, zero
+point) stay usable. Subclasses that keep extra running statistics should override this
+(calling `super()`) to clear them too.
+
+* **Return type:**
+  None
+
 #### *abstract* update_running_range(min_val, max_val)
 
 Return `(updated_min, updated_max)` using subclass-specific rule.
+
+`self.running_min` / `self.running_max` may be `+inf` / `-inf` where the running
+range is unset (see `reset_running_range`). Implementations must not raise on these
+values; `compute_qparams` discards those entries in favor of `min_val` / `max_val`.
 
 * **Parameters:**
   * **min_val** (*Tensor*)
@@ -9074,7 +9307,7 @@ from coreai_opt.quantization import QuantizerConfig, Quantizer
 config = QuantizerConfig()
 quantizer = Quantizer(fp32_model, config)
 
-# Use a representative low-resolution (LR) image from the calibration set as example inputs
+# Use a sample image as example inputs
 prepared_model = quantizer.prepare(example_inputs)
 ```
 
@@ -9311,9 +9544,7 @@ palettizer = KMeansPalettizer(model, KMeansPalettizerConfig.presets.w4())
 `prepare()` is the first transformation step. It compresses the model’s weights according to the config and inserts fake-quantize / fake-palettize / sparsity-mask ops where needed, so a forward on the prepared model will give outputs accounting for the compression effects. Depending on the compressor used, `prepare()` may modify the model in-place. Use the returned `prepared_model` to ensure you’re using the compressed model. If you need to retain the uncompressed model, make a copy (for example, with `copy.deepcopy`) prior to calling `prepare`.
 
 ```python
-example_inputs = (
-    torch.randn(1, 3, 224, 224),
-)  # when activation quantization is in use, use representative data instead
+example_inputs = (torch.randn(1, 3, 224, 224),)
 prepared_model = quantizer.prepare(example_inputs)
 
 # evaluate accuracy with compression effects active
@@ -9526,7 +9757,6 @@ palettized_model = palettizer.finalize(backend=opt.ExportBackend.CoreAI)
 
 Apply the `Quantizer` to the already-palettized model.
 Set `op_state_spec=None` to disable weight quantization — weights are already compressed via palettization, so applying quantization on top would be redundant.
-Use a representative data sample for `example_inputs` to provide a reasonable starting point for activation quantization parameters.
 
 ```python
 from coreai_opt.quantization import (
@@ -9865,6 +10095,84 @@ The inflection sits at around `4.0` realized BPW: below it, every additional 0.5
 ## Summary
 
 At the same model size, mixed-precision palettization significantly narrowed the gap to the FP16 baseline compared to uniform 4-bit palettization.
+
+
+# mnist_dkm_palettization.html.md
+
+# Applying DKM palettization to an MNIST model
+
+This tutorial shows how to palettize an MNIST model with **Differentiable K-Means (DKM)**, which learns the palettization codebook and cluster assignments during training rather than fixing them from a single one-shot K-means fit.
+
+By the end of this tutorial you should be familiar with:
+
+1. [How to configure DKM palettization](#DKM-Palettization)
+2. [How to fine-tune a DKM-palettized model](#Fine-tuning-with-DKM)
+3. [How to export the palettized model to Core AI](#Export-to-Core-AI)
+
+**Table of Contents:**
+
+- [Setup](#Setup)
+  - [MNIST Dataset download](#MNIST-Dataset-download)
+  - [Model definition](#Model-definition)
+  - [Training and Evaluation](#Training-and-Evaluation)
+  - [Train baseline model](#Train-baseline-model)
+- [DKM Palettization](#DKM-Palettization)
+  - [Fine-tuning with DKM](#Fine-tuning-with-DKM)
+- [Export to Core AI](#Export-to-Core-AI)
+
+## Setup
+
+We train a small CNN on MNIST to get a baseline, then palettize it to 4-bit with DKM and fine-tune so the codebooks are learned jointly with the model.
+
+### MNIST Dataset download
+
+Helper to download the MNIST dataset with standard normalization applied.
+
+### Model definition
+
+A simple CNN with a single Conv2d → ReLU → MaxPool block, followed by Flatten and a Linear classifier.
+
+### Training and Evaluation
+
+Standard PyTorch training loop and evaluation function that computes accuracy.
+
+The CNN model used for this tutorial contains a single Conv2d, ReLU, MaxPool, Flatten, and Linear layer. Here’s the structure:
+
+### Train baseline model
+
+Let’s train this model so we can get a baseline accuracy. We save the trained weights so we can reload them for the palettization experiment.
+
+## DKM Palettization
+
+Palettization compresses a model’s weights by clustering them into a small look-up table (LUT) of centroids, and replacing each weight with an index into that table.
+
+Plain K-means palettization computes the LUT once, post-training, and freezes it. DKM instead makes the clustering step differentiable: during training it uses a soft assignment of weights to centroids, so gradients flow back into the palettized weights and their codebooks. This lets the codebook and assignments be learned jointly with the rest of the model, which can recover accuracy that a one-shot fit leaves behind.
+
+DKM is enabled by setting the `training_strategy_spec` field of a `PalettizationSpec` to a `DKMTrainingSpec`. The same `KMeansPalettizer` drives it.
+
+We use 4-bit **per-grouped-channel** palettization (each group of 2 output channels gets its own LUT of 2⁴ = 16 centroids), and attach a `DKMTrainingSpec` so the palettization is trained with DKM.
+
+`DKMTrainingSpec` exposes a few hyperparameters (all optional): `tau` (softmax temperature for the soft assignment), `kmeans_max_iter` (soft-assignment iterations per forward), `enforce_zero`, and `zero_threshold`. Here we keep the defaults.
+
+After `prepare()`, the model has fake-palettization modules whose codebooks are initialized from one-shot K-means. Measure the accuracy of the palettized model before DKM fine-tuning:
+
+### Fine-tuning with DKM
+
+We now fine-tune inside `dkm_palettizer.training_mode()`. Within this context each forward pass runs DKM’s differentiable soft assignment, so gradients flow into the palettized weights and their codebooks are updated by the optimizer.
+
+`training_mode()` also restores the model’s original train/eval state on exit, so we can evaluate immediately afterwards.
+
+## Export to Core AI
+
+Once the palettized model is ready, call `finalize()` to convert the fake-palettization modules into the real LUT-based representation for deployment.
+
+Pass `ExportBackend.CoreAI` to `finalize(backend=...)` to target the `.aimodel` format produced by `coreai-torch`.
+
+The export proceeds in three steps:
+
+- Trace the model with `torch.export.export()` to obtain a graph representation.
+- Apply `cast_to_16_bit_precision()` to cast remaining FP32 parameters to FP16 for optimal on-device performance.
+- Convert the exported program to Core AI format using `coreai-torch.TorchConverter`.
 
 
 # mnist_palettization.html.md
@@ -10585,16 +10893,11 @@ When quantizing both weights and activations, the quantizer needs to observe act
 ranges on representative data so that it can compute quantization parameters (scale, etc.) accurately.
 This is done via `calibration_mode()`.
 
-**Note**: Unlike weight-only quantization, the `example_inputs` used to prepare the quantized model with activation quantization enabled should be representative of the data the model would typically see. This is because `example_inputs` provides a starting point for the activation quantization parameters.
-
-Further calibration is still required; however, using even a single representative data sample as the example input can reduce the number of calibration samples needed later.
-
 ```python
 from coreai_opt.quantization import Quantizer, QuantizerConfig
 import torch
 
 model = MyModel().eval()
-# Use a representative data sample when activation quantization is enabled.
 example_inputs = (...,)
 
 # Default config: symmetric INT8 weights (per-channel)
@@ -10612,7 +10915,7 @@ with quantizer.calibration_mode():
 val_metric = validate(prepared_model, val_dataset)
 ```
 
-Right after `prepare()`, the activation scales come only from `example_inputs`, so accuracy is usually poor at this point. `calibration_mode()` addresses this.
+Right after `prepare()`, the activation scales come only from `example_inputs`, so accuracy is usually poor at this point. `calibration_mode()` addresses this: for each activation quantizer, the first calibration batch that reaches it replaces the scale derived from `example_inputs`.
 This is what the context manager handles:
 
 - Inside the context:
@@ -10637,7 +10940,7 @@ from coreai_opt.quantization import Quantizer, QuantizerConfig
 import torch
 
 model = MyModel().eval()
-example_inputs = (...,)  # representative data sample
+example_inputs = (...,)
 
 config = QuantizerConfig()
 quantizer = Quantizer(model, config)
@@ -10980,7 +11283,7 @@ with palettizer.training_mode():
 
 ### Using PATSchedule
 
-Users may also choose to enable palettization of parameters at a future point during training instead of right from the start. Weights which are marked for palettization, but have not yet had their palettizers enabled, will still be able to update during training. When a weight’s palettizer is switched from disabled to enabled, its codebook and index assignments are recomputed using the most current weight values.
+Users may also choose to enable palettization of parameters at a future point during training instead of right from the start. Weights which are marked for palettization, but have not yet had their palettizers enabled, will still be able to update during training. When a weight’s palettizer is switched from disabled to enabled, its codebook and index assignments are recomputed using the most current weight values. `PATSchedule` applies to any training strategy, including [DKM](#differentiable-k-means-dkm-api).
 
 Since palettizer enabling can be configured on a module by module basis, this gives users more flexibility on training to be palettization-aware by allowing weights to update in response to palettization noise from other palettized weights before themselves being palettized.
 
@@ -10989,7 +11292,7 @@ For example, users could choose to apply the following workflow:
 1. Begin training with all parameters marked to be palettized but with all palettizers disabled
 2. Fine-tune the model with no palettization noise for a few epochs
 3. Enable a subset of palettizers while keeping the rest of the palettizers disabled
-4. Fine-tune the model with palettization noise from the subset of enabled palettizers (any weights with enabled palettizers will not update further, but any weights with palettizers not yet enabled will continue training)
+4. Fine-tune the model with palettization noise from the subset of enabled palettizers (with the default strategy, any weights with enabled palettizers will not update further, but any weights with palettizers not yet enabled will continue training)
 5. Enable the rest of palettizers in the model and evaluate the final accuracy
 
 Steps 3 and 4 can be repeated as many times as desired with more and more palettizers being enabled.
@@ -11036,6 +11339,48 @@ with palettizer.training_mode():
 Each time `palettizer.step()` is called, the palettizer checks each module’s `PATSchedule` to see whether any palettizer should be enabled. With the above config settings of `enable_fake_palettize` = 2 and 4 for `module1` and `module2` respectively, this results in both palettizers being disabled to start, `module1`’s palettizer enabled after `palettizer.step()` has been called twice, and `module2`’s palettizer enabled after `palettizer.step()` has been called 4 times in total.
 
 Note that `palettizer.step()` can be called whenever the user desires, whether it be per-batch, per-epoch, or on some other cadence.
+
+## Differentiable K-Means (DKM) API
+
+DKM palettization allows the palettization codebook and cluster assignments to be learned through training, removing the inability for already palettized weights to update their codebook and index assignments. This is achieved through calculation of attention scores between all weights and all centroids, along with utilizing a soft-assignment instead of hard-assignment during training forward, allowing gradients to propagate through palettizers to the original weight parameters.
+
+For more details on DKM, refer to [DKM (Cho et al., 2022)](https://arxiv.org/abs/2108.12659).
+
+Enabling DKM simply requires setting `training_strategy_spec` of `PalettizationSpec` to the `DKMTrainingSpec` class. The same `KMeansPalettizer` class is used for palettization. For example, the below code shows enabling DKM for all weights in the model:
+
+```python
+from coreai_opt.palettization import (
+    KMeansPalettizer,
+    KMeansPalettizerConfig,
+    ModuleKMeansPalettizerConfig,
+    PalettizationSpec,
+)
+from coreai_opt.palettization.kmeans.dkm import DKMTrainingSpec
+
+kmeans_palettizer_config = KMeansPalettizerConfig(
+    global_config=ModuleKMeansPalettizerConfig(
+        op_state_spec={
+            "weight": PalettizationSpec(
+                ..., training_strategy_spec=DKMTrainingSpec(...)
+            )
+        }
+    )
+)
+
+palettizer = KMeansPalettizer(model, kmeans_palettizer_config)
+prepared_model = palettizer.prepare(example_inputs)
+
+with palettizer.training_mode():
+    for i in range(...):
+        # Perform whatever training forward pass / loss calculation / optimizer gradient application is desired
+        ...
+
+finalized_model = palettizer.finalize(...)
+```
+
+DKM works with `PATSchedule` as well. A schedule decides when a module’s palettizer becomes active, while the training strategy decides what that palettizer’s forward pass does once it is. For example, you can leave DKM modules unpalettized for the first few hundred steps and then turn on soft-assignment training. To do this, set `pat_schedule` on the module config and call `palettizer.step()` in the training loop as described in [Using PATSchedule](#using-patschedule). Unlike with the default strategy, a DKM weight keeps updating after its palettizer is enabled, because gradients flow through the soft assignment.
+
+As `training_strategy_spec` is part of `PalettizationSpec`, which in turn can be configured on a per-op or module basis in `KMeansPalettizerConfig`, users may choose to enable DKM for a subset of palettized weights in the model while leaving another portion of palettized weights using non-DKM `Vanilla K-means`.
 
 
 # palettization_troubleshooting.html.md
@@ -11120,18 +11465,13 @@ config = QuantizerConfig()
 If weight-only quantization were applied, the model would be ready for evaluation after preparation.
 However, as we are also using activation quantization, we must calibrate the prepared model first.
 
-**Note**: When performing activation quantization, the example inputs used to prepare the model should be representative of the data the model would typically see.
-This is due to the example inputs also serving as a starting point for quantization parameters in activation quantizers.
-
-Further calibration is still required; however, using even a single representative data sample point as the example input can reduce the number of calibration samples needed later during calibration.
-
 ```python
 from coreai_opt.quantization import Quantizer
 
 # Instantiate the quantizer
 quantizer = Quantizer(fp32_model, config)
 
-# Prepare the model using a single representative data sample
+# Prepare the model
 prepared_model = quantizer.prepare(example_inputs)
 ```
 
@@ -11335,6 +11675,7 @@ These tutorials demonstrate model compression techniques using simple toy models
 
 * [Applying quantization to an MNIST model](../tutorials/mnist_quantization.md)
 * [Applying palettization to an MNIST model](../tutorials/mnist_palettization.md)
+* [Applying DKM palettization to an MNIST model](../tutorials/mnist_dkm_palettization.md)
 * [Applying joint palettization and activation quantization to an MNIST model](../tutorials/mnist_palettization_and_activation_quantization.md)
 * [Applying magnitude pruning to an MNIST model](../tutorials/mnist_pruning.md)
 

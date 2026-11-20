@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="indigo" data-content_root="../../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>coreai_opt.palettization.kmeans.dkm.training_strategy - CoreAI-Opt main documentation</title><link rel="index" title="Index" href="../../../../../genindex.html" /><link rel="search" title="Search" href="../../../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=d88b86f9" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/autodoc_pydantic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/custom.css?v=2d1dc041" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="coreai_opt.palettization.kmeans.dkm.training_strategy"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../../../index.html">
+      
+      
+      <strong>CoreAI-Opt</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../../../api/index.html">API Reference</a></li><li class="link">
+          <a href="https://github.com/apple/coreai-optimization/">
+            <span>GitHub Repo</span><i class="i-lucide external-link"></i></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../introduction/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../introduction/how_to_use_coreaiopt.html">How to use coreai-opt</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../introduction/integration_coreai.html">Integration with Core AI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../introduction/torch_backend.html">Running PyTorch evaluations with compressed models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../introduction/checkpoints.html">Checkpoints and workflows</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../tutorials/mnist_dkm_palettization.html">Applying DKM palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../examples/model_examples.html">Model Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../examples/model_examples/resnet50.html">ResNet50 model: Weight + Activation Quantization (PTQ)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../examples/model_examples/mixed_precision_palettization.html">Mixed-precision palettization with ResNet50</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../examples/model_examples/edsr.html">EDSR model: Weight palettization + activation quantization (PTQ)</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Core Algorithms and APIs</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../quantization/index.html">Quantization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../quantization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../quantization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../quantization/config.html">Config API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../quantization/advanced.html">Deeper Dive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../quantization/composite_op_quantization.html">Quantization with Composite Ops</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../palettization/index.html">Palettization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../palettization/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../palettization/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../palettization/config.html">Config API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../pruning/index.html">Pruning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../pruning/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../pruning/overview.html">API Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../pruning/config.html">Config API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Other Workflows and Utilities</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../utils/joint_compression.html">Joint Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../utils/mixed_precision.html">Mixed-Precision Compression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../utils/activation_comparison.html">Comparing Intermediate Activations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../utils/casting.html">16-bit PyTorch Model Casting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../utils/coreai_compression.html">Compressing Core AI Models</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Debugging</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../debugging/model_inspection.html">Inspecting PyTorch Model Structure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../debugging/graph_mode_troubleshooting.html">Graph Mode Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../debugging/palettization_troubleshooting.html">Palettization Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../api/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.CoreMLExportError.html">coreai_opt.CoreMLExportError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.DependencyVersionWarning.html">coreai_opt.DependencyVersionWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.ExportBackend.html">coreai_opt.ExportBackend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.TorchaoTorchIncompatibilityWarning.html">coreai_opt.TorchaoTorchIncompatibilityWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.UntestedTorchVersionWarning.html">coreai_opt.UntestedTorchVersionWarning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.casting.cast_fp32_to_fp16.html">coreai_opt.casting.cast_fp32_to_fp16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.casting.cast_int32_to_int16.html">coreai_opt.casting.cast_int32_to_int16</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.casting.cast_to_16_bit_precision.html">coreai_opt.casting.cast_to_16_bit_precision</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.CompressionConfig.html">coreai_opt.config.CompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.CompressionSpec.html">coreai_opt.config.CompressionSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.CompressionType.html">coreai_opt.config.CompressionType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.ModuleCompressionConfig.html">coreai_opt.config.ModuleCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.OpCompressionConfig.html">coreai_opt.config.OpCompressionConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.WeightOnlyModuleValidationMixin.html">coreai_opt.config.WeightOnlyModuleValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.WeightOnlyOpValidationMixin.html">coreai_opt.config.WeightOnlyOpValidationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.spec.CompressionComponentFactoryBase.html">coreai_opt.config.spec.CompressionComponentFactoryBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.spec.CompressionSimulatorBase.html">coreai_opt.config.spec.CompressionSimulatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.config.spec.CompressionTargetTensor.html">coreai_opt.config.spec.CompressionTargetTensor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.coreai_utils.CompressionGranularity.html">coreai_opt.coreai_utils.CompressionGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.coreai_utils.DType.html">coreai_opt.coreai_utils.DType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.coreai_utils.QScheme.html">coreai_opt.coreai_utils.QScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.coreai_utils.palettize_weights.html">coreai_opt.coreai_utils.palettize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.coreai_utils.quantize_weights.html">coreai_opt.coreai_utils.quantize_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.coreai_utils.sparsify_weights.html">coreai_opt.coreai_utils.sparsify_weights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.BitsPerWeightResult.html">coreai_opt.inspection.BitsPerWeightResult</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.BoundaryEdge.html">coreai_opt.inspection.BoundaryEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.InputEdge.html">coreai_opt.inspection.InputEdge</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.ModelInspector.html">coreai_opt.inspection.ModelInspector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.ModelSummary.html">coreai_opt.inspection.ModelSummary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.ModuleContext.html">coreai_opt.inspection.ModuleContext</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.ModuleInfo.html">coreai_opt.inspection.ModuleInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.OpInfo.html">coreai_opt.inspection.OpInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.SourceFrame.html">coreai_opt.inspection.SourceFrame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.inspection.bits_per_weight.html">coreai_opt.inspection.bits_per_weight</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.KMeansPalettizer.html">coreai_opt.palettization.KMeansPalettizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.html">coreai_opt.palettization.KMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.KMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.html">coreai_opt.palettization.ModuleKMeansPalettizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w6.html">w6</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.ModuleKMeansPalettizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.PalettizationSpec.html">coreai_opt.palettization.PalettizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.html">coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.html">coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.html">coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.spec.PerTensorGranularity.html">coreai_opt.palettization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.spec.TrainingStrategy.html">coreai_opt.palettization.spec.TrainingStrategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.spec.TrainingStrategySpec.html">coreai_opt.palettization.spec.TrainingStrategySpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.palettization.spec.default_weight_palettization_spec.html">coreai_opt.palettization.spec.default_weight_palettization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.MagnitudePruner.html">coreai_opt.pruning.MagnitudePruner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.MagnitudePrunerConfig.html">coreai_opt.pruning.MagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.ModuleMagnitudePrunerConfig.html">coreai_opt.pruning.ModuleMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.PruningSpec.html">coreai_opt.pruning.PruningSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.config.ConstantSparsitySchedule.html">coreai_opt.pruning.config.ConstantSparsitySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.config.OpMagnitudePrunerConfig.html">coreai_opt.pruning.config.OpMagnitudePrunerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.config.PolynomialDecaySchedule.html">coreai_opt.pruning.config.PolynomialDecaySchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.config.SparsityScheduleBase.html">coreai_opt.pruning.config.SparsityScheduleBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.spec.ChannelStructured.html">coreai_opt.pruning.spec.ChannelStructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.spec.PruneImplBase.html">coreai_opt.pruning.spec.PruneImplBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.spec.PruningScheme.html">coreai_opt.pruning.spec.PruningScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.spec.Unstructured.html">coreai_opt.pruning.spec.Unstructured</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.pruning.spec.default_weight_pruning_spec.html">coreai_opt.pruning.spec.default_weight_pruning_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.ExecutionMode.html">coreai_opt.quantization.ExecutionMode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.InvalidExecutionModeError.html">coreai_opt.quantization.InvalidExecutionModeError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.html">coreai_opt.quantization.ModuleQuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.ModuleQuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.QuantizationSpec.html">coreai_opt.quantization.QuantizationSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.Quantizer.html">coreai_opt.quantization.Quantizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.QuantizerConfig.html">coreai_opt.quantization.QuantizerConfig</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.html">presets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4.html">w4</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w4_per_block.html">w4_per_block</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.QuantizerConfig.presets.w8.html">w8</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.config.KVCacheQuantConfig.html">coreai_opt.quantization.config.KVCacheQuantConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.config.OpQuantizerConfig.html">coreai_opt.quantization.config.OpQuantizerConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.config.QATSchedule.html">coreai_opt.quantization.config.QATSchedule</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.DynamicQParamsCalculator.html">coreai_opt.quantization.spec.DynamicQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.html">coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.MinMaxRangeCalculator.html">coreai_opt.quantization.spec.MinMaxRangeCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.MovingAverageQParamsCalculator.html">coreai_opt.quantization.spec.MovingAverageQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.PerBlockGranularity.html">coreai_opt.quantization.spec.PerBlockGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.PerChannelGranularity.html">coreai_opt.quantization.spec.PerChannelGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.PerTensorGranularity.html">coreai_opt.quantization.spec.PerTensorGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.QParamsCalculatorBase.html">coreai_opt.quantization.spec.QParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.QuantizationComponentFactory.html">coreai_opt.quantization.spec.QuantizationComponentFactory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.QuantizationFormulation.html">coreai_opt.quantization.spec.QuantizationFormulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.QuantizationGranularity.html">coreai_opt.quantization.spec.QuantizationGranularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.QuantizationScheme.html">coreai_opt.quantization.spec.QuantizationScheme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.RangeCalculatorBase.html">coreai_opt.quantization.spec.RangeCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.RunningRangeMixin.html">coreai_opt.quantization.spec.RunningRangeMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.StatefulQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatefulQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.StatelessQParamsCalculatorBase.html">coreai_opt.quantization.spec.StatelessQParamsCalculatorBase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.StaticQParamsCalculator.html">coreai_opt.quantization.spec.StaticQParamsCalculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.default_activation_quantization_spec.html">coreai_opt.quantization.spec.default_activation_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.default_weight_quantization_spec.html">coreai_opt.quantization.spec.default_weight_quantization_spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.fp4_forward.html">coreai_opt.quantization.spec.fp4_forward</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.resolve_block_sizes.html">coreai_opt.quantization.spec.resolve_block_sizes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../api/generated/coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase.html">coreai_opt.quantization.spec.fake_quantize.FakeQuantizeImplBase</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Resources</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../../index.html"><span itemprop="name">CoreAI-Opt</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">coreai_opt.palettization.kmeans.dkm.training_strategy</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12"><div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger"><button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="training_strategy.html.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem" data-url="training_strategy.html.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="training_strategy.html.md" target="_blank" rel="nofollow">
+          <span class="iconify-icon">
+            <img src="../../../../../_static/icons/markdown.svg" alt="" width="14" height="14">
+          </span>
+          <span>View as Markdown</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <h1>Source code for coreai_opt.palettization.kmeans.dkm.training_strategy</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># Copyright 2026 Apple Inc.</span>
+</span><span data-line="2"><span class="c1">#</span>
+</span><span data-line="3"><span class="c1"># Use of this source code is governed by a BSD-3-Clause license that can</span>
+</span><span data-line="4"><span class="c1"># be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="sd">"""DKM (Differentiable K-Means) training strategy and its specification."""</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span data-line="11"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">PositiveInt</span>
+</span><span data-line="12">
+</span><span data-line="13"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.kmeans.kmeans_fake_palettize</span><span class="w"> </span><span class="kn">import</span> <span class="n">_KMeansFakePalettize</span>
+</span><span data-line="14"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">PalettizationSpec</span><span class="p">,</span> <span class="n">PerTensorGranularity</span>
+</span><span data-line="15"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.spec.training_strategy</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrainingStrategy</span><span class="p">,</span> <span class="n">TrainingStrategySpec</span>
+</span><span data-line="16">
+</span><span data-line="17"><span class="kn">from</span><span class="w"> </span><span class="nn">._dispatch</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_forward</span> <span class="k">as</span> <span class="n">_get_forward</span>
+</span><span data-line="18">
+</span><span data-line="19"><span class="c1"># Cluster dim values which are supported by DKM</span>
+</span><span data-line="20"><span class="n">SUPPORTED_CLUSTER_DIMS</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">}</span>
+</span><span data-line="21">
+</span><span data-line="22">
+</span><span data-line="23"><span class="k">def</span><span class="w"> </span><span class="nf">_quantize_centroids</span><span class="p">(</span><span class="n">module</span><span class="p">:</span> <span class="n">_KMeansFakePalettize</span><span class="p">,</span> <span class="n">centroids</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="24"><span class="w">    </span><span class="sd">"""Bridge DKM's ``(P, K, D)`` centroid shape to ``module.quantize_lut()``'s</span>
+</span><span data-line="25"><span class="sd">    ``(num_blocks, num_clusters[, cluster_dim])`` convention, which drops the</span>
+</span><span data-line="26"><span class="sd">    trailing ``D`` axis when ``cluster_dim == 1`` (same as ``module._raw_lut``).</span>
+</span><span data-line="27"><span class="sd">    """</span>
+</span><span data-line="28">    <span class="k">if</span> <span class="n">module</span><span class="o">.</span><span class="n">cluster_dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="29">        <span class="c1"># (P, K, 1) -&gt; (P, K) for quantize_lut, then restore (P, K, 1)</span>
+</span><span data-line="30">        <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">quantize_lut</span><span class="p">(</span><span class="n">centroids</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="31">    <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">quantize_lut</span><span class="p">(</span><span class="n">centroids</span><span class="p">)</span>
+</span><span data-line="32">
+</span><span data-line="33">
+</span><span data-line="34"><span class="k">class</span><span class="w"> </span><span class="nc">_DKMTrainingStrategy</span><span class="p">(</span><span class="n">TrainingStrategy</span><span class="p">):</span>
+</span><span data-line="35"><span class="w">    </span><span class="sd">"""Differentiable soft k-means training step. Mutates ``module.centroids``</span>
+</span><span data-line="36"><span class="sd">    in place every training step via the EM loop.</span>
+</span><span data-line="37">
+</span><span data-line="38"><span class="sd">    For details on DKM, refer to:</span>
+</span><span data-line="39"><span class="sd">    Cho et al., "DKM: Differentiable K-Means Clustering Layer for Neural Network Compression",</span>
+</span><span data-line="40"><span class="sd">    ICLR 2022. arXiv:2108.12659</span>
+</span><span data-line="41"><span class="sd">    """</span>
+</span><span data-line="42">
+</span><span data-line="43">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="44">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="45">        <span class="n">tau</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">,</span>
+</span><span data-line="46">        <span class="n">kmeans_max_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+</span><span data-line="47">        <span class="n">enforce_zero</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span data-line="48">        <span class="n">zero_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-7</span><span class="p">,</span>
+</span><span data-line="49">    <span class="p">):</span>
+</span><span data-line="50">        <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">=</span> <span class="n">tau</span>
+</span><span data-line="51">        <span class="bp">self</span><span class="o">.</span><span class="n">kmeans_max_iter</span> <span class="o">=</span> <span class="n">kmeans_max_iter</span>
+</span><span data-line="52">        <span class="bp">self</span><span class="o">.</span><span class="n">enforce_zero</span> <span class="o">=</span> <span class="n">enforce_zero</span>
+</span><span data-line="53">        <span class="bp">self</span><span class="o">.</span><span class="n">zero_threshold</span> <span class="o">=</span> <span class="n">zero_threshold</span>
+</span><span data-line="54">
+</span><span data-line="55">    <span class="k">def</span><span class="w"> </span><span class="nf">train_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">_KMeansFakePalettize</span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+</span><span data-line="56"><span class="w">        </span><span class="sd">"""Run one DKM EM step and reconstruct the weight from the updated centroids."""</span>
+</span><span data-line="57">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">_KMeansFakePalettize</span><span class="p">):</span>
+</span><span data-line="58">            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+</span><span data-line="59">                <span class="s2">"DKM training strategy only supports k-means palettization "</span>
+</span><span data-line="60">                <span class="sa">f</span><span class="s2">"(_KMeansFakePalettize), got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span>
+</span><span data-line="61">            <span class="p">)</span>
+</span><span data-line="62">        <span class="k">if</span> <span class="n">module</span><span class="o">.</span><span class="n">cluster_dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SUPPORTED_CLUSTER_DIMS</span><span class="p">:</span>
+</span><span data-line="63">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="64">                <span class="sa">f</span><span class="s2">"DKM supports cluster_dim in </span><span class="si">{</span><span class="n">SUPPORTED_CLUSTER_DIMS</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">module</span><span class="o">.</span><span class="n">cluster_dim</span><span class="si">}</span><span class="s2">."</span>
+</span><span data-line="65">            <span class="p">)</span>
+</span><span data-line="66">
+</span><span data-line="67">        <span class="c1"># Shapes: P=#blocks, N=vectors/block, D=cluster_dim, K=#clusters.</span>
+</span><span data-line="68">
+</span><span data-line="69">        <span class="c1"># Scale (if enabled), reshape, block-split, and vectorize -&gt; (P, N, D).</span>
+</span><span data-line="70">        <span class="n">weights</span><span class="p">,</span> <span class="n">vectorization</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">vectorize</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
+</span><span data-line="71">
+</span><span data-line="72">        <span class="n">quantize_fn</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">_quantize_centroids</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span>
+</span><span data-line="73">
+</span><span data-line="74">        <span class="c1"># Clone is needed to ensure "centroids" and "module.centroids" do not share the same storage</span>
+</span><span data-line="75">        <span class="c1"># (occurs in the case of no LUT quantization).</span>
+</span><span data-line="76">        <span class="c1"># DKM requires gradients to flow through "centroids", however if they share the same</span>
+</span><span data-line="77">        <span class="c1"># storage, module.centroids.copy_() further below will invalidate gradients.</span>
+</span><span data-line="78">        <span class="n">centroids</span> <span class="o">=</span> <span class="n">quantize_fn</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">centroids</span><span class="p">)</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>  <span class="c1"># (P, K, D)</span>
+</span><span data-line="79">
+</span><span data-line="80">        <span class="k">assert</span> <span class="n">centroids</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">weights</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span>
+</span><span data-line="81">            <span class="sa">f</span><span class="s2">"partition count mismatch: centroids P=</span><span class="si">{</span><span class="n">centroids</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> "</span>
+</span><span data-line="82">            <span class="sa">f</span><span class="s2">"vs weight P=</span><span class="si">{</span><span class="n">weights</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
+</span><span data-line="83">        <span class="p">)</span>
+</span><span data-line="84">
+</span><span data-line="85">        <span class="n">forward</span> <span class="o">=</span> <span class="n">_get_forward</span><span class="p">(</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+</span><span data-line="86">
+</span><span data-line="87">        <span class="n">reconstructed_weights</span><span class="p">,</span> <span class="n">centroids_new</span> <span class="o">=</span> <span class="n">forward</span><span class="p">(</span>
+</span><span data-line="88">            <span class="n">weights</span><span class="p">,</span>
+</span><span data-line="89">            <span class="n">centroids</span><span class="p">,</span>
+</span><span data-line="90">            <span class="bp">self</span><span class="o">.</span><span class="n">tau</span><span class="p">,</span>
+</span><span data-line="91">            <span class="n">kmeans_max_iter</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kmeans_max_iter</span><span class="p">,</span>
+</span><span data-line="92">            <span class="n">zero_threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">zero_threshold</span><span class="p">,</span>
+</span><span data-line="93">            <span class="n">enforce_zero</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">enforce_zero</span><span class="p">,</span>
+</span><span data-line="94">            <span class="n">quantize_fn</span><span class="o">=</span><span class="n">quantize_fn</span><span class="p">,</span>
+</span><span data-line="95">        <span class="p">)</span>
+</span><span data-line="96">
+</span><span data-line="97">        <span class="n">module</span><span class="o">.</span><span class="n">centroids</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">centroids_new</span><span class="o">.</span><span class="n">detach</span><span class="p">())</span>
+</span><span data-line="98">        <span class="n">module</span><span class="o">.</span><span class="n">_indices_stale</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="99">
+</span><span data-line="100">        <span class="c1"># reconstructed_weights is (P, N, D): undo vectorize + block-split (+ unscale)</span>
+</span><span data-line="101">        <span class="c1"># to rebuild the weight.</span>
+</span><span data-line="102">        <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">devectorize</span><span class="p">(</span><span class="n">reconstructed_weights</span><span class="p">,</span> <span class="n">vectorization</span><span class="p">)</span>
+</span><span data-line="103">
+</span><span data-line="104">
+<div class="viewcode-block" id="DKMTrainingSpec">
+<a class="viewcode-back" href="../../../../../api/generated/coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.html#coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec">[docs]</a>
+</span><span data-line="105"><span class="nd">@TrainingStrategySpec</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"dkm"</span><span class="p">)</span>
+</span><span data-line="106"><span class="k">class</span><span class="w"> </span><span class="nc">DKMTrainingSpec</span><span class="p">(</span><span class="n">TrainingStrategySpec</span><span class="p">):</span>
+</span><span data-line="107"><span class="w">    </span><span class="sd">"""DKM (Differentiable K-Means) training-strategy hyperparameters.</span>
+</span><span data-line="108">
+</span><span data-line="109"><span class="sd">    Attributes:</span>
+</span><span data-line="110"><span class="sd">        tau: Softmax temperature for DKM's soft centroid assignment. Smaller</span>
+</span><span data-line="111"><span class="sd">            values sharpen toward hard k-means; larger values soften it.</span>
+</span><span data-line="112"><span class="sd">            Typical range: 1e-5 to 1e-3.</span>
+</span><span data-line="113"><span class="sd">        kmeans_max_iter: Number of soft-assignment EM iterations per DKM</span>
+</span><span data-line="114"><span class="sd">            training forward pass.</span>
+</span><span data-line="115"><span class="sd">        enforce_zero: If True, pins the centroid nearest the origin to</span>
+</span><span data-line="116"><span class="sd">            exactly zero. Useful for joint pruning + palettization.</span>
+</span><span data-line="117"><span class="sd">        zero_threshold: Floor applied to the softmax assignment weights and the</span>
+</span><span data-line="118"><span class="sd">            per-centroid mass (denominator) for numerical stability at small</span>
+</span><span data-line="119"><span class="sd">            ``tau``.</span>
+</span><span data-line="120"><span class="sd">    """</span>
+</span><span data-line="121">
+</span><span data-line="122">    <span class="n">_strategy_cls</span> <span class="o">=</span> <span class="n">_DKMTrainingStrategy</span>
+</span><span data-line="123">
+</span><span data-line="124">    <span class="n">tau</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span data-line="125">    <span class="n">kmeans_max_iter</span><span class="p">:</span> <span class="n">PositiveInt</span> <span class="o">=</span> <span class="mi">3</span>
+</span><span data-line="126">    <span class="n">enforce_zero</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="127">    <span class="n">zero_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="mf">1e-7</span><span class="p">,</span> <span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+</span><span data-line="128">
+</span><span data-line="129">
+<div class="viewcode-block" id="default_dkm_weight_palettization_spec">
+<a class="viewcode-back" href="../../../../../api/generated/coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.html#coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec">[docs]</a>
+</span><span data-line="130"><span class="k">def</span><span class="w"> </span><span class="nf">default_dkm_weight_palettization_spec</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">PalettizationSpec</span><span class="p">:</span>
+</span><span data-line="131"><span class="w">    </span><span class="sd">"""Return the default DKM weight-palettization spec (4-bit, per-tensor, no LUT quantization)."""</span>
+</span><span data-line="132">    <span class="k">return</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
+</span><span data-line="133">        <span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span data-line="134">        <span class="n">lut_qspec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span data-line="135">        <span class="n">granularity</span><span class="o">=</span><span class="n">PerTensorGranularity</span><span class="p">(),</span>
+</span><span data-line="136">        <span class="n">cluster_dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+</span><span data-line="137">        <span class="n">enable_per_channel_scale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span data-line="138">        <span class="n">training_strategy_spec</span><span class="o">=</span><span class="n">DKMTrainingSpec</span><span class="p">(),</span>
+</span><span data-line="139">    <span class="p">)</span></div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Apple, Inc. All rights reserved</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../../../_static/documentation_options.js?v=a8da1a53"></script>
+      <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../../_static/copybutton.js?v=f281be69"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script src="../../../../../_static/shibuya.js?v=50760d75"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs"></script>
+      <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
+      <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+      <script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";
+window.addEventListener("load", () => mermaid.run());
+</script>
+      <script src="../../../../../_static/sidebar-wrap.js?v=1515cd75"></script>
+      <script src="../../../../../_static/copy-page-button.js?v=0d8f05df"></script></body>
+</html>

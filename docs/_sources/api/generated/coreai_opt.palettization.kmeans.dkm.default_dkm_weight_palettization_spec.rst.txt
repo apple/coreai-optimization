@@ -1,0 +1,6 @@
+﻿coreai\_opt.palettization.kmeans.dkm.default\_dkm\_weight\_palettization\_spec
+==============================================================================
+
+.. currentmodule:: coreai_opt.palettization.kmeans.dkm
+
+.. autofunction:: default_dkm_weight_palettization_spec

@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [0.5.0](https://github.com/apple/coreai-optimization/compare/v0.4.0...v0.5.0/) - 2026-11-19
+
+### Added
+
+- Added support for Python 3.15.
+- Added Differentiable K-Means (DKM) training-time palettization (`coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec`).
+
+### Changed
+
+- Upgrade `coreai-core` to 1.0.0 and `coreai-torch` to 0.4.4 in the `coreai` extra.
+
+### Fixed
+
+- Fix device mismatch error in the forward pass of a model prepared by `KMeansPalettizer.prepare()` with `num_workers > 1` on CUDA/MPS.
+- Fix calibrated activation ranges depending on the `example_inputs` passed to `Quantizer.prepare()`: the range observed during `prepare()` is now replaced by the first batch observed in `calibration_mode()` or `training_mode()` instead of being averaged into the running range. Until then, the running range buffers hold the empty range `running_min = +inf` / `running_max = -inf` to mark it as unset, so these values are expected in uncalibrated prepared models and checkpoints.
+
 ## [0.4.0](https://github.com/apple/coreai-optimization/compare/v0.3.0...v0.4.0/) - 2026-11-05
 
 ### Added

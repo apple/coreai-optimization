@@ -89,6 +89,19 @@ Palettization configuration classes.
 | [`coreai_opt.palettization.config.PATSchedule`](generated/coreai_opt.palettization.config.PATSchedule.md#coreai_opt.palettization.config.PATSchedule)                                          | Schedule for enabling palettization-aware training (PAT).       |
 | [`coreai_opt.palettization.config.VectorKMeansConfig`](generated/coreai_opt.palettization.config.VectorKMeansConfig.md#coreai_opt.palettization.config.VectorKMeansConfig)                     | K-means settings for vector palettization (`cluster_dim > 1`).  |
 
+### coreai_opt.palettization.kmeans
+
+K-means palettization compressor.
+
+### coreai_opt.palettization.kmeans.dkm
+
+DKM (Differentiable K-Means) training-time palettization.
+
+| [`coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec`](generated/coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.md#coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec)                                                                     | DKM (Differentiable K-Means) training-strategy hyperparameters.                            |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| [`coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS`](generated/coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.md#coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS)                                                | set() -> new empty set object set(iterable) -> new set object                              |
+| [`coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec`](generated/coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.md#coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec)() | Return the default DKM weight-palettization spec (4-bit, per-tensor, no LUT quantization). |
+
 ### coreai_opt.palettization.spec
 
 Palettization specs, granularity classes, and factory functions.

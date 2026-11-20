@@ -1,0 +1,14 @@
+﻿coreai\_opt.palettization.kmeans.dkm.DKMTrainingSpec
+====================================================
+
+.. currentmodule:: coreai_opt.palettization.kmeans.dkm
+
+.. autopydantic_model:: DKMTrainingSpec
+
+   
+   
+   
+
+   
+   
+   

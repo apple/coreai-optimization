@@ -74,6 +74,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_dkm_palettization.html">Applying DKM palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
@@ -182,6 +183,9 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.html">coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.html">coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.html">coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -274,6 +278,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#using-patschedule">Using PATSchedule</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#differentiable-k-means-dkm-api">Differentiable K-Means (DKM) API</a></li>
 </ul>
 </div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
@@ -467,14 +472,14 @@ scores (based on the <a class="reference external" href="https://arxiv.org/pdf/2
 </div>
 <section id="using-patschedule">
 <h3>Using PATSchedule<a class="headerlink" href="#using-patschedule" title="Link to this heading">¶</a></h3>
-<p>Users may also choose to enable palettization of parameters at a future point during training instead of right from the start. Weights which are marked for palettization, but have not yet had their palettizers enabled, will still be able to update during training. When a weight’s palettizer is switched from disabled to enabled, its codebook and index assignments are recomputed using the most current weight values.</p>
+<p>Users may also choose to enable palettization of parameters at a future point during training instead of right from the start. Weights which are marked for palettization, but have not yet had their palettizers enabled, will still be able to update during training. When a weight’s palettizer is switched from disabled to enabled, its codebook and index assignments are recomputed using the most current weight values. <code class="docutils literal notranslate"><span class="pre">PATSchedule</span></code> applies to any training strategy, including <a class="reference internal" href="#differentiable-k-means-dkm-api"><span class="std std-ref">DKM</span></a>.</p>
 <p>Since palettizer enabling can be configured on a module by module basis, this gives users more flexibility on training to be palettization-aware by allowing weights to update in response to palettization noise from other palettized weights before themselves being palettized.</p>
 <p>For example, users could choose to apply the following workflow:</p>
 <ol class="arabic simple">
 <li><p>Begin training with all parameters marked to be palettized but with all palettizers disabled</p></li>
 <li><p>Fine-tune the model with no palettization noise for a few epochs</p></li>
 <li><p>Enable a subset of palettizers while keeping the rest of the palettizers disabled</p></li>
-<li><p>Fine-tune the model with palettization noise from the subset of enabled palettizers (any weights with enabled palettizers will not update further, but any weights with palettizers not yet enabled will continue training)</p></li>
+<li><p>Fine-tune the model with palettization noise from the subset of enabled palettizers (with the default strategy, any weights with enabled palettizers will not update further, but any weights with palettizers not yet enabled will continue training)</p></li>
 <li><p>Enable the rest of palettizers in the model and evaluate the final accuracy</p></li>
 </ol>
 <p>Steps 3 and 4 can be repeated as many times as desired with more and more palettizers being enabled.</p>
@@ -518,6 +523,43 @@ scores (based on the <a class="reference external" href="https://arxiv.org/pdf/2
 <p>Each time <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> is called, the palettizer checks each module’s <code class="docutils literal notranslate"><span class="pre">PATSchedule</span></code> to see whether any palettizer should be enabled. With the above config settings of <code class="docutils literal notranslate"><span class="pre">enable_fake_palettize</span></code> = 2 and 4 for <code class="docutils literal notranslate"><span class="pre">module1</span></code> and <code class="docutils literal notranslate"><span class="pre">module2</span></code> respectively, this results in both palettizers being disabled to start, <code class="docutils literal notranslate"><span class="pre">module1</span></code>’s palettizer enabled after <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> has been called twice, and <code class="docutils literal notranslate"><span class="pre">module2</span></code>’s palettizer enabled after <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> has been called 4 times in total.</p>
 <p>Note that <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> can be called whenever the user desires, whether it be per-batch, per-epoch, or on some other cadence.</p>
 </section>
+</section>
+<section id="differentiable-k-means-dkm-api">
+<h2>Differentiable K-Means (DKM) API<a class="headerlink" href="#differentiable-k-means-dkm-api" title="Link to this heading">¶</a></h2>
+<p>DKM palettization allows the palettization codebook and cluster assignments to be learned through training, removing the inability for already palettized weights to update their codebook and index assignments. This is achieved through calculation of attention scores between all weights and all centroids, along with utilizing a soft-assignment instead of hard-assignment during training forward, allowing gradients to propagate through palettizers to the original weight parameters.</p>
+<p>For more details on DKM, refer to <a class="reference external" href="https://arxiv.org/abs/2108.12659">DKM (Cho et al., 2022)</a>.</p>
+<p>Enabling DKM simply requires setting <code class="docutils literal notranslate"><span class="pre">training_strategy_spec</span></code> of <code class="docutils literal notranslate"><span class="pre">PalettizationSpec</span></code> to the <code class="docutils literal notranslate"><span class="pre">DKMTrainingSpec</span></code> class. The same <code class="docutils literal notranslate"><span class="pre">KMeansPalettizer</span></code> class is used for palettization. For example, the below code shows enabling DKM for all weights in the model:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">KMeansPalettizer</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">KMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">PalettizationSpec</span><span class="p">,</span>
+</span><span data-line="6"><span class="p">)</span>
+</span><span data-line="7"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.kmeans.dkm</span><span class="w"> </span><span class="kn">import</span> <span class="n">DKMTrainingSpec</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="n">kmeans_palettizer_config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="10">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="11">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="12">            <span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
+</span><span data-line="13">                <span class="o">...</span><span class="p">,</span> <span class="n">training_strategy_spec</span><span class="o">=</span><span class="n">DKMTrainingSpec</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+</span><span data-line="14">            <span class="p">)</span>
+</span><span data-line="15">        <span class="p">}</span>
+</span><span data-line="16">    <span class="p">)</span>
+</span><span data-line="17"><span class="p">)</span>
+</span><span data-line="18">
+</span><span data-line="19"><span class="n">palettizer</span> <span class="o">=</span> <span class="n">KMeansPalettizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">kmeans_palettizer_config</span><span class="p">)</span>
+</span><span data-line="20"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="21">
+</span><span data-line="22"><span class="k">with</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">training_mode</span><span class="p">():</span>
+</span><span data-line="23">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">...</span><span class="p">):</span>
+</span><span data-line="24">        <span class="c1"># Perform whatever training forward pass / loss calculation / optimizer gradient application is desired</span>
+</span><span data-line="25">        <span class="o">...</span>
+</span><span data-line="26">
+</span><span data-line="27"><span class="n">finalized_model</span> <span class="o">=</span> <span class="n">palettizer</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>DKM works with <code class="docutils literal notranslate"><span class="pre">PATSchedule</span></code> as well. A schedule decides when a module’s palettizer becomes active, while the training strategy decides what that palettizer’s forward pass does once it is. For example, you can leave DKM modules unpalettized for the first few hundred steps and then turn on soft-assignment training. To do this, set <code class="docutils literal notranslate"><span class="pre">pat_schedule</span></code> on the module config and call <code class="docutils literal notranslate"><span class="pre">palettizer.step()</span></code> in the training loop as described in <a class="reference internal" href="#using-patschedule"><span class="std std-ref">Using PATSchedule</span></a>. Unlike with the default strategy, a DKM weight keeps updating after its palettizer is enabled, because gradients flow through the soft assignment.</p>
+<p>As <code class="docutils literal notranslate"><span class="pre">training_strategy_spec</span></code> is part of <code class="docutils literal notranslate"><span class="pre">PalettizationSpec</span></code>, which in turn can be configured on a per-op or module basis in <code class="docutils literal notranslate"><span class="pre">KMeansPalettizerConfig</span></code>, users may choose to enable DKM for a subset of palettized weights in the model while leaving another portion of palettized weights using non-DKM <code class="docutils literal notranslate"><span class="pre">Vanilla</span> <span class="pre">K-means</span></code>.</p>
 </section>
 </section>
 

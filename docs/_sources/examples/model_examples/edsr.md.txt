@@ -30,7 +30,7 @@ from coreai_opt.quantization import QuantizerConfig, Quantizer
 config = QuantizerConfig()
 quantizer = Quantizer(fp32_model, config)
 
-# Use a representative low-resolution (LR) image from the calibration set as example inputs
+# Use a sample image as example inputs
 prepared_model = quantizer.prepare(example_inputs)
 ```
 

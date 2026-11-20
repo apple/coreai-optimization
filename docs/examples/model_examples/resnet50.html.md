@@ -34,18 +34,13 @@ config = QuantizerConfig()
 If weight-only quantization were applied, the model would be ready for evaluation after preparation.
 However, as we are also using activation quantization, we must calibrate the prepared model first.
 
-**Note**: When performing activation quantization, the example inputs used to prepare the model should be representative of the data the model would typically see.
-This is due to the example inputs also serving as a starting point for quantization parameters in activation quantizers.
-
-Further calibration is still required; however, using even a single representative data sample point as the example input can reduce the number of calibration samples needed later during calibration.
-
 ```python
 from coreai_opt.quantization import Quantizer
 
 # Instantiate the quantizer
 quantizer = Quantizer(fp32_model, config)
 
-# Prepare the model using a single representative data sample
+# Prepare the model
 prepared_model = quantizer.prepare(example_inputs)
 ```
 

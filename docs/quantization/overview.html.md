@@ -80,16 +80,11 @@ When quantizing both weights and activations, the quantizer needs to observe act
 ranges on representative data so that it can compute quantization parameters (scale, etc.) accurately.
 This is done via `calibration_mode()`.
 
-**Note**: Unlike weight-only quantization, the `example_inputs` used to prepare the quantized model with activation quantization enabled should be representative of the data the model would typically see. This is because `example_inputs` provides a starting point for the activation quantization parameters.
-
-Further calibration is still required; however, using even a single representative data sample as the example input can reduce the number of calibration samples needed later.
-
 ```python
 from coreai_opt.quantization import Quantizer, QuantizerConfig
 import torch
 
 model = MyModel().eval()
-# Use a representative data sample when activation quantization is enabled.
 example_inputs = (...,)
 
 # Default config: symmetric INT8 weights (per-channel)
@@ -107,7 +102,7 @@ with quantizer.calibration_mode():
 val_metric = validate(prepared_model, val_dataset)
 ```
 
-Right after `prepare()`, the activation scales come only from `example_inputs`, so accuracy is usually poor at this point. `calibration_mode()` addresses this.
+Right after `prepare()`, the activation scales come only from `example_inputs`, so accuracy is usually poor at this point. `calibration_mode()` addresses this: for each activation quantizer, the first calibration batch that reaches it replaces the scale derived from `example_inputs`.
 This is what the context manager handles:
 
 - Inside the context:
@@ -132,7 +127,7 @@ from coreai_opt.quantization import Quantizer, QuantizerConfig
 import torch
 
 model = MyModel().eval()
-example_inputs = (...,)  # representative data sample
+example_inputs = (...,)
 
 config = QuantizerConfig()
 quantizer = Quantizer(model, config)

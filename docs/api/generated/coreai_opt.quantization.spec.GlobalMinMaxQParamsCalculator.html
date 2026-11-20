@@ -74,6 +74,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_dkm_palettization.html">Applying DKM palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
@@ -182,6 +183,9 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.html">coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.html">coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.html">coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -402,13 +406,16 @@ running_max = max(running_max, x_max)</p>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">register</span></code>(key)</p></td>
 <td><p>Register a virtual subclass of an ABC.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">resolve</span></code>(data)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reset_running_range</span></code>()</p></td>
+<td><p>Mark the running range as unset so the next observed range starts it afresh.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">resolve</span></code>(data)</p></td>
 <td><p>Resolve a string key or class type against this registry.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_export_mode</span></code>([enabled])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_export_mode</span></code>([enabled])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.update_running_range" title="coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.update_running_range"><code class="xref py py-obj docutils literal notranslate"><span class="pre">update_running_range</span></code></a>(min_val, max_val)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.update_running_range" title="coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.update_running_range"><code class="xref py py-obj docutils literal notranslate"><span class="pre">update_running_range</span></code></a>(min_val, max_val)</p></td>
 <td><p>Return <code class="docutils literal notranslate"><span class="pre">(updated_min,</span> <span class="pre">updated_max)</span></code> using subclass-specific rule.</p></td>
 </tr>
 </tbody>
@@ -418,6 +425,9 @@ running_max = max(running_max, x_max)</p>
 <dt class="sig sig-object py" id="coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.update_running_range">
 <span class="sig-name descname"><span class="pre">update_running_range</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/coreai_opt/quantization/spec/qparams_calculator.html#GlobalMinMaxQParamsCalculator.update_running_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#coreai_opt.quantization.spec.GlobalMinMaxQParamsCalculator.update_running_range" title="Link to this definition">¶</a></dt>
 <dd><p>Return <code class="docutils literal notranslate"><span class="pre">(updated_min,</span> <span class="pre">updated_max)</span></code> using subclass-specific rule.</p>
+<p><code class="docutils literal notranslate"><span class="pre">self.running_min</span></code> / <code class="docutils literal notranslate"><span class="pre">self.running_max</span></code> may be <code class="docutils literal notranslate"><span class="pre">+inf</span></code> / <code class="docutils literal notranslate"><span class="pre">-inf</span></code> where the running
+range is unset (see <code class="docutils literal notranslate"><span class="pre">reset_running_range</span></code>). Implementations must not raise on these
+values; <code class="docutils literal notranslate"><span class="pre">compute_qparams</span></code> discards those entries in favor of <code class="docutils literal notranslate"><span class="pre">min_val</span></code> / <code class="docutils literal notranslate"><span class="pre">max_val</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

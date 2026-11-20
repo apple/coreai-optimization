@@ -66,7 +66,6 @@ palettized_model = palettizer.finalize(backend=opt.ExportBackend.CoreAI)
 
 Apply the `Quantizer` to the already-palettized model.
 Set `op_state_spec=None` to disable weight quantization — weights are already compressed via palettization, so applying quantization on top would be redundant.
-Use a representative data sample for `example_inputs` to provide a reasonable starting point for activation quantization parameters.
 
 ```python
 from coreai_opt.quantization import (

@@ -74,6 +74,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_dkm_palettization.html">Applying DKM palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
@@ -182,6 +183,9 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.html">coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.html">coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.html">coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -283,6 +287,11 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#apply-4-bit-palettization-to-conv-layers-8-bit-to-linear-layers">Apply 4-bit palettization to conv layers, 8-bit to linear layers</a></li>
 <li><a class="reference internal" href="#enable-palettization-at-different-training-steps-per-module-patschedule">Enable palettization at different training steps per module (PATSchedule)</a></li>
 <li><a class="reference internal" href="#tune-vector-palettization-k-means-vectorkmeansconfig">Tune vector palettization k-means (VectorKMeansConfig)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#training-strategy-dkm-training-strategy-spec">Training strategy: DKM (<code class="docutils literal notranslate"><span class="pre">training_strategy_spec</span></code>)</a><ul>
+<li><a class="reference internal" href="#apply-dkm-to-all-modules">Apply DKM to all modules</a></li>
+<li><a class="reference internal" href="#apply-dkm-to-a-subset-of-modules-vanilla-k-means-to-the-rest">Apply DKM to a subset of modules, vanilla k-means to the rest</a></li>
 </ul>
 </li>
 </ul>
@@ -733,6 +742,112 @@ They are simpler as palettization applies only to the weights in the model.
 </span><span data-line="12"><span class="w">      </span><span class="nt">max_iter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 </span></pre></div>
 </div>
+</section>
+</section>
+<section id="training-strategy-dkm-training-strategy-spec">
+<h2>Training strategy: DKM (<code class="docutils literal notranslate"><span class="pre">training_strategy_spec</span></code>)<a class="headerlink" href="#training-strategy-dkm-training-strategy-spec" title="Link to this heading">¶</a></h2>
+<p>Each <code class="xref py py-class docutils literal notranslate"><span class="pre">PalettizationSpec</span></code> carries a <code class="docutils literal notranslate"><span class="pre">training_strategy_spec</span></code> field that selects the training-time behavior for that weight. It defaults to vanilla (frozen) k-means, where the codebook and index assignments computed at <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> stay fixed during training. Setting it to a <code class="docutils literal notranslate"><span class="pre">DKMTrainingSpec</span></code> instead enables <a class="reference internal" href="overview.html#differentiable-k-means-dkm-api"><span class="std std-ref">Differentiable K-Means</span></a>, so the codebook and assignments are learned through gradient-based fine-tuning.</p>
+<p><code class="docutils literal notranslate"><span class="pre">DKMTrainingSpec</span></code> exposes the following settings:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tau</span></code>: Softmax temperature for the soft centroid assignment (default <code class="docutils literal notranslate"><span class="pre">1e-4</span></code>). Smaller values sharpen toward hard k-means; larger values soften it. The loss-minimizing <code class="docutils literal notranslate"><span class="pre">tau</span></code> is model-dependent — <strong>smaller models and lower bit-widths tend to prefer a larger <code class="docutils literal notranslate"><span class="pre">tau</span></code></strong>. A good starting point is <code class="docutils literal notranslate"><span class="pre">1e-5</span></code> for LLMs and the default <code class="docutils literal notranslate"><span class="pre">1e-4</span></code> for smaller models.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">kmeans_max_iter</span></code>: Number of soft-assignment EM iterations per DKM training forward pass (default <code class="docutils literal notranslate"><span class="pre">3</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enforce_zero</span></code>: If <code class="docutils literal notranslate"><span class="pre">True</span></code>, pins the centroid nearest the origin to exactly zero (default <code class="docutils literal notranslate"><span class="pre">False</span></code>). Useful for joint pruning and palettization.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">zero_threshold</span></code>: Numerical-stability floor applied to the softmax assignment weights and per-centroid mass at small <code class="docutils literal notranslate"><span class="pre">tau</span></code> (default <code class="docutils literal notranslate"><span class="pre">1e-7</span></code>).</p></li>
+</ul>
+<section id="apply-dkm-to-all-modules">
+<h3>Apply DKM to all modules<a class="headerlink" href="#apply-dkm-to-all-modules" title="Link to this heading">¶</a></h3>
+<p>Set <code class="docutils literal notranslate"><span class="pre">training_strategy_spec=DKMTrainingSpec()</span></code> on the <code class="docutils literal notranslate"><span class="pre">global_config</span></code> spec to enable DKM for every palettized weight in the model:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">KMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">PalettizationSpec</span><span class="p">,</span>
+</span><span data-line="5"><span class="p">)</span>
+</span><span data-line="6"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.kmeans.dkm</span><span class="w"> </span><span class="kn">import</span> <span class="n">DKMTrainingSpec</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="n">config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="9">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="10">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="11">            <span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
+</span><span data-line="12">                <span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span data-line="13">                <span class="n">training_strategy_spec</span><span class="o">=</span><span class="n">DKMTrainingSpec</span><span class="p">(),</span>
+</span><span data-line="14">            <span class="p">)</span>
+</span><span data-line="15">        <span class="p">},</span>
+</span><span data-line="16">    <span class="p">)</span>
+</span><span data-line="17"><span class="p">)</span>
+</span></pre></div>
+</div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># yaml</span>
+</span><span data-line="2"><span class="nt">kmeans_palettization_config</span><span class="p">:</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">global_config</span><span class="p">:</span>
+</span><span data-line="4"><span class="w">    </span><span class="nt">op_state_spec</span><span class="p">:</span>
+</span><span data-line="5"><span class="w">      </span><span class="nt">weight</span><span class="p">:</span>
+</span><span data-line="6"><span class="w">        </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span data-line="7"><span class="w">        </span><span class="nt">training_strategy_spec</span><span class="p">:</span>
+</span><span data-line="8"><span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dkm</span>
+</span></pre></div>
+</div>
+</section>
+<section id="apply-dkm-to-a-subset-of-modules-vanilla-k-means-to-the-rest">
+<h3>Apply DKM to a subset of modules, vanilla k-means to the rest<a class="headerlink" href="#apply-dkm-to-a-subset-of-modules-vanilla-k-means-to-the-rest" title="Link to this heading">¶</a></h3>
+<p>Because <code class="docutils literal notranslate"><span class="pre">training_strategy_spec</span></code> lives on the per-weight <code class="docutils literal notranslate"><span class="pre">PalettizationSpec</span></code>, DKM can be enabled for selected modules while the rest keep the default vanilla k-means. Below, all layers are palettized 4-bit; two named modules train their palettization with DKM, and every other module (covered by <code class="docutils literal notranslate"><span class="pre">global_config</span></code>) uses vanilla k-means simply by not setting a <code class="docutils literal notranslate"><span class="pre">training_strategy_spec</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">KMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">PalettizationSpec</span><span class="p">,</span>
+</span><span data-line="5"><span class="p">)</span>
+</span><span data-line="6"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.palettization.kmeans.dkm</span><span class="w"> </span><span class="kn">import</span> <span class="n">DKMTrainingSpec</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="n">config</span> <span class="o">=</span> <span class="n">KMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="9">    <span class="c1"># Default for all layers: vanilla 4-bit k-means (no training_strategy_spec).</span>
+</span><span data-line="10">    <span class="n">global_config</span><span class="o">=</span><span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="11">        <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span><span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span><span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">)},</span>
+</span><span data-line="12">    <span class="p">),</span>
+</span><span data-line="13">    <span class="n">module_name_configs</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="14">        <span class="s2">"encoder.layer.0.attention"</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="15">            <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="16">                <span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
+</span><span data-line="17">                    <span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span data-line="18">                    <span class="n">training_strategy_spec</span><span class="o">=</span><span class="n">DKMTrainingSpec</span><span class="p">(</span><span class="n">tau</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">kmeans_max_iter</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+</span><span data-line="19">                <span class="p">)</span>
+</span><span data-line="20">            <span class="p">},</span>
+</span><span data-line="21">        <span class="p">),</span>
+</span><span data-line="22">        <span class="s2">"encoder.layer.1.attention"</span><span class="p">:</span> <span class="n">ModuleKMeansPalettizerConfig</span><span class="p">(</span>
+</span><span data-line="23">            <span class="n">op_state_spec</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="24">                <span class="s2">"weight"</span><span class="p">:</span> <span class="n">PalettizationSpec</span><span class="p">(</span>
+</span><span data-line="25">                    <span class="n">n_bits</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span data-line="26">                    <span class="n">training_strategy_spec</span><span class="o">=</span><span class="n">DKMTrainingSpec</span><span class="p">(</span><span class="n">tau</span><span class="o">=</span><span class="mf">5e-5</span><span class="p">),</span>
+</span><span data-line="27">                <span class="p">)</span>
+</span><span data-line="28">            <span class="p">},</span>
+</span><span data-line="29">        <span class="p">),</span>
+</span><span data-line="30">    <span class="p">},</span>
+</span><span data-line="31"><span class="p">)</span>
+</span></pre></div>
+</div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># yaml</span>
+</span><span data-line="2"><span class="nt">kmeans_palettization_config</span><span class="p">:</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">global_config</span><span class="p">:</span>
+</span><span data-line="4"><span class="w">    </span><span class="nt">op_state_spec</span><span class="p">:</span>
+</span><span data-line="5"><span class="w">      </span><span class="nt">weight</span><span class="p">:</span>
+</span><span data-line="6"><span class="w">        </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span data-line="7"><span class="w">  </span><span class="nt">module_name_configs</span><span class="p">:</span>
+</span><span data-line="8"><span class="w">    </span><span class="nt">encoder.layer.0.attention</span><span class="p">:</span>
+</span><span data-line="9"><span class="w">      </span><span class="nt">op_state_spec</span><span class="p">:</span>
+</span><span data-line="10"><span class="w">        </span><span class="nt">weight</span><span class="p">:</span>
+</span><span data-line="11"><span class="w">          </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span data-line="12"><span class="w">          </span><span class="nt">training_strategy_spec</span><span class="p">:</span>
+</span><span data-line="13"><span class="w">            </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dkm</span>
+</span><span data-line="14"><span class="w">            </span><span class="nt">tau</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0e-4</span>
+</span><span data-line="15"><span class="w">            </span><span class="nt">kmeans_max_iter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</span><span data-line="16"><span class="w">    </span><span class="nt">encoder.layer.1.attention</span><span class="p">:</span>
+</span><span data-line="17"><span class="w">      </span><span class="nt">op_state_spec</span><span class="p">:</span>
+</span><span data-line="18"><span class="w">        </span><span class="nt">weight</span><span class="p">:</span>
+</span><span data-line="19"><span class="w">          </span><span class="nt">n_bits</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</span><span data-line="20"><span class="w">          </span><span class="nt">training_strategy_spec</span><span class="p">:</span>
+</span><span data-line="21"><span class="w">            </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dkm</span>
+</span><span data-line="22"><span class="w">            </span><span class="nt">tau</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5.0e-5</span>
+</span></pre></div>
+</div>
+<p>For a DKM spec with the defaults, the <code class="docutils literal notranslate"><span class="pre">default_dkm_weight_palettization_spec()</span></code> helper (importable from <code class="docutils literal notranslate"><span class="pre">coreai_opt.palettization.kmeans.dkm</span></code>) returns a ready-made 4-bit, per-tensor <code class="docutils literal notranslate"><span class="pre">PalettizationSpec</span></code> with <code class="docutils literal notranslate"><span class="pre">training_strategy_spec=DKMTrainingSpec()</span></code>.</p>
 </section>
 </section>
 </section>

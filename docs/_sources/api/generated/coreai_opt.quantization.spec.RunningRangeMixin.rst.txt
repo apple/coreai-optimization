@@ -15,6 +15,7 @@
    
       ~RunningRangeMixin.compute_qparams
       ~RunningRangeMixin.extra_repr
+      ~RunningRangeMixin.reset_running_range
       ~RunningRangeMixin.update_running_range
    
    

@@ -1,0 +1,6 @@
+﻿coreai\_opt.palettization.kmeans.dkm.SUPPORTED\_CLUSTER\_DIMS
+=============================================================
+
+.. currentmodule:: coreai_opt.palettization.kmeans.dkm
+
+.. autodata:: SUPPORTED_CLUSTER_DIMS

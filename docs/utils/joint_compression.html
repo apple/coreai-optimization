@@ -74,6 +74,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_dkm_palettization.html">Applying DKM palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
@@ -182,6 +183,9 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.html">coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.html">coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.html">coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -346,14 +350,6 @@ A floating-point LUT causes operations to execute in floating-point regardless o
 <p>For quantizing activations, <code class="docutils literal notranslate"><span class="pre">graph</span></code>-mode quantization is used (the default).</p>
 <p>Models compressed via the joint compression flow can be finalized to both <code class="docutils literal notranslate"><span class="pre">Core</span> <span class="pre">AI</span></code> and <code class="docutils literal notranslate"><span class="pre">Core</span> <span class="pre">ML</span></code> backends.</p>
 <figure class="align-default" id="id1">
-<object data="../_images/mermaid-e97eb482acd4db9f7fba8d74b3de691f0b1e6d2f.svg" type="image/svg+xml">
-            <p class="warning">flowchart LR
-    model[&quot;FP32 Model&quot;] --&gt; palettize[&quot;Palettize Weights&quot;]
-    palettize --&gt; pfin[&quot;palettizer.finalize(...)&quot;]
-    pfin --&gt; quantize[&quot;Quantize Activations&quot;]
-    quantize --&gt; calibrate[&quot;Calibrate&quot;]
-    calibrate --&gt; qfin[&quot;quantizer.finalize(...)&quot;]
-    style model fill:#f9f9f9,stroke:#999</p></object>
 <figcaption>
 <p><span class="caption-text">Joint Compression Workflow</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
 </figcaption>
@@ -397,8 +393,7 @@ This must happen before activation quantization is applied because <code class="
 <section id="step-3-configure-and-prepare-activation-quantization">
 <h2>Step 3: Configure and prepare activation quantization<a class="headerlink" href="#step-3-configure-and-prepare-activation-quantization" title="Link to this heading">¶</a></h2>
 <p>Apply the <code class="docutils literal notranslate"><span class="pre">Quantizer</span></code> to the already-palettized model.
-Set <code class="docutils literal notranslate"><span class="pre">op_state_spec=None</span></code> to disable weight quantization — weights are already compressed via palettization, so applying quantization on top would be redundant.
-Use a representative data sample for <code class="docutils literal notranslate"><span class="pre">example_inputs</span></code> to provide a reasonable starting point for activation quantization parameters.</p>
+Set <code class="docutils literal notranslate"><span class="pre">op_state_spec=None</span></code> to disable weight quantization — weights are already compressed via palettization, so applying quantization on top would be redundant.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span data-line="2">    <span class="n">ModuleQuantizerConfig</span><span class="p">,</span>
 </span><span data-line="3">    <span class="n">Quantizer</span><span class="p">,</span>

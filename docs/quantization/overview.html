@@ -74,6 +74,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_dkm_palettization.html">Applying DKM palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
@@ -182,6 +183,9 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.html">coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.html">coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.html">coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../api/generated/coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -422,31 +426,28 @@ data-aria-dark="Switch to auto color mode">
 <p>When quantizing both weights and activations, the quantizer needs to observe activation
 ranges on representative data so that it can compute quantization parameters (scale, etc.) accurately.
 This is done via <code class="docutils literal notranslate"><span class="pre">calibration_mode()</span></code>.</p>
-<p><strong>Note</strong>: Unlike weight-only quantization, the <code class="docutils literal notranslate"><span class="pre">example_inputs</span></code> used to prepare the quantized model with activation quantization enabled should be representative of the data the model would typically see. This is because <code class="docutils literal notranslate"><span class="pre">example_inputs</span></code> provides a starting point for the activation quantization parameters.</p>
-<p>Further calibration is still required; however, using even a single representative data sample as the example input can reduce the number of calibration samples needed later.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">coreai_opt.quantization</span><span class="w"> </span><span class="kn">import</span> <span class="n">Quantizer</span><span class="p">,</span> <span class="n">QuantizerConfig</span>
 </span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="n">model</span> <span class="o">=</span> <span class="n">MyModel</span><span class="p">()</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
-</span><span data-line="5"><span class="c1"># Use a representative data sample when activation quantization is enabled.</span>
-</span><span data-line="6"><span class="n">example_inputs</span> <span class="o">=</span> <span class="p">(</span><span class="o">...</span><span class="p">,)</span>
-</span><span data-line="7">
-</span><span data-line="8"><span class="c1"># Default config: symmetric INT8 weights (per-channel)</span>
-</span><span data-line="9"><span class="c1"># + INT8 activations (per-tensor).</span>
-</span><span data-line="10"><span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">()</span>
-</span><span data-line="11"><span class="n">quantizer</span> <span class="o">=</span> <span class="n">Quantizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span data-line="12"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
-</span><span data-line="13">
-</span><span data-line="14"><span class="c1"># Calibrate activation ranges on a small amount of representative data.</span>
-</span><span data-line="15"><span class="k">with</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">calibration_mode</span><span class="p">():</span>
-</span><span data-line="16">    <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">calibration_dataloader</span><span class="p">:</span>
-</span><span data-line="17">        <span class="n">prepared_model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
-</span><span data-line="18">
-</span><span data-line="19"><span class="c1"># Evaluate the calibrated model.</span>
-</span><span data-line="20"><span class="n">val_metric</span> <span class="o">=</span> <span class="n">validate</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">,</span> <span class="n">val_dataset</span><span class="p">)</span>
+</span><span data-line="5"><span class="n">example_inputs</span> <span class="o">=</span> <span class="p">(</span><span class="o">...</span><span class="p">,)</span>
+</span><span data-line="6">
+</span><span data-line="7"><span class="c1"># Default config: symmetric INT8 weights (per-channel)</span>
+</span><span data-line="8"><span class="c1"># + INT8 activations (per-tensor).</span>
+</span><span data-line="9"><span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">()</span>
+</span><span data-line="10"><span class="n">quantizer</span> <span class="o">=</span> <span class="n">Quantizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+</span><span data-line="11"><span class="n">prepared_model</span> <span class="o">=</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">prepare</span><span class="p">(</span><span class="n">example_inputs</span><span class="p">)</span>
+</span><span data-line="12">
+</span><span data-line="13"><span class="c1"># Calibrate activation ranges on a small amount of representative data.</span>
+</span><span data-line="14"><span class="k">with</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">calibration_mode</span><span class="p">():</span>
+</span><span data-line="15">    <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">calibration_dataloader</span><span class="p">:</span>
+</span><span data-line="16">        <span class="n">prepared_model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+</span><span data-line="17">
+</span><span data-line="18"><span class="c1"># Evaluate the calibrated model.</span>
+</span><span data-line="19"><span class="n">val_metric</span> <span class="o">=</span> <span class="n">validate</span><span class="p">(</span><span class="n">prepared_model</span><span class="p">,</span> <span class="n">val_dataset</span><span class="p">)</span>
 </span></pre></div>
 </div>
-<p>Right after <code class="docutils literal notranslate"><span class="pre">prepare()</span></code>, the activation scales come only from <code class="docutils literal notranslate"><span class="pre">example_inputs</span></code>, so accuracy is usually poor at this point. <code class="docutils literal notranslate"><span class="pre">calibration_mode()</span></code> addresses this.
+<p>Right after <code class="docutils literal notranslate"><span class="pre">prepare()</span></code>, the activation scales come only from <code class="docutils literal notranslate"><span class="pre">example_inputs</span></code>, so accuracy is usually poor at this point. <code class="docutils literal notranslate"><span class="pre">calibration_mode()</span></code> addresses this: for each activation quantizer, the first calibration batch that reaches it replaces the scale derived from <code class="docutils literal notranslate"><span class="pre">example_inputs</span></code>.
 This is what the context manager handles:</p>
 <ul class="simple">
 <li><p>Inside the context:</p>
@@ -472,7 +473,7 @@ This is what the context manager handles:</p>
 </span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="n">model</span> <span class="o">=</span> <span class="n">MyModel</span><span class="p">()</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
-</span><span data-line="5"><span class="n">example_inputs</span> <span class="o">=</span> <span class="p">(</span><span class="o">...</span><span class="p">,)</span>  <span class="c1"># representative data sample</span>
+</span><span data-line="5"><span class="n">example_inputs</span> <span class="o">=</span> <span class="p">(</span><span class="o">...</span><span class="p">,)</span>
 </span><span data-line="6">
 </span><span data-line="7"><span class="n">config</span> <span class="o">=</span> <span class="n">QuantizerConfig</span><span class="p">()</span>
 </span><span data-line="8"><span class="n">quantizer</span> <span class="o">=</span> <span class="n">Quantizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>

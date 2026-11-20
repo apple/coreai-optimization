@@ -4,5 +4,6 @@ These tutorials demonstrate model compression techniques using simple toy models
 
 * [Applying quantization to an MNIST model](../tutorials/mnist_quantization.md)
 * [Applying palettization to an MNIST model](../tutorials/mnist_palettization.md)
+* [Applying DKM palettization to an MNIST model](../tutorials/mnist_dkm_palettization.md)
 * [Applying joint palettization and activation quantization to an MNIST model](../tutorials/mnist_palettization_and_activation_quantization.md)
 * [Applying magnitude pruning to an MNIST model](../tutorials/mnist_pruning.md)

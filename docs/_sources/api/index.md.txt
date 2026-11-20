@@ -121,6 +121,23 @@ Palettization configuration classes.
    coreai_opt.palettization.config.VectorKMeansConfig
 ```
 
+### coreai_opt.palettization.kmeans
+
+K-means palettization compressor.
+
+### coreai_opt.palettization.kmeans.dkm
+
+DKM (Differentiable K-Means) training-time palettization.
+
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec
+   coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS
+   coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec
+```
+
 ### coreai_opt.palettization.spec
 
 Palettization specs, granularity classes, and factory functions.

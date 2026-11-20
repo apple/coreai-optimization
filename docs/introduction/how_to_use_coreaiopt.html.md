@@ -25,9 +25,7 @@ palettizer = KMeansPalettizer(model, KMeansPalettizerConfig.presets.w4())
 `prepare()` is the first transformation step. It compresses the model’s weights according to the config and inserts fake-quantize / fake-palettize / sparsity-mask ops where needed, so a forward on the prepared model will give outputs accounting for the compression effects. Depending on the compressor used, `prepare()` may modify the model in-place. Use the returned `prepared_model` to ensure you’re using the compressed model. If you need to retain the uncompressed model, make a copy (for example, with `copy.deepcopy`) prior to calling `prepare`.
 
 ```python
-example_inputs = (
-    torch.randn(1, 3, 224, 224),
-)  # when activation quantization is in use, use representative data instead
+example_inputs = (torch.randn(1, 3, 224, 224),)
 prepared_model = quantizer.prepare(example_inputs)
 
 # evaluate accuracy with compression effects active

@@ -191,9 +191,11 @@ during the forward pass. Returns an nn.Module.
   good accuracy.
 
 * **Parameters:**
-  * **example_inputs** (*tuple* *[**Any* *,*  *...* *]*) – Tuple of example inputs for model tracing. When
-    activation quantization is in use, these should be
-    representative of the data the model would typically see.
+  * **example_inputs** (*tuple* *[**Any* *,*  *...* *]*) – Tuple of example inputs for model tracing. With
+    activation quantization, they also initialize the activation
+    ranges. The first batch observed after `prepare()` (e.g. in
+    `calibration_mode()` or `training_mode()`) replaces them,
+    unless `state_dict` restores observed ranges.
   * **dynamic_shapes** (*dict* *[**str* *,* *Any* *]*  *|* *tuple* *[**Any* *]*  *|* *list* *[**Any* *]*  *|* *None*) – Dynamic shapes specification (graph mode only).
     Ignored in EAGER mode.
   * **export_with_no_grad** (*bool*) – Whether to export with no_grad (graph mode
@@ -209,6 +211,8 @@ during the forward pass. Returns an nn.Module.
 * **Raises:**
   * **RuntimeError** – If the model has already been prepared.
   * **RuntimeError** – If `state_dict` does not match the prepared model.
+  * **Exception** – Whatever a registered post-prepare check raises to reject the prepared
+        model. In eager mode the model has then already been modified in place.
 * **Return type:**
   *Module* | *GraphModule*
 

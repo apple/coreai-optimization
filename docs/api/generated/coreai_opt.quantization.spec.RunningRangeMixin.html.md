@@ -33,10 +33,11 @@ take precedence over the base-class defaults.
 
 ### Methods
 
-| [`compute_qparams`](#coreai_opt.quantization.spec.RunningRangeMixin.compute_qparams)(tensor, min_val, max_val)   | Update running range, persist to buffers, then compute qparams.   |
-|------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|
-| [`extra_repr`](#coreai_opt.quantization.spec.RunningRangeMixin.extra_repr)()                                     |                                                                   |
-| [`update_running_range`](#coreai_opt.quantization.spec.RunningRangeMixin.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule. |
+| [`compute_qparams`](#coreai_opt.quantization.spec.RunningRangeMixin.compute_qparams)(tensor, min_val, max_val)   | Update running range, persist to buffers, then compute qparams.              |
+|------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| [`extra_repr`](#coreai_opt.quantization.spec.RunningRangeMixin.extra_repr)()                                     |                                                                              |
+| [`reset_running_range`](#coreai_opt.quantization.spec.RunningRangeMixin.reset_running_range)()                   | Mark the running range as unset so the next observed range starts it afresh. |
+| [`update_running_range`](#coreai_opt.quantization.spec.RunningRangeMixin.update_running_range)(min_val, max_val) | Return `(updated_min, updated_max)` using subclass-specific rule.            |
 
 #### compute_qparams(tensor, min_val, max_val)
 
@@ -54,9 +55,29 @@ Update running range, persist to buffers, then compute qparams.
 * **Return type:**
   str
 
+#### reset_running_range()
+
+Mark the running range as unset so the next observed range starts it afresh.
+
+Sets `running_min` to `+inf` and `running_max` to `-inf`: an empty range that
+observed data can’t produce, since observed minimums are clamped to `<= 0` and
+maximums to `>= 0`.
+
+The buffers keep their shape, so this stays `torch.compile`
+friendly and survives `state_dict` round trips. The current qparams (scale, zero
+point) stay usable. Subclasses that keep extra running statistics should override this
+(calling `super()`) to clear them too.
+
+* **Return type:**
+  None
+
 #### *abstract* update_running_range(min_val, max_val)
 
 Return `(updated_min, updated_max)` using subclass-specific rule.
+
+`self.running_min` / `self.running_max` may be `+inf` / `-inf` where the running
+range is unset (see `reset_running_range`). Implementations must not raise on these
+values; `compute_qparams` discards those entries in favor of `min_val` / `max_val`.
 
 * **Parameters:**
   * **min_val** (*Tensor*)

@@ -74,6 +74,7 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l1"><a class="reference internal" href="../../examples/toy_models.html">Toy Model Examples (Jupyter Notebooks)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_quantization.html">Applying quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_palettization.html">Applying palettization to an MNIST model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_dkm_palettization.html">Applying DKM palettization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_palettization_and_activation_quantization.html">Applying joint palettization and activation quantization to an MNIST model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tutorials/mnist_pruning.html">Applying magnitude pruning to an MNIST model</a></li>
 </ul>
@@ -182,6 +183,9 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.OpKMeansPalettizerConfig.html">coreai_opt.palettization.config.OpKMeansPalettizerConfig</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.PATSchedule.html">coreai_opt.palettization.config.PATSchedule</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.config.VectorKMeansConfig.html">coreai_opt.palettization.config.VectorKMeansConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec.html">coreai_opt.palettization.kmeans.dkm.DKMTrainingSpec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS.html">coreai_opt.palettization.kmeans.dkm.SUPPORTED_CLUSTER_DIMS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec.html">coreai_opt.palettization.kmeans.dkm.default_dkm_weight_palettization_spec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.DefaultTrainingSpec.html">coreai_opt.palettization.spec.DefaultTrainingSpec</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PalettizationGranularity.html">coreai_opt.palettization.spec.PalettizationGranularity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="coreai_opt.palettization.spec.PerGroupedChannelGranularity.html">coreai_opt.palettization.spec.PerGroupedChannelGranularity</a></li>
@@ -713,9 +717,11 @@ good accuracy.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>example_inputs</strong> (<em>tuple</em><em>[</em><em>Any</em><em>, </em><em>...</em><em>]</em>) – Tuple of example inputs for model tracing. When
-activation quantization is in use, these should be
-representative of the data the model would typically see.</p></li>
+<li><p><strong>example_inputs</strong> (<em>tuple</em><em>[</em><em>Any</em><em>, </em><em>...</em><em>]</em>) – Tuple of example inputs for model tracing. With
+activation quantization, they also initialize the activation
+ranges. The first batch observed after <code class="docutils literal notranslate"><span class="pre">prepare()</span></code> (e.g. in
+<code class="docutils literal notranslate"><span class="pre">calibration_mode()</span></code> or <code class="docutils literal notranslate"><span class="pre">training_mode()</span></code>) replaces them,
+unless <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> restores observed ranges.</p></li>
 <li><p><strong>dynamic_shapes</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>] </em><em>| </em><em>tuple</em><em>[</em><em>Any</em><em>] </em><em>| </em><em>list</em><em>[</em><em>Any</em><em>] </em><em>| </em><em>None</em>) – Dynamic shapes specification (graph mode only).
 Ignored in EAGER mode.</p></li>
 <li><p><strong>export_with_no_grad</strong> (<em>bool</em>) – Whether to export with no_grad (graph mode
@@ -735,6 +741,8 @@ calibration or training. This is a data-free PTQ compressed model.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>RuntimeError</strong> – If the model has already been prepared.</p></li>
 <li><p><strong>RuntimeError</strong> – If <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> does not match the prepared model.</p></li>
+<li><p><strong>Exception</strong> – Whatever a registered post-prepare check raises to reject the prepared
+    model. In eager mode the model has then already been modified in place.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
