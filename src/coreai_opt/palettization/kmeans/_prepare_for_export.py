@@ -4,7 +4,7 @@
 # be found in the LICENSE file or at https://opensource.org/licenses/BSD-3-Clause
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from os import PathLike
 from pathlib import Path
 from typing import Any
@@ -106,6 +106,23 @@ class _SparsePalettizeModule(nn.Module):
         return torch.ops.coreai.constexpr_blockwise_shift_scale(dense, scale=self.scale)
 
 
+class _PerChannelScaledModule(nn.Module):
+    """Module that applies the per-channel scale on top of an already dequantized weight."""
+
+    module: nn.Module
+    per_channel_scale: torch.Tensor
+
+    def __init__(self, module: nn.Module, per_channel_scale: torch.Tensor) -> None:
+        super().__init__()
+        self.module = module
+        self.register_buffer("per_channel_scale", per_channel_scale)
+
+    def forward(self, weight: Any) -> torch.Tensor:
+        return torch.ops.coreai.constexpr_blockwise_shift_scale(
+            self.module(weight), scale=self.per_channel_scale
+        )
+
+
 def _build_sparse_palettize_module(
     palett_info: PalettizationInfo, mask: torch.Tensor
 ) -> _SparsePalettizeModule:
@@ -187,7 +204,7 @@ def _extract_palettization_params(
     lut_quantization = None
     if quantized_lut is not None:
         lut_quant_scale = fake_palett_mod.lut_quantization_scale
-        lut_quant_scale = _expand_rank(lut_quant_scale, lut_rank)
+        lut_quant_scale = _expand_rank(lut_quant_scale.to(lut.dtype), lut_rank)
         lut_quant_zp = fake_palett_mod.lut_quantization_zero_point
         if lut_quant_zp is not None:
             lut_quant_zp = _expand_rank(lut_quant_zp.to(quantized_lut.dtype), lut_rank)
@@ -271,6 +288,27 @@ def _register_mil_compression_metadata(
     metadata.register(module)
 
 
+def _is_per_channel_scale_separate(palett_info: PalettizationInfo) -> bool:
+    """Return whether the per-channel scale is applied after the LUT quantization scale.
+
+    In fp16, ``lut_scale * per_channel_scale`` can underflow and zero out a channel, and in bf16
+    it loses precision. The caller then applies the per-channel scale in a second step, see
+    ``_PerChannelScaledModule``.
+
+    Args:
+        palett_info (PalettizationInfo): The palettization info of the weight.
+
+    Returns:
+        bool: Whether the weight has a per-channel scale and an fp16 or bf16 LUT scale.
+    """
+    lut_quant = palett_info.lut_quantization
+    return (
+        lut_quant is not None
+        and palett_info.per_channel_scale is not None
+        and lut_quant.scale.dtype in (torch.float16, torch.bfloat16)
+    )
+
+
 def _resolve_mlir_lut_and_scale(
     palett_info: PalettizationInfo,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
@@ -282,6 +320,8 @@ def _resolve_mlir_lut_and_scale(
     1. LUT quantization only: use quantized LUT with dequantization scale.
     2. LUT quantization + pcs: use quantized LUT with fused scale
        (lut_scale * pcs), expanding lut_scale to per-channel granularity first.
+       Half-precision weights use lut_scale alone and apply pcs in a second step
+       (see ``_is_per_channel_scale_separate``).
     3. Per-channel scale only: use float LUT with pcs as scale.
 
     The fourth case (neither) is handled by the caller using PalettizeModule
@@ -303,7 +343,7 @@ def _resolve_mlir_lut_and_scale(
         offset = None
         if lut_quant.zero_point is not None:
             offset = lut_quant.zero_point.squeeze(-1).squeeze(-1)
-        if has_per_channel_scale:
+        if has_per_channel_scale and not _is_per_channel_scale_separate(palett_info):
             # lut_scale may be at block granularity (e.g., shape (16,1,1,1))
             # while per_channel_scale is per output channel (e.g., (32,1,1,1)).
             # Expand lut_scale to per-channel level before fusing.
@@ -486,7 +526,17 @@ def _resolve_export_sparsity_mask(
 
 
 def _is_8bit_scalar_quantized_lut_palettization(palett_info: PalettizationInfo) -> bool:
-    """Return whether the weight is 8-bit scalar palettized with an int8, uint8 or float8 LUT."""
+    """Return whether the weight is 8-bit scalar palettized with an int8, uint8 or float8 LUT.
+
+    A half-precision weight with a per-channel scale is excluded, see
+    ``_is_per_channel_scale_separate``.
+
+    Args:
+        palett_info (PalettizationInfo): The palettization info of the weight.
+
+    Returns:
+        bool: Whether the LUT can be folded into 8-bit weight quantization.
+    """
     lut_quant = palett_info.lut_quantization
     return (
         lut_quant is not None
@@ -497,6 +547,8 @@ def _is_8bit_scalar_quantized_lut_palettization(palett_info: PalettizationInfo) 
         )
         # Scalar palettization: 256 LUT entries, each of size 1 (no vector palettization)
         and lut_quant.quantized_lut.shape[-2:] == (2**8, 1)
+        # Folding under a separate per-channel scale loses precision on the Neural Engine
+        and not _is_per_channel_scale_separate(palett_info)
     )
 
 
@@ -548,12 +600,15 @@ def _insert_mlir_custom_op(
        instead: constexpr_blockwise_shift_scale(8-bit weight, scale), with no LUT, where scale
        is lut_scale, or lut_scale * per_channel_scale when both are present. Vector
        palettization keeps the LUT: a dense weight would need 8 bits per weight instead of
-       8 / cluster_dim)
+       8 / cluster_dim. A half-precision weight with pcs also keeps the LUT, see case 4)
     3. Per-channel scale: lut_to_dense + constexpr_blockwise_shift_scale(pcs)
     4. Both: lut_to_dense(int LUT) + constexpr_blockwise_shift_scale(fused_scale)
-       where fused_scale = lut_scale * per_channel_scale
+       where fused_scale = lut_scale * per_channel_scale. In half precision, the scales
+       stay apart: constexpr_blockwise_shift_scale(lut_scale) +
+       constexpr_blockwise_shift_scale(pcs)
     5. Detected sparsity: lut_to_dense on the nonzero-only indices + sparse_to_dense
-       (+ constexpr_blockwise_shift_scale if a scale is present), as a _SparsePalettizeModule
+       (+ constexpr_blockwise_shift_scale if a scale is present, and a second one for pcs in
+       half precision as in case 4), as a _SparsePalettizeModule
        instead of a plain Palettize/ScaledPalettize parametrization. Weights that cannot
        be exported jointly (see ``_resolve_export_sparsity_mask``) use cases 1-4.
 
@@ -609,10 +664,13 @@ def _insert_mlir_custom_op(
     elif _is_8bit_scalar_quantized_lut_palettization(palett_info):
         lut, scale, zero_point = _resolve_mlir_lut_and_scale(palett_info)
         dense_8bit_weight = _decompress_scalar_palettization(palett_info.indices, lut)
+        # Pass input_dtype for integer LUTs, or small values get packed into a subbyte dtype
+        input_dtype = lut.dtype if not lut.dtype.is_floating_point else None
         mlir_palett_mod = WeightDequantizeParametrization(
             quantized_data=dense_8bit_weight,
             scale=scale,
             zero_point=zero_point,
+            input_dtype=input_dtype,
         )
     elif needs_scale:
         lut, scale, zero_point = _resolve_mlir_lut_and_scale(palett_info)
@@ -629,6 +687,9 @@ def _insert_mlir_custom_op(
             lut=palett_info.lut,
             vector_axis=vector_axis,
         )
+
+    if _is_per_channel_scale_separate(palett_info):
+        mlir_palett_mod = _PerChannelScaledModule(mlir_palett_mod, palett_info.per_channel_scale)
 
     if mmap_dir is not None:
         # ``module_name`` is "" for the root module (torch's named_modules() convention);
@@ -654,6 +715,30 @@ def _find_fake_palett_parametrization(
     return -1, None
 
 
+def _is_lut_scale_unrepresentable(palett_info: PalettizationInfo, scale: torch.Tensor) -> bool:
+    """Return whether ``scale`` overflows, or is inexact below the normal range, in the LUT dtype.
+
+    An inexact scale on an all-zero LUT block is ignored, since that block dequantizes to 0.
+    Overflow is not, since 0 * inf is NaN.
+
+    Args:
+        palett_info (PalettizationInfo): The palettization info holding the LUT.
+        scale (torch.Tensor): The LUT quantization scale, one value per LUT block.
+
+    Returns:
+        bool: Whether any block's scale is unrepresentable.
+    """
+    if palett_info.lut_quantization is None:
+        return False
+    dtype = palett_info.lut.dtype
+    scale = _expand_rank(scale, palett_info.lut.dim())
+    cast_scale = scale.to(dtype)
+    inexact = cast_scale.to(scale.dtype).ne(scale)
+    subnormal = cast_scale.abs() < torch.finfo(dtype).tiny
+    nonzero = palett_info.lut.ne(0).any(dim=(-2, -1), keepdim=True)
+    return bool((cast_scale.isinf() | (inexact & subnormal & nonzero)).any())
+
+
 def _process_palettized_parameter(
     module: nn.Module,
     module_name: str,
@@ -665,6 +750,9 @@ def _process_palettized_parameter(
 ) -> None:
     """
     Process a single palettized parameter for the given backend.
+
+    A quantized LUT is exported unquantized, with a warning, when its scale is unrepresentable
+    in the weight dtype.
 
     Args:
         module (nn.Module): The module containing the parameter
@@ -684,6 +772,15 @@ def _process_palettized_parameter(
         palettized_param_dim=palettized_param.dim(),
         fake_palett_mod=fake_palett_mod,
     )
+    if _is_lut_scale_unrepresentable(palett_info, fake_palett_mod.lut_quantization_scale):
+        logger.warning(
+            "'%s.%s': the LUT scale overflows or loses precision in %s; "
+            "exporting the LUT unquantized.",
+            module_name,
+            param_name,
+            palett_info.lut.dtype,
+        )
+        palett_info = replace(palett_info, lut_quantization=None)
 
     if backend == ExportBackend.CoreML:
         _register_mil_compression_metadata(module, param_name, palett_info, fake_palett_mod)

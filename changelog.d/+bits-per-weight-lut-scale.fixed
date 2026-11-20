@@ -1,0 +1,1 @@
+`bits_per_weight` counts the scale of a quantized LUT at the weight dtype.

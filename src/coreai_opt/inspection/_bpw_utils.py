@@ -24,7 +24,6 @@ from coreai_opt.quantization.spec.qformulation import (
 )
 
 _BITS_PER_BYTE = 8
-_DEFAULT_SCALE_BITS = 32
 
 # Weight and scale dtypes whose storage cost this module knows how to compute.
 _SUPPORTED_QUANT_DTYPES = frozenset(
@@ -314,7 +313,9 @@ def _lut_quant_bits(weight: torch.Tensor, palettization_fq: _FakePalettizeImplBa
     Dequantizing a quantized LUT needs one scale (and, when asymmetric, one zero-point)
     per palettization block: the LUT fake-quantizer overrides ``lut_qspec``'s per-tensor
     granularity to per-channel over the stacked LUT (in
-    ``palettization/kmeans/kmeans_fake_palettize.py``).
+    ``palettization/kmeans/kmeans_fake_palettize.py``). The export stores each scale at the
+    weight dtype. When the scale overflows or loses precision there, the export stores the
+    LUT unquantized instead, and this count is too low.
     """
     if palettization_fq.lut_qspec is None:
         return 0
@@ -325,7 +326,7 @@ def _lut_quant_bits(weight: torch.Tensor, palettization_fq: _FakePalettizeImplBa
     else:
         num_lut_blocks = palettization_fq.granularity.num_blocks_to_cluster(weight)
 
-    bits = num_lut_blocks * _buffer_dtype_bits(lut_scale, _DEFAULT_SCALE_BITS)
+    bits = num_lut_blocks * weight.element_size() * _BITS_PER_BYTE
     if palettization_fq.lut_qspec.qscheme == _QuantizationScheme.ASYMMETRIC:
         bits += num_lut_blocks * palettization_fq.lut_qspec.n_bits
     return int(bits)

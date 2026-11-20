@@ -1,0 +1,1 @@
+Keep small channels of fp16 and bf16 palettized weights with a quantized LUT and a per-channel scale from losing precision, or rounding to zero in fp16, on Core AI export. On Core AI and Core ML export, a LUT scale that overflows the weight dtype, or loses precision below its normal range, now exports the LUT unquantized, with a warning.

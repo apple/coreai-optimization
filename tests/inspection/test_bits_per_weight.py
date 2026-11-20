@@ -138,7 +138,10 @@ def _prepare_eager_quant(
 
 
 def _prepare_palettized(
-    model: nn.Module, spec: PalettizationSpec, enable_fast_kmeans_mode: bool = True
+    model: nn.Module,
+    spec: PalettizationSpec,
+    enable_fast_kmeans_mode: bool = True,
+    example_input: torch.Tensor = _EXAMPLE_INPUT,
 ) -> nn.Module:
     """Prepare a palettized model."""
     config = KMeansPalettizerConfig(
@@ -146,7 +149,7 @@ def _prepare_palettized(
             op_state_spec={"weight": spec}, enable_fast_kmeans_mode=enable_fast_kmeans_mode
         )
     )
-    return KMeansPalettizer(model, config).prepare((_EXAMPLE_INPUT,))
+    return KMeansPalettizer(model, config).prepare((example_input,))
 
 
 def test_full_precision_bits_per_weight():
@@ -287,6 +290,33 @@ def test_vector_palettized_matches_analytical(cluster_dim: int):
     assert result.total_bits == expected_bits
     assert result.total_weights == _expected_elems(bias=False)
     assert result.bpw == expected_bits / _expected_elems(bias=False)
+
+
+@pytest.mark.parametrize(
+    ("weight_dtype", "scale_bits"),
+    [(torch.float32, 32), (torch.float16, 16), (torch.bfloat16, 16)],
+    ids=["fp32", "fp16", "bf16"],
+)
+def test_quantized_lut_scale_follows_weight_dtype(weight_dtype: torch.dtype, scale_bits: int):
+    """One LUT scale per LUT block, stored at the weight dtype like the export does."""
+    n_bits = 4
+    num_lut_blocks = 2
+    prepared = _prepare_palettized(
+        SimpleLinearModel(bias=False).to(weight_dtype),
+        PalettizationSpec(
+            n_bits=n_bits,
+            granularity=PalettPerTensorGranularity(axis=None),
+            lut_qspec=QuantizationSpec(dtype=torch.int8, qscheme="symmetric"),
+        ),
+        enable_fast_kmeans_mode=False,
+        example_input=_EXAMPLE_INPUT.to(weight_dtype),
+    )
+
+    payload_bits = _WEIGHT_ELEMS * n_bits
+    lut_bits = num_lut_blocks * (2**n_bits) * 8
+    assert bits_per_weight(prepared).total_bits == (
+        payload_bits + lut_bits + num_lut_blocks * scale_bits
+    )
 
 
 @pytest.mark.parametrize(
